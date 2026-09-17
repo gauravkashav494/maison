@@ -50,6 +50,10 @@ class SeoController extends Controller
 
     public function robots(): Response
     {
+        if (setting('seo.discourage_indexing', false)) {
+            return response("User-agent: *\nDisallow: /\n", 200, ['Content-Type' => 'text/plain']);
+        }
+
         $lines = [
             'User-agent: *',
             'Allow: /',

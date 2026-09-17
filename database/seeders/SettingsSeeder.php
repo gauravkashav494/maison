@@ -44,6 +44,7 @@ class SettingsSeeder extends Seeder
             'google_site_verification' => null,
             'gtag_id' => null,
             'robots_extra' => null,
+            'discourage_indexing' => true, // switch off in Site settings → SEO defaults when going live
         ]);
 
         Setting::set('home', [

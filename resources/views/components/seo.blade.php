@@ -6,7 +6,7 @@
 @endphp
 <title>{{ $title }}</title>
 @if($seo->description)<meta name="description" content="{{ $seo->description }}">@endif
-@if($seo->noindex)<meta name="robots" content="noindex, nofollow">@else<meta name="robots" content="index, follow, max-image-preview:large">@endif
+@if($seo->noindex || setting('seo.discourage_indexing', false))<meta name="robots" content="noindex, nofollow">@else<meta name="robots" content="index, follow, max-image-preview:large">@endif
 @if($seo->canonical)<link rel="canonical" href="{{ $seo->canonical }}">@endif
 <meta property="og:type" content="{{ $seo->type }}">
 <meta property="og:site_name" content="{{ $siteName }}">

@@ -10,6 +10,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -98,6 +99,11 @@ class SiteSettings extends Page
                         ]),
                     ]),
                     Tab::make('SEO defaults')->icon('heroicon-o-magnifying-glass')->schema([
+                        Section::make('Search engine visibility')->schema([
+                            Toggle::make('seo.discourage_indexing')
+                                ->label('Discourage search engines from indexing this site')
+                                ->helperText('Adds noindex, nofollow to every page, an X-Robots-Tag header, and blocks all crawlers in robots.txt. Turn this OFF when the site goes live.'),
+                        ]),
                         Section::make('Titles & descriptions')->schema([
                             TextInput::make('seo.default_title')->label('Homepage title')->maxLength(70),
                             TextInput::make('seo.title_suffix')->label('Title suffix')->helperText('Appended to every page title, e.g. " — Maison Élan".'),
