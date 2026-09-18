@@ -22,11 +22,11 @@
         @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-cream lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         <button type="button" @click="$store.ui.openMenu()" class="grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-cream lg:hidden {{ request()->routeIs('home') ? '-ml-2' : '' }}" aria-label="Open menu"><x-ico name="menu" :size="22" /></button>
 
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-3" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2 lg:gap-3" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-10 w-10 place-items-center rounded-full border-2 border-gold bg-cream text-red lg:h-[85px] lg:w-[85px]">
-                <span class="flex flex-col items-center leading-none"><x-ico name="diamond" :size="14" :stroke="1.8" /><span class="mt-1 font-serif text-[0.5rem] font-semibold uppercase tracking-[0.1em] lg:text-[0.7rem]">{{ Str::substr($h['logo_primary'] ?? 'Annapurna', 0, 9) }}</span><span class="text-[0.42rem] uppercase tracking-[0.2em] text-gold lg:text-[0.55rem]">{{ $h['logo_sub'] ?? '' }}</span></span>
+                <span class="flex flex-col items-center leading-none"><x-ico name="diamond" :size="14" :stroke="1.8" class="max-lg:hidden" /><x-ico name="diamond" :size="20" :stroke="1.6" class="lg:hidden" /><span class="mt-1 hidden font-serif text-[0.5rem] font-semibold uppercase tracking-[0.1em] lg:flex lg:text-[0.7rem]">{{ Str::substr($h['logo_primary'] ?? 'Annapurna', 0, 9) }}</span><span class="hidden text-[0.42rem] uppercase tracking-[0.2em] text-gold lg:block lg:text-[0.55rem]">{{ $h['logo_sub'] ?? '' }}</span></span>
             </span>
-            <span class="font-serif text-[1.15rem] leading-none sm:text-[1.35rem] lg:hidden {{ request()->routeIs('home') ? '' : 'max-sm:hidden' }}"><span class="font-semibold text-red">{{ $h['logo_primary'] ?? 'Annapurna' }}</span> <span class="italic text-gold">{{ $h['logo_accent'] ?? '' }}</span></span>
+            <span class="flex flex-col font-serif leading-none lg:hidden {{ request()->routeIs('home') ? '' : 'max-sm:hidden' }}"><span class="text-[1.05rem] font-semibold tracking-tight text-red sm:text-[1.25rem]">{{ $h['logo_primary'] ?? 'Annapurna' }}</span><span class="mt-0.5 text-[0.8rem] italic text-gold sm:text-[0.95rem]">{{ $h['logo_accent'] ?? '' }}</span></span>
         </a>
 
         <div class="hidden flex-1 lg:block">
