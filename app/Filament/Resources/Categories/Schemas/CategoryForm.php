@@ -39,6 +39,7 @@ class CategoryForm
                                 Toggle::make('is_active')->label('Visible on storefront')->default(true),
                                 Toggle::make('show_in_menu')->label('Show in navigation & homepage grid')->default(true),
                                 TextInput::make('sort_order')->numeric()->default(0),
+                                Fields::templateVisibility()->columnSpan(3),
                             ]),
                         ]),
                     Fields::seoTab(),

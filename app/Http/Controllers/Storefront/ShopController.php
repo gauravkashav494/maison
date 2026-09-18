@@ -84,6 +84,9 @@ class ShopController extends Controller
         if ($f['sale']) {
             $query->onSale();
         }
+        if ($f['veg']) {
+            $query->where('is_veg', true); // grocery templates: vegetarian-only switch
+        }
         // JSON array facets — SQLite/MySQL both support LIKE on the serialised JSON.
         foreach ($f['size'] as $size) {
             $query->where('sizes', 'like', '%'.json_encode($size).'%');
@@ -102,7 +105,7 @@ class ShopController extends Controller
 
         $activeCount = count(array_filter([
             $f['category'], $f['subcategory'], $f['collection'], $f['brand'], $f['material'], $f['size'], $f['color'],
-            $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'],
+            $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'], $f['veg'],
         ]));
 
         return view('shop.index', [
@@ -136,6 +139,7 @@ class ShopController extends Controller
             'rating' => $request->filled('rating') ? (float) $request->query('rating') : null,
             'availability' => $request->query('availability'),
             'sale' => (bool) $request->query('sale'),
+            'veg' => (bool) $request->query('veg'),
             'sort' => (string) $request->query('sort', ''),
         ];
     }

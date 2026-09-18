@@ -1,0 +1,9 @@
+{{-- Simple page header for CMS, account and utility pages --}}
+@props(['title', 'text' => null, 'breadcrumbs' => []])
+<div class="bg-white border-b border-line">
+    <div class="g-container py-5 lg:py-7">
+        <x-breadcrumbs :items="$breadcrumbs" />
+        <h1 class="mt-2 text-2xl font-extrabold lg:text-3xl">{{ $title }}</h1>
+        @if($text)<p class="mt-1 max-w-2xl text-sm text-slate lg:text-base">{{ $text }}</p>@endif
+    </div>
+</div>

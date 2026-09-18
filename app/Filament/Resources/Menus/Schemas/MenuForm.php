@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Menus\Schemas;
 
-use App\Models\Menu;
+use App\Templates\TemplateManager;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -14,10 +14,10 @@ class MenuForm
         return $schema->components([
             TextInput::make('name')->required()->maxLength(80),
             Select::make('location')
-                ->options(Menu::LOCATIONS)
+                ->options(fn () => app(TemplateManager::class)->allMenuLocations())
                 ->required()
                 ->unique(ignoreRecord: true)
-                ->helperText('Where on the storefront this menu is rendered.'),
+                ->helperText('Where on the storefront this menu is rendered. Each template has its own locations.'),
         ]);
     }
 }

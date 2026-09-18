@@ -34,6 +34,7 @@ class CollectionForm
                             Grid::make(2)->schema([
                                 Toggle::make('is_active')->label('Visible on storefront')->default(true),
                                 Toggle::make('is_featured')->label('Featured')->helperText('Eligible for the homepage featured banner.'),
+                                Fields::templateVisibility()->columnSpan(2),
                             ]),
                         ]),
                     Tab::make('Imagery')

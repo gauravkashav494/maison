@@ -40,3 +40,19 @@ if (! function_exists('emph')) {
         return new \Illuminate\Support\HtmlString($safe);
     }
 }
+
+if (! function_exists('template')) {
+    /** The storefront template rendering the current request. */
+    function template(): \App\Templates\Template
+    {
+        return app(\App\Templates\TemplateManager::class)->current();
+    }
+}
+
+if (! function_exists('tsetting')) {
+    /** Template-scoped setting with config defaults, e.g. tsetting('home.hero_banners'). */
+    function tsetting(string $key, mixed $default = null): mixed
+    {
+        return template()->setting($key, $default);
+    }
+}

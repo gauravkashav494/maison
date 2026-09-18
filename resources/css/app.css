@@ -2,6 +2,9 @@
 
 @source '../**/*.blade.php';
 @source '../**/*.js';
+/* Other storefront templates ship their own bundles (see resources/templates/*). */
+@source not '../views/templates/**';
+@source not '../templates/**';
 @source '../../app/View/**/*.php';
 @source inline("{lg:,}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
 @source inline("lg:grid-cols-{3,4,5,6}");

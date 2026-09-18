@@ -102,12 +102,33 @@ class ProductForm
                                 ]),
                                 Section::make('Merchandising')->columns(3)->schema([
                                     Toggle::make('is_active')->label('Visible on storefront')->default(true),
+                                    Fields::templateVisibility()->columnSpan(2),
                                     Toggle::make('is_new')->label('New arrival'),
                                     Toggle::make('is_best_seller')->label('Best seller'),
                                     TextInput::make('rating')->numeric()->minValue(0)->maxValue(5)->step(0.1)->default(0),
                                     TextInput::make('review_count')->numeric()->minValue(0)->default(0),
                                     TextInput::make('sort_order')->numeric()->default(0)->helperText('Lower numbers appear first.'),
                                 ]),
+                            ]),
+
+                        Tab::make('Grocery')
+                            ->icon('heroicon-o-shopping-cart')
+                            ->schema([
+                                Section::make('Grocery attributes')
+                                    ->description('Used by the Indian Grocery template. Pack sizes are the "Sizes" on the Media & Variants tab (e.g. 500 g, 1 kg). Ignored by other templates.')
+                                    ->columns(3)
+                                    ->schema([
+                                        Select::make('is_veg')
+                                            ->label('Veg / non-veg mark')
+                                            ->options([1 => 'Vegetarian (green)', 0 => 'Non-vegetarian (red)'])
+                                            ->placeholder('Not applicable')
+                                            ->native(false),
+                                        TextInput::make('shelf_life')->label('Shelf life')->placeholder('6 months')->maxLength(80),
+                                        TextInput::make('country_of_origin')->label('Country of origin')->placeholder('India')->maxLength(80),
+                                        TextInput::make('max_qty')->label('Max quantity per order')->numeric()->minValue(1)->maxValue(99)->placeholder('No limit'),
+                                        Textarea::make('ingredients')->rows(3)->columnSpan(3),
+                                        Textarea::make('storage_instructions')->label('Storage instructions')->rows(2)->columnSpan(3),
+                                    ]),
                             ]),
 
                         Fields::seoTab(),

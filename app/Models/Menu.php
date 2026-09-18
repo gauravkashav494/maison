@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection as SupportCollection;
@@ -55,14 +56,21 @@ class Menu extends Model
 
     public static function flush(): void
     {
-        foreach (array_keys(self::LOCATIONS) as $loc) {
+        foreach (array_keys(app(TemplateManager::class)->allMenuLocations()) as $loc) {
             Cache::forget("menu.{$loc}");
         }
     }
 
     protected static function booted(): void
     {
-        static::saved(fn () => static::flush());
+        // The owning template is derived from the location so admin filters stay accurate.
+        static::saving(function (Menu $menu) {
+            $menu->template = app(TemplateManager::class)->templateForLocation((string) $menu->location)?->id() ?? $menu->template;
+        });
+        static::saved(function (Menu $menu) {
+            static::flush();
+            Cache::forget("menu.{$menu->location}");
+        });
         static::deleted(fn () => static::flush());
     }
 }

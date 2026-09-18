@@ -24,12 +24,12 @@ class CatalogSeeder extends Seeder
         ];
         $cat = [];
         foreach ($categories as $i => $c) {
-            $cat[$c['slug']] = Category::updateOrCreate(['slug' => $c['slug']], $c + ['sort_order' => $i, 'description' => $c['tagline']]);
+            $cat[$c['slug']] = Category::updateOrCreate(['slug' => $c['slug']], $c + ['sort_order' => $i, 'description' => $c['tagline'], 'template' => 'fashion']);
         }
 
         // Clothing sub-categories (used by the mega menu)
         foreach (['Coats & Jackets' => 'outerwear', 'Tailoring' => 'tailoring', 'Knitwear' => 'knitwear', 'Shirts' => 'shirts', 'Trousers' => 'trousers', 'Footwear' => 'footwear'] as $name => $slug) {
-            Category::updateOrCreate(['slug' => $slug], ['name' => $name, 'parent_id' => $cat['clothing']->id, 'sort_order' => 0]);
+            Category::updateOrCreate(['slug' => $slug], ['name' => $name, 'parent_id' => $cat['clothing']->id, 'sort_order' => 0, 'template' => 'fashion']);
         }
 
         $p = fn (string $id) => Media::unsplash($id, 900, '&h=1200');
@@ -62,7 +62,7 @@ class CatalogSeeder extends Seeder
             unset($data['category']);
             $models[$data['slug']] = Product::updateOrCreate(
                 ['slug' => $data['slug']],
-                $data + ['category_id' => $cat[$categorySlug]->id, 'sort_order' => $i, 'sku' => 'ME-'.str_pad((string) ($i + 1001), 4, '0', STR_PAD_LEFT)],
+                $data + ['category_id' => $cat[$categorySlug]->id, 'sort_order' => $i, 'sku' => 'ME-'.str_pad((string) ($i + 1001), 4, '0', STR_PAD_LEFT), 'template' => 'fashion'],
             );
         }
 
@@ -81,7 +81,7 @@ class CatalogSeeder extends Seeder
         foreach ($collections as $i => $data) {
             $slugs = $data['products'];
             unset($data['products']);
-            $collection = Collection::updateOrCreate(['slug' => $data['slug']], $data + ['sort_order' => $i]);
+            $collection = Collection::updateOrCreate(['slug' => $data['slug']], $data + ['sort_order' => $i, 'template' => 'fashion']);
             $sync = [];
             foreach ($slugs as $k => $slug) {
                 $sync[$models[$slug]->id] = ['sort_order' => $k];

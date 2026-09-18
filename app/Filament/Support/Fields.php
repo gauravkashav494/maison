@@ -3,7 +3,10 @@
 namespace App\Filament\Support;
 
 use Filament\Forms\Components\BaseFileUpload;
+use App\Templates\TemplateManager;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -73,6 +76,33 @@ class Fields
                 ->unique(ignoreRecord: true)
                 ->helperText('Used in the page URL. Lowercase letters, numbers and dashes only.'),
         ];
+    }
+
+    /** "Visible in" template selector for catalogue records (null = every template). */
+    public static function templateVisibility(): Select
+    {
+        return Select::make('template')
+            ->label('Visible in')
+            ->options(fn () => app(TemplateManager::class)->options())
+            ->placeholder('All templates')
+            ->native(false)
+            ->helperText('Limit this record to one storefront template, or leave blank to show it in every template.');
+    }
+
+    /** Table filter matching templateVisibility(). */
+    public static function templateFilter(): SelectFilter
+    {
+        return SelectFilter::make('template')
+            ->label('Visible in')
+            ->options(fn () => ['all' => 'All templates only'] + app(TemplateManager::class)->options())
+            ->query(function ($query, array $data) {
+                $value = $data['value'] ?? null;
+                if ($value === 'all') {
+                    $query->whereNull('template');
+                } elseif ($value) {
+                    $query->where(fn ($q) => $q->whereNull('template')->orWhere('template', $value));
+                }
+            });
     }
 
     /** SEO tab shared by every public content type. */

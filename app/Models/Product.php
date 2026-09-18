@@ -24,6 +24,7 @@ class Product extends Model
         'is_new' => 'boolean',
         'is_best_seller' => 'boolean',
         'noindex' => 'boolean',
+        'is_veg' => 'boolean',
         'rating' => 'float',
     ];
 
@@ -97,6 +98,14 @@ class Product extends Model
         return $this->stock > 0;
     }
 
+    /** Pack size shown on grocery cards: the only size, or null when the product has variants. */
+    public function getUnitAttribute(): ?string
+    {
+        $sizes = $this->sizes ?? [];
+
+        return count($sizes) === 1 ? $sizes[0] : null;
+    }
+
     public function getUrlAttribute(): string
     {
         return route('products.show', $this->slug);
@@ -126,6 +135,10 @@ class Product extends Model
             'description' => $this->description,
             'brand' => $this->brand,
             'video_url' => $this->video_url,
+            // Grocery attributes (null when not applicable)
+            'is_veg' => $this->is_veg,
+            'unit' => $this->unit,
+            'max_qty' => $this->max_qty,
         ];
     }
 

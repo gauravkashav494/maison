@@ -22,6 +22,10 @@ class DatabaseSeeder extends Seeder
             SettingsSeeder::class,
             CommerceSeeder::class,
             PagesSeeder::class,
+            // Indian Grocery template demo content (own categories/products/menus/settings)
+            GrocerySettingsSeeder::class,
+            GroceryMenuSeeder::class,
+            GroceryCatalogSeeder::class,
         ]);
     }
 }

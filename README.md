@@ -38,12 +38,29 @@ php artisan serve                                   # http://127.0.0.1:8000
 | **Marketing → Subscribers** | Newsletter sign-ups from the homepage and footer |
 | **Settings → Site settings → Checkout** | Shipping methods (cost, free-over threshold, ETA), enabled payment methods, COD fee, tax rate, gift-card values |
 | **Settings → Site settings** | Brand/wordmark, announcement bar, free-shipping threshold, contact + social, payment badges, **SEO defaults** (title suffix, default description/OG image, Search Console verification, GA4 id, extra robots rules) |
-| **Settings → Homepage** | Every homepage section: hero, ticker, category/arrivals headings, editorial story, featured collection, fragrance spotlight, journal heading, brand promises, newsletter |
+| **Appearance → Templates** | Choose the live storefront template (Fashion / Indian Grocery); preview, activate, install demo content |
+| **Appearance → Fashion · Homepage** | Every homepage section: hero, ticker, category/arrivals headings, editorial story, featured collection, fragrance spotlight, journal heading, brand promises, newsletter |
 
 **Storefront pages:** home, shop (filters: category, sub-category, size, colour, price, collection, brand, material, rating, availability, sale; sort; grid/list; mobile filter sheet), collections + campaign detail, product (zoom, lightbox, video, reviews, complete the look, recently viewed, sticky mobile add-to-bag, Buy now), search, cart (promo codes, free-shipping progress, recommendations), checkout (contact, address, delivery method, payment: cards/UPI/wallets/net banking/COD), order confirmation, order tracking, customer account (login, register, forgot/reset password, dashboard, orders, order detail, wishlist, addresses, profile), journal, and all CMS pages above. Cookie consent banner with preference controls.
 
 SEO plumbing that runs automatically: per-page `<title>`/description/canonical/robots, Open Graph + Twitter cards, JSON-LD (Organization, WebSite search action, Product with offers/ratings), `/sitemap.xml`, `/robots.txt`.
 
+## Storefront templates (multi-template)
+
+The backend (catalogue, pages, orders, customers, cart, checkout, SEO, admin) is shared; the *storefront design* is a template. Two ship with the project:
+
+| Template | Id | Views | Assets |
+|---|---|---|---|
+| **Fashion** (Maison Élan editorial) | `fashion` | `resources/views/` (base views, also the fallback) | `resources/css/app.css`, `resources/js/app.js` |
+| **Indian Grocery** (quick-commerce style) | `grocery` | `resources/views/templates/grocery/` | `resources/templates/grocery/{css,js}/app.js` |
+
+**Switching:** Admin → *Appearance → Templates* — preview a template for your own session, or *Activate* it for visitors (confirmation required). Every URL stays the same; nothing is deleted when you switch. CLI equivalents: `php artisan template:list`, `template:install grocery`, `template:activate grocery`.
+
+**How it works:** `App\Templates\TemplateManager` reads the active template from the `appearance` settings group. The `ResolveTemplate` middleware prepends the template’s view folder, so `view(shop.product)` resolves to the template’s copy (falling back to the base views), and registers a catalogue visibility scope (`products/categories/collections.template`: `null` = every template). Each template class (`app/Templates/*`) declares its menu locations, settings groups, defaults, admin pages and demo seeder.
+
+**Per-template admin:** *Appearance → Fashion · Homepage / Navigation* and *Grocery · Settings / Homepage / Navigation*. Products, categories and collections have a *Visible in* option; products also have a *Grocery* tab (veg/non-veg mark, shelf life, origin, ingredients, storage, max qty per order). Pack sizes are the product *Sizes* (e.g. `500 g`, `1 kg`).
+
+**Adding a template:** create `app/Templates/<Name>/<Name>Template.php` (extend `App\Templates\Template`), register it in `config/templates.php`, add its views under `resources/views/templates/<id>/` (same view names as the base), its Vite entries in `vite.config.js`, and optionally a seeder + Filament settings page.
 ## Switching to MySQL
 
 Edit `.env`:
@@ -69,10 +86,13 @@ app/
   Services/Cart.php    session-backed bag
   Support/             Media (URL/storage resolver), Seo (meta value object)
   helpers.php          money(), setting(), emph()
+app/Templates/        template registry (Template, TemplateManager, Fashion/, Grocery/ + HomeComposer, visibility scope)
 resources/
-  css/app.css          design tokens + components (Tailwind v4)
-  js/app.js            Alpine stores (ui, cart, wishlist, recent) and components
-  views/               layouts/app, partials (header, mega-menu, drawers…), components (product-card, section-header…), home/sections, shop/*, pages/*
+  css/app.css          Fashion design tokens + components (Tailwind v4)
+  js/app.js            Fashion Alpine stores (ui, cart, wishlist, recent) and components
+  views/               Fashion views: layouts/app, partials (header, mega-menu, drawers…), components, home/sections, shop/*, pages/*
+  views/templates/grocery/   Indian Grocery views (same names, own layout/partials/components)
+  templates/grocery/   Indian Grocery css + js bundle
 database/seeders/      Catalog, Menu, Content, Settings seeders
 ```
 

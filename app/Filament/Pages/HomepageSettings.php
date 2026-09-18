@@ -28,11 +28,13 @@ class HomepageSettings extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHome;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Appearance';
 
-    protected static ?int $navigationSort = 31;
+    protected static ?int $navigationSort = 10;
 
-    protected static ?string $title = 'Homepage';
+    protected static ?string $title = 'Fashion — Homepage';
+
+    protected static ?string $navigationLabel = 'Fashion · Homepage';
 
     protected function settingGroups(): array
     {

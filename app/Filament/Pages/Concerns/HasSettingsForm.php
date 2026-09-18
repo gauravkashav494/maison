@@ -26,9 +26,15 @@ trait HasSettingsForm
     {
         $state = [];
         foreach ($this->settingGroups() as $group) {
-            $state[$group] = Setting::get($group, []);
+            $state[$group] = array_replace($this->defaultsFor($group), Setting::get($group, []) ?: []);
         }
         $this->form->fill($state);
+    }
+
+    /** Values shown when a group has not been saved yet (templates supply config defaults). */
+    protected function defaultsFor(string $group): array
+    {
+        return [];
     }
 
     public function content(Schema $schema): Schema

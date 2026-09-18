@@ -2,7 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Resources\Menus\MenuResource;
 use Filament\Http\Middleware\Authenticate;
+use Filament\Navigation\NavigationItem;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -31,7 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('Maison Élan')
             ->favicon(null)
             ->sidebarCollapsibleOnDesktop()
-            ->navigationGroups(['Sales', 'Catalogue', 'Content', 'Marketing', 'Settings'])
+            ->navigationGroups(['Sales', 'Catalogue', 'Content', 'Marketing', 'Appearance', 'Settings'])
             ->colors([
                 'primary' => Color::Stone,
             ])
@@ -39,6 +41,18 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+            ])
+            ->navigationItems([
+                NavigationItem::make('Fashion · Navigation')
+                    ->group('Appearance')
+                    ->sort(11)
+                    ->icon('heroicon-o-bars-3')
+                    ->url(fn () => MenuResource::getUrl('index', ['tableFilters' => ['template' => ['value' => 'fashion']]])),
+                NavigationItem::make('Grocery · Navigation')
+                    ->group('Appearance')
+                    ->sort(22)
+                    ->icon('heroicon-o-bars-3')
+                    ->url(fn () => MenuResource::getUrl('index', ['tableFilters' => ['template' => ['value' => 'grocery']]])),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
