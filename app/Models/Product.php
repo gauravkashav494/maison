@@ -28,6 +28,8 @@ class Product extends Model
         'is_best_seller' => 'boolean',
         'noindex' => 'boolean',
         'is_veg' => 'boolean',
+        'dietary_tags' => 'array',
+        'nutrition' => 'array',
         'rating' => 'float',
     ];
 
@@ -142,6 +144,7 @@ class Product extends Model
             'is_veg' => $this->is_veg,
             'unit' => $this->unit,
             'max_qty' => $this->max_qty,
+            'dietary_tags' => $this->dietary_tags ?? [],
         ];
     }
 

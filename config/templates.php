@@ -19,5 +19,6 @@ return [
     'templates' => [
         App\Templates\Fashion\FashionTemplate::class,
         App\Templates\Grocery\GroceryTemplate::class,
+        App\Templates\Heritage\HeritageTemplate::class,
     ],
 ];

@@ -48,7 +48,7 @@ class ShopController extends Controller
         $base->active();
 
         // Facet options are computed from the unfiltered scope so users can widen a filter.
-        $scope = (clone $base)->with('category')->get(['id', 'category_id', 'price', 'sizes', 'colors', 'material', 'brand', 'rating', 'stock']);
+        $scope = (clone $base)->with('category')->get(['id', 'category_id', 'price', 'sizes', 'colors', 'material', 'brand', 'rating', 'stock', 'dietary_tags']);
         $facets = $this->facets($scope, $category);
 
         $f = $this->filtersFrom($request);
@@ -87,6 +87,12 @@ class ShopController extends Controller
         if ($f['veg']) {
             $query->where('is_veg', true); // grocery templates: vegetarian-only switch
         }
+        if ($f['discount']) {
+            $query->onSale()->whereRaw('(compare_at_price - price) * 100.0 / compare_at_price >= ?', [$f['discount']]);
+        }
+        foreach ($f['diet'] as $tag) {
+            $query->where('dietary_tags', 'like', '%'.json_encode($tag).'%');
+        }
         // JSON array facets — SQLite/MySQL both support LIKE on the serialised JSON.
         foreach ($f['size'] as $size) {
             $query->where('sizes', 'like', '%'.json_encode($size).'%');
@@ -105,7 +111,7 @@ class ShopController extends Controller
 
         $activeCount = count(array_filter([
             $f['category'], $f['subcategory'], $f['collection'], $f['brand'], $f['material'], $f['size'], $f['color'],
-            $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'], $f['veg'],
+            $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'], $f['veg'], $f['diet'], $f['discount'],
         ]));
 
         return view('shop.index', [
@@ -140,6 +146,8 @@ class ShopController extends Controller
             'availability' => $request->query('availability'),
             'sale' => (bool) $request->query('sale'),
             'veg' => (bool) $request->query('veg'),
+            'diet' => $list('diet'),
+            'discount' => $request->filled('discount') ? (int) $request->query('discount') : null,
             'sort' => (string) $request->query('sort', ''),
         ];
     }
@@ -148,7 +156,11 @@ class ShopController extends Controller
     {
         $sizes = [];
         $colors = [];
+        $diets = [];
         foreach ($products as $p) {
+            foreach ($p->dietary_tags ?? [] as $tag) {
+                $diets[$tag] = ($diets[$tag] ?? 0) + 1;
+            }
             foreach ($p->sizes ?? [] as $s) {
                 if (str_starts_with($s, '₹')) {
                     continue; // gift-card denominations are not garment sizes
@@ -177,6 +189,7 @@ class ShopController extends Controller
             'materials' => $products->pluck('material')->filter()->countBy()->sortKeys(),
             'sizes' => $sizes,
             'colors' => $colors,
+            'diets' => collect($diets)->sortKeys(),
             'price_min' => (int) ($products->min('price') ?? 0),
             'price_max' => (int) ($products->max('price') ?? 0),
         ];

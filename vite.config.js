@@ -12,6 +12,9 @@ export default defineConfig({
                 // Indian Grocery template
                 'resources/templates/grocery/css/app.css',
                 'resources/templates/grocery/js/app.js',
+                // Heritage Grocery template
+                'resources/templates/heritage/css/app.css',
+                'resources/templates/heritage/js/app.js',
             ],
             refresh: true,
         }),

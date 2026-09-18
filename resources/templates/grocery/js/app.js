@@ -283,7 +283,7 @@ Alpine.data('shopFilters', (initial) => ({
         let n = 0;
         for (const k of ['category', 'subcategory', 'collection', 'brand', 'size']) n += (this.f[k] ?? []).length;
         for (const k of ['rating', 'availability']) if (this.f[k]) n++;
-        if (this.f.min !== '' || this.f.max !== '') n++;
+        if ((this.f.min ?? '') !== '' || (this.f.max ?? '') !== '') n++;
         if (this.f.sale) n++;
         if (this.f.veg) n++;
         return n;

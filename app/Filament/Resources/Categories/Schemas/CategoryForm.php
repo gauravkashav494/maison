@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Categories\Schemas;
 
 use App\Filament\Support\Fields;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -34,6 +35,7 @@ class CategoryForm
                                 TextInput::make('tagline')->maxLength(120)->helperText('Short line shown on category tiles.'),
                             ]),
                             Textarea::make('description')->rows(3),
+                            RichEditor::make('content')->label('Category page content')->helperText('Optional long-form copy shown below the products (used by templates with rich category pages).')->toolbarButtons(['bold', 'italic', 'bulletList', 'h3', 'link']),
                             Fields::image('image', 'Category image (portrait, 4:5)', 'categories'),
                             Grid::make(3)->schema([
                                 Toggle::make('is_active')->label('Visible on storefront')->default(true),

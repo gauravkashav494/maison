@@ -111,7 +111,7 @@ class ProductForm
                                 ]),
                             ]),
 
-                        Tab::make('Grocery')
+                        Tab::make('Grocery & nutrition')
                             ->icon('heroicon-o-shopping-cart')
                             ->schema([
                                 Section::make('Grocery attributes')
@@ -128,6 +128,19 @@ class ProductForm
                                         TextInput::make('max_qty')->label('Max quantity per order')->numeric()->minValue(1)->maxValue(99)->placeholder('No limit'),
                                         Textarea::make('ingredients')->rows(3)->columnSpan(3),
                                         Textarea::make('storage_instructions')->label('Storage instructions')->rows(2)->columnSpan(3),
+                                    ]),
+                                Section::make('Dietary, benefits & nutrition')
+                                    ->description('Used by the Heritage Grocery template: dietary filter chips, the Benefits / How to use tabs and the nutrition table.')
+                                    ->columns(2)
+                                    ->schema([
+                                        TagsInput::make('dietary_tags')->label('Dietary tags')->suggestions(['Organic', 'Vegan', 'Gluten-free', 'Sugar-free', 'High protein', 'High fibre', 'No preservatives', 'Cold-pressed', 'Stone-ground'])->columnSpan(2),
+                                        Textarea::make('benefits')->label('Benefits')->rows(3)->helperText('One benefit per line.'),
+                                        Textarea::make('usage_instructions')->label('How to use / cook')->rows(3),
+                                        Repeater::make('nutrition')
+                                            ->label('Nutrition (per 100 g)')
+                                            ->schema([TextInput::make('label')->required(), TextInput::make('value')->required()])
+                                            ->columns(2)->defaultItems(0)->addActionLabel('Add row')->reorderable()->columnSpan(2)
+                                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
                                     ]),
                             ]),
 

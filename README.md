@@ -47,18 +47,19 @@ SEO plumbing that runs automatically: per-page `<title>`/description/canonical/r
 
 ## Storefront templates (multi-template)
 
-The backend (catalogue, pages, orders, customers, cart, checkout, SEO, admin) is shared; the *storefront design* is a template. Two ship with the project:
+The backend (catalogue, pages, orders, customers, cart, checkout, SEO, admin) is shared; the *storefront design* is a template. Three ship with the project:
 
 | Template | Id | Views | Assets |
 |---|---|---|---|
 | **Fashion** (Maison Élan editorial) | `fashion` | `resources/views/` (base views, also the fallback) | `resources/css/app.css`, `resources/js/app.js` |
 | **Indian Grocery** (quick-commerce style) | `grocery` | `resources/views/templates/grocery/` | `resources/templates/grocery/{css,js}/app.js` |
+| **Heritage Grocery** (premium Indian pantry — red / gold / cream, editorial serif, deep mega-menu, rich category pages, nutrition tabs, quick view, save-for-later) | `heritage` | `resources/views/templates/heritage/` | `resources/templates/heritage/{css,js}/app.js` |
 
-**Switching:** Admin → *Appearance → Templates* — preview a template for your own session, or *Activate* it for visitors (confirmation required). Every URL stays the same; nothing is deleted when you switch. CLI equivalents: `php artisan template:list`, `template:install grocery`, `template:activate grocery`.
+**Switching:** Admin → *Appearance → Templates* — preview a template for your own session, or *Activate* it for visitors (confirmation required). Every URL stays the same; nothing is deleted when you switch. CLI equivalents: `php artisan template:list`, `template:install grocery|heritage`, `template:activate grocery|heritage`.
 
 **How it works:** `App\Templates\TemplateManager` reads the active template from the `appearance` settings group. The `ResolveTemplate` middleware prepends the template’s view folder, so `view(shop.product)` resolves to the template’s copy (falling back to the base views), and registers a visibility scope on products, categories, collections, pages (`storefront_template`), FAQs and posts (`template` column, `null` = every template). Each template class (`app/Templates/*`) declares its menu locations, settings groups, defaults, admin pages and demo seeder.
 
-**Per-template admin:** every content list (Products, Categories, Collections, Navigation, Pages, FAQs, Journal) has **Fashion / Indian Grocery / Shared / All** tabs — the active template opens by default and *New …* pre-selects the tab’s template. *Appearance → Fashion · Homepage / Navigation* and *Grocery · Settings / Homepage / Navigation* hold the template-specific settings. Products, categories, collections, pages, FAQs and posts have a *Visible in* option (pages/posts may reuse a slug per template, so each template has its own `/about`, `/faq`, `/privacy`…); products also have a *Grocery* tab (veg/non-veg mark, shelf life, origin, ingredients, storage, max qty per order). Pack sizes are the product *Sizes* (e.g. `500 g`, `1 kg`).
+**Per-template admin:** every content list (Products, Categories, Collections, Navigation, Pages, FAQs, Journal) has **Fashion / Indian Grocery / Shared / All** tabs — the active template opens by default and *New …* pre-selects the tab’s template. *Appearance → Fashion · Homepage / Navigation* and *Grocery · Settings / Homepage / Navigation* and *Heritage · Settings / Homepage* hold the template-specific settings (hero slides, section order, offer block, brand story, brands, testimonials, trust items…). Products, categories, collections, pages, FAQs and posts have a *Visible in* option (pages/posts may reuse a slug per template, so each template has its own `/about`, `/faq`, `/privacy`…); products also have a *Grocery & nutrition* tab (veg/non-veg mark, shelf life, origin, ingredients, storage, max qty per order, dietary tags, benefits, how-to-use, nutrition table) and categories a long-form *Category page content* field; the shop supports `diet=` and `discount=` filters. Pack sizes are the product *Sizes* (e.g. `500 g`, `1 kg`).
 
 **Adding a template:** create `app/Templates/<Name>/<Name>Template.php` (extend `App\Templates\Template`), register it in `config/templates.php`, add its views under `resources/views/templates/<id>/` (same view names as the base), its Vite entries in `vite.config.js`, and optionally a seeder + Filament settings page.
 ## Switching to MySQL

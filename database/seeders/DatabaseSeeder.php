@@ -27,6 +27,11 @@ class DatabaseSeeder extends Seeder
             GroceryMenuSeeder::class,
             GroceryCatalogSeeder::class,
             GroceryContentSeeder::class,
+            // Heritage Grocery template demo content
+            HeritageSettingsSeeder::class,
+            HeritageMenuSeeder::class,
+            HeritageCatalogSeeder::class,
+            HeritageContentSeeder::class,
         ]);
     }
 }

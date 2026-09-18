@@ -140,7 +140,7 @@
                         @if(!$product->storage_instructions && !$product->shelf_life)<p>Store in a cool, dry place away from direct sunlight unless stated otherwise on the pack.</p>@endif
                     </div>
                     <div x-show="tab === 'more'" x-cloak class="prose-g text-sm">
-                        <p><strong>Delivery:</strong> {{ $gs['delivery_promise'] ?? 'Fast delivery' }} in serviceable areas. Delivery slots and charges are shown at checkout@if($threshold > 0); orders over {{ money($threshold) }} ship free@endif.</p>
+                        <p><strong>Delivery:</strong> {{ $gs['delivery_promise'] ?? 'Fast delivery' }} in serviceable areas. Delivery slots and charges are shown at checkout @if($threshold > 0)— orders over {{ money($threshold) }} ship free @endif.</p>
                         <p><strong>Returns:</strong> Not happy with the freshness or quality? Report it from your orders within 24 hours of delivery for a replacement or refund. <a href="/returns">Read the policy</a>.</p>
                     </div>
                 </div>
