@@ -155,3 +155,33 @@ a.fi-admin-row:hover { background: #f8fafc; }
 
 .fi-topbar .fi-user-menu { order: 2; }
 .fi-admin-user { order: 1; }
+
+/* ---- Scrollbars ------------------------------------------------------------
+   Chrome/Edge/Safari use the ::-webkit-scrollbar styling; Firefox (no webkit
+   pseudo-elements) gets the thin standard scrollbar. The standard properties are
+   deliberately NOT set for Chrome: combined with a transparent thumb they stop
+   the sidebar labels from painting. */
+@supports not selector(::-webkit-scrollbar) {
+  .fi-body * { scrollbar-width: thin; scrollbar-color: #c3ccd9 transparent; }
+  .fi-sidebar-nav { scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
+}
+
+/* Sidebar: 6px navy-tinted thumb that brightens on hover */
+.fi-sidebar-nav { padding-inline-end: 0.5rem; }
+.fi-sidebar-nav::-webkit-scrollbar { width: 6px; }
+.fi-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.fi-sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 999px; }
+.fi-sidebar-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); }
+.fi-sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
+.fi-sidebar-nav::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+
+/* Everywhere else in the panel: slim grey scrollbars instead of the OS default */
+.fi-body ::-webkit-scrollbar { width: 8px; height: 8px; }
+.fi-body ::-webkit-scrollbar-track { background: transparent; }
+.fi-body ::-webkit-scrollbar-thumb { background: #c3ccd9; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+.fi-body ::-webkit-scrollbar-thumb:hover { background: #a3b0c2; background-clip: padding-box; }
+.fi-body ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+.fi-body ::-webkit-scrollbar-corner { background: transparent; }
+.fi-body .fi-sidebar-nav::-webkit-scrollbar { width: 6px; }
+.fi-body .fi-sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border: 0; }
+.fi-body .fi-sidebar-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); }
