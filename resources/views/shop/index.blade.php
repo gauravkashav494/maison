@@ -9,7 +9,7 @@
 @endphp
 <x-page-hero :eyebrow="$eyebrow" :title="$title" :description="$category?->description" :breadcrumbs="$crumbs" />
 
-<section class="container-luxe py-10 lg:py-14" x-data="shopFilters(@js($init))">
+<section class="container-luxe py-10 lg:py-14" x-data="shopFilters(@js($init))" @open-filters.window="open = true">
     {{-- Category strip --}}
     <nav class="no-scrollbar -mx-5 flex gap-6 overflow-x-auto border-b border-ink/10 px-5 pb-5 text-[0.6875rem] uppercase tracking-[0.2em] lg:mx-0 lg:px-0" aria-label="Categories">
         <a href="{{ route('shop.index') }}" class="link-underline shrink-0 pb-0.5" data-active="{{ !$category && request()->is('shop') ? 'true' : 'false' }}">All</a>

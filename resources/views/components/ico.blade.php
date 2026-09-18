@@ -14,6 +14,7 @@ $paths = [
     'arrow-left' => '<path d="M20 12H4M10 6l-6 6 6 6"/>',
     'arrow-up-right' => '<path d="M7 17 17 7M8 7h9v9"/>',
     'home' => '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
+    'filter' => '<path d="M3 5h18l-7 8v6l-4 2v-8L3 5z"/>',
     'grid' => '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>',
     'lock' => '<rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     'clock' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',

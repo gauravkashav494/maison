@@ -23,19 +23,20 @@
 
 /* Fixed chrome that behaves like native UI ------------------------------- */
 @media (max-width: 1023px) {
-  :root { --tab-h: 56px; }
+  :root { --tab-h: 64px; }
 
   /* Sticky/fixed top bar: keeps clear of the notch when installed */
   .app-bar { padding-top: env(safe-area-inset-top, 0px); view-transition-name: app-bar; user-select: none; -webkit-user-select: none; }
 
   /* Bottom tab bar */
   .tab-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 50; padding-bottom: env(safe-area-inset-bottom, 0px); view-transition-name: app-tabs; user-select: none; -webkit-user-select: none; }
-  .tab-item { position: relative; display: flex; width: 100%; height: var(--tab-h); flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: .01em; }
-  .tab-ico { display: grid; place-items: center; width: 50px; height: 28px; border-radius: 14px; transition: background-color .2s ease, scale .2s ease; }
-  .tab-item.is-active .tab-ico { background: color-mix(in srgb, currentColor 13%, transparent); }
-  .tab-item:active .tab-ico { scale: .92; }
+  .tab-item { position: relative; display: flex; width: 100%; height: var(--tab-h); flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: .01em; }
+  .tab-ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid color-mix(in srgb, currentColor 45%, transparent); transition: background-color .2s ease, border-color .2s ease, scale .2s ease; }
+  .tab-item.is-active .tab-ico { background: currentColor; border-color: currentColor; }
+  .tab-item.is-active .tab-ico svg { color: #fff; }
+  .tab-item:active .tab-ico { scale: .9; }
   .tab-item:active { scale: 1; }
-  .tab-badge { position: absolute; top: 4px; left: calc(50% + 4px); display: grid; min-width: 16px; height: 16px; place-items: center; border-radius: 999px; padding: 0 4px; font-size: 9px; font-weight: 700; line-height: 1; }
+  .tab-badge { position: absolute; top: 4px; left: calc(50% + 8px); display: grid; min-width: 16px; height: 16px; place-items: center; border-radius: 999px; padding: 0 4px; font-size: 9px; font-weight: 700; line-height: 1; }
 
   /* Anything that must sit just above the tab bar (sticky add-to-cart, checkout bar, prompts) */
   .above-tabs { position: fixed; inset-inline: 0; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); z-index: 40; }

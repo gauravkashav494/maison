@@ -13,7 +13,7 @@
     $from = ($products->currentPage() - 1) * $products->perPage() + 1;
     $to = min($products->total(), $products->currentPage() * $products->perPage());
 @endphp
-<div x-data="shopFilters(@js($init))" class="h-container pt-5">
+<div x-data="shopFilters(@js($init))" class="h-container pt-5" @open-filters.window="open = true">
     <x-breadcrumbs :items="$crumbs" />
     <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div><h1 class="display text-2xl text-red lg:text-3xl">{{ $title }}</h1>@if($category?->description)<p class="mt-1 max-w-2xl text-sm text-muted">{{ $category->description }}</p>@endif</div>
