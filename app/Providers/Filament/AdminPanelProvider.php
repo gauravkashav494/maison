@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Resources\Menus\MenuResource;
+use App\Filament\Widgets\RecentOrders;
+use App\Filament\Widgets\StoreStats;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Navigation\NavigationItem;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -12,8 +14,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -29,13 +30,20 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
-            ->brandName('Maison Élan')
+            ->brandName(fn () => setting('site.name', config('app.name')))
+            ->brandLogo(fn () => view('filament.partials.brand'))
             ->favicon(null)
             ->sidebarCollapsibleOnDesktop()
+            ->globalSearch()
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->renderHook(PanelsRenderHook::TOPBAR_END, fn () => view('filament.partials.topbar-user'))
+            ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Sales', 'Catalogue', 'Content', 'Marketing', 'Appearance', 'Settings'])
             ->colors([
-                'primary' => Color::Stone,
+                'primary' => Color::Blue,
+                'gray' => Color::Slate,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -56,8 +64,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                AccountWidget::class,
-                FilamentInfoWidget::class,
+                StoreStats::class,
+                RecentOrders::class,
             ])
             ->middleware([
                 EncryptCookies::class,

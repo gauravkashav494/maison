@@ -15,6 +15,7 @@ export default defineConfig({
                 // Heritage Grocery template
                 'resources/templates/heritage/css/app.css',
                 'resources/templates/heritage/js/app.js',
+                'resources/css/filament/admin/theme.css',
             ],
             refresh: true,
         }),

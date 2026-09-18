@@ -19,6 +19,8 @@ class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
+    protected static ?string $recordTitleAttribute = 'number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Sales';
@@ -45,6 +47,11 @@ class OrderResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['number', 'email', 'shipping_name', 'phone'];
     }
 
     public static function getPages(): array

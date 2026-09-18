@@ -18,6 +18,8 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingBag;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Catalogue';
@@ -39,6 +41,11 @@ class ProductResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'sku', 'brand'];
     }
 
     public static function getPages(): array
