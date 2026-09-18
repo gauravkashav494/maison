@@ -148,7 +148,7 @@ class HeritageTemplate extends Template
                     ['key' => 'trust', 'enabled' => true],
                     ['key' => 'categories', 'enabled' => true],
                     ['key' => 'values', 'enabled' => true],
-                    ['key' => 'offer', 'enabled' => true],
+                    ['key' => 'offer', 'enabled' => false],
                     ['key' => 'journal', 'enabled' => true],
                     ['key' => 'testimonials', 'enabled' => true],
                 ],

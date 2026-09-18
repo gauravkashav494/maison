@@ -1,7 +1,7 @@
 @php $video = $g['video_url'] ?? null; $poster = \App\Support\Media::url($g['video_poster'] ?? null); $hs = tsetting('site'); @endphp
 @if($poster)
-<section class="h-container section !py-8 lg:!py-10" x-data="{ playing: false, url: @js($video), isYouTube: /youtube\.com|youtu\.be/.test(@js($video ?? '')), embed() { const m = this.url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/); return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0` : this.url; } }">
-    <div class="banner-round relative mx-auto aspect-[16/9] max-w-5xl bg-maroon-deep lg:aspect-[2/1]">
+<section class="bg-warm pb-6 pt-10 lg:pb-0 lg:pt-[60px]" x-data="{ playing: false, url: @js($video), isYouTube: /youtube\.com|youtu\.be/.test(@js($video ?? '')), embed() { const m = this.url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/); return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0` : this.url; } }">
+    <div class="h-container"><div class="banner-round relative mx-auto aspect-[16/9] w-full max-w-[1160px] bg-maroon-deep">
         <template x-if="!playing">
             <div class="absolute inset-0">
                 <img src="{{ $poster }}" alt="" class="absolute inset-0 h-full w-full object-cover" loading="lazy">
@@ -16,7 +16,7 @@
                 <template x-if="!isYouTube"><video :src="url" controls autoplay playsinline class="h-full w-full object-cover"></video></template>
             </div>
         </template>
-    </div>
-    <div class="mt-3 flex justify-center gap-1.5" aria-hidden="true"><span class="h-2 w-2 rounded-full bg-red"></span><span class="h-2 w-2 rounded-full bg-gold/50"></span></div>
+    </div></div>
+    <div class="mt-5 flex h-[29px] items-center justify-center gap-1.5" aria-hidden="true"><span class="h-2 w-2 rounded-full bg-red"></span><span class="h-2 w-2 rounded-full bg-gold/50"></span></div>
 </section>
 @endif

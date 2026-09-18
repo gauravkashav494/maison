@@ -1,7 +1,7 @@
 @php $h = tsetting('site'); @endphp
 <div x-data="search(@js($h['search_suggestions'] ?? []))" class="relative" @click.outside="open = false" @keydown.escape="open = false">
     <form @submit.prevent="submit()" role="search" class="relative">
-        <input x-ref="input" x-model="q" @focus="open = true" type="search" placeholder="{{ $h['search_placeholder'] ?? 'Search' }}" autocomplete="off" aria-label="Search products" class="field h-12 rounded-full border-transparent bg-cream-dark pl-5 pr-14 text-[0.9375rem] focus:border-gold focus:bg-white">
+        <input x-ref="input" x-model="q" @focus="open = true" type="search" placeholder="{{ $h['search_placeholder'] ?? 'Search' }}" autocomplete="off" aria-label="Search products" class="field h-[45px] rounded-full border-transparent bg-cream-dark pl-[26px] pr-14 text-base focus:border-gold focus:bg-white">
         <button type="submit" class="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-ink hover:bg-white" aria-label="Search"><x-ico name="search" :size="19" /></button>
     </form>
     <div x-show="open && (q.trim() || $store.recent.terms.length || suggestions.length)" x-cloak x-transition.opacity.duration.120ms class="absolute inset-x-0 top-full z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-warm p-2 shadow-float">

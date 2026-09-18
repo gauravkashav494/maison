@@ -1,8 +1,8 @@
 @php $items = array_values(array_filter($g['trust_items'] ?? [], fn ($t) => ! empty($t['title']))); $img = \App\Support\Media::url($g['trust_image'] ?? null); @endphp
 @if($items)
-<section class="mt-6 bg-red text-cream lg:mt-8">
+<section class="bg-red text-cream">
     <div class="grid lg:grid-cols-12">
-        <div class="relative min-h-[16rem] lg:col-span-5 lg:min-h-[22rem]">
+        <div class="relative min-h-[16rem] lg:col-span-5 lg:min-h-[450px]">
             @if($img)<img src="{{ $img }}" alt="" class="absolute inset-0 h-full w-full object-cover lg:[clip-path:ellipse(100%_100%_at_0%_50%)]" loading="lazy">@endif
         </div>
         <div class="px-6 py-10 lg:col-span-7 lg:px-14 lg:py-14">
