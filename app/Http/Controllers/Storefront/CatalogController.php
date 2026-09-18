@@ -63,7 +63,8 @@ class CatalogController extends Controller
             ->limit(4)->get();
 
         $reviews = $product->reviews()->approved()->limit(10)->get();
-        $breakdown = $product->reviews()->approved()->selectRaw('rating, count(*) as c')->groupBy('rating')->pluck('c', 'rating');
+        // reorder() drops the relation's default `latest()`: MySQL (only_full_group_by) rejects ordering a grouped query by created_at
+        $breakdown = $product->reviews()->approved()->reorder()->selectRaw('rating, count(*) as c')->groupBy('rating')->pluck('c', 'rating');
 
         $jsonLd = [
             '@context' => 'https://schema.org',
