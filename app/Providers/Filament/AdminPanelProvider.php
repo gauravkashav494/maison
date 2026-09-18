@@ -40,6 +40,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: \App\Filament\Auth\Login::class)
             ->renderHook(PanelsRenderHook::TOPBAR_END, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Sales', 'Catalogue', 'Content', 'Marketing', 'Appearance', 'Settings'])
