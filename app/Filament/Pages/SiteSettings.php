@@ -7,6 +7,7 @@ use App\Filament\Support\Fields;
 use BackedEnum;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -55,6 +56,7 @@ class SiteSettings extends Page
                         Textarea::make('site.footer_blurb')->label('Footer blurb')->rows(2),
                         TextInput::make('site.footer_newsletter_heading')->label('Footer newsletter heading'),
                         Fields::image('site.page_header_image', 'Page header background (landscape, used on shop, policies, account and info pages)', 'site'),
+                        Select::make('site.admin_login_style')->label('Admin sign-in page style')->options(\App\Filament\Auth\Login::STYLES)->default('classic')->native(false)->helperText('Look of the /admin/login page. Styles with an image use the page header background above.'),
                     ]),
                     Tab::make('Announcement bar')->icon('heroicon-o-megaphone')->schema([
                         TextInput::make('site.announcement_text')->label('Message'),

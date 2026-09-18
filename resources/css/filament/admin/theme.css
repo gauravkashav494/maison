@@ -20,10 +20,10 @@
   --card-line: #e5e9f0;
   --thead-bg: #f8fafc;
   --row-hover: #f8fafc;
-  --text: #0f172a;
-  --text-muted: #475569;
-  --text-soft: #64748b;
-  --text-faint: #94a3b8;
+  --ink: #0f172a;
+  --ink-muted: #475569;
+  --ink-soft: #64748b;
+  --ink-faint: #94a3b8;
   --link: #1d4ed8;
 }
 .dark {
@@ -33,10 +33,10 @@
   --card-line: rgba(255, 255, 255, 0.08);
   --thead-bg: rgba(255, 255, 255, 0.03);
   --row-hover: rgba(255, 255, 255, 0.04);
-  --text: #f1f5f9;
-  --text-muted: #cbd5e1;
-  --text-soft: #94a3b8;
-  --text-faint: #64748b;
+  --ink: #f1f5f9;
+  --ink-muted: #cbd5e1;
+  --ink-soft: #94a3b8;
+  --ink-faint: #64748b;
   --link: #93c5fd;
 }
 
@@ -123,7 +123,7 @@ html { font-size: 14px; }
 .fi-section-header-heading { font-size: 0.95rem; font-weight: 700; }
 .fi-ta-header-heading { font-size: 0.95rem; font-weight: 700; }
 .fi-ta-header-cell { background: var(--thead-bg); }
-.fi-ta-header-cell, .fi-ta-header-cell-sort-btn { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-soft); }
+.fi-ta-header-cell, .fi-ta-header-cell-sort-btn { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
 .fi-ta-cell { font-size: 0.8125rem; }
 .fi-ta-row:hover { background: var(--row-hover); }
 .fi-badge { font-size: 0.7rem; }
@@ -137,9 +137,9 @@ html { font-size: 14px; }
 @media (min-width: 1024px) { .fi-admin-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .fi-admin-stat { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem 1.2rem; text-decoration: none; box-shadow: 0 0 0 1px var(--card-line), 0 1px 2px rgba(16, 24, 40, 0.04); border-radius: 0.85rem; background: var(--card-bg); transition: box-shadow 0.15s ease, transform 0.15s ease; }
 a.fi-admin-stat:hover { box-shadow: 0 0 0 1px #cfd8e6, 0 8px 20px -12px rgba(16, 24, 40, 0.25); transform: translateY(-1px); }
-.fi-admin-stat-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); }
-.fi-admin-stat-value { margin-top: 0.55rem; font-size: 1.55rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
-.fi-admin-stat-desc { margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-soft); }
+.fi-admin-stat-label { font-size: 0.8125rem; font-weight: 600; color: var(--ink-muted); }
+.fi-admin-stat-value { margin-top: 0.55rem; font-size: 1.55rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fi-admin-stat-desc { margin-top: 0.5rem; font-size: 0.7rem; color: var(--ink-soft); }
 .fi-admin-stat-icon { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0; border-radius: 0.75rem; color: #fff; }
 .fi-admin-stat-icon svg { width: 1.3rem; height: 1.3rem; }
 .fi-admin-stat-icon.is-green { background: #16a34a; }
@@ -151,25 +151,25 @@ a.fi-admin-stat:hover { box-shadow: 0 0 0 1px #cfd8e6, 0 8px 20px -12px rgba(16,
 
 .fi-admin-card { box-shadow: 0 0 0 1px var(--card-line), 0 1px 2px rgba(16, 24, 40, 0.04); overflow: hidden; }
 .fi-admin-card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--card-line); }
-.fi-admin-card-title { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 700; color: var(--text); }
-.fi-admin-card-title svg { width: 1rem; height: 1rem; color: var(--text-muted); }
+.fi-admin-card-title { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 700; color: var(--ink); }
+.fi-admin-card-title svg { width: 1rem; height: 1rem; color: var(--ink-muted); }
 .fi-admin-card-link { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 700; color: var(--link); }
 .fi-admin-card-link svg { width: 0.9rem; height: 0.9rem; }
 .fi-admin-card-link:hover { text-decoration: underline; }
 .fi-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--card-line); color: inherit; text-decoration: none; }
 .fi-admin-row:last-child { border-bottom: 0; }
 a.fi-admin-row:hover { background: var(--row-hover); }
-.fi-admin-row-title { font-size: 0.8125rem; font-weight: 700; color: var(--text); }
-.fi-admin-row-sub { margin-top: 0.15rem; font-size: 0.72rem; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.fi-admin-row-meta { display: flex; align-items: center; gap: 0.9rem; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
-.fi-admin-row-meta strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.fi-admin-row-title { font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+.fi-admin-row-sub { margin-top: 0.15rem; font-size: 0.72rem; color: var(--ink-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fi-admin-row-meta { display: flex; align-items: center; gap: 0.9rem; font-size: 0.75rem; color: var(--ink-muted); white-space: nowrap; }
+.fi-admin-row-meta strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 .fi-admin-pill { display: inline-flex; align-items: center; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
 .fi-admin-pill.is-green { background: #dcfce7; color: #15803d; }
 .fi-admin-pill.is-blue { background: #dbeafe; color: #1d4ed8; }
 .fi-admin-pill.is-amber { background: #fef3c7; color: #b45309; }
 .fi-admin-pill.is-gray { background: #f1f5f9; color: #475569; }
 .fi-admin-pill.is-red { background: #fee2e2; color: #b91c1c; }
-.fi-admin-empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.8125rem; color: var(--text-soft); }
+.fi-admin-empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.8125rem; color: var(--ink-soft); }
 
 /* ---- Login ----------------------------------------------------------------- */
 .fi-simple-layout { background: var(--workspace); }
@@ -238,17 +238,17 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-form { width: 100%; max-width: 22rem; }
 .fi-login-mark-dark { background: var(--navy); box-shadow: none; margin-bottom: 1.6rem; }
 .fi-login-kicker { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #b8963f; }
-.fi-login-title { margin-top: 0.4rem; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.01em; color: var(--text); }
-.fi-login-subtitle { margin-top: 0.4rem; margin-bottom: 1.75rem; font-size: 0.875rem; color: var(--text-soft); }
+.fi-login-title { margin-top: 0.4rem; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
+.fi-login-subtitle { margin-top: 0.4rem; margin-bottom: 1.75rem; font-size: 0.875rem; color: var(--ink-soft); }
 .fi-login .fi-simple-page-content { display: flex; flex-direction: column; gap: 1.1rem; }
-.fi-login .fi-fo-field-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-muted); }
+.fi-login .fi-fo-field-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-muted); }
 .fi-login .fi-input-wrp { border-radius: 0.7rem; background: var(--thead-bg); --tw-ring-color: var(--card-line); box-shadow: 0 0 0 1px var(--tw-ring-color); }
 .fi-login .fi-input-wrp:focus-within { --tw-ring-color: var(--navy); box-shadow: 0 0 0 1.5px var(--tw-ring-color); background: var(--card-bg); }
 .fi-login .fi-input { height: 2.75rem; font-size: 0.9rem; }
 .fi-login .fi-checkbox-input { border-radius: 0.3rem; }
 .fi-login .fi-btn { height: 2.85rem; border-radius: 0.7rem; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.01em; background: var(--navy) !important; --tw-ring-color: transparent; transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; }
 .fi-login .fi-btn:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 12px 24px -14px rgba(28, 53, 87, 0.8); }
-.fi-login-help { margin-top: 1.6rem; font-size: 0.75rem; color: var(--text-faint); }
+.fi-login-help { margin-top: 1.6rem; font-size: 0.75rem; color: var(--ink-faint); }
 .fi-login-foot { position: relative; font-size: 0.75rem; color: rgba(255, 255, 255, 0.55); }
 .fi-login-foot a { color: rgba(255, 255, 255, 0.85); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.3); }
 .fi-login-foot a:hover { color: #fff; border-color: #fff; }
@@ -262,9 +262,83 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .dark .fi-admin-pill.is-red { background: rgba(220, 38, 38, 0.22); color: #fca5a5; }
 .dark .fi-admin-stat, .dark .fi-admin-card { box-shadow: 0 0 0 1px var(--card-line); }
 .dark a.fi-admin-stat:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16); }
-.dark .fi-header-heading, .dark .fi-section-header-heading, .dark .fi-ta-header-heading { color: var(--text); }
+.dark .fi-header-heading, .dark .fi-section-header-heading, .dark .fi-ta-header-heading { color: var(--ink); }
 .dark .fi-body ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: padding-box; }
 .dark .fi-body ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); background-clip: padding-box; }
 .dark .fi-topbar, .dark .fi-sidebar, .dark .fi-body .fi-sidebar, .dark .fi-body-has-topbar .fi-sidebar-header { background: var(--navy) !important; }
 .dark .fi-sidebar-item.fi-active > .fi-sidebar-item-btn { background: #fff; color: #101c30; }
 .dark .fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-sidebar-item-label, .dark .fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-icon { color: #101c30 !important; }
+/* ---- Sign-in style: Editorial ------------------------------------------------
+   Full-height photograph on the left, cream page with the form on the right. */
+.fi-login[data-style="editorial"] { padding: 0; gap: 0; background: #f6f1e8; }
+.fi-login[data-style="editorial"] .fi-login-glow { display: none; }
+.fi-login[data-style="editorial"] .fi-login-card { max-width: none; min-height: 100dvh; border-radius: 0; background: transparent; box-shadow: none; }
+@media (min-width: 1024px) { .fi-login[data-style="editorial"] .fi-login-card { grid-template-columns: 1.15fr 1fr; } }
+.fi-login[data-style="editorial"] .fi-login-visual { min-height: 14rem; }
+.fi-login[data-style="editorial"] .fi-login-visual-shade { background: linear-gradient(180deg, rgba(20, 24, 30, 0.15) 0%, rgba(20, 24, 30, 0.2) 50%, rgba(20, 24, 30, 0.85) 100%); }
+.fi-login[data-style="editorial"] .fi-login-quote-text { font-size: 2.6rem; font-style: italic; font-weight: 500; }
+.fi-login[data-style="editorial"] .fi-login-panel { background: #f6f1e8; }
+@media (min-width: 1024px) { .fi-login[data-style="editorial"] .fi-login-panel { padding: 4rem 5rem; } }
+.fi-login[data-style="editorial"] .fi-login-form { max-width: 24rem; }
+.fi-login[data-style="editorial"] .fi-login-mark-dark { background: #1f1c18; }
+.fi-login[data-style="editorial"] .fi-login-kicker { color: #a5813a; }
+.fi-login[data-style="editorial"] .fi-login-title { font-size: 2.4rem; color: #1f1c18; }
+.fi-login[data-style="editorial"] .fi-login-subtitle { color: #7a7167; }
+.fi-login[data-style="editorial"] .fi-fo-field-label { color: #4d463d; }
+.fi-login[data-style="editorial"] .fi-input-wrp { background: #fff; --tw-ring-color: #e3dccf; border-radius: 0.35rem; }
+.fi-login[data-style="editorial"] .fi-input-wrp:focus-within { --tw-ring-color: #1f1c18; }
+.fi-login[data-style="editorial"] .fi-btn { background: #1f1c18 !important; border-radius: 0.35rem; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.72rem; }
+.fi-login[data-style="editorial"] .fi-btn:hover { filter: none; background: #a5813a !important; box-shadow: none; }
+.fi-login[data-style="editorial"] .fi-login-foot { position: absolute; bottom: 1.25rem; right: 2rem; color: #9b9184; }
+.fi-login[data-style="editorial"] .fi-login-foot a { color: #4d463d; border-color: #cfc5b5; }
+.dark .fi-login[data-style="editorial"], .dark .fi-login[data-style="editorial"] .fi-login-panel { background: #17140f; }
+.dark .fi-login[data-style="editorial"] .fi-login-title { color: #f3ede3; }
+.dark .fi-login[data-style="editorial"] .fi-login-mark-dark { background: #a5813a; }
+.dark .fi-login[data-style="editorial"] .fi-input-wrp { background: #221e18; --tw-ring-color: #3a332a; }
+.dark .fi-login[data-style="editorial"] .fi-fo-field-label { color: #cfc5b5; }
+.dark .fi-login[data-style="editorial"] .fi-btn { background: #a5813a !important; }
+
+/* ---- Sign-in style: Midnight -------------------------------------------------
+   The photograph fills the screen; the form sits in a frosted glass card. */
+.fi-login[data-style="midnight"] { background: #0b1220 var(--login-image, none) center / cover no-repeat; }
+.fi-login[data-style="midnight"]::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 14, 28, 0.55), rgba(8, 14, 28, 0.8)); }
+.fi-login[data-style="midnight"] .fi-login-glow { display: none; }
+.fi-login[data-style="midnight"] .fi-login-card { max-width: 26.5rem; min-height: 0; grid-template-columns: 1fr; border-radius: 1.5rem; background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%); box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.fi-login[data-style="midnight"] .fi-login-visual { display: none; }
+.fi-login[data-style="midnight"] .fi-login-panel { padding: 2.75rem 2.5rem; }
+.fi-login[data-style="midnight"] .fi-login-mark-dark { background: rgba(255, 255, 255, 0.14); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); }
+.fi-login[data-style="midnight"] .fi-login-kicker { color: #e2c887; }
+.fi-login[data-style="midnight"] .fi-login-title { color: #fff; }
+.fi-login[data-style="midnight"] .fi-login-subtitle { color: rgba(255, 255, 255, 0.7); }
+.fi-login[data-style="midnight"] .fi-fo-field-label { color: rgba(255, 255, 255, 0.85); }
+.fi-login[data-style="midnight"] .fi-input-wrp { background: rgba(255, 255, 255, 0.1); --tw-ring-color: rgba(255, 255, 255, 0.22); }
+.fi-login[data-style="midnight"] .fi-input-wrp:focus-within { --tw-ring-color: rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.14); }
+.fi-login[data-style="midnight"] .fi-input, .fi-login[data-style="midnight"] .fi-input-wrp .fi-icon-btn { color: #fff; }
+.fi-login[data-style="midnight"] .fi-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.fi-login[data-style="midnight"] .fi-checkbox-input { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.4); }
+.fi-login[data-style="midnight"] .fi-fo-field-label-content, .fi-login[data-style="midnight"] label { color: rgba(255, 255, 255, 0.85); }
+.fi-login[data-style="midnight"] .fi-btn { background: #fff !important; color: #101c30 !important; }
+.fi-login[data-style="midnight"] .fi-btn:hover { filter: none; background: #e2c887 !important; box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7); }
+.fi-login[data-style="midnight"] .fi-login-help { color: rgba(255, 255, 255, 0.5); }
+.fi-login[data-style="midnight"] .fi-login-foot { color: rgba(255, 255, 255, 0.6); }
+
+/* ---- Sign-in style: Minimal --------------------------------------------------
+   White page, narrow centred form, hairlines and generous whitespace. */
+.fi-login[data-style="minimal"] { background: var(--card-bg); }
+.fi-login[data-style="minimal"] .fi-login-glow { display: none; }
+.fi-login[data-style="minimal"] .fi-login-card { max-width: 24rem; min-height: 0; grid-template-columns: 1fr; border-radius: 0; background: transparent; box-shadow: none; }
+.fi-login[data-style="minimal"] .fi-login-visual { display: none; }
+.fi-login[data-style="minimal"] .fi-login-panel { padding: 1rem 0; }
+.fi-login[data-style="minimal"] .fi-login-form { max-width: none; text-align: center; }
+.fi-login[data-style="minimal"] .fi-login-mark-dark { margin-inline: auto; }
+.fi-login[data-style="minimal"] .fi-login-title { font-size: 2.2rem; }
+.fi-login[data-style="minimal"] .fi-login-subtitle { margin-bottom: 2.25rem; padding-bottom: 2.25rem; border-bottom: 1px solid var(--card-line); }
+.fi-login[data-style="minimal"] .fi-simple-page-content { text-align: start; }
+.fi-login[data-style="minimal"] .fi-input-wrp { border-radius: 0; background: transparent; box-shadow: none; border-bottom: 1px solid var(--card-line); }
+.fi-login[data-style="minimal"] .fi-input-wrp:focus-within { box-shadow: none; border-bottom-color: var(--ink); background: transparent; }
+.fi-login[data-style="minimal"] .fi-input { padding-inline-start: 0; }
+.fi-login[data-style="minimal"] .fi-btn { border-radius: 999px; background: var(--ink) !important; color: var(--card-bg) !important; }
+.fi-login[data-style="minimal"] .fi-btn:hover { filter: none; transform: none; box-shadow: none; background: var(--navy) !important; color: #fff !important; }
+.fi-login[data-style="minimal"] .fi-login-help { text-align: center; }
+.fi-login[data-style="minimal"] .fi-login-foot { position: absolute; bottom: 1.5rem; color: var(--ink-faint); }
+.fi-login[data-style="minimal"] .fi-login-foot a { color: var(--ink-soft); border-color: var(--card-line); }
