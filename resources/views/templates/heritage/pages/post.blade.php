@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="h-container pt-4"><x-breadcrumbs :items="['Recipes & stories' => route('journal.index'), $post->title => null]" /></div>
+<div class="h-container hidden pt-4 lg:block"><x-breadcrumbs :items="['Recipes & stories' => route('journal.index'), $post->title => null]" /></div>
 <article class="h-container py-6">
     <div class="mx-auto max-w-3xl">
         <p class="flex items-center gap-2 text-xs font-semibold text-muted">@if($post->category)<span class="badge badge-soft">{{ $post->category }}</span>@endif @if($post->published_at)<span>{{ $post->published_at->format('d M Y') }}</span>@endif @if($post->read_time)<span>· {{ $post->read_time }} min read</span>@endif</p>

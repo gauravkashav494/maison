@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#f6f3ee">
 
     <x-seo :seo="$seo ?? null" />
+    <x-app-head />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,12 +21,13 @@
 
     @include('partials.header', ['transparent' => $transparentHeader ?? false])
 
-    <main id="main" class="flex-1">
+    <main id="main" class="app-main-fixed flex-1">
         @yield('content')
     </main>
 
     @include('partials.footer')
     @include('partials.mobile-tab-bar')
+    @include('partials.app-install')
     @include('partials.mobile-menu')
     @include('partials.search-overlay')
     @include('partials.cart-drawer')

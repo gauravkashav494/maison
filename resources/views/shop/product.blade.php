@@ -14,8 +14,8 @@
         'returns' => ['Returns', $returnsNote],
     ];
 @endphp
-<section class="container-luxe pt-32 lg:pt-40" x-data="productPage(@js($card))">
-    <nav aria-label="Breadcrumb" class="mb-8 flex flex-wrap items-center gap-2 text-[0.625rem] uppercase tracking-[0.2em] text-taupe">
+<section class="container-luxe pt-[4.5rem] lg:pt-40" x-data="productPage(@js($card))">
+    <nav aria-label="Breadcrumb" class="mb-8 hidden flex-wrap items-center gap-2 lg:flex text-[0.625rem] uppercase tracking-[0.2em] text-taupe">
         <a href="{{ route('home') }}" class="hover:underline">Home</a><span>/</span>
         <a href="{{ route('shop.index') }}" class="hover:underline">Shop</a><span>/</span>
         @if($product->category?->parent)<a href="{{ $product->category->parent->url }}" class="hover:underline">{{ $product->category->parent->name }}</a><span>/</span>@endif
@@ -133,7 +133,7 @@
     </div>
 
     {{-- Sticky mobile add-to-bag --}}
-    <div x-cloak x-show="showSticky" x-transition class="fixed inset-x-0 bottom-16 z-30 border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
+    <div x-cloak x-show="showSticky" x-transition class="above-tabs border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
         <div class="flex items-center gap-4">
             <div class="min-w-0 flex-1">
                 <p class="truncate font-serif text-base">{{ $product->name }}</p>

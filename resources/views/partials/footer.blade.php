@@ -14,7 +14,7 @@
 @endphp
 <footer class="bg-ink text-ivory">
     <div class="container-luxe">
-        <div class="grid gap-10 border-b border-ivory/10 py-14 lg:grid-cols-12 lg:gap-16">
+        <div class="grid gap-10 border-b border-ivory/10 py-10 md:py-14 lg:grid-cols-12 lg:gap-16">
             <div class="lg:col-span-5">
                 <p class="font-serif text-3xl tracking-[0.12em]">{{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span></p>
                 @if(!empty($site['footer_blurb']))<p class="mt-4 max-w-sm text-sm leading-relaxed text-ivory/60">{{ $site['footer_blurb'] }}</p>@endif
@@ -31,11 +31,12 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-10 py-14 md:grid-cols-4">
+        {{-- Link columns: accordions on phones (app-style), four open columns from md up --}}
+        <div class="grid grid-cols-1 py-2 md:grid-cols-4 md:gap-10 md:py-14">
             @foreach($columns as $col)
-                <div>
-                    <p class="eyebrow mb-5 text-ivory/50">{{ $col['title'] }}</p>
-                    <ul class="space-y-2.5">
+                <div class="border-b border-ivory/10 md:border-0" x-data="{ o: false }">
+                    <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-4 text-left md:pointer-events-none md:mb-5 md:py-0" :aria-expanded="o"><span class="eyebrow text-ivory/50">{{ $col['title'] }}</span><span class="text-ivory/50 md:hidden"><x-ico name="plus" :size="14" x-show="!o" /><x-ico name="minus" :size="14" x-show="o" x-cloak /></span></button>
+                    <ul class="space-y-2.5 pb-5 md:pb-0" :class="o ? '' : 'max-md:hidden'">
                         @foreach($col['items'] as $l)
                             <li><a href="{{ $l->href }}" class="link-underline text-[0.8125rem] text-ivory/80 hover:text-ivory">{{ $l->label }}</a></li>
                         @endforeach

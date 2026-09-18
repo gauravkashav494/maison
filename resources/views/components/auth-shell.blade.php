@@ -9,7 +9,7 @@
             <p class="display-md mt-4 max-w-md text-balance">{{ $authQuote ?? 'The pieces you reach for, again and again.' }}</p>
         </div>
     </div>
-    <div class="flex items-center justify-center px-5 pb-24 pt-32 lg:px-16 lg:pt-36">
+    <div class="flex items-center justify-center px-5 pb-24 pt-20 lg:px-16 lg:pt-36">
         <div class="w-full max-w-md">
             @if(session('status'))<p class="mb-6 border border-emerald-700/20 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</p>@endif
             {{ $slot }}

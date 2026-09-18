@@ -1,0 +1,63 @@
+/* ---------------------------------------------------------------------------
+   App shell — shared by every storefront template (Fashion, Grocery, Heritage).
+
+   Everything here is scoped to phones and tablets (< lg) so the desktop layout
+   of each template is untouched. It makes the storefront behave like a native
+   app: page-to-page transitions, press feedback, no tap flash, no input zoom,
+   no rubber-band overscroll, and safe-area padding for notches and for the
+   installed (standalone) mode.
+--------------------------------------------------------------------------- */
+@layer base {
+  @media (max-width: 1023px) {
+    html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+    body { overscroll-behavior-y: none; }
+    a, button, label, summary, [role="button"] { touch-action: manipulation; }
+    /* iOS zooms into fields smaller than 16px — keep the keyboard from shifting the layout */
+    input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: max(16px, 1em); }
+    /* Press feedback on anything tappable */
+    button, [role="button"], .app-press { transition: scale .12s ease; }
+    button:active, [role="button"]:active, .app-press:active { scale: .96; }
+    img, a { -webkit-user-drag: none; }
+  }
+}
+
+/* Fixed chrome that behaves like native UI ------------------------------- */
+@media (max-width: 1023px) {
+  :root { --tab-h: 56px; }
+
+  /* Sticky/fixed top bar: keeps clear of the notch when installed */
+  .app-bar { padding-top: env(safe-area-inset-top, 0px); view-transition-name: app-bar; user-select: none; -webkit-user-select: none; }
+
+  /* Bottom tab bar */
+  .tab-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 50; padding-bottom: env(safe-area-inset-bottom, 0px); view-transition-name: app-tabs; user-select: none; -webkit-user-select: none; }
+  .tab-item { position: relative; display: flex; width: 100%; height: var(--tab-h); flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: .01em; }
+  .tab-ico { display: grid; place-items: center; width: 50px; height: 28px; border-radius: 14px; transition: background-color .2s ease, scale .2s ease; }
+  .tab-item.is-active .tab-ico { background: color-mix(in srgb, currentColor 13%, transparent); }
+  .tab-item:active .tab-ico { scale: .92; }
+  .tab-item:active { scale: 1; }
+  .tab-badge { position: absolute; top: 4px; left: calc(50% + 4px); display: grid; min-width: 16px; height: 16px; place-items: center; border-radius: 999px; padding: 0 4px; font-size: 9px; font-weight: 700; line-height: 1; }
+
+  /* Anything that must sit just above the tab bar (sticky add-to-cart, checkout bar, prompts) */
+  .above-tabs { position: fixed; inset-inline: 0; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); z-index: 40; }
+
+  /* Desktop-only chrome (marketing tickers, breadcrumbs) */
+  .web-only { display: none !important; }
+}
+
+/* Installed / full-screen mode --------------------------------------------- */
+@media (display-mode: standalone) and (max-width: 1023px) {
+  /* Pages under a fixed header need the same notch offset the header gets */
+  .app-main-fixed { padding-top: env(safe-area-inset-top, 0px); }
+}
+
+/* Page transitions: content slides like a native navigation stack, the app bar
+   and tab bar stay put. Cross-document view transitions are progressive —
+   browsers without them simply load the page as usual. */
+@media (max-width: 1023px) and (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root) { animation: 140ms ease-in both app-leave; }
+  ::view-transition-new(root) { animation: 220ms cubic-bezier(.2, .7, .2, 1) both app-enter; }
+  ::view-transition-old(app-bar), ::view-transition-new(app-bar), ::view-transition-old(app-tabs), ::view-transition-new(app-tabs) { animation: none; }
+}
+@keyframes app-enter { from { opacity: 0; translate: 22px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes app-leave { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: -10px 0; } }

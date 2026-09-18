@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="container-luxe pt-36 lg:pt-44">
+<section class="container-luxe pt-24 lg:pt-44">
     <div class="mx-auto max-w-3xl text-center">
         <span class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-ink"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.5 9.5 17 19 7"/></svg></span>
         <p class="eyebrow mt-6 text-taupe">Order confirmed</p>

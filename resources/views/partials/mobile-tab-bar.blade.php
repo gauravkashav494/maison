@@ -1,16 +1,17 @@
-@php $item = 'flex flex-1 flex-col items-center gap-1 py-2 text-[0.5625rem] uppercase tracking-[0.15em]'; @endphp
-<nav x-data class="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-ivory/95 pb-safe backdrop-blur-md lg:hidden" aria-label="Mobile">
+{{-- App-style bottom tabs (phones/tablets). Home · Shop · Search · Wishlist · Bag --}}
+@php
+    $tab = fn (bool $active) => 'tab-item '.($active ? 'is-active text-ink' : 'text-smoke');
+    $onShop = request()->is('shop*') || request()->is('product/*') || request()->is('collections*');
+@endphp
+<nav x-data class="tab-bar border-t border-ink/10 bg-ivory/95 backdrop-blur-md lg:hidden" aria-label="Mobile">
     <div class="flex">
-        <a href="{{ route('home') }}" class="{{ $item }} {{ request()->is('/') ? 'text-ink' : 'text-smoke' }}"><x-ico name="home" :size="19" /> Home</a>
-        <a href="{{ route('shop.index') }}" class="{{ $item }} {{ request()->is('shop*') ? 'text-ink' : 'text-smoke' }}"><x-ico name="grid" :size="19" /> Shop</a>
-        <button type="button" @click="$store.ui.openSearch()" class="{{ $item }} text-smoke"><x-ico name="search" :size="19" /> Search</button>
-        <a href="{{ route('account.wishlist') }}" class="{{ $item }} text-smoke"><x-ico name="heart" :size="19" /> Wishlist</a>
-        <button type="button" @click="$store.ui.openCart()" class="{{ $item }} relative text-smoke">
-            <span class="relative">
-                <x-ico name="bag" :size="19" />
-                <span x-cloak x-show="$store.cart.count > 0" x-text="$store.cart.count" class="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-ink px-1 text-[0.5625rem] text-ivory"></span>
-            </span>
-            Bag
+        <a href="{{ route('home') }}" class="{{ $tab(request()->routeIs('home')) }}" @if(request()->routeIs('home')) aria-current="page" @endif><span class="tab-ico"><x-ico name="home" :size="22" :stroke="request()->routeIs('home') ? 1.9 : 1.5" /></span>Home</a>
+        <a href="{{ route('shop.index') }}" class="{{ $tab($onShop) }}" @if($onShop) aria-current="page" @endif><span class="tab-ico"><x-ico name="grid" :size="22" :stroke="$onShop ? 1.9 : 1.5" /></span>Shop</a>
+        <button type="button" @click="$store.ui.openSearch()" class="{{ $tab(false) }}"><span class="tab-ico"><x-ico name="search" :size="22" :stroke="1.5" /></span>Search</button>
+        <a href="{{ route('account.wishlist') }}" class="{{ $tab(request()->is('account/wishlist')) }}"><span class="tab-ico"><x-ico name="heart" :size="22" :stroke="request()->is('account/wishlist') ? 1.9 : 1.5" /></span>Wishlist</a>
+        <button type="button" @click="$store.ui.openCart()" class="{{ $tab(request()->is('cart*') || request()->is('checkout*')) }}">
+            <span class="tab-ico"><x-ico name="bag" :size="22" :stroke="1.5" /></span>Bag
+            <span x-cloak x-show="$store.cart.count > 0" x-text="$store.cart.count" class="tab-badge bg-ink text-ivory"></span>
         </button>
     </div>
 </nav>

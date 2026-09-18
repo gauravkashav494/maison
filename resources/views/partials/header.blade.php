@@ -2,14 +2,14 @@
     $headerItems = $menus['header'];
     $megaKeys = $headerItems->filter(fn ($i) => $i->children->isNotEmpty())->pluck('id');
 @endphp
-<header x-data="header({{ $transparent ? 'true' : 'false' }})"
+<header x-data="header({{ $transparent ? 'true' : 'false' }}, {{ $transparent && request()->routeIs('home') ? 'true' : 'false' }})"
         @mouseenter="hovered = true" @mouseleave="hovered = false; scheduleClose()"
-        class="fixed inset-x-0 top-0 z-50 transition-colors duration-500"
+        class="app-bar fixed inset-x-0 top-0 z-50 transition-colors duration-500"
         :class="solid ? 'bg-ivory/95 text-ink backdrop-blur-md border-b border-ink/10' : 'bg-transparent text-ivory'">
 
     {{-- Announcement bar — collapses on scroll --}}
     @if(!empty($site['announcement_text']))
-        <div class="overflow-hidden bg-ink text-ivory transition-[height] duration-500 ease-[var(--ease-luxe)]" :class="scrolled ? 'h-0' : 'h-9'">
+        <div class="hidden overflow-hidden bg-ink text-ivory transition-[height] duration-500 ease-[var(--ease-luxe)] lg:block" :class="scrolled ? 'h-0' : 'h-9'">
             <div class="container-luxe flex h-9 items-center justify-center text-[0.625rem] uppercase tracking-[0.22em]">
                 <span class="hidden sm:inline">{{ $site['announcement_text'] }}</span>
                 <span class="sm:hidden">{{ $site['announcement_text_short'] ?? $site['announcement_text'] }}</span>
@@ -22,10 +22,12 @@
     @endif
 
     {{-- Main bar --}}
-    <div class="container-luxe grid grid-cols-[1fr_auto_1fr] items-center transition-[height] duration-500 ease-[var(--ease-luxe)]" :class="scrolled ? 'h-16' : 'h-[4.5rem] lg:h-20'">
+    <div class="container-luxe grid grid-cols-[1fr_auto_1fr] items-center transition-[height] duration-500 ease-[var(--ease-luxe)]" :class="scrolled ? 'h-14 lg:h-16' : 'h-14 lg:h-20'">
         {{-- Left: nav (desktop) / menu (mobile) --}}
         <div class="flex items-center">
-            <button type="button" class="-ml-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60 lg:hidden" @click="$store.ui.openMenu()" aria-label="Open menu">
+            {{-- Inner pages get a back arrow, like a native navigation bar --}}
+            @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60 lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
+            <button type="button" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60 lg:hidden {{ request()->routeIs('home') ? '-ml-2' : '' }}" @click="$store.ui.openMenu()" aria-label="Open menu">
                 <x-ico name="menu" :size="22" />
             </button>
             <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary">

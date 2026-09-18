@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../../../css/app-shell.css';
 
 /* Only scan this template's views and scripts so the bundle stays small and isolated. */
 @source '../../../views/templates/grocery/**/*.blade.php';

@@ -32,6 +32,11 @@ class FashionTemplate extends Template
         return '/templates/fashion/thumbnail.jpg';
     }
 
+    public function pwa(): array
+    {
+        return ['name' => setting('site.name', config('app.name')), 'theme_color' => '#f6f3ee', 'background_color' => '#f6f3ee'];
+    }
+
     public function viewPath(): ?string
     {
         return null;

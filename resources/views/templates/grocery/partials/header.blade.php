@@ -7,7 +7,7 @@
 
 {{-- Offer strip --}}
 @if($offer)
-    <div class="bg-saffron-light text-saffron-dark">
+    <div class="hidden bg-saffron-light text-saffron-dark lg:block">
         <div class="g-container flex items-center justify-center gap-2 py-1.5 text-center text-xs font-semibold sm:text-[0.8125rem]">
             <x-ico name="tag" :size="14" class="hidden sm:block" />
             <span>{{ $offer }}</span>
@@ -18,9 +18,11 @@
     </div>
 @endif
 
-<header x-data="header()" class="sticky top-0 z-50 bg-white transition-shadow" :class="scrolled && 'shadow-[0_2px_14px_-6px_rgba(27,31,28,.25)]'">
+<header x-data="header()" class="app-bar sticky top-0 z-50 bg-white transition-shadow" :class="scrolled && 'shadow-[0_2px_14px_-6px_rgba(27,31,28,.25)]'">
     {{-- Main row --}}
-    <div class="g-container flex h-16 items-center gap-3 lg:gap-6">
+    <div class="g-container flex h-14 items-center gap-3 lg:h-16 lg:gap-6">
+        {{-- Inner pages get a back arrow, like a native navigation bar --}}
+        @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-paper lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         {{-- Logo --}}
         <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
@@ -32,7 +34,7 @@
         {{-- Location --}}
         <button type="button" @click="$store.ui.openLocation()" class="group flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-paper lg:px-2">
             <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-leaf-light text-leaf"><x-ico name="pin" :size="16" /></span>
-            <span class="min-w-0">
+            <span class="min-w-0 {{ request()->routeIs('home') ? '' : 'max-lg:hidden' }}">
                 <span class="block truncate text-[0.8125rem] font-extrabold leading-tight">{{ $g['delivery_promise'] ?? 'Delivery in minutes' }}</span>
                 <span class="flex items-center gap-1 text-xs text-slate"><span class="truncate" x-text="$store.location.area || @js($g['delivery_area'] ?? 'Choose location')">{{ $g['delivery_area'] ?? 'Choose location' }}</span><x-ico name="chevron-down" :size="12" /></span>
             </span>

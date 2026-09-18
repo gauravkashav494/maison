@@ -10,7 +10,7 @@
 @endphp
 <x-page-head :title="$title" :breadcrumbs="[$eyebrow => route('account.index'), $title => null]" />
 <section class="h-container grid gap-6 py-6 lg:grid-cols-12 lg:gap-8">
-    <aside class="lg:col-span-3">
+    <aside class="min-w-0 lg:col-span-3">
         <nav class="card no-scrollbar flex gap-1 overflow-x-auto p-2 lg:flex-col" aria-label="Account">
             @foreach($nav as [$label, $url, $pattern, $icon])
                 <a href="{{ $url }}" class="flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold {{ request()->is($pattern) ? 'bg-cream text-maroon' : 'text-muted hover:bg-cream hover:text-ink' }}"><x-ico :name="$icon" :size="18" /> {{ $label }}</a>
@@ -20,7 +20,7 @@
             @endauth
         </nav>
     </aside>
-    <div class="lg:col-span-9">
+    <div class="min-w-0 lg:col-span-9">
         @if(session('status'))<p class="mb-4 flex items-center gap-2 rounded-xl bg-cream px-4 py-3 text-sm font-semibold text-maroon"><x-ico name="check" :size="16" /> {{ session('status') }}</p>@endif
         {{ $slot }}
     </div>

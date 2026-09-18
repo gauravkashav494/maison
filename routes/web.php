@@ -4,6 +4,7 @@ use App\Http\Controllers\Storefront\AccountController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CatalogController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\PwaController;
 use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\ShopController;
 use Illuminate\Support\Facades\Route;
@@ -71,6 +72,10 @@ Route::get('/account/wishlist', [AccountController::class, 'wishlist'])->name('a
 Route::get('/api/search', [CatalogController::class, 'searchJson'])->name('api.search');
 Route::get('/api/products', [CatalogController::class, 'productsJson'])->name('api.products');
 Route::get('/api/products/{slug}', [CatalogController::class, 'productJson'])->name('api.product');
+
+// Installable web app (manifest + offline fallback used by public/sw.js)
+Route::get('/manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 
 // SEO
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');

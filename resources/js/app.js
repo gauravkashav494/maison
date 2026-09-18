@@ -4,6 +4,7 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerExtras from './storefront-extras';
+import registerAppShell from './app-shell';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);
@@ -123,8 +124,9 @@ Alpine.store('recent', {
 /* ---------------------------------------------------------------------------
    Components
 --------------------------------------------------------------------------- */
-Alpine.data('header', (transparent = false) => ({
+Alpine.data('header', (transparent = false, transparentMobile = transparent) => ({
     transparent,
+    transparentMobile,
     scrolled: false,
     hovered: false,
     mega: null,
@@ -135,7 +137,8 @@ Alpine.data('header', (transparent = false) => ({
         window.addEventListener('scroll', onScroll, { passive: true });
     },
     get solid() {
-        return !this.transparent || this.scrolled || this.hovered || this.mega !== null || Alpine.store('ui').anyOpen;
+        const transparent = window.innerWidth >= 1024 ? this.transparent : this.transparentMobile;
+        return !transparent || this.scrolled || this.hovered || this.mega !== null || Alpine.store('ui').anyOpen;
     },
     openMega(key) { clearTimeout(this.closeTimer); this.mega = key; },
     scheduleClose() { clearTimeout(this.closeTimer); this.closeTimer = setTimeout(() => { this.mega = null; }, 120); },
@@ -259,6 +262,7 @@ Alpine.data('parallax', (amount = 0.08) => ({
 }));
 
 registerExtras(Alpine, api);
+registerAppShell(Alpine);
 
 // Lock body scroll while any overlay is open
 Alpine.effect(() => {

@@ -42,6 +42,11 @@ class GroceryTemplate extends Template
         return '/templates/grocery/thumbnail.jpg';
     }
 
+    public function pwa(): array
+    {
+        return ['name' => $this->setting('site.logo_primary', 'Maison').$this->setting('site.logo_accent', 'Fresh'), 'theme_color' => '#ffffff', 'background_color' => '#f6f8f4'];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/grocery';

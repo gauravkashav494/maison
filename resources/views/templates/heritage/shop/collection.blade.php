@@ -2,7 +2,7 @@
 
 @section('content')
 @php $total = $products->sum('price'); $mrp = $products->sum(fn ($p) => $p->compare_at_price ?: $p->price); @endphp
-<div class="h-container pt-4"><x-breadcrumbs :items="['Shop by need' => route('collections.index'), $collection->name => null]" /></div>
+<div class="h-container hidden pt-4 lg:block"><x-breadcrumbs :items="['Shop by need' => route('collections.index'), $collection->name => null]" /></div>
 
 <section class="h-container py-4 lg:py-6">
     <div class="relative overflow-hidden rounded-2xl bg-red text-white">

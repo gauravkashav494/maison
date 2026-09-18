@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#9E1B23">
 
     <x-seo :seo="$seo ?? null" />
+    <x-app-head />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +28,7 @@
 
     @include('partials.footer')
     @include('partials.mobile-tab-bar')
+    @include('partials.app-install')
     @include('partials.mobile-menu')
     @include('partials.search-overlay')
     @include('partials.cart-drawer')

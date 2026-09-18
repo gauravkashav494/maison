@@ -26,7 +26,7 @@
     $benefitIcons = ['leaf', 'badge', 'star', 'shield'];
 @endphp
 <div x-data="productPage(@js($card))" x-init="tab = @js($firstTab)">
-    <div class="h-container pt-5"><x-breadcrumbs :items="$crumbs" /></div>
+    <div class="h-container hidden pt-5 lg:block"><x-breadcrumbs :items="$crumbs" /></div>
 
     <section class="h-container grid gap-8 py-6 lg:grid-cols-12 lg:gap-12">
         {{-- Gallery: big beige box + thumbnails below --}}
@@ -224,7 +224,7 @@
     </div>
 
     {{-- Sticky mobile add-to-cart --}}
-    <div x-show="showSticky" x-cloak x-transition class="fixed inset-x-0 bottom-16 z-40 border-t border-line bg-warm p-3 shadow-float lg:hidden">
+    <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-warm p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3"><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="font-serif text-base font-semibold tabular">{{ money($product->price) }} <span x-text="size" class="font-sans text-xs font-normal text-muted"></span></p></div>@if($product->in_stock)<button type="button" @click="add()" class="btn btn-gold rounded-full">Add to Cart</button>@endif</div>
     </div>
 

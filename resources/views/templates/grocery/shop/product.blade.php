@@ -17,7 +17,7 @@
     $threshold = (int) setting('site.free_shipping_threshold', 0);
 @endphp
 <div x-data="productPage(@js($card))">
-    <div class="g-container pt-4">
+    <div class="g-container hidden pt-4 lg:block">
         <x-breadcrumbs :items="$crumbs" />
     </div>
 
@@ -227,7 +227,7 @@
     </div>
 
     {{-- Sticky mobile bar --}}
-    <div x-show="showSticky" x-cloak x-transition class="fixed inset-x-0 bottom-16 z-40 border-t border-line bg-white p-3 shadow-float lg:hidden">
+    <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
             <div class="min-w-0 flex-1"><p class="truncate text-sm font-bold">{{ $product->name }}</p><p class="text-sm font-extrabold tabular">{{ money($product->price) }} <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
             @if($product->in_stock)

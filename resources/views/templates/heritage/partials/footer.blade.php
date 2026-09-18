@@ -19,9 +19,9 @@
         <p x-show="error" x-cloak class="text-sm text-gold-light" x-text="error"></p>
     </div>
 
-    <div class="h-container grid gap-10 pb-[120px] pt-[26px] md:grid-cols-2 lg:grid-cols-[498fr_208fr_221fr_309fr] lg:gap-2 lg:px-[60px] lg:pb-9">
+    <div class="h-container grid gap-10 pb-8 pt-[26px] max-md:gap-0 md:grid-cols-2 md:pb-[120px] lg:grid-cols-[498fr_208fr_221fr_309fr] lg:gap-2 lg:px-[60px] lg:pb-9">
         {{-- Logo, social, copyright --}}
-        <div>
+        <div class="max-md:pb-6">
             <a href="{{ route('home') }}" class="inline-grid h-[115px] w-[115px] place-items-center rounded-full border-2 border-gold bg-cream text-red">
                 <span class="flex flex-col items-center leading-none"><x-ico name="diamond" :size="14" :stroke="1.8" /><span class="mt-1 font-serif text-[0.8rem] font-semibold uppercase tracking-[0.1em]">{{ Str::substr($h['logo_primary'] ?? 'Annapurna', 0, 9) }}</span><span class="text-[0.65rem] uppercase tracking-[0.2em] text-gold">{{ $h['logo_sub'] ?? '' }}</span></span>
             </a>
@@ -32,16 +32,18 @@
             <p class="mt-4 text-base leading-[27px] text-cream/85">Copyright {{ date('Y') }} {{ $site['name'] ?? config('app.name') }}.<br>All rights reserved.</p>
         </div>
 
-        {{-- Two link columns --}}
-        <div>
-            <ul class="text-base leading-[31px]">@foreach($col1 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
+        {{-- Two link columns: accordions on phones (app-style), plain lists from md up --}}
+        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }">
+            <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left font-semibold text-gold-light md:hidden" :aria-expanded="o">Company <x-ico name="chevron-down" :size="16" class="transition-transform" ::class="o && 'rotate-180'" /></button>
+            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col1 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
         </div>
-        <div>
-            <ul class="text-base leading-[31px]">@foreach($col2 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach @foreach($menus['legal'] ?? [] as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
+        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }">
+            <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left font-semibold text-gold-light md:hidden" :aria-expanded="o">Help &amp; policies <x-ico name="chevron-down" :size="16" class="transition-transform" ::class="o && 'rotate-180'" /></button>
+            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col2 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach @foreach($menus['legal'] ?? [] as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
         </div>
 
         {{-- Get in touch --}}
-        <div class="space-y-2.5 text-base leading-[22px]">
+        <div class="space-y-2.5 text-base leading-[22px] max-md:border-t max-md:border-cream/20 max-md:pt-6">
             <div><p class="font-semibold text-gold-light">Get in Touch:</p>@if($email)<p><a href="mailto:{{ $email }}" class="hover:text-gold-light">{{ $email }}</a> <span class="text-cream/60">(Order related queries)</span></p>@endif @if(!empty($h['whatsapp_number']))<p><a href="https://wa.me/{{ preg_replace('/\D/', '', $h['whatsapp_number']) }}" target="_blank" rel="noopener" class="hover:text-gold-light">WhatsApp us</a></p>@endif</div>
             @if(!empty($h['support_toll_free']) || $phone)<div><p class="font-semibold text-gold-light">Toll Free:</p><p>{{ $h['support_toll_free'] ?? $phone }}</p></div>@endif
             @if(!empty($h['support_hours']))<div><p class="font-semibold text-gold-light">Timings:</p><p>{{ $h['support_hours'] }}</p></div>@endif

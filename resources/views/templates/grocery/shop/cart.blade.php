@@ -3,7 +3,15 @@
 @section('content')
 <x-page-head title="My cart" :breadcrumbs="['Cart' => null]" />
 
-<section class="g-container py-6" x-data="{ code: '' }">
+<section class="g-container pb-28 pt-4 lg:py-6" x-data="{ code: '' }">
+    {{-- App-style sticky checkout bar (phones) --}}
+    <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
+        <div class="flex items-center gap-3">
+            <div class="min-w-0 flex-1"><p class="text-xs text-slate">To pay</p><p class="text-lg font-extrabold tabular" x-text="$store.cart.total_formatted"></p></div>
+            <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>
+        </div>
+    </div>
+
     <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak>
         <x-empty-state icon="cart" title="Your cart is empty" text="Add fresh produce, daily essentials and snacks — delivery is just minutes away.">
             <a href="{{ route('shop.index') }}" class="btn btn-primary btn-lg">Start shopping</a>

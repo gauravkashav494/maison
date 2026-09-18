@@ -41,6 +41,11 @@ class HeritageTemplate extends Template
         return '/templates/heritage/thumbnail.jpg';
     }
 
+    public function pwa(): array
+    {
+        return ['name' => trim($this->setting('site.logo_primary', 'Annapurna').' '.$this->setting('site.logo_accent', '')), 'theme_color' => '#FFFCF5', 'background_color' => '#FFFCF5'];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/heritage';

@@ -26,9 +26,9 @@
         </div>
     </div>
 
-    <div class="g-container grid gap-8 border-t border-line py-10 sm:grid-cols-2 lg:grid-cols-12">
+    <div class="g-container grid gap-8 border-t border-line py-8 max-sm:gap-0 sm:grid-cols-2 lg:grid-cols-12 lg:py-10">
         {{-- Brand --}}
-        <div class="lg:col-span-4">
+        <div class="max-sm:pb-6 lg:col-span-4">
             <a href="{{ route('home') }}" class="flex items-center gap-2">
                 <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
                 <span class="text-xl font-extrabold tracking-tight"><span class="text-leaf-dark">{{ $g['logo_primary'] ?? 'Maison' }}</span><span class="text-saffron">{{ $g['logo_accent'] ?? 'Fresh' }}</span></span>
@@ -46,11 +46,11 @@
             </div>
         </div>
 
-        {{-- Link columns --}}
+        {{-- Link columns: accordions on phones (app-style), open columns from sm up --}}
         @foreach($cols as $title => $items)
-            <div class="lg:col-span-2">
-                <p class="text-xs font-extrabold uppercase tracking-wider text-ink">{{ $title }}</p>
-                <ul class="mt-4 space-y-2.5 text-sm text-slate">
+            <div class="max-sm:border-t max-sm:border-line lg:col-span-2" x-data="{ o: false }">
+                <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left sm:pointer-events-none sm:py-0" :aria-expanded="o"><span class="text-xs font-extrabold uppercase tracking-wider text-ink">{{ $title }}</span><x-ico name="chevron-down" :size="16" class="text-slate transition-transform sm:hidden" ::class="o && 'rotate-180'" /></button>
+                <ul class="space-y-2.5 pb-4 text-sm text-slate sm:mt-4 sm:pb-0" :class="o ? '' : 'max-sm:hidden'">
                     @foreach($items as $item)
                         <li><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-leaf">{{ $item->label }}</a></li>
                     @endforeach
@@ -59,7 +59,7 @@
         @endforeach
 
         {{-- App + payments --}}
-        <div class="lg:col-span-2">
+        <div class="max-sm:border-t max-sm:border-line max-sm:pt-6 lg:col-span-2">
             <p class="text-xs font-extrabold uppercase tracking-wider text-ink">{{ $g['app_heading'] ?? 'Get the app' }}</p>
             <p class="mt-3 text-sm text-slate">{{ $g['app_text'] ?? '' }}</p>
             <div class="mt-4 flex flex-col gap-2">

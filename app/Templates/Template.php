@@ -25,6 +25,15 @@ abstract class Template
     }
 
     /**
+     * Name and colours used by the installable web app (manifest, home-screen label, splash screen).
+     * Icons live in public/templates/{id}/ (icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png).
+     */
+    public function pwa(): array
+    {
+        return ['name' => setting('site.name', config('app.name')), 'theme_color' => '#111111', 'background_color' => '#ffffff'];
+    }
+
+    /**
      * Folder (relative to resources/views) that is searched before the base views.
      * Return null for the template that lives in the base views folder.
      */

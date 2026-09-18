@@ -8,6 +8,7 @@ import intersect from '@alpinejs/intersect';
 import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
+import registerAppShell from '../../../js/app-shell';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);
@@ -351,5 +352,6 @@ Alpine.effect(() => { document.body.style.overflow = Alpine.store('ui').anyOpen 
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') Alpine.store('ui').closeAll(); });
 
 window.Alpine = Alpine;
+registerAppShell(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
