@@ -11,7 +11,7 @@
             <div x-data="rail()" class="relative">
                 <div x-ref="track" class="rail no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
                     <a href="{{ $url }}" class="tile-card w-[11.5rem] sm:w-[13.5rem] lg:w-[15.25rem]" data-slide>
-                        <div class="aspect-[3/4] overflow-hidden">@if($m->image_url)<img src="{{ $m->image_url }}" alt="" class="h-full w-full object-cover" loading="lazy">@endif</div>
+                        <div class="aspect-[3/4]"></div>@if($m->image_url)<img src="{{ $m->image_url }}" alt="" class="absolute inset-0 h-full w-full object-cover" loading="lazy">@endif
                         <div class="absolute inset-0 bg-gradient-to-t from-maroon-deep/90 via-maroon-deep/30 to-transparent"></div>
                         <div class="absolute inset-x-0 bottom-0 p-4 text-center text-cream">
                             <p class="font-serif text-xl font-semibold leading-tight">{{ $m->name }}</p>

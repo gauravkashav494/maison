@@ -7,7 +7,7 @@
         <div class="grid gap-4 sm:grid-cols-2 {{ $img ? 'lg:col-span-9' : 'lg:col-span-12 lg:grid-cols-3' }}">
             @foreach(array_slice($items, 0, 6) as $t)
                 <figure class="review-card">
-                    <p class="text-star" aria-label="{{ $t['rating'] ?? 5 }} stars">{{ str_repeat('★', (int) ($t['rating'] ?? 5)) }}</p>
+                    <p class="sr-only">{{ $t['rating'] ?? 5 }} out of 5 stars</p>
                     <blockquote class="mt-1">{{ $t['text'] }}</blockquote>
                     <b>{{ implode(', ', array_filter([$t['name'] ?? null, $t['location'] ?? null])) }}{{ !empty($t['product']) ? ' – '.$t['product'] : '' }}</b>
                 </figure>

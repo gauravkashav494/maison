@@ -130,7 +130,7 @@ class HeritageHomepageSettings extends Page
 
                 Tab::make('Banners')->icon('heroicon-o-rectangle-group')->schema([
                     Section::make('Video banner')->columns(2)->schema([
-                        TextInput::make("$g.video_url")->label('YouTube or MP4 URL')->helperText('Leave empty to hide the section.'),
+                        TextInput::make("$g.video_url")->label('YouTube or MP4 URL')->helperText('Optional — without a URL the poster shows as a banner with no play button.'),
                         Fields::image("$g.video_poster", 'Poster image (1600×800)', 'heritage'),
                     ]),
                     Section::make('Gifting / offer banner')->columns(2)->schema([

@@ -132,9 +132,9 @@ class HeritageTemplate extends Template
             ],
             'home' => [
                 'hero_slides' => [
-                    ['eyebrow' => 'Harvest 2026', 'heading' => 'Pure ingredients. Timeless Indian taste.', 'text' => 'Heirloom grains, sun-dried spices and cold-pressed oils from farms we know by name.', 'cta_label' => 'Shop the pantry', 'cta_url' => '/shop', 'image' => $u('1532336414038-cf19250c5757', 1200, 1000), 'badges' => ['Stone-ground & cold-pressed', 'Farmer-direct sourcing', 'Lab-tested batches', 'Nothing artificial']],
-                    ['eyebrow' => 'Festive season', 'heading' => 'Ghee, dry fruits and sweets for the celebrations.', 'text' => 'Curated gift boxes and premium staples — up to 30% off until Diwali.', 'cta_label' => 'Shop festive offers', 'cta_url' => '/shop/sale', 'image' => $u('1512909006721-3d6018887383', 1200, 1000), 'badges' => ['Reusable gift tins', 'Hand-packed', 'Pan-India delivery', 'Custom notes']],
-                    ['eyebrow' => 'From the fields', 'heading' => 'Single-origin rice, milled to order.', 'text' => 'Aged basmati, red rice and millets from cooperative farms in Punjab, Kerala and Karnataka.', 'cta_label' => 'Shop rice & grains', 'cta_url' => '/shop/rice-grains', 'image' => $u('1536304993881-ff6e9eefa2a6', 1200, 1000), 'badges' => ['Aged 24 months', 'Milled weekly', 'Single origin', 'Low GI options']],
+                    ['eyebrow' => 'Harvest 2026', 'heading' => 'Pure ingredients. Timeless Indian taste.', 'text' => 'Heirloom grains, sun-dried spices and cold-pressed oils from farms we know by name.', 'cta_label' => '', 'cta_url' => '/shop', 'image' => $u('1532336414038-cf19250c5757', 1800, 800), 'badges' => ['Stone-ground & cold-pressed', 'Farmer-direct sourcing', 'Lab-tested batches', 'Nothing artificial']],
+                    ['eyebrow' => 'Festive season', 'heading' => 'Ghee, dry fruits and sweets for the celebrations.', 'text' => 'Curated gift boxes and premium staples — up to 30% off until Diwali.', 'cta_label' => '', 'cta_url' => '/shop/sale', 'image' => $u('1512909006721-3d6018887383', 1800, 800), 'badges' => ['Reusable gift tins', 'Hand-packed', 'Pan-India delivery', 'Custom notes']],
+                    ['eyebrow' => 'From the fields', 'heading' => 'Single-origin rice, milled to order.', 'text' => 'Aged basmati, red rice and millets from cooperative farms in Punjab, Kerala and Karnataka.', 'cta_label' => '', 'cta_url' => '/shop/rice-grains', 'image' => $u('1536304993881-ff6e9eefa2a6', 1800, 800), 'badges' => ['Aged 24 months', 'Milled weekly', 'Single origin', 'Low GI options']],
                 ],
                 'sections' => [
                     ['key' => 'strip', 'enabled' => true],
@@ -147,13 +147,13 @@ class HeritageTemplate extends Template
                     ['key' => 'certifications', 'enabled' => true],
                     ['key' => 'trust', 'enabled' => true],
                     ['key' => 'categories', 'enabled' => true],
-                    ['key' => 'offer', 'enabled' => true],
                     ['key' => 'values', 'enabled' => true],
+                    ['key' => 'offer', 'enabled' => true],
                     ['key' => 'journal', 'enabled' => true],
                     ['key' => 'testimonials', 'enabled' => true],
                 ],
                 'strip_text' => 'We stone-grind, cold-press and sun-dry — never refine, bleach or polish — so every pack keeps the whole grain’s goodness.',
-                'strip_image' => $u('1506368249639-73a05d6f6488', 600, 400),
+                'strip_image' => $u('1506368249639-73a05d6f6488', 1600, 300),
                 'featured_heading' => 'Festive Special',
                 'featured_source' => 'collection',
                 'featured_collection_slug' => 'festive-cooking',

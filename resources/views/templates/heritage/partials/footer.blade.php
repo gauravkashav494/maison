@@ -30,7 +30,6 @@
                 @foreach($socials as $icon => $url)@if($url)<a href="{{ $url }}" target="_blank" rel="noreferrer" class="grid h-9 w-9 place-items-center rounded-full bg-cream text-red hover:bg-gold-light" aria-label="{{ $icon }}"><x-ico :name="$icon" :size="17" /></a>@endif @endforeach
             </div>
             <p class="mt-5 text-xs text-cream/70">Copyright {{ date('Y') }} {{ $site['name'] ?? config('app.name') }}.<br>All rights reserved.</p>
-            @if(!empty($h['certifications']))<ul class="mt-4 flex flex-wrap gap-1.5">@foreach($h['certifications'] as $cert)<li class="rounded-full border border-gold/60 px-2.5 py-0.5 text-[0.6875rem] text-gold-light">{{ $cert }}</li>@endforeach</ul>@endif
         </div>
 
         {{-- Two link columns --}}

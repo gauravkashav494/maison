@@ -251,3 +251,15 @@
   .review-card b { display: block; margin-top: 0.75rem; font-size: 0.8125rem; }
   .torn { height: 4.5rem; background: radial-gradient(1.25rem 1.25rem at 1.25rem 0, transparent 1.2rem, var(--color-maroon-deep) 1.25rem) 0 0 / 2.5rem 100% repeat-x; }
 }
+
+@layer components {
+  /* Card actions stay hidden until hover (reference cards show only the discount pill) */
+  .pcard-act { opacity: 0; transition: opacity .2s; }
+  .pcard:hover .pcard-act, .pcard-act.is-on, .pcard-act:focus-visible { opacity: 1; }
+  @media (hover: none) { .pcard-act { opacity: 1; } }
+  .pcard-name { font-weight: 700; }
+}
+
+@layer components {
+  .filter-head { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.25rem 0; font-family: var(--font-serif); font-size: 1rem; font-weight: 600; color: var(--color-ink); text-align: left; }
+}
