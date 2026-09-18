@@ -141,7 +141,7 @@ class PagesSeeder extends Seeder
         ];
 
         foreach ($pages as $slug => $attrs) {
-            Page::updateOrCreate(['slug' => $slug], $attrs + ['is_active' => true, 'body' => $attrs['body'] ?? null]);
+            Page::updateOrCreate(['slug' => $slug, 'storefront_template' => 'fashion'], $attrs + ['is_active' => true, 'body' => $attrs['body'] ?? null]);
         }
     }
 

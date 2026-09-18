@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
@@ -9,7 +10,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Page extends Model
 {
+    use BelongsToTemplate;
     use HasSeo;
+
+    /** pages.template is the page layout; the storefront template lives here. */
+    public static function templateColumn(): string
+    {
+        return 'storefront_template';
+    }
 
     protected $guarded = [];
 

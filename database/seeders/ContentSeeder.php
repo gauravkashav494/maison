@@ -17,7 +17,7 @@ class ContentSeeder extends Seeder
             ['slug' => 'the-signature-collection', 'title' => 'The Signature Collection', 'category' => 'Campaign', 'excerpt' => 'Behind the lens of our Autumn campaign — shot over three days in a converted textile mill.', 'image' => Media::unsplash('1524504388940-b1c1722653e1', 1200, '&h=1500'), 'read_time' => '8 min read', 'published_at' => '2026-08-12 10:00:00'],
         ];
         foreach ($posts as $post) {
-            Post::updateOrCreate(['slug' => $post['slug']], $post + ['body' => '<p>'.$post['excerpt'].'</p><p>Full story coming soon.</p>']);
+            Post::updateOrCreate(['slug' => $post['slug'], 'template' => 'fashion'], $post + ['body' => '<p>'.$post['excerpt'].'</p><p>Full story coming soon.</p>']);
         }
 
         $pages = [

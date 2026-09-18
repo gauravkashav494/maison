@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Models\Category;
 use App\Models\Collection;
+use App\Models\Faq;
+use App\Models\Page;
+use App\Models\Post;
 use App\Models\Product;
 use App\Templates\Scopes\TemplateVisibility;
 use App\Templates\TemplateManager;
@@ -48,7 +51,7 @@ class ResolveTemplate
             View::getFinder()->prependLocation(resource_path('views/'.$path));
         }
 
-        foreach ([Product::class, Category::class, Collection::class] as $model) {
+        foreach ([Product::class, Category::class, Collection::class, Page::class, Post::class, Faq::class] as $model) {
             $model::addGlobalScope(TemplateVisibility::NAME, new TemplateVisibility($template->id()));
         }
 

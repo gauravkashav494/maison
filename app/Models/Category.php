@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
+    use BelongsToTemplate;
+
     use HasSeo;
 
     protected $guarded = [];

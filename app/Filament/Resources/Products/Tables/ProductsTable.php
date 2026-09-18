@@ -44,7 +44,6 @@ class ProductsTable
                 TextColumn::make('updated_at')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                \App\Filament\Support\Fields::templateFilter(),
                 SelectFilter::make('category')->relationship('category', 'name')->preload(),
                 TernaryFilter::make('is_active')->label('Visible'),
                 TernaryFilter::make('is_new')->label('New arrival'),

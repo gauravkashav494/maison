@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 class Menu extends Model
 {
+    use BelongsToTemplate;
+
     protected $guarded = [];
 
     public const LOCATIONS = [

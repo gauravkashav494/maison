@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             GrocerySettingsSeeder::class,
             GroceryMenuSeeder::class,
             GroceryCatalogSeeder::class,
+            GroceryContentSeeder::class,
         ]);
     }
 }

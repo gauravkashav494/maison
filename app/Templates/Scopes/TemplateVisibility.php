@@ -19,7 +19,7 @@ class TemplateVisibility implements Scope
 
     public function apply(Builder $builder, Model $model): void
     {
-        $column = $model->qualifyColumn('template');
+        $column = $model->qualifyColumn(method_exists($model, 'templateColumn') ? $model::templateColumn() : 'template');
         $builder->where(fn (Builder $q) => $q->whereNull($column)->orWhere($column, $this->template));
     }
 }

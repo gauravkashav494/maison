@@ -25,7 +25,8 @@ class PostForm
                         ->icon('heroicon-o-newspaper')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('title', 'Title'),
+                                ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'template'),
+                                Fields::templateVisibility()->live(),
                                 TextInput::make('category')->maxLength(60)->placeholder('Editorial, Style Notes, Campaign…'),
                                 TextInput::make('read_time')->maxLength(30)->placeholder('6 min read'),
                                 DateTimePicker::make('published_at')->label('Publish at')->seconds(false)->default(now()),

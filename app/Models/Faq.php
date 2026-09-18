@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Faq extends Model
 {
+    use BelongsToTemplate;
+
     protected $guarded = [];
 
     protected $casts = ['is_active' => 'boolean'];

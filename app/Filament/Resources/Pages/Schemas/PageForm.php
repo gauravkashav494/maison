@@ -32,7 +32,8 @@ class PageForm
                         ->icon('heroicon-o-document-text')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('title', 'Title'),
+                                ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'storefront_template'),
+                                Fields::templateVisibility('storefront_template')->live(),
                                 Select::make('template')
                                     ->options(Page::TEMPLATES)
                                     ->default('default')

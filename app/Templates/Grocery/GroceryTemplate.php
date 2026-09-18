@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Support\Media;
 use App\Templates\Template;
 use Database\Seeders\GroceryCatalogSeeder;
+use Database\Seeders\GroceryContentSeeder;
 use Database\Seeders\GroceryMenuSeeder;
 use Database\Seeders\GrocerySettingsSeeder;
 use Illuminate\Support\Facades\Cache;
@@ -82,6 +83,7 @@ class GroceryTemplate extends Template
         app(GrocerySettingsSeeder::class)->run();
         app(GroceryMenuSeeder::class)->run();
         app(GroceryCatalogSeeder::class)->run();
+        app(GroceryContentSeeder::class)->run();
         Cache::flush();
     }
 

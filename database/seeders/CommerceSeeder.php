@@ -106,9 +106,9 @@ class CommerceSeeder extends Seeder
             ['General', 'Do you have physical boutiques?', 'Yes. Our flagship is in Bengaluru with boutiques in Mumbai and New Delhi. See the store locator for hours and directions.'],
             ['General', 'How can I contact you?', 'Email care@maisonelan.com or call +91 80 4500 1200, Monday to Saturday, 10:00–19:00 IST.'],
         ];
-        Faq::query()->delete();
+        Faq::where('template', 'fashion')->delete();
         foreach ($faqs as $i => [$cat, $q, $a]) {
-            Faq::create(['category' => $cat, 'question' => $q, 'answer' => $a, 'sort_order' => $i]);
+            Faq::create(['category' => $cat, 'question' => $q, 'answer' => $a, 'sort_order' => $i, 'template' => 'fashion']);
         }
 
         foreach ([

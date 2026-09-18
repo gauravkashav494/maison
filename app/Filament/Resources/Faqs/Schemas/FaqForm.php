@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Faqs\Schemas;
 
+use App\Filament\Support\Fields;
 use App\Models\Faq;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -18,6 +19,7 @@ class FaqForm
             Grid::make(2)->schema([
                 Select::make('category')->options(array_combine(Faq::CATEGORIES, Faq::CATEGORIES))->required()->native(false),
                 Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
+                Fields::templateVisibility(),
             ]),
             TextInput::make('question')->required()->maxLength(200),
             Textarea::make('answer')->rows(5)->required(),

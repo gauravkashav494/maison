@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Menus\Tables;
 use App\Templates\TemplateManager;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class MenusTable
@@ -20,9 +19,6 @@ class MenusTable
                 TextColumn::make('all_items_count')->counts('allItems')->label('Items')->alignRight(),
             ])
             ->defaultSort('template')
-            ->filters([
-                SelectFilter::make('template')->options(fn () => app(TemplateManager::class)->options())->default(fn () => app(TemplateManager::class)->activeId()),
-            ])
             ->recordActions([EditAction::make()->label('Manage items')]);
     }
 }

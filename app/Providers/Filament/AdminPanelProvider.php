@@ -47,12 +47,12 @@ class AdminPanelProvider extends PanelProvider
                     ->group('Appearance')
                     ->sort(11)
                     ->icon('heroicon-o-bars-3')
-                    ->url(fn () => MenuResource::getUrl('index', ['tableFilters' => ['template' => ['value' => 'fashion']]])),
+                    ->url(fn () => MenuResource::getUrl('index', ['tab' => 'fashion'])),
                 NavigationItem::make('Grocery · Navigation')
                     ->group('Appearance')
                     ->sort(22)
                     ->icon('heroicon-o-bars-3')
-                    ->url(fn () => MenuResource::getUrl('index', ['tableFilters' => ['template' => ['value' => 'grocery']]])),
+                    ->url(fn () => MenuResource::getUrl('index', ['tab' => 'grocery'])),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([

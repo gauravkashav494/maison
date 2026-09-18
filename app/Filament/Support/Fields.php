@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Unique;
 
 /** Reusable admin form building blocks shared across resources and settings pages. */
 class Fields
@@ -55,7 +56,8 @@ class Fields
     }
 
     /** Name + auto-generated slug pair. */
-    public static function nameAndSlug(string $nameField = 'name', string $label = 'Name'): array
+    /** @param  string|null  $scopeColumn  make the slug unique per value of this column (e.g. per storefront template) */
+    public static function nameAndSlug(string $nameField = 'name', string $label = 'Name', ?string $scopeColumn = null): array
     {
         return [
             TextInput::make($nameField)
@@ -73,15 +75,16 @@ class Fields
                 ->required()
                 ->maxLength(255)
                 ->alphaDash()
-                ->unique(ignoreRecord: true)
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $scopeColumn ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule)
                 ->helperText('Used in the page URL. Lowercase letters, numbers and dashes only.'),
         ];
     }
 
     /** "Visible in" template selector for catalogue records (null = every template). */
-    public static function templateVisibility(): Select
+    public static function templateVisibility(string $column = 'template'): Select
     {
-        return Select::make('template')
+        return Select::make($column)
+            ->default(fn () => app(TemplateManager::class)->has((string) request()->query('template')) ? request()->query('template') : null)
             ->label('Visible in')
             ->options(fn () => app(TemplateManager::class)->options())
             ->placeholder('All templates')

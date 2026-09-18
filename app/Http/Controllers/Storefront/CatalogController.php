@@ -177,7 +177,8 @@ class CatalogController extends Controller
 
     public function page(string $slug): View
     {
-        $page = Page::active()->where('slug', $slug)->firstOrFail();
+        // A template-specific page wins over a shared page with the same slug.
+        $page = Page::active()->where('slug', $slug)->orderByRaw('storefront_template is null')->firstOrFail();
         $template = in_array($page->template, array_keys(Page::TEMPLATES), true) ? $page->template : 'default';
 
         $extra = match ($template) {
@@ -219,7 +220,7 @@ class CatalogController extends Controller
 
     public function post(string $slug): View
     {
-        $post = Post::published()->where('slug', $slug)->firstOrFail();
+        $post = Post::published()->where('slug', $slug)->orderByRaw('template is null')->firstOrFail();
 
         return view('pages.post', [
             'post' => $post,

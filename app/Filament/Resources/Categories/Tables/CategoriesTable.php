@@ -29,7 +29,6 @@ class CategoriesTable
                 ToggleColumn::make('show_in_menu')->label('Homepage'),
             ])
             ->filters([
-                \App\Filament\Support\Fields::templateFilter(),
                 TernaryFilter::make('parent_id')->label('Level')->nullable()->trueLabel('Sub-categories')->falseLabel('Top level')->queries(
                     true: fn ($q) => $q->whereNotNull('parent_id'),
                     false: fn ($q) => $q->whereNull('parent_id'),
