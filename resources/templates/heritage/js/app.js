@@ -179,14 +179,14 @@ Alpine.data('search', (suggestions = []) => ({
 /** Product card: quantity selector + Add to cart (multi-pack products open quick view to pick a size). */
 Alpine.data('hCard', (product) => ({
     product, qty: 1, added: false,
-    get size() { return this.product.sizes.length === 1 ? this.product.sizes[0] : null; },
+    size: product.sizes[0] ?? null,
     get multi() { return this.product.sizes.length > 1; },
     get max() { return this.product.max_qty || 20; },
     inc() { if (this.qty < this.max) this.qty++; },
     dec() { if (this.qty > 1) this.qty--; },
     async add() {
         if (!this.product.in_stock) return;
-        if (this.multi) { Alpine.store('ui').showQuickView(this.product.slug); return; }
+        if (!this.size) { Alpine.store('ui').showQuickView(this.product.slug); return; }
         await Alpine.store('cart').add(this.product.id, this.size, null, this.qty, false);
         this.added = true; setTimeout(() => { this.added = false; }, 1400);
         this.qty = 1;

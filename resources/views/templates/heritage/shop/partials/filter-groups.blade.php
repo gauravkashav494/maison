@@ -1,6 +1,6 @@
 {{-- Filter groups shared by the sidebar and the mobile drawer. Expects shopFilters() in scope. --}}
-@php $hs = tsetting('site'); $head = 'eyebrow !text-[0.625rem]'; $opt = 'flex cursor-pointer items-center gap-2.5 py-1.5 text-sm text-muted hover:text-ink'; @endphp
-<div class="mt-3 divide-y divide-line-soft">
+@php $hs = tsetting('site'); $head = 'font-serif text-base font-semibold text-ink'; $opt = 'flex cursor-pointer items-center gap-2.5 py-1.5 text-sm text-muted hover:text-ink'; @endphp
+<div class="mt-2 divide-y divide-line">
     @if(!$category && $facets['categories']->isNotEmpty())
         <div class="py-4"><p class="{{ $head }}">Category</p><div class="mt-2 max-h-56 overflow-y-auto">@foreach($facets['categories'] as $c)<label class="{{ $opt }}"><input type="checkbox" class="check" :checked="has('category', @js($c->slug))" @change="toggle('category', @js($c->slug))"> {{ $c->name }}</label>@endforeach</div></div>
     @endif

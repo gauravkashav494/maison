@@ -61,6 +61,14 @@ class HeritageSettings extends Page
                         TextInput::make("$g.delivery_note")->label('Delivery note')->helperText('Shown beside the search on desktop.'),
                         TagsInput::make("$g.search_suggestions")->label('Popular searches')->reorderable()->columnSpan(2),
                     ]),
+                    Section::make('Navigation labels')->columns(3)->schema([
+                        TextInput::make("$g.nav_featured_label")->label('First link label')->helperText('Highlighted link, e.g. Festive Special.'),
+                        TextInput::make("$g.nav_featured_url")->label('First link URL'),
+                        TextInput::make("$g.nav_all_label")->label('All products label'),
+                        TextInput::make("$g.nav_category_label")->label('Category dropdown label'),
+                        TextInput::make("$g.nav_need_label")->label('Need dropdown label'),
+                        TextInput::make("$g.logo_sub")->label('Logo subline')->helperText('Small line under the wordmark in the round logo.'),
+                    ]),
                     Section::make('Filters')->schema([
                         Toggle::make("$g.show_diet_filter")->label('Show the dietary preference filter on listings'),
                     ]),
@@ -76,6 +84,9 @@ class HeritageSettings extends Page
                     Grid::make(3)->schema([
                         TextInput::make("$g.support_phone")->label('Support phone')->helperText('Falls back to Site settings → contact phone.'),
                         TextInput::make("$g.support_hours")->label('Support hours'),
+                        TextInput::make("$g.support_toll_free")->label('Toll-free number'),
+                        TextInput::make("$g.support_email")->label('Support email')->helperText('Falls back to Site settings → contact email.'),
+                        TextInput::make("$g.gifting_email")->label('Corporate gifting email'),
                         TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format, e.g. 919876543210.'),
                     ]),
                 ]),

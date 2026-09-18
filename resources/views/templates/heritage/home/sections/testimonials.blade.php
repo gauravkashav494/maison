@@ -1,18 +1,15 @@
-@php $items = array_values(array_filter($g['testimonials'] ?? [], fn ($t) => ! empty($t['text']))); @endphp
+@php $items = array_values(array_filter($g['testimonials'] ?? [], fn ($t) => ! empty($t['text']))); $img = \App\Support\Media::url($g['testimonials_image'] ?? null); @endphp
 @if($items)
-<section class="border-y border-line bg-warm">
-    <div class="h-container section">
-        <x-section-head :eyebrow="$g['testimonials_eyebrow'] ?? 'Customer stories'" :title="$g['testimonials_heading'] ?? 'Loved in kitchens across India'" center />
-        <div class="grid gap-4 md:grid-cols-3">
-            @foreach($items as $t)
-                <figure class="card relative flex flex-col p-6">
-                    <x-ico name="quote" :size="28" :stroke="1.2" class="text-gold" />
-                    <x-rating :value="(int) ($t['rating'] ?? 5)" :size="14" class="mt-3" />
-                    <blockquote class="mt-3 flex-1 font-serif text-[1.05rem] leading-relaxed text-ink">“{{ $t['text'] }}”</blockquote>
-                    <figcaption class="mt-5 flex items-center gap-3 border-t border-line-soft pt-4">
-                        <span class="grid h-10 w-10 place-items-center rounded-full bg-cream font-serif text-base font-semibold text-red">{{ Str::upper(Str::substr($t['name'] ?? 'C', 0, 1)) }}</span>
-                        <span><span class="block text-sm font-semibold">{{ $t['name'] ?? '' }}</span><span class="block text-xs text-muted">{{ implode(' · ', array_filter([$t['location'] ?? null, !empty($t['product']) ? 'Bought '.$t['product'] : null])) }}</span></span>
-                    </figcaption>
+<section class="h-container section !py-8 lg:!py-10">
+    <h2 class="title-c">{{ $g['testimonials_heading'] ?? 'Happy customers' }}</h2>
+    <div class="mt-6 grid gap-4 lg:mt-8 lg:grid-cols-12">
+        @if($img)<div class="banner-round relative aspect-[3/4] max-h-[26rem] bg-cream-dark lg:col-span-3 lg:max-h-none"><img src="{{ $img }}" alt="" class="absolute inset-0 h-full w-full object-cover" loading="lazy"><span class="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 text-[0.6875rem] font-semibold text-maroon">Real kitchens, real reviews</span></div>@endif
+        <div class="grid gap-4 sm:grid-cols-2 {{ $img ? 'lg:col-span-9' : 'lg:col-span-12 lg:grid-cols-3' }}">
+            @foreach(array_slice($items, 0, 6) as $t)
+                <figure class="review-card">
+                    <p class="text-star" aria-label="{{ $t['rating'] ?? 5 }} stars">{{ str_repeat('★', (int) ($t['rating'] ?? 5)) }}</p>
+                    <blockquote class="mt-1">{{ $t['text'] }}</blockquote>
+                    <b>{{ implode(', ', array_filter([$t['name'] ?? null, $t['location'] ?? null])) }}{{ !empty($t['product']) ? ' – '.$t['product'] : '' }}</b>
                 </figure>
             @endforeach
         </div>
