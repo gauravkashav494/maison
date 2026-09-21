@@ -19,8 +19,11 @@
             </div>
         @endforeach
         @if(count($banners) > 1)
-            <button type="button" @click="prev()" class="rail-btn absolute left-3 top-1/2 hidden -translate-y-1/2 lg:grid" aria-label="Previous slide"><x-ico name="chevron-left" :size="18" /></button>
-            <button type="button" @click="next()" class="rail-btn absolute right-3 top-1/2 hidden -translate-y-1/2 lg:grid" aria-label="Next slide"><x-ico name="chevron-right" :size="18" /></button>
+            {{-- Arrows sit together in the bottom-right corner so they never overlap the headline --}}
+            <div class="absolute bottom-4 right-4 hidden gap-2 lg:flex">
+                <button type="button" @click="prev()" class="rail-btn" aria-label="Previous slide"><x-ico name="chevron-left" :size="18" /></button>
+                <button type="button" @click="next()" class="rail-btn" aria-label="Next slide"><x-ico name="chevron-right" :size="18" /></button>
+            </div>
             <div class="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
                 @foreach($banners as $i => $b)<button type="button" @click="go({{ $i }})" class="h-1.5 rounded-full bg-white/60 transition-all" :class="index === {{ $i }} ? 'w-6 bg-white' : 'w-1.5'" aria-label="Go to slide {{ $i + 1 }}"></button>@endforeach
             </div>
