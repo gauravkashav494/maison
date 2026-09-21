@@ -164,13 +164,27 @@ class CatalogController extends Controller
         ]);
     }
 
+    /**
+     * Every word of the query must match one of the product fields, so technical searches
+     * such as "1 inch PVC pipe" or "brass ball valve" work across name, brand, SKU,
+     * material, sizes and category.
+     */
     private function searchQuery(string $q)
     {
+        $words = array_values(array_filter(preg_split('/\s+/', trim($q))));
+
         return Product::with('category')->active()
-            ->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
-                ->orWhere('description', 'like', "%{$q}%")
-                ->orWhere('brand', 'like', "%{$q}%")
-                ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$q}%")))
+            ->where(function ($outer) use ($words) {
+                foreach ($words as $word) {
+                    $outer->where(fn ($w) => $w->where('name', 'like', "%{$word}%")
+                        ->orWhere('description', 'like', "%{$word}%")
+                        ->orWhere('brand', 'like', "%{$word}%")
+                        ->orWhere('sku', 'like', "%{$word}%")
+                        ->orWhere('material', 'like', "%{$word}%")
+                        ->orWhere('sizes', 'like', "%{$word}%")
+                        ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$word}%")));
+                }
+            })
             ->orderBy('sort_order');
     }
 

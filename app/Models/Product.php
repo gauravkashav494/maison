@@ -30,6 +30,7 @@ class Product extends Model
         'is_veg' => 'boolean',
         'dietary_tags' => 'array',
         'nutrition' => 'array',
+        'specifications' => 'array',
         'rating' => 'float',
     ];
 
@@ -139,6 +140,8 @@ class Product extends Model
             'in_stock' => $this->in_stock,
             'description' => $this->description,
             'brand' => $this->brand,
+            'sku' => $this->sku,
+            'material' => $this->material,
             'video_url' => $this->video_url,
             // Grocery attributes (null when not applicable)
             'is_veg' => $this->is_veg,

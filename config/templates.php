@@ -20,5 +20,7 @@ return [
         App\Templates\Fashion\FashionTemplate::class,
         App\Templates\Grocery\GroceryTemplate::class,
         App\Templates\Heritage\HeritageTemplate::class,
+        App\Templates\Plumbing\PlumbingTemplate::class,
+        App\Templates\PlumbingServices\PlumbingServicesTemplate::class,
     ],
 ];

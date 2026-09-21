@@ -15,6 +15,11 @@ export default defineConfig({
                 // Heritage Grocery template
                 'resources/templates/heritage/css/app.css',
                 'resources/templates/heritage/js/app.js',
+                // Plumbing template
+                'resources/templates/plumbing/css/app.css',
+                'resources/templates/plumbing/js/app.js',
+                'resources/templates/plumbing-services/css/app.css',
+                'resources/templates/plumbing-services/js/app.js',
                 'resources/css/filament/admin/theme.css',
             ],
             refresh: true,

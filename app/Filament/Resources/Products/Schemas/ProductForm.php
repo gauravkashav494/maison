@@ -144,6 +144,23 @@ class ProductForm
                                     ]),
                             ]),
 
+                        Tab::make('Plumbing specifications')
+                            ->icon('heroicon-o-wrench-screwdriver')
+                            ->schema([
+                                Section::make('Technical data')
+                                    ->description('Used by the Plumbing template: the specification table, Applications and Installation tabs on the product page. Sizes (e.g. 1/2 inch, 1 inch) are the "Sizes" on the Media & Variants tab; brand and material are on the Details tab.')
+                                    ->columns(2)
+                                    ->schema([
+                                        Repeater::make('specifications')
+                                            ->label('Specifications')
+                                            ->schema([TextInput::make('label')->required()->placeholder('Material'), TextInput::make('value')->required()->placeholder('CPVC')])
+                                            ->columns(2)->defaultItems(0)->addActionLabel('Add row')->reorderable()->columnSpan(2)
+                                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
+                                        Textarea::make('applications')->label('Applications')->rows(3)->helperText('One application per line, e.g. "Hot and cold water lines".'),
+                                        Textarea::make('installation_notes')->label('Installation / usage notes')->rows(3),
+                                    ]),
+                            ]),
+
                         Fields::seoTab(),
                     ]),
             ]);
