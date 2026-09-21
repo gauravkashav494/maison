@@ -39,7 +39,7 @@ class GroceryHomepageSettings extends Page
         'new' => 'New in store',
         'brands' => 'Top brands',
         'promises' => 'Why shop with us',
-        'app' => 'App promotion',
+        'promo' => 'Promo banner',
     ];
 
     protected string $view = 'filament.pages.settings';
@@ -177,7 +177,7 @@ class GroceryHomepageSettings extends Page
                         Fields::image("$g.banner_image", 'Image (landscape, 1600×700)', 'grocery'),
                     ]),
 
-                    Tab::make('Promises & app')->icon('heroicon-o-sparkles')->schema([
+                    Tab::make('Promises & promo')->icon('heroicon-o-sparkles')->schema([
                         Repeater::make("$g.promises")
                             ->label('Why shop with us')
                             ->schema([
@@ -191,10 +191,13 @@ class GroceryHomepageSettings extends Page
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
                             ->maxItems(6),
-                        Section::make('App promotion block')->columns(2)->schema([
-                            TextInput::make("$g.app_heading")->label('Heading'),
-                            TextInput::make("$g.app_text")->label('Text'),
-                            Fields::image("$g.app_image", 'Image (portrait)', 'grocery')->columnSpan(2),
+                        Section::make('Promo banner')->description('Green banner near the bottom of the homepage.')->columns(2)->schema([
+                            TextInput::make("$g.promo_eyebrow")->label('Small label')->placeholder('Weekly offers'),
+                            TextInput::make("$g.promo_heading")->label('Heading'),
+                            TextInput::make("$g.promo_text")->label('Text')->columnSpan(2),
+                            TextInput::make("$g.promo_cta_label")->label('Button label'),
+                            TextInput::make("$g.promo_cta_url")->label('Button link')->placeholder('/shop/sale'),
+                            Fields::image("$g.promo_image", 'Image (portrait)', 'grocery')->columnSpan(2),
                         ]),
                         Section::make('Newsletter')->columns(2)->schema([
                             TextInput::make("$g.newsletter_heading")->label('Heading'),

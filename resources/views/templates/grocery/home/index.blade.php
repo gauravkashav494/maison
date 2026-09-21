@@ -14,7 +14,7 @@
             @case('new') @include('home.sections.new') @break
             @case('brands') @include('home.sections.brands') @break
             @case('promises') @include('home.sections.promises') @break
-            @case('app') @include('home.sections.app') @break
+            @case('promo') @include('home.sections.promo') @break
         @endswitch
     @endforeach
 
