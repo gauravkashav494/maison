@@ -80,7 +80,8 @@
             <button type="button" @mouseenter="openMega('all')" @click="mega = mega === 'all' ? null : 'all'" class="flex h-11 items-center gap-2 border-r border-line pr-4 text-sm font-bold" :class="mega === 'all' && 'text-leaf'">
                 <x-ico name="grid" :size="18" /> All categories <x-ico name="chevron-down" :size="14" />
             </button>
-            <div class="flex flex-1 items-center gap-0.5 overflow-hidden">
+            {{-- Wraps + fixed height: a category that does not fit drops to a clipped second row instead of being cut mid-word --}}
+            <div class="flex h-11 flex-1 flex-wrap items-center gap-0.5 overflow-hidden">
                 @foreach($cats->take(8) as $c)
                     <a href="{{ $c->url }}" @mouseenter="openMega('c{{ $c->id }}')" class="{{ $loop->index >= 5 ? 'hidden xl:flex' : 'flex' }} h-11 shrink-0 items-center gap-1 px-3 text-[0.8125rem] font-semibold text-ink transition-colors hover:text-leaf" :class="mega === 'c{{ $c->id }}' && 'text-leaf'">
                         {{ $c->name }}@if($c->children->isNotEmpty())<x-ico name="chevron-down" :size="12" class="text-mist" />@endif
