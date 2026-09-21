@@ -58,16 +58,10 @@
             </div>
         @endforeach
 
-        {{-- App + payments --}}
+        {{-- Payments --}}
         <div class="max-sm:border-t max-sm:border-line max-sm:pt-6 lg:col-span-2">
-            <p class="text-xs font-extrabold uppercase tracking-wider text-ink">{{ $g['app_heading'] ?? 'Get the app' }}</p>
-            <p class="mt-3 text-sm text-slate">{{ $g['app_text'] ?? '' }}</p>
-            <div class="mt-4 flex flex-col gap-2">
-                <a href="{{ $g['app_store_url'] ?? '#' }}" class="btn btn-dark btn-sm justify-start gap-3"><x-ico name="apple" :size="18" /> <span class="flex flex-col items-start leading-none"><span class="text-[0.625rem] font-medium opacity-80">Download on the</span><span class="text-sm">App Store</span></span></a>
-                <a href="{{ $g['play_store_url'] ?? '#' }}" class="btn btn-dark btn-sm justify-start gap-3"><x-ico name="play" :size="16" /> <span class="flex flex-col items-start leading-none"><span class="text-[0.625rem] font-medium opacity-80">Get it on</span><span class="text-sm">Google Play</span></span></a>
-            </div>
             @if(!empty($site['payment_methods']))
-                <p class="mt-6 text-xs font-extrabold uppercase tracking-wider text-ink">We accept</p>
+                <p class="text-xs font-extrabold uppercase tracking-wider text-ink">We accept</p>
                 <ul class="mt-3 flex flex-wrap gap-1.5">
                     @foreach($site['payment_methods'] as $pm)<li class="rounded-md border border-line px-2 py-1 text-[0.6875rem] font-bold text-slate">{{ $pm }}</li>@endforeach
                 </ul>

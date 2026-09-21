@@ -86,14 +86,8 @@ class GrocerySettings extends Page
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format, e.g. 919876543210. Leave blank to hide the WhatsApp button.'),
                         ]),
                     ]),
-                    Tab::make('Footer & app')->icon('heroicon-o-device-phone-mobile')->schema([
+                    Tab::make('Footer')->icon('heroicon-o-rectangle-stack')->schema([
                         Textarea::make("$g.footer_blurb")->label('Footer blurb')->rows(2),
-                        Section::make('Mobile app promotion')->columns(2)->schema([
-                            TextInput::make("$g.app_heading")->label('Heading'),
-                            TextInput::make("$g.app_text")->label('Text'),
-                            TextInput::make("$g.app_store_url")->label('App Store URL'),
-                            TextInput::make("$g.play_store_url")->label('Google Play URL'),
-                        ]),
                     ]),
                 ]),
             ]);
