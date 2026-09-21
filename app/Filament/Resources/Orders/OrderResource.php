@@ -27,6 +27,26 @@ class OrderResource extends Resource
 
     protected static ?int $navigationSort = 0;
 
+    /** New orders since this admin last opened the Orders list show as a badge; opening the list clears it. */
+    public static function getNavigationBadge(): ?string
+    {
+        $seen = \App\Models\Setting::get('admin_seen.orders_'.auth()->id());
+        $since = $seen ? \Illuminate\Support\Carbon::parse($seen) : null;
+        $n = Order::when($since, fn ($q) => $q->where('created_at', '>', $since))->count();
+
+        return $n ? (string) $n : null;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'primary';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'New orders since you last checked';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return OrderForm::configure($schema);

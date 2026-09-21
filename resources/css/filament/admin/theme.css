@@ -76,10 +76,10 @@ html { font-size: 14px; }
 /* User menu: name + role next to the avatar */
 .fi-topbar .fi-user-menu .fi-dropdown-trigger { display: flex; align-items: center; gap: 0.6rem; color: #fff; }
 .fi-topbar .fi-user-menu .fi-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
-.fi-admin-user { display: none; text-align: end; line-height: 1.15; }
+.fi-admin-user { display: none; max-width: 14rem; text-align: end; line-height: 1.15; }
 @media (min-width: 640px) { .fi-admin-user { display: block; } }
-.fi-admin-user-name { display: block; font-size: 0.8125rem; font-weight: 700; color: #fff; }
-.fi-admin-user-role { display: block; font-size: 0.6875rem; color: var(--navy-muted); }
+.fi-admin-user-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; font-weight: 700; color: #fff; }
+.fi-admin-user-role { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6875rem; color: var(--navy-muted); }
 
 /* ---- Sidebar --------------------------------------------------------------- */
 .fi-sidebar, .fi-body .fi-sidebar { background: var(--navy) !important; color: var(--navy-text); }
@@ -175,8 +175,7 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-simple-layout { background: var(--workspace); }
 .fi-simple-main { border-radius: 1rem; --tw-ring-color: var(--card-line); }
 
-.fi-topbar .fi-user-menu { order: 2; }
-.fi-admin-user { order: 1; }
+.fi-topbar .fi-user-menu { display: flex; align-items: center; gap: 0.6rem; }
 
 /* ---- Scrollbars ------------------------------------------------------------
    Chrome/Edge/Safari use the ::-webkit-scrollbar styling; Firefox (no webkit

@@ -139,12 +139,12 @@
 
     {{-- Certifications --}}
     @if($certs)
-        <section class="h-container pb-8"><h2 class="title-c">{{ $g['certifications_heading'] ?? 'Our Certifications' }}</h2><div class="no-scrollbar mt-5 flex gap-3 overflow-x-auto pb-2 lg:justify-center">@foreach($certs as $c)@php $logo = \App\Support\Media::url($c['logo'] ?? null); @endphp<div class="cert-badge shrink-0">@if($logo)<img src="{{ $logo }}" alt="{{ $c['label'] }}" class="h-10 w-auto object-contain" loading="lazy">@else<span class="flex items-center gap-2"><x-ico name="badge" :size="18" class="text-gold" />{{ $c['label'] }}</span>@endif</div>@endforeach</div></section>
+        <section class="h-container pb-8"><h2 class="title-c">{{ $g['certifications_heading'] ?? 'Our Certifications' }}</h2><div class="no-scrollbar mt-5 flex gap-3 overflow-x-auto pb-2 lg:mt-6 lg:flex-wrap lg:justify-center lg:gap-4 lg:overflow-visible">@foreach($certs as $c)@php $logo = \App\Support\Media::url($c['logo'] ?? null); @endphp<div class="cert-badge shrink-0 {{ $logo ? '' : 'is-text' }}">@if($logo)<img src="{{ $logo }}" alt="{{ $c['label'] }}" class="h-10 w-auto object-contain" loading="lazy">@else<span class="cert-ico"><x-ico name="badge" :size="20" /></span><span>{{ $c['label'] }}</span>@endif</div>@endforeach</div></section>
     @endif
 
     {{-- Stats strip --}}
     @if($stats)
-        <section class="bg-red py-10 text-cream">
+        <section class="bg-red py-10 text-cream lg:py-12">
             <div class="h-container">
                 <h2 class="text-center font-serif text-2xl font-semibold text-gold-light sm:text-3xl">{{ $g['story_heading'] ?? 'Our promise' }}</h2>
                 <div class="mt-8 grid grid-cols-2 gap-6 text-center sm:grid-cols-4 lg:divide-x lg:divide-cream/20">
@@ -156,7 +156,17 @@
 
     {{-- Values strip --}}
     @if($values)
-        <section class="h-container pt-4"><div class="rounded-2xl bg-cream-dark px-4 pb-6 pt-10 lg:px-10"><div class="-mt-16 grid grid-cols-3 gap-4 sm:grid-cols-6">@foreach(array_slice($values, 0, 6) as $v)<div class="flex flex-col items-center text-center"><span class="icon-round"><x-ico :name="$v['icon'] ?? 'check'" :size="26" :stroke="1.4" /></span><p class="mt-3 text-xs font-medium sm:text-sm">{{ $v['label'] }}</p></div>@endforeach</div></div></section>
+        {{-- Trust bar: white card, hairline-separated cells, icon disc + label --}}
+        <section class="h-container pt-8 lg:pt-10">
+            <div class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line-soft bg-line-soft shadow-card sm:grid-cols-3 lg:grid-cols-6">
+                @foreach(array_slice($values, 0, 6) as $v)
+                    <div class="flex items-center gap-3 bg-white px-4 py-4 lg:px-5 lg:py-5">
+                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red/10 text-red"><x-ico :name="$v['icon'] ?? 'check'" :size="20" :stroke="1.6" /></span>
+                        <p class="text-sm font-semibold leading-snug text-ink">{{ $v['label'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </section>
     @endif
 
     {{-- Related products band --}}
@@ -174,7 +184,7 @@
         @php $paragraphs = preg_split('/\n\s*\n/', trim((string) ($g['story_text'] ?? ''))); @endphp
         <section class="h-container py-10">
             <div class="grid items-center gap-8 lg:grid-cols-12">
-                <div class="lg:col-span-5"><div class="rounded-2xl bg-cream-dark p-4"><div class="banner-round aspect-[4/5]">@if(!empty($g['story_image']))<img src="{{ \App\Support\Media::url($g['story_image']) }}" alt="" class="h-full w-full object-cover" loading="lazy">@endif</div></div></div>
+                <div class="lg:col-span-5"><div class="rounded-2xl bg-cream-dark p-4"><div class="banner-round aspect-[4/3]">@if(!empty($g['story_image']))<img src="{{ \App\Support\Media::url($g['story_image']) }}" alt="" class="h-full w-full object-cover" loading="lazy">@endif</div></div></div>
                 <div class="lg:col-span-7">
                     <h2 class="font-serif text-2xl font-semibold text-red lg:text-3xl">{{ $g['story_heading'] }}</h2>
                     <div class="mt-4 space-y-3 text-sm leading-relaxed text-ink/85">@foreach($paragraphs as $para)<p>{{ $para }}</p>@endforeach</div>
@@ -186,35 +196,48 @@
 
     {{-- Reviews --}}
     <section id="reviews" class="h-container pb-10">
-        <div class="card grid gap-8 p-6 lg:grid-cols-12 lg:p-8">
-            <div class="lg:col-span-4">
+        <div class="card grid gap-8 p-6 lg:p-8 {{ $reviews->isEmpty() ? '' : 'lg:grid-cols-12' }}">
+            <div class="{{ $reviews->isEmpty() ? 'w-full text-center' : 'lg:col-span-4' }}">
                 <h2 class="font-serif text-2xl font-semibold text-red">Customer Reviews</h2>
-                <div class="mt-4 flex items-end gap-3"><p class="font-serif text-5xl font-semibold leading-none">{{ $product->review_count ? number_format($product->rating, 1) : 'New'}}</p><div><x-rating :value="$product->rating" :size="16" /><p class="mt-1 text-xs text-muted">{{ number_format($product->review_count) }} {{ Str::plural('review', $product->review_count) }}</p></div></div>
-                <ul class="mt-4 space-y-1.5">@for($i = 5; $i >= 1; $i--)@php $n = $breakdown[$i] ?? 0; $pct = $breakdown->sum() ? round($n / $breakdown->sum() * 100) : 0; @endphp<li class="flex items-center gap-2 text-xs"><span class="w-5 font-semibold">{{ $i }}★</span><span class="h-1.5 flex-1 overflow-hidden rounded-full bg-cream-dark"><span class="block h-full rounded-full bg-gold" style="width: {{ $pct }}%"></span></span><span class="w-6 text-right text-muted">{{ $n }}</span></li>@endfor</ul>
+                @if($reviews->isEmpty())<p class="mt-2 text-sm text-muted">No reviews yet — be the first to share how you cooked with it.</p>@endif
+                @unless($reviews->isEmpty())<div class="mt-4 flex items-end gap-3"><p class="font-serif text-5xl font-semibold leading-none">{{ $product->review_count ? number_format($product->rating, 1) : 'New'}}</p><div><x-rating :value="$product->rating" :size="16" /><p class="mt-1 text-xs text-muted">{{ number_format($product->review_count) }} {{ Str::plural('review', $product->review_count) }}</p></div></div>@endunless
+                @if($breakdown->sum())<ul class="mt-4 space-y-1.5">@for($i = 5; $i >= 1; $i--)@php $n = $breakdown[$i] ?? 0; $pct = $breakdown->sum() ? round($n / $breakdown->sum() * 100) : 0; @endphp<li class="flex items-center gap-2 text-xs"><span class="w-5 font-semibold">{{ $i }}★</span><span class="h-1.5 flex-1 overflow-hidden rounded-full bg-cream-dark"><span class="block h-full rounded-full bg-gold" style="width: {{ $pct }}%"></span></span><span class="w-6 text-right text-muted">{{ $n }}</span></li>@endfor</ul>@endif
                 <div x-data="reviewForm()" class="mt-5">
-                    <button type="button" @click="open = !open" class="btn btn-outline btn-block rounded-full">Write a review</button>
+                    <button type="button" @click="open = !open" class="btn btn-outline rounded-full {{ $reviews->isEmpty() ? 'mx-auto w-full max-w-md' : 'btn-block' }}">Write a review</button>
                     @if(session('review_status'))<p class="mt-3 rounded-lg bg-cream p-3 text-sm text-maroon">{{ session('review_status') }}</p>@endif
-                    <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-4 space-y-3">
+                    <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-5 rounded-2xl border border-line-soft bg-cream/60 p-5 text-left sm:p-6">
+                        <p class="font-serif text-lg font-semibold text-maroon">Share your experience</p>
                         @csrf
-                        <div><span class="label">Your rating</span><div class="flex gap-1">@for($i = 1; $i <= 5; $i++)<button type="button" @click="rating = {{ $i }}" @mouseenter="hover = {{ $i }}" @mouseleave="hover = 0" class="text-star" aria-label="{{ $i }} stars"><svg width="26" height="26" viewBox="0 0 24 24" :fill="(hover || rating) >= {{ $i }} ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5l-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/></svg></button>@endfor</div><input type="hidden" name="rating" :value="rating"></div>
-                        <label class="block"><span class="label">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="field"></label>
-                        <label class="block"><span class="label">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="field"></label>
-                        <label class="block"><span class="label">Title</span><input name="title" value="{{ old('title') }}" class="field"></label>
-                        <label class="block"><span class="label">Review</span><textarea name="body" required rows="4" class="field">{{ old('body') }}</textarea></label>
+                        <div class="mt-4 grid gap-4 {{ $reviews->isEmpty() ? 'lg:grid-cols-2 lg:gap-x-8' : '' }}">
+                        <div class="space-y-4">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2"><span class="label !mb-0">Your rating</span><div class="flex gap-1">@for($i = 1; $i <= 5; $i++)<button type="button" @click="rating = {{ $i }}" @mouseenter="hover = {{ $i }}" @mouseleave="hover = 0" class="text-star" aria-label="{{ $i }} stars"><svg width="26" height="26" viewBox="0 0 24 24" :fill="(hover || rating) >= {{ $i }} ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5l-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/></svg></button>@endfor</div><input type="hidden" name="rating" :value="rating"></div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="block"><span class="label">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="field"></label>
+                            <label class="block"><span class="label">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="field"></label>
+                        </div>
+                        <label class="block"><span class="label">Title</span><input name="title" value="{{ old('title') }}" placeholder="Sum it up in a few words" class="field"></label>
+                        </div>
+                        <div class="flex flex-col">
+                        <label class="flex flex-1 flex-col"><span class="label">Review</span><textarea name="body" required rows="4" placeholder="How did you cook with it? What did you like?" class="field flex-1 lg:min-h-[12rem]">{{ old('body') }}</textarea></label>
                         @if($errors->any())<p class="error-text">{{ $errors->first() }}</p>@endif
-                        <button type="submit" class="btn btn-primary rounded-full">Submit review</button>
+                        </div>
+                        </div>
+                        <div class="mt-5 border-t border-line-soft pt-4">
+                            <div class="flex justify-end gap-2"><button type="button" @click="open = false" class="btn btn-outline rounded-full">Cancel</button><button type="submit" class="btn btn-primary rounded-full px-6">Submit review</button></div>
+                            <p class="mt-3 text-xs text-muted">Reviews are checked before they appear.</p>
+                        </div>
                     </form>
                 </div>
             </div>
+            @unless($reviews->isEmpty())
             <div class="lg:col-span-8">
-                @if($reviews->isEmpty())<p class="text-sm text-muted">No reviews yet — be the first to share how you cooked with it.</p>@else
                     <ul class="divide-y divide-line-soft">
                         @foreach($reviews as $r)
                             <li class="py-4 first:pt-0"><div class="flex items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-cream-dark font-serif text-sm font-semibold text-red">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-semibold">{{ $r->name }}</span><span class="badge badge-soft">Verified</span></div><span class="text-xs text-muted">{{ $r->created_at->format('d M Y') }}</span></div><div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div><p class="mt-1.5 text-sm leading-relaxed text-muted">{{ $r->body }}</p></li>
                         @endforeach
                     </ul>
-                @endif
             </div>
+            @endunless
         </div>
     </section>
 

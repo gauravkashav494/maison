@@ -23,6 +23,24 @@ class ContactMessageResource extends Resource
 
     protected static ?int $navigationSort = 22;
 
+    /** Unread messages show as a badge next to the menu item. */
+    public static function getNavigationBadge(): ?string
+    {
+        $n = ContactMessage::where('is_read', false)->count();
+
+        return $n ? (string) $n : null;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Unread messages';
+    }
+
     protected static ?string $navigationLabel = 'Messages';
 
     public static function form(Schema $schema): Schema

@@ -9,7 +9,6 @@
                 {{-- Photo with a soft cream wash on the left so the copy stays legible --}}
                 @if(!empty($s['image']))<img src="{{ \App\Support\Media::url($s['image']) }}" alt="" class="absolute inset-0 h-full w-full object-cover object-right" @if($i === 0) fetchpriority="high" @else loading="lazy" @endif>@endif
                 <div class="absolute inset-0 bg-gradient-to-r from-cream via-cream/85 to-transparent sm:via-cream/70 sm:to-cream/0"></div>
-                @if($href && empty($s['cta_label']))<a href="{{ $href }}" class="absolute inset-0 z-[5]" aria-label="{{ $s['heading'] }}"></a>@endif
 
                 <div class="h-container relative z-10">
                     <div class="flex max-w-xl flex-col justify-center py-8 pb-12 lg:max-w-3xl lg:py-10">
@@ -21,7 +20,8 @@
                                 @foreach(array_slice((array) $s['badges'], 0, 4) as $b)<li class="flex items-center gap-2 pr-4 text-[0.75rem] font-semibold leading-tight text-ink sm:border-r sm:border-ink/30 sm:last:border-0 sm:pr-4 sm:mr-4 sm:last:mr-0 sm:last:pr-0"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-gold bg-white text-red"><x-ico name="leaf" :size="15" /></span><span class="max-w-[6.5rem]">{{ $b }}</span></li>@endforeach
                             </ul>
                         @endif
-                        @if(!empty($s['cta_label']))<div class="mt-6"><a href="{{ $href ?? '#' }}" class="btn btn-primary rounded-full px-7">{{ $s['cta_label'] }} <x-ico name="arrow-right" :size="16" /></a></div>@endif
+                        {{-- A slide with a link always gets a visible button (label defaults to "Shop now") --}}
+                        @if($href || !empty($s['cta_label']))<div class="mt-6"><a href="{{ $href ?? '#' }}" class="btn btn-primary rounded-full px-7">{{ $s['cta_label'] ?: 'Shop now' }} <x-ico name="arrow-right" :size="16" /></a></div>@endif
                     </div>
                 </div>
             </div>

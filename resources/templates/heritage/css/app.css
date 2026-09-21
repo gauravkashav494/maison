@@ -248,6 +248,9 @@
   .tile-card { position: relative; display: flex; flex-direction: column; justify-content: flex-end; border-radius: 15px; overflow: hidden; background: var(--color-cream-dark); min-height: 100%; }
   .banner-round { border-radius: 18px; overflow: hidden; }
   .cert-badge { display: flex; align-items: center; justify-content: center; width: 119px; height: 100px; padding: 0 0.625rem; border-radius: 18px; background: #fff; border: 1px solid var(--color-line-soft); box-shadow: var(--shadow-card); font-family: var(--font-serif); font-size: 0.8125rem; font-weight: 600; text-align: center; color: var(--color-maroon); }
+  /* Text-only certification: icon above a one-line label, roomier than the logo tile */
+  .cert-badge.is-text { flex-direction: column; gap: 0.625rem; width: auto; min-width: 8.5rem; height: auto; padding: 1.1rem 1.25rem; font-size: 0.9375rem; line-height: 1.25; white-space: nowrap; }
+  .cert-badge.is-text .cert-ico { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 999px; background: var(--color-cream); border: 1.5px solid var(--color-gold); color: var(--color-gold); }
   .icon-round { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 999px; background: var(--color-cream); border: 1.5px solid var(--color-gold); color: var(--color-red); }
   .review-card { border-radius: 20px; background: var(--color-cream-dark); padding: 20px 25px; font-size: 1rem; line-height: 1.4; color: var(--color-ink); }
   .review-card b { display: block; margin-top: 1rem; font-size: 0.9375rem; font-weight: 800; }

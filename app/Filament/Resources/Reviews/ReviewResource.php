@@ -24,6 +24,24 @@ class ReviewResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
+    /** Reviews waiting for approval show as a badge next to the menu item. */
+    public static function getNavigationBadge(): ?string
+    {
+        $n = Review::where('is_approved', false)->count();
+
+        return $n ? (string) $n : null;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Reviews awaiting approval';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ReviewForm::configure($schema);

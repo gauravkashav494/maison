@@ -32,7 +32,7 @@ class HeritageHomepageSettings extends Page
         'featured' => 'Featured collection carousel',
         'combos' => 'Combos carousel',
         'bestsellers' => 'Best sellers carousel',
-        'video' => 'Video banner',
+        'video' => 'Story banner (slides / video)',
         'needs' => 'Shop by need (tabs)',
         'new' => 'New arrivals carousel',
         'certifications' => 'Certifications',
@@ -129,9 +129,16 @@ class HeritageHomepageSettings extends Page
                 ]),
 
                 Tab::make('Banners')->icon('heroicon-o-rectangle-group')->schema([
-                    Section::make('Video banner')->columns(2)->schema([
-                        TextInput::make("$g.video_url")->label('YouTube or MP4 URL')->helperText('Optional — without a URL the poster shows as a banner with no play button.'),
-                        Fields::image("$g.video_poster", 'Poster image (1600×800)', 'heritage'),
+                    Section::make('Story banner')->description('Wide rounded slider under the product rails: text over the image, optional video that plays in place. Dots and arrows appear with two or more slides.')->schema([
+                        Repeater::make("$g.story_slides")->label('Slides')
+                            ->schema([
+                                TextInput::make('eyebrow')->label('Eyebrow'),
+                                TextInput::make('heading'),
+                                Textarea::make('text')->rows(2),
+                                Grid::make(2)->schema([TextInput::make('cta_label')->label('Button label'), TextInput::make('cta_url')->label('Button link')]),
+                                Grid::make(2)->schema([TextInput::make('video_url')->label('YouTube or MP4 URL')->helperText('Optional — adds a play button that opens the video in the banner.'), TextInput::make('video_label')->label('Play button label')->placeholder('Watch the film')]),
+                                Fields::image('image', 'Image (1600×800)', 'heritage'),
+                            ])->reorderable()->collapsible()->itemLabel(fn (array $state): ?string => $state['heading'] ?? null)->addActionLabel('Add slide')->maxItems(6),
                     ]),
                     Section::make('Gifting / offer banner')->columns(2)->schema([
                         TextInput::make("$g.offer_heading")->label('Heading'),

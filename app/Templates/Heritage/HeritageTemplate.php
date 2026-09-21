@@ -168,8 +168,10 @@ class HeritageTemplate extends Template
                 'combos_limit' => 10,
                 'bestsellers_heading' => 'Our Best Sellers',
                 'bestsellers_limit' => 10,
-                'video_url' => null,
-                'video_poster' => $u('1556909212-d5b604d0c90d', 1600, 800),
+                'story_slides' => [
+                    ['eyebrow' => 'From our kitchens', 'heading' => 'Slow-cooked traditions, stone-ground every week', 'text' => 'Our atta, spices and oils are milled in small batches so every pack reaches your kitchen fresh — never bleached, never refined.', 'cta_label' => 'Explore staples', 'cta_url' => '/shop', 'video_url' => null, 'video_label' => 'Watch the film', 'image' => $u('1556909212-d5b604d0c90d', 1600, 800)],
+                    ['eyebrow' => 'Festive season', 'heading' => 'Gift boxes packed with ghee, dry fruits and sweets', 'text' => 'Hand-packed hampers for Diwali and every celebration in between, delivered across India.', 'cta_label' => 'Shop gift boxes', 'cta_url' => '/collections', 'video_url' => null, 'video_label' => 'Watch the film', 'image' => $u('1601648764658-cf37e8c89b70', 1600, 800)],
+                ],
                 'needs_heading' => 'Shop By Need',
                 'needs_limit' => 8,
                 'new_heading' => 'New Arrivals',
