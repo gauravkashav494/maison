@@ -81,6 +81,9 @@ Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 
+// Service-business routes (Plumbing Services template); 404 in catalogue templates
+require __DIR__.'/services.php';
+
 // CMS pages — must stay last so it never shadows other routes
 Route::get('/{slug}', [CatalogController::class, 'page'])
     ->where('slug', '[a-z0-9-]+')

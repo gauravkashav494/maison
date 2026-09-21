@@ -8,6 +8,10 @@ use App\Models\Faq;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Product;
+use App\Models\Project;
+use App\Models\Service;
+use App\Models\ServiceArea;
+use App\Models\Testimonial;
 use App\Templates\Scopes\TemplateVisibility;
 use App\Templates\TemplateManager;
 use Closure;
@@ -23,6 +27,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveTemplate
 {
+    /** Route names that only make sense with a product catalogue. */
+    public const CATALOGUE_ROUTES = ['shop.*', 'collections.*', 'products.*', 'search', 'cart', 'cart.*', 'checkout', 'checkout.*', 'orders.*', 'track', 'api.search', 'api.products', 'api.product', 'account.orders', 'account.order', 'account.wishlist'];
+
     public function handle(Request $request, Closure $next): Response
     {
         // Admin panel, Livewire (update/upload endpoints use a hashed prefix) and health checks are not storefront requests.
@@ -47,11 +54,16 @@ class ResolveTemplate
         $template = $manager->current();
         $template->boot();
 
+        // Service-business templates have no catalogue: shop, cart, checkout and order routes answer 404.
+        if ($template->supportsServices() && $request->route()?->named(self::CATALOGUE_ROUTES)) {
+            abort(404);
+        }
+
         if ($path = $template->viewPath()) {
             View::getFinder()->prependLocation(resource_path('views/'.$path));
         }
 
-        foreach ([Product::class, Category::class, Collection::class, Page::class, Post::class, Faq::class] as $model) {
+        foreach ([Product::class, Category::class, Collection::class, Page::class, Post::class, Faq::class, Service::class, ServiceArea::class, Testimonial::class, Project::class] as $model) {
             $model::addGlobalScope(TemplateVisibility::NAME, new TemplateVisibility($template->id()));
         }
 

@@ -14,7 +14,7 @@ class Faq extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
-    public const CATEGORIES = ['Orders', 'Shipping', 'Returns', 'Exchanges', 'Payments', 'Products', 'Account', 'General'];
+    public const CATEGORIES = ['Orders', 'Shipping', 'Returns', 'Exchanges', 'Payments', 'Products', 'Account', 'General', 'Services', 'Booking'];
 
     public function scopeActive(Builder $q): Builder
     {

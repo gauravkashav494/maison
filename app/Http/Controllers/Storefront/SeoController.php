@@ -8,6 +8,8 @@ use App\Models\Collection;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Product;
+use App\Models\Service;
+use App\Models\ServiceArea;
 use Illuminate\Http\Response;
 
 class SeoController extends Controller
@@ -15,18 +17,32 @@ class SeoController extends Controller
     public function sitemap(): Response
     {
         $urls = [['loc' => url('/'), 'priority' => '1.0', 'changefreq' => 'daily', 'lastmod' => now()]];
-        $urls[] = ['loc' => route('shop.index'), 'priority' => '0.9', 'changefreq' => 'daily'];
-        $urls[] = ['loc' => route('collections.index'), 'priority' => '0.8', 'changefreq' => 'weekly'];
         $urls[] = ['loc' => route('journal.index'), 'priority' => '0.6', 'changefreq' => 'weekly'];
 
-        foreach (Category::active()->where('noindex', false)->get() as $c) {
-            $urls[] = ['loc' => $c->url, 'priority' => '0.8', 'changefreq' => 'weekly', 'lastmod' => $c->updated_at];
-        }
-        foreach (Collection::active()->where('noindex', false)->get() as $c) {
-            $urls[] = ['loc' => $c->url, 'priority' => '0.8', 'changefreq' => 'weekly', 'lastmod' => $c->updated_at];
-        }
-        foreach (Product::active()->where('noindex', false)->get() as $p) {
-            $urls[] = ['loc' => $p->url, 'priority' => '0.7', 'changefreq' => 'weekly', 'lastmod' => $p->updated_at];
+        if (template()->supportsServices()) {
+            // Service-business templates: services and service areas instead of the catalogue.
+            $urls[] = ['loc' => route('services.index'), 'priority' => '0.9', 'changefreq' => 'weekly'];
+            $urls[] = ['loc' => route('services.emergency'), 'priority' => '0.8', 'changefreq' => 'monthly'];
+            $urls[] = ['loc' => route('areas.index'), 'priority' => '0.7', 'changefreq' => 'monthly'];
+            $urls[] = ['loc' => route('projects.index'), 'priority' => '0.5', 'changefreq' => 'monthly'];
+            foreach (Service::active()->where('noindex', false)->get() as $s) {
+                $urls[] = ['loc' => $s->url, 'priority' => '0.8', 'changefreq' => 'monthly', 'lastmod' => $s->updated_at];
+            }
+            foreach (ServiceArea::active()->where('noindex', false)->get() as $a) {
+                $urls[] = ['loc' => $a->url, 'priority' => '0.7', 'changefreq' => 'monthly', 'lastmod' => $a->updated_at];
+            }
+        } else {
+            $urls[] = ['loc' => route('shop.index'), 'priority' => '0.9', 'changefreq' => 'daily'];
+            $urls[] = ['loc' => route('collections.index'), 'priority' => '0.8', 'changefreq' => 'weekly'];
+            foreach (Category::active()->where('noindex', false)->get() as $c) {
+                $urls[] = ['loc' => $c->url, 'priority' => '0.8', 'changefreq' => 'weekly', 'lastmod' => $c->updated_at];
+            }
+            foreach (Collection::active()->where('noindex', false)->get() as $c) {
+                $urls[] = ['loc' => $c->url, 'priority' => '0.8', 'changefreq' => 'weekly', 'lastmod' => $c->updated_at];
+            }
+            foreach (Product::active()->where('noindex', false)->get() as $p) {
+                $urls[] = ['loc' => $p->url, 'priority' => '0.7', 'changefreq' => 'weekly', 'lastmod' => $p->updated_at];
+            }
         }
         foreach (Page::active()->where('noindex', false)->get() as $p) {
             $urls[] = ['loc' => $p->url, 'priority' => '0.4', 'changefreq' => 'monthly', 'lastmod' => $p->updated_at];

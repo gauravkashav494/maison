@@ -79,6 +79,12 @@ abstract class Template
     /** Seed demo content for the template. Must be idempotent. */
     public function install(): void {}
 
+    /** Whether this template renders service pages (booking, service areas) instead of the catalogue. */
+    public function supportsServices(): bool
+    {
+        return false;
+    }
+
     /** Called once per request when this template renders it (register composers, etc.). */
     public function boot(): void {}
 
