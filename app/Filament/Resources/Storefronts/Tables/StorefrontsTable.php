@@ -20,7 +20,8 @@ class StorefrontsTable
                 TextColumn::make('name')->searchable()->sortable()->weight('bold'),
                 TextColumn::make('template')->label('Template')->formatStateUsing(fn (Storefront $r) => $r->template_name)->badge()->color('gray')
                     ->description(fn (Storefront $r) => $r->supportsServices() ? 'Service business' : 'Catalogue store'),
-                TextColumn::make('public_url')->label('Address')->state(fn (Storefront $r) => $r->publicUrl())->url(fn (Storefront $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square'),
+                TextColumn::make('public_url')->label('Address')->state(fn (Storefront $r) => $r->publicUrl())->url(fn (Storefront $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square')
+                    ->description(fn (Storefront $r) => $r->publicUrl() === $r->entryUrl() ? null : 'or '.$r->entryUrl()),
                 TextColumn::make('owners.name')->label('Owners')->listWithLineBreaks()->limitList(3)->placeholder('No owner yet'),
                 IconColumn::make('is_live')->label('Main domain')->boolean()->state(fn (Storefront $r) => app(TemplateManager::class)->activeId() === $r->template)->tooltip('Also served on the main domain (Appearance → Templates)'),
                 IconColumn::make('is_active')->label('Active')->boolean(),

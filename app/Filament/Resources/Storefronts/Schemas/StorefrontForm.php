@@ -33,7 +33,7 @@ class StorefrontForm
                     ->helperText('The website design and features this store runs. Content is scoped by this template, so it cannot change once the store exists.'),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)->helperText('Inactive stores lock their owners out of the admin and stop answering on their address.'),
             ]),
-            Section::make('Public address')->description(fn (?Storefront $record) => $record ? 'Customers reach this store at '.$record->publicUrl().' — point a DNS record for the subdomain (or the custom domain) at this server.' : 'The store answers on <slug>.'.Storefront::baseDomain().' as soon as it is saved.')->columns(2)->schema([
+            Section::make('Public address')->description(fn (?Storefront $record) => $record ? 'Share '.$record->publicUrl().' with customers. The entry link '.$record->entryUrl().' always works; the subdomain form needs a wildcard DNS record and SSL certificate, a custom domain needs its DNS pointed at this server.' : 'The store gets an entry link on this domain as soon as it is saved.')->columns(2)->schema([
                 TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
                     ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Without one the store uses its subdomain. Enter the host only, no https://.'),
             ]),

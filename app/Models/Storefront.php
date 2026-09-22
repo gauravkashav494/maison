@@ -58,9 +58,38 @@ class Storefront extends Model
         return static::hostMap()[$host] ?? null;
     }
 
-    /** Public address of this store (shared with customers). */
+    public const COOKIE = 'storefront';
+
+    /** Template pinned by the entry-link cookie (/store/<slug>), if it names an active store. */
+    public static function templateForCookie(?string $slug): ?string
+    {
+        if (! $slug) {
+            return null;
+        }
+        foreach (static::hostMap() as $host => $template) {
+            if (str_starts_with($host, strtolower($slug).'.')) {
+                return $template;
+            }
+        }
+
+        return null;
+    }
+
+    /** Entry link on the main domain; works without any DNS setup. */
+    public function entryUrl(): string
+    {
+        return rtrim(config('app.url'), '/').'/store/'.$this->slug;
+    }
+
+    /** Public address of this store (shared with customers), in the configured style. */
     public function publicUrl(): string
     {
+        if ($this->domain) {
+            return 'https://'.$this->domain;
+        }
+        if (config('templates.store_urls') === 'path') {
+            return $this->entryUrl();
+        }
         // Scheme and port follow the current request (dev servers run on :8000), else APP_URL.
         $req = app()->bound('request') ? request() : null;
         $app = parse_url(config('app.url'));

@@ -57,7 +57,9 @@ class ResolveTemplate
 
         // Each store is public on its own host (<slug>.<base domain> or a custom domain); the
         // main domain serves the template activated under Appearance → Templates.
-        $publicId = Storefront::templateForHost($request->getHost()) ?? $manager->activeId();
+        $publicId = Storefront::templateForHost($request->getHost())
+            ?? Storefront::templateForCookie($request->cookie(Storefront::COOKIE))
+            ?? $manager->activeId();
         if ($publicId !== $manager->activeId() && ! $manager->previewId()) {
             $manager->setCurrent($manager->get($publicId));
         }
@@ -123,7 +125,7 @@ class ResolveTemplate
         $exit = e(url()->current().'?preview_template=');
         $bar = '<div style="position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.6rem 1rem;background:#111;color:#fff;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 -4px 20px rgba(0,0,0,.25)">'
             .($locked
-                ? '<span>You are viewing your store, <strong>'.e($previewing).'</strong> — on this address visitors see <strong>'.e($active).'</strong>. Share your own store link from the admin dashboard.</span>'
+                ? '<span>You are viewing your store, <strong>'.e($previewing).'</strong> — visitors here see <strong>'.e($active).'</strong>. Share your own store link from the admin dashboard.</span>'
                 : '<span>Previewing the <strong>'.e($previewing).'</strong> template — visitors still see <strong>'.e($active).'</strong>.</span>'
                     .'<a href="'.$exit.'" style="color:#fff;text-decoration:underline">Exit preview</a>')
             .'<a href="'.e(url($locked ? '/admin' : '/admin/templates')).'" style="color:#fff;text-decoration:underline">'.($locked ? 'Back to admin' : 'Manage templates').'</a>'

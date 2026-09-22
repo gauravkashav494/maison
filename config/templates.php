@@ -20,6 +20,11 @@ return [
     // itself serves the template activated under Appearance → Templates. Defaults to APP_URL's host.
     'base_domain' => env('STORE_BASE_DOMAIN'),
 
+    // How store links are built: 'subdomain' (<slug>.<base_domain>, needs wildcard DNS + SSL) or
+    // 'path' (<APP_URL>/store/<slug> — works on any host: the link remembers the store in a cookie).
+    // Both entry methods are always accepted; this only decides which address is shown to share.
+    'store_urls' => env('STORE_URL_MODE', env('STORE_BASE_DOMAIN') ? 'subdomain' : 'path'),
+
     'templates' => [
         App\Templates\Fashion\FashionTemplate::class,
         App\Templates\Grocery\GroceryTemplate::class,

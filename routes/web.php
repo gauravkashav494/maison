@@ -81,6 +81,10 @@ Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 
+// Store entry links: /store/<slug> remembers the store for this visitor (cookie) and opens it on the main domain
+Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
+Route::get('/store/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('slug', '[a-z0-9-]+')->name('store.enter');
+
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';
 
