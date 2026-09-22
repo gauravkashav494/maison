@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,8 @@ use Illuminate\Support\Str;
 
 class Order extends Model
 {
+    use BelongsToTemplate;
+
     protected $guarded = [];
 
     protected $casts = ['status_history' => 'array', 'estimated_delivery' => 'date'];

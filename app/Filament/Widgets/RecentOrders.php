@@ -17,6 +17,11 @@ class RecentOrders extends Widget
 
     protected static ?int $sort = 2;
 
+    public static function canView(): bool
+    {
+        return \App\Filament\Widgets\StoreStats::canView();
+    }
+
     protected function getViewData(): array
     {
         return [

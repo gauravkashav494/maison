@@ -83,8 +83,12 @@ class Fields
     /** "Visible in" template selector for catalogue records (null = every template). */
     public static function templateVisibility(string $column = 'template'): Select
     {
+        $context = app(\App\Admin\StoreContext::class);
+
         return Select::make($column)
-            ->default(fn () => app(TemplateManager::class)->has((string) request()->query('template')) ? request()->query('template') : null)
+            ->default(fn () => $context->template() ?? (app(TemplateManager::class)->has((string) request()->query('template')) ? request()->query('template') : null))
+            ->disabled(fn () => $context->isLocked())
+            ->dehydrated()
             ->label('Visible in')
             ->options(fn () => app(TemplateManager::class)->options())
             ->placeholder('All templates')

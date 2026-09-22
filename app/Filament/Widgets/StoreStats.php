@@ -21,6 +21,13 @@ class StoreStats extends Widget
 
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        $context = app(\App\Admin\StoreContext::class);
+
+        return $context->template() === null ? $context->isSuperAdmin() : ! $context->templateObject()?->supportsServices();
+    }
+
     protected function getViewData(): array
     {
         $monthStart = now()->startOfMonth();
@@ -55,7 +62,7 @@ class StoreStats extends Widget
                 ],
                 [
                     'label' => 'Customers',
-                    'value' => User::where('is_admin', false)->count(),
+                    'value' => User::whereNull('role')->count(),
                     'description' => $lowStock.' product'.($lowStock === 1 ? '' : 's').' low on stock',
                     'icon' => 'users',
                     'color' => 'is-purple',

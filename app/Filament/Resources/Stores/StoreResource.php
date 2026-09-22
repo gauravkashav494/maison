@@ -24,7 +24,7 @@ class StoreResource extends Resource
 
     protected static ?int $navigationSort = 14;
 
-    protected static ?string $navigationLabel = 'Boutiques';
+    protected static ?string $navigationLabel = 'Store locations';
 
     public static function form(Schema $schema): Schema
     {

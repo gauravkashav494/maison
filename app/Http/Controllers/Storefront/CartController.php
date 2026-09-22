@@ -96,7 +96,7 @@ class CartController extends Controller
     public function subscribe(Request $request): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email', 'max:190'], 'source' => ['nullable', 'string', 'max:60']]);
-        Subscriber::firstOrCreate(['email' => strtolower($data['email'])], ['source' => $data['source'] ?? 'site']);
+        Subscriber::firstOrCreate(['email' => strtolower($data['email'])], ['source' => $data['source'] ?? 'site', 'template' => template()->id()]);
 
         return response()->json(['ok' => true]);
     }
@@ -158,6 +158,7 @@ class CartController extends Controller
         $order = DB::transaction(function () use ($data, $cart, $codFee, $request) {
             $order = Order::create([
                 'number' => Order::generateNumber(),
+                'template' => template()->id(),
                 'user_id' => $request->user()?->id,
                 'status' => 'confirmed',
                 'email' => strtolower($data['email']),

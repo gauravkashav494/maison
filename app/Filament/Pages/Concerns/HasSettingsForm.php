@@ -22,6 +22,12 @@ trait HasSettingsForm
     /** @return array<string> setting groups edited by this page */
     abstract protected function settingGroups(): array;
 
+    /** Super admins open every settings page; a store owner only the pages their template declares. */
+    public static function canAccess(): bool
+    {
+        return app(\App\Admin\StoreContext::class)->allowsTemplatePage(static::class);
+    }
+
     public function mount(): void
     {
         $state = [];

@@ -31,6 +31,12 @@ class Templates extends Page
     protected static ?string $slug = 'templates';
 
     /** @return Collection<string, Template> */
+    /** Activating a template changes the public website: super admin only. */
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin();
+    }
+
     public function getTemplates(): Collection
     {
         return app(TemplateManager::class)->all();
@@ -53,7 +59,7 @@ class Templates extends Page
             ->icon('heroicon-m-check')
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments) => 'Activate the '.$this->template($arguments)->name().' template?')
-            ->modalDescription('Visitors will see this template immediately. All products, categories, pages, orders, customers and settings are kept — only the storefront design changes. You can switch back at any time.')
+            ->modalDescription('Visitors on the main domain will see this template immediately. Every store also stays reachable on its own address (Platform → Stores). All products, categories, pages, orders, customers and settings are kept.')
             ->modalSubmitActionLabel('Yes, activate')
             ->action(function (array $arguments) {
                 $template = $this->template($arguments);

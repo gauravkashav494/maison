@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Model;
 
 class Coupon extends Model
 {
+    use BelongsToTemplate;
+
     protected $guarded = [];
 
     protected $casts = ['is_active' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime'];

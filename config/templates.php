@@ -16,6 +16,10 @@ return [
     // Used when nothing has been activated yet (settings "appearance.active_template").
     'default' => 'fashion',
 
+    // Every store is public on <slug>.<base_domain> (or its own custom domain). The base domain
+    // itself serves the template activated under Appearance → Templates. Defaults to APP_URL's host.
+    'base_domain' => env('STORE_BASE_DOMAIN'),
+
     'templates' => [
         App\Templates\Fashion\FashionTemplate::class,
         App\Templates\Grocery\GroceryTemplate::class,

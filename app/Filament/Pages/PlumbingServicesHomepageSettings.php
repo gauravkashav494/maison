@@ -73,7 +73,7 @@ class PlumbingServicesHomepageSettings extends Page
     {
         $g = 'plumbing_services_home';
         $icons = array_combine(self::ICONS, array_map(fn ($i) => str($i)->headline()->value(), self::ICONS));
-        $services = fn () => Service::withoutGlobalScopes()->where('template', 'plumbing-services')->orderBy('name')->pluck('name', 'slug')->all();
+        $services = fn () => Service::withoutGlobalScope(\App\Templates\Scopes\TemplateVisibility::NAME)->where('template', 'plumbing-services')->orderBy('name')->pluck('name', 'slug')->all();
         $heading = fn (string $key, string $label, bool $sub = true, ?int $limitMax = null, int $limitMin = 3) => Section::make($label)->columns($limitMax ? 3 : 2)->schema(array_filter([
             TextInput::make("$g.{$key}_heading")->label('Heading'),
             $sub ? TextInput::make("$g.{$key}_sub")->label('Sub-heading') : null,

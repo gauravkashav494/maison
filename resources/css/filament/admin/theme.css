@@ -76,6 +76,18 @@ html { font-size: 14px; }
 /* User menu: name + role next to the avatar */
 .fi-topbar .fi-user-menu .fi-dropdown-trigger { display: flex; align-items: center; gap: 0.6rem; color: #fff; }
 .fi-topbar .fi-user-menu .fi-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.fi-store-link { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-radius: .875rem; background: linear-gradient(120deg, #0f2a4d, #1d4ed8); color: #fff; }
+.fi-store-link-label { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .7); }
+.fi-store-link-url { display: inline-block; margin-top: .15rem; font-size: 1.125rem; font-weight: 700; color: #fff; text-decoration: underline; text-underline-offset: 4px; word-break: break-all; }
+.fi-store-link-note { margin-top: .25rem; font-size: .8125rem; color: rgb(255 255 255 / .8); }
+.fi-store-link-actions { display: flex; gap: .5rem; }
+.fi-store-link-actions .fi-btn-color-gray { background: #fff; color: #0f2a4d; }
+.fi-store-switcher { display: inline-flex; align-items: center; gap: .5rem; margin-inline-end: .75rem; height: 2.25rem; padding-inline: .75rem; border-radius: 999px; background: rgb(255 255 255 / .1); border: 1px solid rgb(255 255 255 / .18); color: #fff; font-size: .8125rem; white-space: nowrap; }
+.fi-store-switcher-label { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .65); }
+.fi-store-switcher select { background: transparent; border: 0; color: #fff; font-weight: 700; font-size: .8125rem; padding-inline-end: 1.25rem; cursor: pointer; }
+.fi-store-switcher select:focus { outline: none; }
+.fi-store-switcher select option { color: #111; }
+.fi-store-switcher-static strong { font-weight: 700; }
 .fi-admin-user { display: none; max-width: 14rem; text-align: end; line-height: 1.15; }
 @media (min-width: 640px) { .fi-admin-user { display: block; } }
 .fi-admin-user-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; font-weight: 700; color: #fff; }

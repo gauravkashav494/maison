@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Models\Storefront;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class UsersTable
@@ -17,14 +19,21 @@ class UsersTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('email')->searchable()->copyable(),
-                TextColumn::make('phone')->color('gray')->placeholder('—'),
-                TextColumn::make('orders_count')->counts('orders')->label('Orders')->alignRight(),
-                IconColumn::make('is_admin')->label('Staff')->boolean(),
+                TextColumn::make('name')->searchable()->sortable()->description(fn (User $r) => $r->email),
+                TextColumn::make('role')->badge()
+                    ->formatStateUsing(fn (?string $state) => User::ROLES[$state] ?? 'Customer')
+                    ->color(fn (?string $state) => match ($state) { User::ROLE_SUPER_ADMIN => 'danger', User::ROLE_STORE_OWNER => 'info', default => 'gray' })
+                    ->sortable(),
+                TextColumn::make('storefront.name')->label('Store')->placeholder('—')->sortable(),
+                TextColumn::make('phone')->color('gray')->placeholder('—')->toggleable(),
+                TextColumn::make('orders_count')->counts('orders')->label('Orders')->alignRight()->toggleable(),
+                IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
-            ->filters([TernaryFilter::make('is_admin')->label('Staff')])
+            ->filters([
+                SelectFilter::make('role')->options(User::ROLES),
+                SelectFilter::make('storefront_id')->label('Store')->options(fn () => Storefront::orderBy('name')->pluck('name', 'id')),
+            ])
             ->recordActions([EditAction::make()])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
     }

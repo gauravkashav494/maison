@@ -106,7 +106,7 @@ class CatalogController extends Controller
             'title' => ['nullable', 'string', 'max:120'],
             'body' => ['required', 'string', 'max:2000'],
         ]);
-        $product->reviews()->create($data + ['user_id' => $request->user()?->id, 'is_approved' => false]);
+        $product->reviews()->create($data + ['user_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
 
         return back()->with('review_status', 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
     }
@@ -218,7 +218,7 @@ class CatalogController extends Controller
             'website' => ['prohibited'], // honeypot
         ]);
         unset($data['website']);
-        ContactMessage::create($data);
+        ContactMessage::create($data + ['template' => template()->id()]);
 
         return back()->with('contact_status', 'Thank you. Our client care team will reply within one business day.');
     }

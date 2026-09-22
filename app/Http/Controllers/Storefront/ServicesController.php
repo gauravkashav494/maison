@@ -298,7 +298,7 @@ class ServicesController extends Controller
         ]);
         unset($data['website']);
         $data['subject'] = $data['service'] ?: 'Enquiry';
-        ContactMessage::create($data);
+        ContactMessage::create($data + ['template' => template()->id()]);
 
         return back()->with('contact_status', 'Thank you! We have received your message and will call you back shortly.');
     }
