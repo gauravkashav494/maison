@@ -20,19 +20,19 @@
         </div>
     </div>
 
-    <div class="ps-container flex h-[4.5rem] items-center gap-3 2xl:gap-6">
+    <div class="ps-container relative flex h-[4.5rem] items-center gap-3 2xl:gap-6">
         <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5" aria-label="{{ $biz['name'] }} home">
             <span class="grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-glow"><x-ico name="droplet" :size="24" :stroke="2" /></span>
             <span class="font-display text-[1.35rem] font-extrabold tracking-tight text-deep">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-bright">{{ $p['logo_accent'] ?? 'Care' }}</span></span>
         </a>
 
-        <nav class="relative flex min-w-0 flex-1 items-center justify-center gap-0 xl:gap-1" aria-label="Main">
-            <div class="relative" @mouseenter="openMega()" @mouseleave="closeMega()">
+        <nav class="flex min-w-0 flex-1 items-center justify-center gap-0 xl:gap-1" aria-label="Main">
+            <div @mouseenter="openMega()" @mouseleave="closeMega()">
                 <a href="{{ route('services.index') }}" class="nav-link {{ request()->routeIs('services.*') ? 'is-active' : '' }}" :aria-expanded="mega">Services <x-ico name="chevron-down" :size="14" /></a>
-                <div x-show="mega" x-cloak x-transition.opacity.duration.150ms class="mega left-1/2 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2">
-                    <div class="grid grid-cols-[1fr_16rem] gap-6 rounded-3xl bg-white p-6 shadow-float ring-1 ring-line">
+                <div x-show="mega" x-cloak x-transition.opacity.duration.150ms class="mega left-4 right-4 w-auto lg:left-8 lg:right-8">
+                    <div class="grid grid-cols-[1fr_17rem] gap-8 rounded-3xl bg-white p-6 shadow-float ring-1 ring-line">
                         <div>
-                            <div class="grid grid-cols-3 gap-1">
+                            <div class="grid grid-cols-3 gap-1 xl:grid-cols-4">
                                 @foreach($servicesNav as $s)
                                     <a href="{{ $s->url }}" class="mega-link"><span class="svc-ico h-9 w-9 rounded-xl {{ $s->is_emergency ? 'svc-ico-danger' : '' }}"><x-ico :name="$s->icon ?: 'wrench'" :size="18" /></span><span class="leading-tight">{{ $s->name }}</span></a>
                                 @endforeach

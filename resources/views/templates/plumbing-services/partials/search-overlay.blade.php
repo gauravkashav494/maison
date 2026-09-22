@@ -1,7 +1,7 @@
 {{-- Full-screen search (phones/tablets): live service and problem suggestions --}}
 @php $p = tsetting('site'); $suggestions = array_values($p['search_suggestions'] ?? []); @endphp
 <div x-data="search(@js($suggestions), @js($p['search_placeholder'] ?? 'Search plumbing services'))" x-show="$store.ui.searchOpen" x-cloak x-init="$watch('$store.ui.searchOpen', (v) => { if (v) { open(); $nextTick(() => $refs.input?.focus()); } })" class="fixed inset-0 z-[80] flex flex-col bg-white lg:hidden" x-trap.noscroll="$store.ui.searchOpen" role="dialog" aria-modal="true" aria-label="Search">
-    <form action="{{ route('services.index') }}" method="get" @submit.prevent="submit()" class="app-bar flex items-center gap-2 border-b border-line-soft px-2 py-2">
+    <form action="{{ route('services.index') }}" method="get" @submit.prevent="submit()" class="app-bar flex h-[3.75rem] items-center gap-1 border-b border-line-soft pl-2 pr-4">
         <button type="button" @click="$store.ui.searchOpen = false" class="icon-btn" aria-label="Close search"><x-ico name="arrow-left" :size="22" /></button>
         <div class="flex h-11 flex-1 items-center gap-2 rounded-full bg-canvas px-4 ring-1 ring-line">
             <x-ico name="search" :size="18" class="text-primary" />
@@ -9,7 +9,8 @@
             <button type="button" x-show="q" @click="q = ''" class="text-mist" aria-label="Clear"><x-ico name="close" :size="16" /></button>
         </div>
     </form>
-    <div class="flex-1 overflow-y-auto px-4 pb-24">
+    <div x-ref="icos" class="hidden" aria-hidden="true">@foreach(collect($navServices ?? [])->pluck('icon')->filter()->unique()->push('wrench') as $ic)<span data-ico="{{ $ic }}"><x-ico :name="$ic" :size="20" /></span>@endforeach</div>
+    <div class="flex-1 overflow-y-auto px-4 pb-24 pt-1">
         <template x-if="!q">
             <div class="pt-4">
                 <template x-if="$store.recent.terms.length">
@@ -34,7 +35,7 @@
                 <template x-for="s in results.services" :key="s.url">
                     <li>
                         <div class="flex items-center gap-3 py-3">
-                            <a :href="s.url" class="svc-ico h-11 w-11" :class="s.is_emergency && 'svc-ico-danger'"><x-ico name="wrench" :size="20" /></a>
+                            <a :href="s.url" class="svc-ico h-11 w-11" :class="s.is_emergency && 'svc-ico-danger'" x-html="($refs.icos.querySelector('[data-ico=' + JSON.stringify(s.icon || 'wrench') + ']') || $refs.icos.querySelector('[data-ico=wrench]')).innerHTML"></a>
                             <a :href="s.url" class="min-w-0 flex-1"><span class="block font-display text-sm font-extrabold" x-text="s.name"></span><span class="line-clamp-1 text-xs text-slate" x-text="s.excerpt"></span></a>
                             <a :href="s.book_url" class="btn btn-soft btn-sm">Book</a>
                         </div>

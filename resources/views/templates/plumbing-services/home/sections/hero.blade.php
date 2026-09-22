@@ -7,7 +7,7 @@
     $secondaryIcon = fn ($s) => match ($s['secondary_action'] ?? 'call') { 'whatsapp' => 'whatsapp', 'emergency' => 'alert', 'quote' => 'file', default => 'phone' };
 @endphp
 @if($slides->isNotEmpty())
-<section class="ps-container pt-3 lg:pt-8" x-data="heroCarousel({{ $slides->count() }})" @mouseenter="pause()" @mouseleave="play()" @touchstart.passive="touchStart($event)" @touchend.passive="touchEnd($event)" aria-roledescription="carousel">
+<section class="ps-container pt-4 lg:pt-8" x-data="heroCarousel({{ $slides->count() }})" @mouseenter="pause()" @mouseleave="play()" @touchstart.passive="touchStart($event)" @touchend.passive="touchEnd($event)" aria-roledescription="carousel">
     <div class="relative grid">
         @foreach($slides as $i => $s)
             <div x-show="index === {{ $i }}" x-transition.opacity.duration.500ms class="band-deep relative col-start-1 row-start-1 overflow-hidden rounded-3xl" role="group" aria-roledescription="slide" aria-label="{{ $i + 1 }} of {{ $slides->count() }}">
