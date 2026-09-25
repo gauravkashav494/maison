@@ -48,8 +48,11 @@ return new class extends Migration
             ->select('reviews.id', 'products.template')->whereNotNull('products.template')->get() as $row) {
             DB::table('reviews')->where('id', $row->id)->update(['template' => $row->template]);
         }
-        // Contact messages that came through the services form carry a service name.
-        DB::table('contact_messages')->whereNotNull('service')->where('service', '!=', '')->update(['template' => 'plumbing-services']);
+        // Contact messages that came through the services form carry a service name. (That column
+        // is added by the plumbing-services migration, which runs after this one on a fresh install.)
+        if (Schema::hasColumn('contact_messages', 'service')) {
+            DB::table('contact_messages')->whereNotNull('service')->where('service', '!=', '')->update(['template' => 'plumbing-services']);
+        }
     }
 
     public function down(): void

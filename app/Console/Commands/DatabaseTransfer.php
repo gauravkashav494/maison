@@ -78,8 +78,10 @@ class DatabaseTransfer extends Command
             return self::SUCCESS;
         }
 
-        $this->withoutForeignKeys($target, function () use ($tables, $source, $target, $to) {
-            foreach ($tables as $table) {
+        $ordered = $this->inDependencyOrder($tables->all(), $to);
+
+        $this->withoutForeignKeys($target, function () use ($ordered, $source, $target, $to) {
+            foreach ($ordered as $table) {
                 $this->copyTable($table, $source, $target, $to);
             }
         });
@@ -92,6 +94,36 @@ class DatabaseTransfer extends Command
         $this->info('Done. Point DB_CONNECTION at '.$to.' when you are ready to switch over.');
 
         return self::SUCCESS;
+    }
+
+    /** Tables sorted so that a table's foreign key targets are copied before it. */
+    private function inDependencyOrder(array $tables, string $connection): array
+    {
+        $dependencies = [];
+        foreach ($tables as $table) {
+            $dependencies[$table] = collect(Schema::connection($connection)->getForeignKeys($table))
+                ->pluck('foreign_table')
+                ->map(fn ($t) => str_contains((string) $t, '.') ? last(explode('.', (string) $t)) : $t)
+                ->filter(fn ($t) => $t !== $table && in_array($t, $tables, true))
+                ->unique()->values()->all();
+        }
+
+        $ordered = [];
+        $visit = function (string $table, array $seen = []) use (&$visit, &$ordered, $dependencies) {
+            if (in_array($table, $ordered, true) || in_array($table, $seen, true)) {
+                return; // already placed, or part of a cycle we cannot order further
+            }
+            $seen[] = $table;
+            foreach ($dependencies[$table] ?? [] as $parent) {
+                $visit($parent, $seen);
+            }
+            $ordered[] = $table;
+        };
+        foreach ($tables as $table) {
+            $visit($table);
+        }
+
+        return $ordered;
     }
 
     private function copyTable(string $table, $source, $target, string $to): void
@@ -171,22 +203,32 @@ class DatabaseTransfer extends Command
     private function withoutForeignKeys($target, callable $callback): void
     {
         $driver = $target->getDriverName();
-        match ($driver) {
-            'pgsql' => $target->statement("set session_replication_role = 'replica'"),
-            'mysql', 'mariadb' => $target->statement('SET FOREIGN_KEY_CHECKS=0'),
-            'sqlite' => $target->statement('PRAGMA foreign_keys = OFF'),
-            default => null,
-        };
+        // Suspending foreign keys on PostgreSQL needs a superuser; without it the tables are
+        // simply loaded parents-first instead.
+        $suspended = true;
+        try {
+            match ($driver) {
+                'pgsql' => $target->statement("set session_replication_role = 'replica'"),
+                'mysql', 'mariadb' => $target->statement('SET FOREIGN_KEY_CHECKS=0'),
+                'sqlite' => $target->statement('PRAGMA foreign_keys = OFF'),
+                default => null,
+            };
+        } catch (\Throwable $e) {
+            $suspended = false;
+            $this->warn('  Could not suspend foreign keys ('.$e->getMessage().') — loading tables in dependency order instead.');
+        }
 
         try {
             $callback();
         } finally {
-            match ($driver) {
-                'pgsql' => $target->statement("set session_replication_role = 'origin'"),
-                'mysql', 'mariadb' => $target->statement('SET FOREIGN_KEY_CHECKS=1'),
-                'sqlite' => $target->statement('PRAGMA foreign_keys = ON'),
-                default => null,
-            };
+            if ($suspended) {
+                match ($driver) {
+                    'pgsql' => $target->statement("set session_replication_role = 'origin'"),
+                    'mysql', 'mariadb' => $target->statement('SET FOREIGN_KEY_CHECKS=1'),
+                    'sqlite' => $target->statement('PRAGMA foreign_keys = ON'),
+                    default => null,
+                };
+            }
         }
     }
 
@@ -196,6 +238,9 @@ class DatabaseTransfer extends Command
         $this->newLine();
         $this->info('Resetting PostgreSQL sequences…');
         foreach ($tables as $table) {
+            if (! Schema::connection($target->getName())->hasColumn($table, 'id')) {
+                continue; // pivot tables have no identity column
+            }
             $sequence = $target->selectOne('select pg_get_serial_sequence(?, ?) as seq', [$table, 'id']);
             if (! $sequence?->seq) {
                 continue;

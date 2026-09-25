@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -32,10 +32,11 @@ return [
 
     'connections' => [
 
+        // Only used to read the pre-PostgreSQL data (`php artisan db:transfer --from=sqlite --to=pgsql`).
         'sqlite' => [
             'driver' => 'sqlite',
-            'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'url' => env('DB_SQLITE_URL'),
+            'database' => env('SQLITE_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
@@ -84,13 +85,15 @@ return [
             ]) : [],
         ],
 
+        // The application database. Local development and production both run PostgreSQL;
+        // see docs/DATABASE.md for the dump/restore commands.
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
+            'database' => env('DB_DATABASE', 'maison'),
+            'username' => env('DB_USERNAME', 'maison'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',

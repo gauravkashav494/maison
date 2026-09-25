@@ -24,39 +24,87 @@ Each store can be capped by the super admin under **Platform → Stores → Edit
 
 ---
 
-## 2. Moving from MySQL to PostgreSQL
+## 2. PostgreSQL
 
-The code is driver-agnostic: searches use a `whereLike()` helper that switches to `ILIKE` (and
-casts JSON columns to text) on PostgreSQL, divisions are guarded with `nullif`, and Filament's own
-search is already case-insensitive on PostgreSQL.
+The application runs on **PostgreSQL** (`DB_CONNECTION=pgsql`, defaults in `config/database.php`).
+MySQL and SQLite still work — the queries are driver-agnostic — but Postgres is what local
+development and production use.
+
+### The dump
+
+`database/maison_pgsql.dump` is a `pg_dump` custom-format dump of the working database
+(schema + data: products, categories, pages, menus, services, stores, users with their roles).
+`database/maison_pgsql.sql` is the same thing as plain SQL if you prefer to read or edit it.
+
+Restore it on another machine:
 
 ```bash
-# 1. add the PostgreSQL connection details to .env (keep the MySQL ones for the move)
+createdb -U postgres -O maison maison          # database + owner, once
+pg_restore -h 127.0.0.1 -U maison -d maison --no-owner --clean --if-exists database/maison_pgsql.dump
+# …or with the plain file:
+psql -h 127.0.0.1 -U maison -d maison -f database/maison_pgsql.sql
+```
+
+`.env` on that machine:
+
+```
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_DATABASE=maison
 DB_USERNAME=maison
 DB_PASSWORD=…
-
-# 2. build the schema in PostgreSQL
-php artisan migrate --database=pgsql
-
-# 3. copy the data across (chunked, foreign keys suspended, sequences reset afterwards)
-php artisan db:transfer --from=mysql --to=pgsql          # add --pretend first to see the counts
-
-# 4. switch over and clear the caches
-php artisan optimize:clear
 ```
 
-`db:transfer` skips `sessions`, `cache`, `jobs` and the other throwaway tables by default
-(`--skip=` to change that), converts values to the target column types (booleans, JSON) and resets
-the PostgreSQL identity sequences so new inserts continue after the highest imported id.
+Then `php artisan migrate` (no-op if the dump is current) and `php artisan optimize:clear`.
+PHP needs the `pdo_pgsql` extension enabled in `php.ini`.
 
-Requirements: the `pdo_pgsql` extension enabled in `php.ini` (the DLL ships with XAMPP but is
-commented out by default) and a PostgreSQL server reachable from the app.
+To produce a fresh dump after changing data:
 
----
+```bash
+pg_dump -h 127.0.0.1 -U maison -d maison -Fc -f database/maison_pgsql.dump
+pg_dump -h 127.0.0.1 -U maison -d maison     -f database/maison_pgsql.sql
+```
+
+### Local server on this machine
+
+PostgreSQL 17.2 is installed as portable binaries (no Windows service, no admin rights):
+
+| | |
+|---|---|
+| Binaries | `D:\pgsql-portable\pgsql\bin` |
+| Data directory | `D:\pgsql-portable\data` |
+| Log | `D:\pgsql-portable\server.log` |
+| Superuser | `postgres` / `maison_local_pw` |
+| Application role | `maison` / `maison`, owner of database `maison` |
+
+It does **not** start automatically after a reboot:
+
+```bash
+"D:\pgsql-portable\pgsql\bin\pg_ctl" -D "D:/pgsql-portable/data" -l "D:/pgsql-portable/server.log" start
+"D:\pgsql-portable\pgsql\bin\pg_ctl" -D "D:/pgsql-portable/data" status
+"D:\pgsql-portable\pgsql\bin\pg_ctl" -D "D:/pgsql-portable/data" stop
+```
+
+Removing it is deleting `D:\pgsql-portable` and re-commenting the two `extension=…pgsql` lines
+in `php.ini`.
+
+### Moving data from another database
+
+`db:transfer` copies every table between any two configured connections — that is how the data
+moved from the old SQLite/MySQL database into PostgreSQL:
+
+```bash
+php artisan migrate --database=pgsql                      # build the schema
+php artisan db:transfer --from=mysql --to=pgsql --pretend # row counts only
+php artisan db:transfer --from=mysql --to=pgsql
+```
+
+It loads tables parents-first, converts values to the target column types (booleans, JSON) and
+resets the identity sequences, so inserts continue after the highest imported id. If the target
+role is a superuser it suspends foreign keys instead of ordering the tables.
+
+The old MySQL export, `database/maison_elan_data.sql`, is still there for a MySQL target.
 
 ## 3. A separate database per store
 
