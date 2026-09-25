@@ -37,6 +37,12 @@ class StorefrontForm
                 TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
                     ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Without one the store uses its subdomain. Enter the host only, no https://.'),
             ]),
+            Section::make('Plan limits')->description('Leave a field blank for no limit. Limits apply to everyone working in this store, including you.')->columns(2)->schema([
+                TextInput::make('product_limit')->label('Maximum products')->numeric()->minValue(0)->maxValue(1000000)->placeholder('Unlimited')
+                    ->helperText(fn (?Storefront $record) => $record ? 'Currently using '.\App\Admin\StoreQuota::for($record)->productCount().' products.' : null),
+                TextInput::make('storage_limit_mb')->label('Storage allowance (MB)')->numeric()->minValue(0)->maxValue(1048576)->placeholder('Unlimited')
+                    ->helperText(fn (?Storefront $record) => $record ? 'Currently using '.\App\Admin\StoreQuota::formatBytes(\App\Admin\StoreQuota::for($record)->storageUsed()).' of uploaded media.' : null),
+            ]),
             Section::make('Owners')->description('Staff accounts that manage this store. Create accounts under Platform → Users.')->schema([
                 Select::make('owner_ids')
                     ->label('Store owners')

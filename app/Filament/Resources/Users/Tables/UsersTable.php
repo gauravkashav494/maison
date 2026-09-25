@@ -26,7 +26,8 @@ class UsersTable
                     ->sortable(),
                 TextColumn::make('storefront.name')->label('Store')->placeholder('—')->sortable(),
                 TextColumn::make('phone')->color('gray')->placeholder('—')->toggleable(),
-                TextColumn::make('orders_count')->counts('orders')->label('Orders')->alignRight()->toggleable(),
+                TextColumn::make('orders_count')->counts('orders')->label('Orders')->alignRight()->toggleable()
+                    ->visible(fn () => ! app(\App\Stores\TenantManager::class)->isolated()), // a store database cannot be joined from here
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])

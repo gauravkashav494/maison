@@ -18,7 +18,7 @@ class HomeComposer
         $limit = fn (string $key, int $default) => max(4, (int) ($home[$key] ?? $default));
 
         $deals = Product::with('category')->active()->onSale()
-            ->orderByRaw('(compare_at_price - price) * 1.0 / compare_at_price desc')
+            ->orderByRaw('(compare_at_price - price) * 1.0 / nullif(compare_at_price, 0) desc')
             ->limit($limit('deals_limit', 10))->get();
 
         $fresh = collect();

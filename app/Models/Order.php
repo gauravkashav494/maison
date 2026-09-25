@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,8 @@ use Illuminate\Support\Str;
 
 class Order extends Model
 {
+    use UsesStoreConnection;
+
     use BelongsToTemplate;
 
     protected $guarded = [];

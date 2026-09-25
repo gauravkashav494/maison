@@ -68,6 +68,9 @@ class ResolveTemplate
         // they narrowed the admin to one store (an explicit preview wins).
         $this->followAdminStore($request, $manager);
 
+        // With per-store databases, point the content models at the store being served.
+        app(\App\Stores\TenantManager::class)->use(Storefront::where('template', $manager->current()->id())->first());
+
         $template = $manager->current();
         $template->boot();
 

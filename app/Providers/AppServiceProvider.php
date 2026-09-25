@@ -21,11 +21,14 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(StoreContext::class);
+        $this->app->singleton(\App\Stores\TenantManager::class);
         $this->app->singleton(TemplateManager::class, fn () => new TemplateManager(config('templates.templates', [])));
     }
 
     public function boot(): void
     {
+        \App\Support\DatabaseMacros::register();
+
         // Admin authorization: one scoped policy per template-owned model, plus platform modules.
         foreach (StoreContext::SCOPED_MODELS as $model) {
             Gate::policy($model, 'App\\Policies\\Scoped\\'.class_basename($model).'Policy');

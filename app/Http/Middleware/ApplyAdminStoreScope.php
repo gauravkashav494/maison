@@ -35,7 +35,16 @@ class ApplyAdminStoreScope
             return redirect()->to($request->fullUrlWithoutQuery('switch_store'));
         }
 
-        $this->context->resolve($user, $user?->isSuperAdmin() ? $request->session()->get(StoreContext::SESSION_KEY) : null);
+        $chosen = $user?->isSuperAdmin() ? $request->session()->get(StoreContext::SESSION_KEY) : null;
+        $tenants = app(\App\Stores\TenantManager::class);
+
+        // Per-store databases cannot answer a cross-store query, so a store is always selected.
+        if ($tenants->isolated() && $user?->isSuperAdmin() && ! $chosen) {
+            $chosen = Storefront::active()->orderBy('name')->value('template');
+        }
+
+        $this->context->resolve($user, $chosen);
+        $tenants->use($this->context->storefront());
 
         if ($template = $this->context->template()) {
             foreach (StoreContext::SCOPED_MODELS as $model) {

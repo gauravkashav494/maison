@@ -160,7 +160,7 @@ class CatalogController extends Controller
 
         return response()->json([
             'products' => $this->searchQuery($q)->limit(6)->get()->map(fn (Product $p) => $p->toCard())->values(),
-            'categories' => Category::active()->where('name', 'like', "%{$q}%")->limit(4)->get()->map(fn ($c) => ['name' => $c->name, 'url' => $c->url])->values(),
+            'categories' => Category::active()->whereLike('name', $q)->limit(4)->get()->map(fn ($c) => ['name' => $c->name, 'url' => $c->url])->values(),
         ]);
     }
 
@@ -176,13 +176,13 @@ class CatalogController extends Controller
         return Product::with('category')->active()
             ->where(function ($outer) use ($words) {
                 foreach ($words as $word) {
-                    $outer->where(fn ($w) => $w->where('name', 'like', "%{$word}%")
-                        ->orWhere('description', 'like', "%{$word}%")
-                        ->orWhere('brand', 'like', "%{$word}%")
-                        ->orWhere('sku', 'like', "%{$word}%")
-                        ->orWhere('material', 'like', "%{$word}%")
-                        ->orWhere('sizes', 'like', "%{$word}%")
-                        ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$word}%")));
+                    $outer->where(fn ($w) => $w->whereLike('name', $word)
+                        ->orWhereLike('description', $word)
+                        ->orWhereLike('brand', $word)
+                        ->orWhereLike('sku', $word)
+                        ->orWhereLike('material', $word)
+                        ->orWhereLike('sizes', $word)
+                        ->orWhereHas('category', fn ($c) => $c->whereLike('name', $word)));
                 }
             })
             ->orderBy('sort_order');

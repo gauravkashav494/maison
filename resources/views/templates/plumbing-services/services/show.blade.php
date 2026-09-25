@@ -17,7 +17,7 @@
             <div class="lg:order-1 lg:col-span-6">
                 <div class="flex items-center gap-3">
                     <span class="svc-ico h-12 w-12 {{ $service->is_emergency ? 'svc-ico-danger' : '' }}"><x-ico :name="$service->icon ?: 'wrench'" :size="24" /></span>
-                    <div><p class="eyebrow">{{ $service->is_emergency ? '24×7 emergency service' : 'Professional service' }}</p>@if($rating && $rating->n > 0)<x-rating :value="round($rating->avg)" :label="number_format($rating->avg, 1).' · '.$rating->n.' customer '.Str::plural('review', $rating->n)" class="mt-0.5" />@endif</div>
+                    <div><p class="eyebrow">{{ $service->is_emergency ? '24×7 emergency service' : 'Professional service' }}</p>@if($rating && $rating->rating_count > 0)<x-rating :value="round($rating->rating_avg)" :label="number_format($rating->rating_avg, 1).' · '.$rating->rating_count.' customer '.Str::plural('review', $rating->rating_count)" class="mt-0.5" />@endif</div>
                 </div>
                 <h1 class="mt-3 font-display text-[1.75rem] font-extrabold leading-tight lg:text-[2.75rem]">{{ $service->name }}</h1>
                 <p class="mt-2 text-sm text-slate lg:text-lg">{{ $service->excerpt }}</p>

@@ -26,11 +26,15 @@ class Fields
      */
     public static function image(string $name, ?string $label = null, string $directory = 'uploads', bool $multiple = false): FileUpload
     {
+        // Media of a store lives under stores/<slug>/… so its storage can be measured and capped.
+        $store = app(\App\Admin\StoreContext::class)->storefront();
+
         $field = FileUpload::make($name)
             ->label($label ?? Str::headline($name))
             ->disk('public')
-            ->directory($directory)
-            ->visibility('public')
+            ->directory($store ? 'stores/'.$store->slug.'/'.$directory : $directory)
+            ->rules([new \App\Rules\WithinStoreStorage])
+            ->helperText(fn () => ($q = \App\Admin\StoreQuota::current())?->storageLimit() === null ? null : 'Store media: '.$q->storageLabel().' used.')            ->visibility('public')
             ->image()
             ->imageEditor()
             ->maxSize(8192)

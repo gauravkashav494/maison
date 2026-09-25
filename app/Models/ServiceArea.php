@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
 use App\Support\Media;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 /** A city / locality served by the business, with its own SEO landing page. */
 class ServiceArea extends Model
 {
+    use UsesStoreConnection;
+
     use BelongsToTemplate;
     use HasSeo;
 

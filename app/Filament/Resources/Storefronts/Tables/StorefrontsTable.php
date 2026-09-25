@@ -22,6 +22,10 @@ class StorefrontsTable
                     ->description(fn (Storefront $r) => $r->supportsServices() ? 'Service business' : 'Catalogue store'),
                 TextColumn::make('public_url')->label('Address')->state(fn (Storefront $r) => $r->publicUrl())->url(fn (Storefront $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square')
                     ->description(fn (Storefront $r) => $r->publicUrl() === $r->entryUrl() ? null : 'or '.$r->entryUrl()),
+                TextColumn::make('products_used')->label('Products')->state(fn (Storefront $r) => \App\Admin\StoreQuota::for($r)->productLabel())
+                    ->color(fn (Storefront $r) => \App\Admin\StoreQuota::for($r)->atProductLimit() ? 'danger' : 'gray'),
+                TextColumn::make('storage_used')->label('Storage')->state(fn (Storefront $r) => \App\Admin\StoreQuota::for($r)->storageLabel())
+                    ->color(fn (Storefront $r) => \App\Admin\StoreQuota::for($r)->storageFull() ? 'danger' : 'gray'),
                 TextColumn::make('owners.name')->label('Owners')->listWithLineBreaks()->limitList(3)->placeholder('No owner yet'),
                 IconColumn::make('is_live')->label('Main domain')->boolean()->state(fn (Storefront $r) => app(TemplateManager::class)->activeId() === $r->template)->tooltip('Also served on the main domain (Appearance → Templates)'),
                 IconColumn::make('is_active')->label('Active')->boolean(),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Review extends Model
 {
+    use UsesStoreConnection;
+
     use BelongsToTemplate;
 
     protected $guarded = [];
@@ -28,11 +31,11 @@ class Review extends Model
     /** Keep the denormalised rating/review_count on the product in sync. */
     public static function syncProduct(int $productId): void
     {
-        $stats = static::approved()->where('product_id', $productId)
-            ->selectRaw('count(*) as c, avg(rating) as r')->first();
+        $stats = static::approved()->where('product_id', $productId)->reorder()
+            ->selectRaw('count(*) as review_total, avg(rating) as rating_avg')->first();
         Product::whereKey($productId)->update([
-            'review_count' => (int) ($stats->c ?? 0),
-            'rating' => round((float) ($stats->r ?? 0), 1),
+            'review_count' => (int) ($stats->review_total ?? 0),
+            'rating' => round((float) ($stats->rating_avg ?? 0), 1),
         ]);
     }
 

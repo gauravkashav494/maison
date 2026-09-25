@@ -88,17 +88,17 @@ class ShopController extends Controller
             $query->where('is_veg', true); // grocery templates: vegetarian-only switch
         }
         if ($f['discount']) {
-            $query->onSale()->whereRaw('(compare_at_price - price) * 100.0 / compare_at_price >= ?', [$f['discount']]);
+            $query->onSale()->whereRaw('(compare_at_price - price) * 100.0 / nullif(compare_at_price, 0) >= ?', [$f['discount']]);
         }
         foreach ($f['diet'] as $tag) {
-            $query->where('dietary_tags', 'like', '%'.json_encode($tag).'%');
+            $query->whereLike('dietary_tags', trim(json_encode($tag), '"'));
         }
         // JSON array facets — SQLite/MySQL both support LIKE on the serialised JSON.
         foreach ($f['size'] as $size) {
-            $query->where('sizes', 'like', '%'.json_encode($size).'%');
+            $query->whereLike('sizes', trim(json_encode($size), '"'));
         }
         foreach ($f['color'] as $color) {
-            $query->where('colors', 'like', '%"name":'.json_encode($color).'%');
+            $query->whereLike('colors', '"name":'.json_encode($color));
         }
 
         match ($f['sort']) {

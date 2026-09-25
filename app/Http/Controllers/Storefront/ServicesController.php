@@ -71,7 +71,7 @@ class ServicesController extends Controller
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'projects' => Project::with('service')->active()->where('service_id', $service->id)->limit(4)->get(),
             'areas' => ServiceArea::active()->get(),
-            'rating' => Testimonial::active()->selectRaw('avg(rating) as avg, count(*) as n')->reorder()->first(),
+            'rating' => Testimonial::active()->reorder()->selectRaw('avg(rating) as rating_avg, count(*) as rating_count')->reorder()->first(),
             'seo' => Seo::forModel($service, $service->url, 'website', $jsonLd),
         ]);
     }
@@ -120,7 +120,7 @@ class ServicesController extends Controller
         return view('services.area', [
             'area' => $area,
             'services' => Service::active()->orderByDesc('is_popular')->limit(9)->get(),
-            'testimonials' => Testimonial::with('service')->active()->where('location', 'like', "%{$area->name}%")->limit(6)->get()
+            'testimonials' => Testimonial::with('service')->active()->whereLike('location', $area->name)->limit(6)->get()
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'others' => ServiceArea::active()->where('id', '!=', $area->id)->get(),
             'seo' => Seo::forModel($area, $area->url, 'website', [
@@ -331,10 +331,10 @@ class ServicesController extends Controller
 
         return Service::active()->where(function ($outer) use ($words) {
             foreach ($words as $word) {
-                $outer->where(fn ($w) => $w->where('name', 'like', "%{$word}%")
-                    ->orWhere('excerpt', 'like', "%{$word}%")
-                    ->orWhere('description', 'like', "%{$word}%")
-                    ->orWhere('problems', 'like', "%{$word}%"));
+                $outer->where(fn ($w) => $w->whereLike('name', $word)
+                    ->orWhereLike('excerpt', $word)
+                    ->orWhereLike('description', $word)
+                    ->orWhereLike('problems', $word));
             }
         })->orderByDesc('is_popular');
     }

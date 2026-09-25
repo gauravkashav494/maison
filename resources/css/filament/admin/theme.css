@@ -76,6 +76,19 @@ html { font-size: 14px; }
 /* User menu: name + role next to the avatar */
 .fi-topbar .fi-user-menu .fi-dropdown-trigger { display: flex; align-items: center; gap: 0.6rem; color: #fff; }
 .fi-topbar .fi-user-menu .fi-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.fi-usage-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.fi-usage { padding: .875rem 1rem; border-radius: .75rem; background: #fff; box-shadow: 0 0 0 1px rgb(15 42 77 / .08); }
+.fi-usage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.fi-usage-label { font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.fi-usage-value { font-size: .95rem; font-weight: 700; color: #0f2a4d; }
+.fi-usage-value span { font-weight: 500; color: #94a3b8; }
+.fi-usage-bar { margin-top: .5rem; height: .4rem; border-radius: 999px; background: #e8eef6; overflow: hidden; }
+.fi-usage-bar span { display: block; height: 100%; border-radius: 999px; background: #1d4ed8; transition: width .3s ease; }
+.fi-usage-bar span.is-high { background: #f59e0b; }
+.fi-usage-bar span.is-full { background: #dc2626; }
+.fi-usage-note { margin-top: .35rem; font-size: .75rem; color: #64748b; }
+.dark .fi-usage { background: #16223a; box-shadow: 0 0 0 1px rgb(255 255 255 / .08); }
+.dark .fi-usage-value { color: #fff; }
 .fi-store-link { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-radius: .875rem; background: linear-gradient(120deg, #0f2a4d, #1d4ed8); color: #fff; }
 .fi-store-link-label { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .7); }
 .fi-store-link-url { display: inline-block; margin-top: .15rem; font-size: 1.125rem; font-weight: 700; color: #fff; text-decoration: underline; text-underline-offset: 4px; word-break: break-all; }

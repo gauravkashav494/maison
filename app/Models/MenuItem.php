@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class MenuItem extends Model
 {
+    use UsesStoreConnection;
+
     protected $guarded = [];
 
     protected $casts = ['is_accent' => 'boolean', 'opens_in_new_tab' => 'boolean', 'is_active' => 'boolean'];

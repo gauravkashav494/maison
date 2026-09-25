@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -9,6 +10,8 @@ use Illuminate\Support\Str;
 /** A booking, emergency call-back or quote request submitted from the Plumbing Services template. */
 class ServiceRequest extends Model
 {
+    use UsesStoreConnection;
+
     protected $guarded = [];
 
     protected $casts = ['preferred_date' => 'date'];

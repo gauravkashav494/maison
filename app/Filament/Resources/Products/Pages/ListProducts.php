@@ -12,6 +12,18 @@ class ListProducts extends ListRecords
 
     protected static string $resource = ProductResource::class;
 
+    public function getSubheading(): ?string
+    {
+        $quota = \App\Admin\StoreQuota::current();
+        if (! $quota || $quota->productLimit() === null) {
+            return null;
+        }
+
+        return $quota->atProductLimit()
+            ? 'Product limit reached: '.$quota->productLabel().'. Delete a product, or ask the platform admin to raise the limit.'
+            : 'Using '.$quota->productLabel().' products in this store.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [

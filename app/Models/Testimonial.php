@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesStoreConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Customer review of a service (not tied to a product like Review is). */
 class Testimonial extends Model
 {
+    use UsesStoreConnection;
+
     use BelongsToTemplate;
 
     protected $guarded = [];
