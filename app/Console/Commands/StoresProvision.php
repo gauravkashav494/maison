@@ -9,20 +9,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Creates the database (or PostgreSQL schema) behind each store and builds its tables.
+ * Builds a store's database from the store's own definition.
  *
- *   php artisan stores:provision            # every store
- *   php artisan stores:provision grocery    # one store
+ *   php artisan stores:provision              # every store
+ *   php artisan stores:provision grocery      # one store
+ *   php artisan stores:provision --fresh      # drop the store tables and rebuild them
+ *   php artisan stores:provision --no-seed    # schema only, no content
  *
- * Safe to re-run: existing databases are kept and only missing migrations are applied.
- * Foreign keys that would point at the main database (orders.user_id and friends) are
- * dropped inside the store databases, because customers stay on the main connection.
+ * For each store it creates the database (or PostgreSQL schema), builds the store schema from
+ * database/migrations/tenant, and fills it with that store's own content by running the seeders
+ * its template declares. Nothing is copied out of another database: each store is created from
+ * its own catalogue, pages, navigation and settings.
+ *
+ * Re-running is safe — the schema step applies only missing migrations and the seeders are
+ * written to update in place rather than duplicate.
  */
 class StoresProvision extends Command
 {
-    protected $signature = 'stores:provision {slug? : Only this store} {--fresh : Drop and rebuild the store tables}';
+    protected $signature = 'stores:provision
+        {slug? : Only this store}
+        {--fresh : Drop the store tables first and rebuild them}
+        {--no-seed : Create the schema without any content}';
 
-    protected $description = 'Create the per-store databases/schemas and run the migrations inside them';
+    protected $description = 'Create each store database and build it from that store\'s own schema and content';
+
+    public const TENANT_MIGRATIONS = 'database/migrations/tenant';
 
     public function handle(TenantManager $tenants): int
     {
@@ -39,27 +50,56 @@ class StoresProvision extends Command
             return self::FAILURE;
         }
 
+        $summary = [];
+
         foreach ($stores as $store) {
             $this->newLine();
             $this->info($store->name.'  ('.$tenants->databaseNameFor($store).')');
+
+            if (! $store->templateObject()) {
+                $this->warn('  Its template is not registered — skipped.');
+
+                continue;
+            }
 
             $this->createDatabase($tenants, $store);
 
             $connection = $tenants->register($store);
             DB::purge($connection);
 
-            $this->call('migrate', array_filter([
-                '--database' => $connection,
-                '--force' => true,
-                '--isolated' => false,
-                '--step' => false,
-            ] + ($this->option('fresh') ? ['--fresh' => true] : [])));
+            $this->components->task('  schema', function () use ($connection) {
+                $this->callSilent($this->option('fresh') ? 'migrate:fresh' : 'migrate', [
+                    '--database' => $connection,
+                    '--path' => self::TENANT_MIGRATIONS,
+                    '--realpath' => false,
+                    '--force' => true,
+                ]);
+
+                return true;
+            });
+
+            if (! $this->option('no-seed')) {
+                $this->components->task('  content', fn () => $tenants->forStore($store, function () use ($store) {
+                    $store->templateObject()->install();
+
+                    return true;
+                }));
+            }
 
             $this->dropCrossDatabaseForeignKeys($connection);
+            $summary[] = $tenants->forStore($store, fn () => [
+                $store->name,
+                $tenants->databaseNameFor($store),
+                count(Schema::connection($connection)->getTableListing()),
+                DB::connection($connection)->table('products')->count(),
+                DB::connection($connection)->table('services')->count(),
+                DB::connection($connection)->table('pages')->count(),
+                DB::connection($connection)->table('menu_items')->count(),
+            ]);
         }
 
         $this->newLine();
-        $this->info('Provisioned. Run `php artisan stores:split` to copy existing rows into the store databases.');
+        $this->table(['Store', 'Database', 'Tables', 'Products', 'Services', 'Pages', 'Menu items'], $summary);
 
         return self::SUCCESS;
     }
@@ -83,7 +123,6 @@ class StoresProvision extends Command
 
         if ($tenants->mode() === 'schema') {
             $connection->statement('create schema if not exists "'.$name.'"');
-            $this->line('  schema ready');
 
             return;
         }
@@ -102,12 +141,15 @@ class StoresProvision extends Command
         }
     }
 
-    /** Customers live in the main database, so these constraints cannot exist inside a store database. */
+    /**
+     * Customers live in the main database. The store schema has no foreign keys pointing there,
+     * but a database promoted from the old single-database layout still can.
+     */
     private function dropCrossDatabaseForeignKeys(string $connection): void
     {
         $driver = DB::connection($connection)->getDriverName();
         if ($driver === 'sqlite') {
-            return; // SQLite connections for stores run with foreign key enforcement off
+            return; // store SQLite connections run with foreign key enforcement off
         }
 
         foreach (config('stores.cross_database_foreign_keys', []) as $table => $columns) {
@@ -115,26 +157,17 @@ class StoresProvision extends Command
                 continue;
             }
             foreach ($columns as $column) {
-                foreach ($this->foreignKeyNames($connection, $table, $column) as $name) {
+                foreach (Schema::connection($connection)->getForeignKeys($table) as $key) {
+                    if (! in_array($column, $key['columns'] ?? [], true) || ! $key['name']) {
+                        continue;
+                    }
                     DB::connection($connection)->statement(match ($driver) {
-                        'pgsql' => 'alter table "'.$table.'" drop constraint if exists "'.$name.'"',
-                        default => 'alter table `'.$table.'` drop foreign key `'.$name.'`',
+                        'pgsql' => 'alter table "'.$table.'" drop constraint if exists "'.$key['name'].'"',
+                        default => 'alter table `'.$table.'` drop foreign key `'.$key['name'].'`',
                     });
                     $this->line('  dropped foreign key '.$table.'.'.$column);
                 }
             }
         }
-    }
-
-    private function foreignKeyNames(string $connection, string $table, string $column): array
-    {
-        $names = [];
-        foreach (Schema::connection($connection)->getForeignKeys($table) as $key) {
-            if (in_array($column, $key['columns'] ?? [], true)) {
-                $names[] = $key['name'];
-            }
-        }
-
-        return array_filter($names);
     }
 }

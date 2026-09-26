@@ -27,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The store schema (database/migrations/tenant) is applied to the main database as well,
+        // so a single-database install has the same store tables the per-store databases get.
+        $this->loadMigrationsFrom(database_path('migrations/tenant'));
         \App\Support\DatabaseMacros::register();
 
         // Admin authorization: one scoped policy per template-owned model, plus platform modules.

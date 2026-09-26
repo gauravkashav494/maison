@@ -66,4 +66,21 @@ class FashionTemplate extends Template
     {
         return [HomepageSettings::class];
     }
+
+    public function isInstalled(): bool
+    {
+        return \App\Models\Category::where('template', $this->id())->exists()
+            || \App\Models\Product::where('template', $this->id())->exists();
+    }
+
+    /** Demo content for this store: catalogue, navigation, pages, journal and settings. */
+    public function install(): void
+    {
+        app(\Database\Seeders\CatalogSeeder::class)->run();
+        app(\Database\Seeders\MenuSeeder::class)->run();
+        app(\Database\Seeders\ContentSeeder::class)->run();
+        app(\Database\Seeders\PagesSeeder::class)->run();
+        app(\Database\Seeders\SettingsSeeder::class)->run();
+        \Illuminate\Support\Facades\Cache::flush();
+    }
 }

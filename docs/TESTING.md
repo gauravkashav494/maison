@@ -115,8 +115,7 @@ Off by default (`STORE_ISOLATION=shared`). To try it:
 # .env
 STORE_ISOLATION=database
 
-php artisan stores:provision      # once per store; creates the database and its tables
-php artisan stores:split          # copies each store's existing rows into it
+php artisan stores:provision      # creates each store database and builds it from its own schema + content
 php artisan optimize:clear
 ```
 

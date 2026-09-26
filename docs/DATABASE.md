@@ -124,24 +124,29 @@ Controlled by `STORE_ISOLATION` in `.env` (see `config/stores.php`):
 * **Main database** — users (so one customer account works across the stores), stores, settings,
   store locations, sessions, cache, jobs.
 
-**Enabling it**
+**Building the stores**
 
 ```bash
 # .env
 STORE_ISOLATION=database        # or: schema
 STORE_DB_PREFIX=store_          # database/schema name prefix
 
-php artisan stores:provision    # creates each database/schema and runs the migrations inside it
-php artisan stores:split --pretend   # shows what would move
-php artisan stores:split        # copies each store's rows into its own database
+php artisan stores:provision            # every store
+php artisan stores:provision grocery    # one store
+php artisan stores:provision --fresh    # rebuild a store from scratch
+php artisan stores:provision --no-seed  # schema only
 ```
 
-`stores:split` never touches the main database. Once every store has been checked, remove the
-now-duplicated rows with `php artisan stores:split --prune` (it asks for confirmation first).
-Rows that were shared by every template (`template = null`) are copied into each store.
+`stores:provision` creates the database (or schema), builds the store schema from
+`database/migrations/tenant`, and fills it with that store's own content by running the seeders
+its template declares — its categories, products or services, pages, navigation and settings.
+A store database is therefore created from the store's own definition, not copied from another
+database, and it contains only store tables: there is no `users`, `settings` or `sessions` table
+inside it and no foreign key pointing at the main database.
 
-A new store added later needs `php artisan stores:provision <slug>` before it can be used.
-
+Adding a store later is the same command with its slug. Changes to store tables belong in
+`database/migrations/tenant`; `stores:provision` applies them to every store, and the ordinary
+`php artisan migrate` applies them to the main database.
 **What changes in the admin**
 
 * The super admin always works inside one store (the "All stores" option disappears, because a
@@ -151,9 +156,9 @@ A new store added later needs `php artisan stores:provision <slug>` before it ca
 * The customers table hides its per-user order count, which would need a cross-database join.
 * Store owners see no difference at all.
 
-**Going back** is just `STORE_ISOLATION=shared` — but content written while isolation was on lives
-in the store databases, so move it back with `db:transfer --from=store_grocery --to=<main>` first
-(or keep the mode you are using consistently).
+**Going back** is just `STORE_ISOLATION=shared` — the main database still has its own copy of the
+store tables. Content written while isolation was on lives in the store databases; bring it back
+with `php artisan db:transfer --from=store_grocery --to=pgsql` if you need it.
 
 ---
 
