@@ -1,4 +1,4 @@
--- Maison Élan data export — generated 2026-09-25 11:23
+-- Maison Élan data export — generated 2026-09-26 12:00
 -- Run `php artisan migrate` first, then import this file.
 
 SET NAMES utf8mb4;
