@@ -39,7 +39,7 @@
                                 <div class="min-w-0">
                                     <p class="text-xs font-semibold text-slate" x-text="item.product.brand || item.product.category"></p>
                                     <a :href="item.product.url" class="line-clamp-2 text-sm font-bold leading-snug hover:text-leaf" x-text="item.product.name"></a>
-                                    <p class="mt-0.5 text-xs text-slate" x-text="item.size"></p>
+                                    <p class="mt-0.5 text-xs text-slate" x-text="item.options_label || item.size"></p>
                                 </div>
                                 <button type="button" @click="$store.cart.remove(item.key)" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-mist hover:bg-paper hover:text-berry" aria-label="Remove"><x-ico name="trash" :size="16" /></button>
                             </div>

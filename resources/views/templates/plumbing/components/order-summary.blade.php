@@ -7,7 +7,7 @@
                 <div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-line-soft bg-canvas">@if($item->image)<img src="{{ \App\Support\Media::url($item->image) }}" alt="" class="img-cover">@endif</div>
                 <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-semibold">{{ $item->name }}</p>
-                    <p class="text-xs text-slate">{{ $item->size }} · Qty {{ $item->qty }} × {{ money($item->price) }}</p>
+                    <p class="text-xs text-slate">{{ $item->optionsLabel() }} · Qty {{ $item->qty }} × {{ money($item->price) }}</p>
                 </div>
                 <span class="price text-sm">{{ money($item->total) }}</span>
             </li>

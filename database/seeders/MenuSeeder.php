@@ -106,14 +106,29 @@ class MenuSeeder extends Seeder
         Menu::flush();
     }
 
-    private function items(Menu $menu, array $items, ?int $parentId = null): void
+    /**
+     * Build a menu, children and all.
+     *
+     * Saving an item renumbers the whole menu, which would make the positions given here
+     * stale halfway through the tree — the second top-level item would be sorted against
+     * numbers the first item's children had already taken. So the tree is written with the
+     * events held back, and the menu is renumbered once at the end.
+     */
+    private function items(Menu $menu, array $items): void
+    {
+        MenuItem::withoutEvents(fn () => $this->build($menu, $items, null));
+
+        MenuItem::renumber($menu->id);
+    }
+
+    private function build(Menu $menu, array $items, ?int $parentId): void
     {
         foreach ($items as $i => $item) {
             $children = $item['children'] ?? [];
             unset($item['children']);
             $row = $menu->allItems()->create($item + ['parent_id' => $parentId, 'sort_order' => $i]);
             if ($children) {
-                $this->items($menu, $children, $row->id);
+                $this->build($menu, $children, $row->id);
             }
         }
     }

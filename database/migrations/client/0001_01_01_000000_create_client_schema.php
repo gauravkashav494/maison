@@ -5,19 +5,20 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The schema of a single store.
+ * The schema of a single client's content.
  *
- * Every store database is built from this file — catalogue, content, navigation, orders and
- * service tables with the relationships between them. Platform tables (users, stores, settings,
- * sessions) are deliberately absent: they live once in the main database and are shared by all
- * stores, which is why nothing here points at them with a foreign key.
+ * Every client database is built from this file — catalogue, content, navigation, orders and
+ * service tables with the relationships between them. Platform tables (super admins, clients,
+ * their staff, customers, addresses, storefronts, settings, sessions) are deliberately absent:
+ * they live once in the main database, which is why nothing here points at them with a foreign
+ * key.
  *
- * It runs in two places:
- *   • `php artisan stores:provision`  → into each store's own database
- *   • `php artisan migrate`           → into the main database, where it is a no-op unless the
- *                                       store tables are missing (shared mode keeps them there)
+ * It runs from `php artisan clients:provision`, into each client's own database. The main
+ * database gets the same tables from the ordinary migrations, so a shared installation and an
+ * isolated one have the same schema.
  *
- * Later changes to store tables belong in this directory too, so every store picks them up.
+ * Later changes to content tables belong in this directory as well, so every client picks
+ * them up.
  */
 return new class extends Migration
 {

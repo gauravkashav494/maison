@@ -83,6 +83,9 @@
             @endif
 
             {{-- Price + add --}}
+            {{-- Any further attributes this product varies by (material, style, …) --}}
+            <x-variant-options :product="$product" />
+
             <div class="card mt-5 p-4 sm:p-5" x-ref="buy">
                 <div class="flex flex-wrap items-end gap-x-3 gap-y-1">
                     <p class="text-2xl font-extrabold tabular lg:text-3xl">{{ money($product->price) }}</p>

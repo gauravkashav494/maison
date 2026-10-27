@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,9 @@ use Illuminate\Support\Facades\Cache;
 
 class Menu extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     use BelongsToTemplate;
 

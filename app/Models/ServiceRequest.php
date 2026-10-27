@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -10,7 +11,9 @@ use Illuminate\Support\Str;
 /** A booking, emergency call-back or quote request submitted from the Plumbing Services template. */
 class ServiceRequest extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     protected $guarded = [];
 
@@ -48,6 +51,13 @@ class ServiceRequest extends Model
         return $this->belongsTo(ServiceArea::class);
     }
 
+    /** The storefront account that placed this, or null for a guest. */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

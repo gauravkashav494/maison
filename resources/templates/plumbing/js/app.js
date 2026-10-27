@@ -74,10 +74,10 @@ Alpine.store('cart', {
     get savings_formatted() { return inr(this.savings); },
     line(productId, size = null) { return this.items.find((i) => i.product.id === productId && (size === null || i.size === size)); },
     qtyOf(productId, size = null) { return this.items.filter((i) => i.product.id === productId && (size === null || i.size === size)).reduce((s, i) => s + i.qty, 0); },
-    async add(productId, size, color = null, qty = 1, open = false) {
+    async add(productId, size, color = null, qty = 1, open = false, options = null) {
         this.busy = true;
         try {
-            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty } }));
+            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty, options } }));
             if (open) Alpine.store('ui').openCart(); else Alpine.store('ui').notify('Added to cart');
         } catch (e) {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
@@ -274,6 +274,7 @@ Alpine.data('shopFilters', (initial) => ({
 }));
 
 Alpine.data('productPage', (product) => ({
+    options: {},
     p: product,
     image: 0,
     size: product.sizes.length === 1 ? product.sizes[0] : (product.sizes[0] ?? null),
@@ -305,11 +306,11 @@ Alpine.data('productPage', (product) => ({
     embed(src) { const m = src.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/); return m ? `https://www.youtube.com/embed/${m[1]}?rel=0` : src; },
     async add() {
         if (!this.p.in_stock) return;
-        await Alpine.store('cart').add(this.p.id, this.size, null, this.quantity, false);
+        await Alpine.store('cart').add(this.p.id, this.size, null, this.quantity, false, this.options);
     },
     async buyNow() {
         if (!this.p.in_stock) return;
-        await Alpine.store('cart').add(this.p.id, this.size, null, this.quantity, false);
+        await Alpine.store('cart').add(this.p.id, this.size, null, this.quantity, false, this.options);
         window.location.href = '/checkout';
     },
     share() {
@@ -366,3 +367,15 @@ window.Alpine = Alpine;
 registerAppShell(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
+
+/* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
+Alpine.data('variantPricing', (variants) => ({
+    get current() {
+        const chosen = this.options || {};
+        const picked = Object.keys(chosen).filter((k) => chosen[k]);
+        return variants.find((v) => {
+            const names = Object.keys(v.options);
+            return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
+        }) || null;
+    },
+}));

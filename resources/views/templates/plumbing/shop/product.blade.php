@@ -94,6 +94,9 @@
                     <p class="mt-3 text-sm text-slate">Size / pack: <span class="font-semibold text-ink">{{ $product->sizes[0] }}</span></p>
                 @endif
 
+                {{-- Any further attributes this product varies by (material, style, …) --}}
+                <x-variant-options :product="$product" />
+
                 <div x-ref="buy" class="mt-5 flex flex-wrap items-center gap-3">
                     <div class="stepper">
                         <button type="button" @click="quantity = Math.max(1, quantity - 1)" aria-label="Decrease quantity"><x-ico name="minus" :size="16" /></button>

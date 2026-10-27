@@ -1,0 +1,179 @@
+/* ---------------------------------------------------------------------------
+   Simple List template
+   A price-list storefront with no imagery: the product table is the page.
+
+   This template reuses the shared cart, checkout and account views, so it is
+   built from the base views as well as its own. It cannot import the Fashion
+   entry to get them: that entry excludes resources/views/templates/**, and a
+   `@source not` cannot be re-included by a bundle that imports it — the order
+   drawer silently lost its width that way. So the shared styles come from
+   base.css and the file list is declared here, naming the other templates as
+   the only exclusions.
+--------------------------------------------------------------------------- */
+@import '../../../css/base.css';
+
+@source '../../../**/*.blade.php';
+@source '../../../**/*.js';
+/* The other storefront templates ship their own bundles. */
+@source not '../../../views/templates/grocery/**';
+@source not '../../../views/templates/heritage/**';
+@source not '../../../views/templates/plumbing/**';
+@source not '../../../views/templates/plumbing-services/**';
+@source not '../../../templates/grocery/**';
+@source not '../../../templates/heritage/**';
+@source not '../../../templates/plumbing/**';
+@source not '../../../templates/plumbing-services/**';
+@source '../../../../app/View/**/*.php';
+@source inline("{lg:,}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
+@source inline("lg:grid-cols-{3,4,5,6}");
+
+
+:root {
+  --ol-line: #e2e0dc;
+  --ol-head: #f4f2ee;
+  --ol-ink: #1f2328;
+  --ol-muted: #6b7280;
+  --ol-accent: #1f3a8a;
+  --ol-ok: #047857;
+  --ol-low: #b45309;
+  --ol-out: #b91c1c;
+}
+
+.ol-page { max-width: 76rem; margin-inline: auto; padding: 1.75rem 1rem 4rem; }
+.ol-head h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.01em; color: var(--ol-ink); }
+.ol-head p { margin-top: .4rem; color: var(--ol-muted); font-size: .9375rem; max-width: 46rem; }
+
+/* Search + category filter */
+.ol-controls { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: 1.5rem 0 1rem; }
+.ol-search { position: relative; flex: 1 1 22rem; }
+.ol-search input,
+.ol-select {
+  width: 100%; border: 1px solid var(--ol-line); background: #fff; border-radius: .5rem;
+  padding: .7rem .85rem; font-size: .9375rem; color: var(--ol-ink);
+}
+.ol-select { width: auto; min-width: 12rem; }
+.ol-search input:focus, .ol-select:focus { outline: 2px solid var(--ol-accent); outline-offset: 1px; }
+.ol-count { color: var(--ol-muted); font-size: .8125rem; }
+
+/* The list itself: a table on a wide screen, stacked rows on a phone */
+.ol-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--ol-line); border-radius: .6rem; overflow: hidden; }
+.ol-table thead th {
+  background: var(--ol-head); text-align: left; font-size: .6875rem; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--ol-muted); padding: .7rem .85rem; white-space: nowrap;
+}
+.ol-table tbody td { border-top: 1px solid var(--ol-line); padding: .8rem .85rem; font-size: .9375rem; vertical-align: middle; }
+.ol-table tbody tr:hover { background: #fafaf9; }
+.ol-name { font-weight: 500; color: var(--ol-ink); }
+.ol-name a { color: inherit; text-decoration: none; }
+.ol-name a:hover { text-decoration: underline; }
+.ol-sub { display: block; margin-top: .15rem; font-size: .75rem; color: var(--ol-muted); }
+.ol-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8125rem; color: var(--ol-muted); white-space: nowrap; }
+.ol-price { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ol-stock { white-space: nowrap; font-size: .8125rem; }
+.ol-stock.is-ok { color: var(--ol-ok); }
+.ol-stock.is-low { color: var(--ol-low); }
+.ol-stock.is-out { color: var(--ol-out); }
+
+/* Quantity box */
+.ol-qty { display: inline-flex; align-items: center; border: 1px solid var(--ol-line); border-radius: .45rem; background: #fff; }
+.ol-qty button { width: 2rem; height: 2.25rem; font-size: 1rem; line-height: 1; color: var(--ol-ink); }
+.ol-qty button:disabled { opacity: .35; cursor: not-allowed; }
+.ol-qty input {
+  width: 3rem; height: 2.25rem; border: 0; border-inline: 1px solid var(--ol-line); text-align: center;
+  font-size: .875rem; font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+}
+.ol-qty input::-webkit-outer-spin-button, .ol-qty input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+
+.ol-add {
+  border: 1px solid var(--ol-accent); background: var(--ol-accent); color: #fff; border-radius: .45rem;
+  padding: .5rem .9rem; font-size: .8125rem; font-weight: 600; white-space: nowrap;
+}
+.ol-add:disabled { opacity: .4; cursor: not-allowed; }
+.ol-add.is-secondary { background: #fff; color: var(--ol-accent); }
+.ol-choose { font-size: .8125rem; font-weight: 600; color: var(--ol-accent); text-decoration: underline; white-space: nowrap; }
+
+/* Bulk bar: appears once rows are ticked */
+.ol-bulk {
+  position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+  justify-content: space-between; margin-top: .75rem; padding: .75rem .9rem; border: 1px solid var(--ol-line);
+  border-radius: .6rem; background: #fff; box-shadow: 0 -6px 18px rgb(0 0 0 / .06);
+}
+.ol-bulk p { font-size: .875rem; color: var(--ol-ink); }
+.ol-empty { padding: 2.5rem .9rem; text-align: center; color: var(--ol-muted); font-size: .9375rem; }
+.ol-note { margin-top: 1rem; font-size: .8125rem; color: var(--ol-muted); }
+
+/* Product detail, still without imagery */
+.ol-detail { display: grid; gap: 1.5rem; max-width: 46rem; }
+.ol-detail dl { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1.25rem; font-size: .9375rem; }
+.ol-detail dt { color: var(--ol-muted); }
+.ol-detail dd { color: var(--ol-ink); font-variant-numeric: tabular-nums; }
+/* The cart totals carry the class on the <dl> itself rather than on a wrapper, so the two
+   columns have to be declared for that case too — otherwise each label sits above its value. */
+dl.ol-detail { grid-template-columns: auto 1fr; font-size: .9375rem; }
+
+/* Header and footer: text only */
+.ol-bar { border-bottom: 1px solid var(--ol-line); background: #fff; }
+.ol-bar-inner { max-width: 76rem; margin-inline: auto; display: flex; align-items: center; gap: 1rem; padding: .85rem 1rem; }
+.ol-brand { font-size: 1.0625rem; font-weight: 600; color: var(--ol-ink); text-decoration: none; }
+.ol-nav { display: none; gap: 1rem; margin-left: auto; font-size: .875rem; }
+.ol-nav a { color: var(--ol-muted); text-decoration: none; }
+.ol-nav a:hover { color: var(--ol-ink); }
+.ol-bar-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; font-size: .875rem; }
+.ol-bar-actions a, .ol-bar-actions button { color: var(--ol-ink); text-decoration: none; }
+.ol-cart-count { font-variant-numeric: tabular-nums; }
+.ol-foot { margin-top: auto; border-top: 1px solid var(--ol-line); background: #fff; }
+.ol-foot-inner { max-width: 76rem; margin-inline: auto; display: grid; gap: 1rem; padding: 1.5rem 1rem 2.5rem; font-size: .875rem; color: var(--ol-muted); }
+.ol-foot-links { display: flex; flex-wrap: wrap; gap: 1rem; }
+.ol-foot-links a { color: var(--ol-muted); text-decoration: none; }
+.ol-foot-links a:hover { color: var(--ol-ink); }
+
+@media (min-width: 768px) {
+  .ol-nav { display: flex; }
+  .ol-bar-actions { margin-left: 0; }
+}
+
+/* Phones: each row becomes a labelled block, so nothing is cut off */
+@media (max-width: 767px) {
+  .ol-table, .ol-table tbody, .ol-table tr, .ol-table td { display: block; width: 100%; }
+  .ol-table thead { display: none; }
+  .ol-table { border: 0; background: transparent; }
+  .ol-table tbody tr {
+    border: 1px solid var(--ol-line); border-radius: .6rem; background: #fff; padding: .25rem .25rem .5rem;
+    margin-bottom: .6rem;
+  }
+  .ol-table tbody td { border-top: 0; padding: .35rem .75rem; }
+  .ol-table tbody td[data-label]::before {
+    content: attr(data-label) " "; color: var(--ol-muted); font-size: .75rem; text-transform: uppercase;
+    letter-spacing: .06em; margin-right: .4rem;
+  }
+  .ol-price { text-align: left; }
+  .ol-select, .ol-search { flex: 1 1 100%; width: 100%; }
+}
+
+/* Checkout ------------------------------------------------------------------
+   The shared checkout is built for a template with photography; this one is a
+   two-column form with the order beside it and no imagery at all. */
+.ol-form { display: grid; gap: 2rem; align-items: start; margin-top: 1.5rem; }
+@media (min-width: 62rem) { .ol-form { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 2.5rem; } }
+.ol-steps { display: grid; gap: 1.75rem; }
+.ol-fieldset { border: 0; padding: 0; margin: 0; }
+.ol-fieldset legend { padding: 0; font-size: 1rem; font-weight: 600; color: var(--ol-ink); }
+.ol-grid { display: grid; gap: .85rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: .85rem; }
+.ol-grid .is-wide { grid-column: 1 / -1; }
+@media (max-width: 40rem) { .ol-grid { grid-template-columns: 1fr; } }
+.ol-field { display: block; font-size: .8125rem; color: var(--ol-muted); }
+.ol-field input, .ol-field textarea, .ol-field select {
+  display: block; width: 100%; margin-top: .3rem; border: 1px solid var(--ol-line); background: #fff;
+  border-radius: .5rem; padding: .55rem .7rem; font-size: .9375rem; color: var(--ol-ink);
+}
+.ol-field input:focus, .ol-field textarea:focus, .ol-field select:focus { outline: 2px solid var(--ol-accent); outline-offset: 1px; }
+.ol-error { display: block; margin-top: .25rem; font-size: .75rem; color: var(--ol-out); }
+.ol-options { margin-top: .85rem; border: 1px solid var(--ol-line); border-radius: .6rem; background: #fff; overflow: hidden; }
+.ol-option { display: flex; gap: .7rem; align-items: flex-start; padding: .75rem .85rem; cursor: pointer; font-size: .9375rem; }
+.ol-option + .ol-option { border-top: 1px solid var(--ol-line); }
+.ol-option-main { flex: 1; display: flex; justify-content: space-between; gap: 1rem; }
+.ol-summary { border: 1px solid var(--ol-line); border-radius: .6rem; background: #fff; padding: 1rem; }
+@media (min-width: 62rem) { .ol-summary { position: sticky; top: 1.5rem; } }
+.ol-summary h2 { font-size: 1rem; font-weight: 600; color: var(--ol-ink); }
+.ol-summary .ol-table { border: 0; border-radius: 0; }
+.ol-summary .ol-table tbody td { padding-inline: 0; }

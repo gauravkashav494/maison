@@ -38,7 +38,7 @@
                                 <div class="min-w-0">
                                     <p class="text-[0.5625rem] uppercase tracking-[0.2em] text-taupe" x-text="item.product.category"></p>
                                     <p class="mt-1 font-serif text-base leading-tight" x-text="item.product.name"></p>
-                                    <p class="mt-1 text-[0.6875rem] text-smoke" x-text="(item.color ? item.color + ' · ' : '') + item.size"></p>
+                                    <p class="mt-1 text-[0.6875rem] text-smoke" x-text="item.options_label || ((item.color ? item.color + ' · ' : '') + item.size)"></p>
                                 </div>
                                 <p class="shrink-0 text-sm tabular-nums" x-text="item.line_total_formatted"></p>
                             </div>

@@ -73,6 +73,7 @@ export default function registerExtras(Alpine, api) {
 
     /* ---- Product page: gallery, zoom, variant state ----------------------- */
     Alpine.data('productPage', (product, opts = {}) => ({
+        options: {},
         p: product,
         image: 0,
         size: product.sizes.length === 1 ? product.sizes[0] : null,
@@ -117,7 +118,7 @@ export default function registerExtras(Alpine, api) {
         },
         async add(buyNow = false) {
             if (!this.size) { this.$refs.sizes?.scrollIntoView({ block: 'center', behavior: 'smooth' }); this.sizeError = true; return; }
-            await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow);
+            await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
             if (buyNow) window.location.href = '/checkout';
         },
         sizeError: false,
@@ -154,6 +155,19 @@ export default function registerExtras(Alpine, api) {
         async setShipping(code) { this.shipping = code; await Alpine.store('cart').setShipping(code); },
         get codExtra() { return this.payment === 'cod' ? this.codFee : 0; },
         fmt(n) { return '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n)); },
+    }));
+
+
+    /* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
+    Alpine.data('variantPricing', (variants) => ({
+        get current() {
+            const chosen = this.options || {};
+            const picked = Object.keys(chosen).filter((k) => chosen[k]);
+            return variants.find((v) => {
+                const names = Object.keys(v.options);
+                return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
+            }) || null;
+        },
     }));
 
     /* ---- FAQ accordion / generic accordion -------------------------------- */

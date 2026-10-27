@@ -106,10 +106,10 @@ class Storefront extends Model
         return $q->where('is_active', true);
     }
 
-    /** Staff accounts assigned to this store. */
-    public function owners(): HasMany
+    /** Clients running this store. Each has its own database, staff and customers. */
+    public function clients(): HasMany
     {
-        return $this->hasMany(User::class)->whereNotNull('role')->orderBy('name');
+        return $this->hasMany(Client::class)->orderBy('name');
     }
 
     public function templateObject(): ?Template

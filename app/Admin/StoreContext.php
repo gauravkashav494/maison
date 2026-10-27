@@ -20,7 +20,7 @@ use App\Models\ServiceRequest;
 use App\Models\Storefront;
 use App\Models\Subscriber;
 use App\Models\Testimonial;
-use App\Models\User;
+use App\Contracts\AdminIdentity;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 
@@ -29,7 +29,7 @@ use App\Templates\TemplateManager;
  *
  * Store owners are locked to the template of their storefront (taken from the account,
  * never from the request). Super admins see everything, or narrow to one store with the
- * topbar switcher. ApplyAdminStoreScope resolves the context once per request and applies
+ * topbar switcher. ApplyAdminScope resolves the context once per request and applies
  * the AdminStoreScope global scope to every model listed here.
  */
 class StoreContext
@@ -49,7 +49,7 @@ class StoreContext
     /** Modules that only make sense for a service business. */
     public const SERVICE_MODELS = [Service::class, ServiceArea::class, Testimonial::class, Project::class, ServiceRequest::class];
 
-    private ?User $user = null;
+    private ?AdminIdentity $user = null;
 
     private ?string $template = null;
 
@@ -57,14 +57,14 @@ class StoreContext
 
     private bool $resolved = false;
 
-    public function resolve(?User $user, ?string $chosenTemplate = null): void
+    public function resolve(?AdminIdentity $user, ?string $chosenTemplate = null): void
     {
         $this->user = $user;
         $this->resolved = true;
         $this->locked = false;
         $this->template = null;
 
-        if (! $user || ! $user->role) {
+        if (! $user || ! $user->isActiveAccount()) {
             return;
         }
         if ($user->isSuperAdmin()) {
@@ -72,12 +72,12 @@ class StoreContext
 
             return;
         }
-        // Store owner: confined to the store on the account.
+        // A client's staff account: confined to the store its client runs.
         $this->template = $user->managedTemplateId();
         $this->locked = true;
     }
 
-    public function user(): ?User
+    public function user(): ?AdminIdentity
     {
         return $this->user;
     }

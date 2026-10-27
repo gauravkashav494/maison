@@ -11,6 +11,13 @@ class Address extends Model
 
     protected $casts = ['is_default' => 'boolean'];
 
+    /** The storefront account that placed this, or null for a guest. */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

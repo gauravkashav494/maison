@@ -2,41 +2,46 @@
 
 namespace App\Policies;
 
+use App\Contracts\AdminIdentity;
 use App\Models\User;
 
-/** User management is a super-admin module; nobody may delete themselves or the last super admin. */
+/**
+ * SuperAdmin accounts: a platform-only module. A client's staff account reaching this policy
+ * fails every check, because only App\Models\User answers true to isSuperAdmin(). Nobody may
+ * delete themselves or the last active super admin.
+ */
 class UserPolicy
 {
-    public function viewAny(User $user): bool
+    public function viewAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function view(User $user, User $record): bool
+    public function view(AdminIdentity $user, User $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function create(User $user): bool
+    public function create(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function update(User $user, User $record): bool
+    public function update(AdminIdentity $user, User $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function delete(User $user, User $record): bool
+    public function delete(AdminIdentity $user, User $record): bool
     {
-        if (! $user->isSuperAdmin() || $record->is($user)) {
+        if (! $user->isSuperAdmin() || ($user instanceof User && $record->is($user))) {
             return false;
         }
 
         return ! ($record->isSuperAdmin() && User::where('role', User::ROLE_SUPER_ADMIN)->where('is_active', true)->count() <= 1);
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }

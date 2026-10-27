@@ -6,7 +6,7 @@
                 <div class="relative h-20 w-16 shrink-0 overflow-hidden bg-sand">@if($item->image_url)<img src="{{ $item->image_url }}" alt="" class="img-cover">@endif</div>
                 <div class="min-w-0 flex-1">
                     <p class="truncate font-serif text-[0.9375rem]">{{ $item->name }}</p>
-                    <p class="text-xs text-smoke">{{ $item->color ? $item->color.' · ' : '' }}{{ $item->size }} · Qty {{ $item->qty }}</p>
+                    <p class="text-xs text-smoke">{{ $item->optionsLabel() }} · Qty {{ $item->qty }}</p>
                 </div>
                 <span class="text-sm tabular-nums">{{ money($item->total) }}</span>
             </li>

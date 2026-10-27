@@ -20,6 +20,12 @@ Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('prod
 Route::post('/product/{slug}/reviews', [CatalogController::class, 'storeReview'])->middleware('throttle:5,1')->name('products.reviews.store');
 Route::get('/search', [CatalogController::class, 'search'])->name('search');
 
+// A standing link to the Simple List template's bulk order page. It pins the entry-link
+// cookie to that client (see StoreEntryController::bulkOrder) and lands on /shop, so
+// browsing, the cart and checkout all keep working — unlike a page pinned only for itself,
+// which would leave the "Add" button posting against whatever client was active before.
+Route::get('/bulkorder', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'bulkOrder'])->name('bulkorder');
+
 // Editorial
 Route::get('/journal', [CatalogController::class, 'journal'])->name('journal.index');
 Route::get('/journal/{slug}', [CatalogController::class, 'post'])->name('journal.show');
@@ -81,9 +87,11 @@ Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 
-// Store entry links: /store/<slug> remembers the store for this visitor (cookie) and opens it on the main domain
+// Entry links for visitors on the main domain: /c/<client> opens that client's storefront
+// (cookie), /store/<store> is the older store-level link and still works.
 Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
 Route::get('/store/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('slug', '[a-z0-9-]+')->name('store.enter');
+Route::get('/c/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enterClient'])->where('slug', '[a-z0-9-]+')->name('client.enter');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';

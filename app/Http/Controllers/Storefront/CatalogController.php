@@ -106,7 +106,7 @@ class CatalogController extends Controller
             'title' => ['nullable', 'string', 'max:120'],
             'body' => ['required', 'string', 'max:2000'],
         ]);
-        $product->reviews()->create($data + ['user_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
+        $product->reviews()->create($data + ['customer_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
 
         return back()->with('review_status', 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
     }

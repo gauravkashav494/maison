@@ -3,7 +3,11 @@
 namespace App\Filament\Resources\Products\Schemas;
 
 use App\Filament\Support\Fields;
+use App\Clients\ClientQuota;
+use App\Models\Product;
+use App\Rules\WithinClientImageLimit;
 use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -38,7 +42,8 @@ class ProductForm
                                         ->searchable()
                                         ->preload()
                                         ->required(),
-                                    TextInput::make('sku')->label('SKU')->maxLength(64)->unique(ignoreRecord: true),
+                                    TextInput::make('sku')->label('SKU')->maxLength(64)
+                                        ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(\App\Clients\ClientContext::class)->id())),
                                     TextInput::make('brand')->maxLength(80)->datalist(fn () => \App\Models\Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())->helperText('Used by the shop Brand filter.'),
                                     TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => \App\Models\Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
                                 ]),
@@ -65,26 +70,104 @@ class ProductForm
                             ->icon('heroicon-o-photo')
                             ->schema([
                                 Fields::image('images', 'Product images', 'products', multiple: true)
-                                    ->helperText('Drag to reorder. The first image is the main image; the second is shown on hover.')
+                                    // The allowance is enforced here as well as in the policy, so the
+                                    // limit holds even if the field is posted directly.
+                                    ->rules(fn (?Product $record) => [new WithinClientImageLimit(self::imagePaths($record))])
+                                    ->helperText(function (?Product $record) {
+                                        $quota = ClientQuota::current();
+                                        $base = 'Drag to reorder. The first image is the main image; the second is shown on hover.';
+
+                                        return $quota && $quota->imageLimit() !== null
+                                            ? $base.' Product images used: '.$quota->imageLabel().'.'
+                                            : $base;
+                                    })
                                     ->required(),
                                 TextInput::make('video_url')->label('Product video (optional)')->url()->placeholder('https://…/video.mp4 or a YouTube link')->helperText('Shown as the last slide of the gallery.'),
-                                Section::make('Variants')->schema([
-                                    Repeater::make('colors')
-                                        ->label('Colours')
-                                        ->schema([
-                                            TextInput::make('name')->required()->maxLength(40),
-                                            ColorPicker::make('hex')->label('Swatch')->required(),
-                                        ])
-                                        ->columns(2)
-                                        ->reorderable()
-                                        ->defaultItems(0)
-                                        ->addActionLabel('Add colour')
-                                        ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
-                                    TagsInput::make('sizes')
-                                        ->placeholder('Add a size and press Enter')
-                                        ->helperText('e.g. XS, S, M, L — or 50ml, 100ml — or "One size".')
-                                        ->reorderable(),
-                                ]),
+
+                                Section::make('Variants')
+                                    ->description('Define what this product varies by — size, colour, material, style or anything else. Switch variants on to give each combination its own price, SKU and stock.')
+                                    ->schema([
+                                        Toggle::make('has_variants')
+                                            ->label('Sell this product by variant')
+                                            ->live()
+                                            ->default(false)
+                                            ->helperText('Off: the values below are shown as plain choices and the product price applies to all of them.'),
+                                        Repeater::make('variant_attributes')
+                                            ->label('Variant attributes')
+                                            ->addActionLabel('Add Variant')
+                                            ->schema([
+                                                TextInput::make('name')
+                                                    ->label('Attribute')
+                                                    ->required()
+                                                    ->maxLength(40)
+                                                    ->live(onBlur: true)
+                                                    ->datalist(['Size', 'Colour', 'Material', 'Style', 'Finish', 'Pack size', 'Length'])
+                                                    ->helperText('What the customer chooses.'),
+                                                TagsInput::make('values')
+                                                    ->label('Values')
+                                                    ->required()
+                                                    ->reorderable()
+                                                    ->placeholder('Add a value and press Enter'),
+                                                KeyValue::make('swatches')
+                                                    ->label('Swatch colours (optional)')
+                                                    ->keyLabel('Value')
+                                                    ->valueLabel('Hex, e.g. #B8916A')
+                                                    ->addActionLabel('Add swatch')
+                                                    ->columnSpanFull()
+                                                    ->visible(fn ($get) => in_array(strtolower((string) $get('name')), ['colour', 'color'], true))
+                                                    ->helperText('Shown as round swatches on the storefront instead of text.'),
+                                            ])
+                                            ->columns(2)
+                                            ->reorderable()
+                                            ->defaultItems(0)
+                                            ->itemLabel(fn (array $state): ?string => filled($state['name'] ?? null)
+                                                ? $state['name'].' ('.count((array) ($state['values'] ?? [])).')'
+                                                : null),
+                                        Repeater::make('variants')
+                                            ->label('Combinations')
+                                            ->visible(fn ($get) => (bool) $get('has_variants'))
+                                            ->addActionLabel('Add combination')
+                                            ->schema([
+                                                KeyValue::make('options')
+                                                    ->label('Chosen values')
+                                                    ->keyLabel('Attribute')
+                                                    ->valueLabel('Value')
+                                                    ->addActionLabel('Add attribute')
+                                                    ->required()
+                                                    ->columnSpanFull()
+                                                    ->helperText('Use the attribute names and values defined above, e.g. Size → M.'),
+                                                TextInput::make('sku')->label('SKU')->maxLength(64)->placeholder('Same as the product'),
+                                                TextInput::make('price')->label('Price')->numeric()->prefix('₹')->minValue(0)->placeholder('Same as the product'),
+                                                TextInput::make('stock')->label('Stock')->numeric()->minValue(0)->placeholder('Same as the product'),
+                                                Toggle::make('is_active')->label('Available')->default(true)->inline(false),
+                                            ])
+                                            ->columns(3)
+                                            ->reorderable()
+                                            ->defaultItems(0)
+                                            ->itemLabel(fn (array $state): ?string => filled($state['options'] ?? null)
+                                                ? implode(' / ', array_filter((array) $state['options']))
+                                                : null),
+                                        Section::make('Colour & size lists')
+                                            ->description('The original lists. They are kept so existing products keep working, and they are read as a Colour and a Size attribute when no attributes are defined above.')
+                                            ->collapsed()
+                                            ->schema([
+                                                Repeater::make('colors')
+                                                    ->label('Colours')
+                                                    ->schema([
+                                                        TextInput::make('name')->required()->maxLength(40),
+                                                        ColorPicker::make('hex')->label('Swatch')->required(),
+                                                    ])
+                                                    ->columns(2)
+                                                    ->reorderable()
+                                                    ->defaultItems(0)
+                                                    ->addActionLabel('Add colour')
+                                                    ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
+                                                TagsInput::make('sizes')
+                                                    ->placeholder('Add a size and press Enter')
+                                                    ->helperText('e.g. XS, S, M, L — or 50ml, 100ml — or "One size".')
+                                                    ->reorderable(),
+                                            ]),
+                                    ]),
                             ]),
 
                         Tab::make('Pricing & Inventory')
@@ -164,5 +247,25 @@ class ProductForm
                         Fields::seoTab(),
                     ]),
             ]);
+    }
+
+    /**
+     * Every image this product holds today, product-level and per variant. The allowance
+     * check subtracts these before counting, so swapping an image never trips the limit.
+     *
+     * @return array<string>
+     */
+    private static function imagePaths(?Product $product): array
+    {
+        if (! $product) {
+            return [];
+        }
+
+        $paths = (array) $product->images;
+        foreach ((array) $product->variants as $variant) {
+            $paths = [...$paths, ...(array) ($variant['images'] ?? [])];
+        }
+
+        return array_values(array_unique(array_filter($paths, 'is_string')));
     }
 }

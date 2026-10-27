@@ -1,181 +1,203 @@
 # Testing guide
 
-How to try the platform features by hand: roles and store access, per-store limits, the
-per-store websites, separate databases and the PostgreSQL move.
+How to try the platform by hand: the two panels, client isolation, allowances, order
+fulfilment, variants, per-client databases and the Simple List storefront.
 
 Local server: `php artisan serve --host=127.0.0.1 --port=8000` → <http://127.0.0.1:8000>
-Admin: <http://127.0.0.1:8000/admin/login>
+SuperAdmin panel: <http://127.0.0.1:8000/admin/login>
+Client panel: <http://127.0.0.1:8000/client/login>
 
 ## Accounts
 
-| Role | Email | Password |
-|---|---|---|
-| Super Admin | `admin@maisonelan.com` | `password` |
-| Fashion owner | `fashion@maisonelan.com` | `password` |
-| Grocery owner | `grocery@maisonelan.com` | `password` |
-| Heritage owner | `heritage@maisonelan.com` | `password` |
-| Plumbing owner | `plumbing@maisonelan.com` | `password` |
-| Plumbing Services owner | `plumbing-services@maisonelan.com` | `password` |
+| Who | Email | Password | Panel |
+|---|---|---|---|
+| SuperAdmin | `admin@maisonelan.com` | `password` | `/admin` |
+| Client Admin — Fashion | `fashion@maisonelan.com` | `password` | `/client` |
+| Client Admin — Grocery | `grocery@maisonelan.com` | `password` | `/client` |
+| Client Admin — Heritage | `heritage@maisonelan.com` | `password` | `/client` |
+| Client Admin — Plumbing | `plumbing@maisonelan.com` | `password` | `/client` |
+| Client Admin — Plumbing Services | `plumbing-services@maisonelan.com` | `password` | `/client` |
 
-Manage them under **Platform → Users** (super admin only). Changing a user's role to *Store Owner*
-reveals the **Assigned store** field; that single field is what the whole admin scopes itself by.
+SuperAdmins are managed under **Platform → Super Admins**; a client's own staff under
+**Team → Staff** (on `/client`, Client Admins only) or **Platform → Clients** on `/admin`.
+
+## The automated suite
+
+```bash
+php artisan test
+```
+
+56 tests cover what is hardest to check by hand: client isolation (including two clients on
+one store), the panels' access rules, order fulfilment transitions, variants and the
+allowances. `tests/Feature/ClientIsolationTest.php` is the one to read first.
 
 ---
 
-## 1. Roles and store access
+## 1. Two panels, two kinds of account
 
-**As a store owner** (e.g. `grocery@maisonelan.com`)
+**As a Client Admin** (e.g. `grocery@maisonelan.com` at `/client`)
 
 - The topbar shows `MANAGING Indian Grocery Store` with no way to change it.
-- The sidebar has only that store's modules — no Platform group, no Templates, no Site settings,
-  and no other store's settings pages. A services store shows Services / Service areas /
-  Bookings instead of Products / Orders.
-- Lists contain only that store's rows and have no template tabs.
+- The sidebar has that client's modules only — no Platform group, no Clients, no Plans, no
+  Templates, no Super Admins. A services store shows Services / Service areas / Bookings
+  instead of Products / Orders.
+- Lists contain only that client's rows.
 
-**The important part — hiding a menu item is not the protection.** While logged in as the grocery
-owner, type these URLs by hand; each must be rejected:
+**Hiding a menu item is not the protection.** While signed in there, type these by hand:
 
 | URL | Expected |
 |---|---|
-| `/admin/products/1/edit` (a Fashion product) | 404 |
-| `/admin/pages/55/edit` (a Plumbing Services page) | 404 |
-| `/admin/users` | 403 |
-| `/admin/storefronts` | 403 |
-| `/admin/templates` | 403 |
-| `/admin/site-settings` | 403 |
-| `/admin/plumbing-settings` | 403 |
-| `/?preview_template=fashion` | stays on the grocery site |
+| `/client/products/<id>/edit` for another client's product | 404 |
+| `/client/clients`, `/client/plans`, `/client/users`, `/client/storefronts`, `/client/templates` | 404 |
+| `/admin`, `/admin/clients` | redirect to `/admin/login` — a client session is not an admin session |
+| `/client/products?switch_client=<other client id>` | ignored; still your own data |
+| `/?preview_template=fashion` | stays on your own storefront |
 
-Also try to escalate: open your own user record (`/admin/users/<id>/edit`) → 403. On any record
-you *can* edit, the **Visible in** field is locked, so content cannot be moved to another store.
+Sign in as **Admin Staff** instead of Client Admin and `Team → Staff` disappears, and
+`/client/client-users` answers 403.
 
-**As the super admin**
+**As the SuperAdmin** (`/admin`)
 
-- The topbar has a store switcher: **All stores** plus each store.
-- Choosing a store narrows every list to it; the ids above then 404 until you switch back.
-- Everything is reachable again on **All stores**, and the dashboard shows platform totals
-  (stores, users, catalogue, leads & bookings).
+- The topbar has a client switcher: **All clients** plus each client.
+- Choosing a client narrows every list to it; another client's ids then 404.
+- `?switch_client=99999` (an id that names no client) clears the choice instead of selecting
+  something else, and an inactive client cannot be selected.
+- The dashboard shows platform totals: clients, stores, catalogue, customers and demand.
 
 ---
 
-## 2. Store limits
+## 2. Two clients on one store — the important test
 
-**Platform → Stores → <store> → Edit → Plan limits.** Blank means unlimited.
+1. **Platform → Clients → New client**: name `Alpha Test`, store *Fashion Store*, save.
+2. Create a second client `Beta Test` on the **same** store.
+3. Give each a Client Admin (**Platform → Clients** → its Staff, or `/client` as that client).
+4. Sign in as Alpha's admin, add a product, note its id from the URL.
+5. Sign in as Beta's admin and open `/client/products/<that id>/edit` → **404**.
+6. Beta's product list, orders, customers and reports show none of Alpha's rows.
+7. Register a customer on Alpha's storefront (`/c/alpha-test` then **Create an account**), then
+   try the same email and password on `/c/beta-test` → refused. Registering it there creates a
+   *separate* account.
+8. While signed in on Alpha's storefront, open `/c/beta-test` → you are signed out, not carried
+   across.
 
-### Product limit
+---
 
-1. Set **Maximum products** on Fashion Store to `19` (its current count) and save.
-2. Open **Products** — the *New product* button is gone and the heading explains the limit.
-3. Type `/admin/products/create` in the address bar → **403**.
-4. Log in as `fashion@maisonelan.com` → the dashboard shows a `Products 19 / 19` meter.
-5. Raise the limit to `25` → the button returns and the meter updates.
+## 3. Allowances
 
-### Storage allowance
+**Platform → Plans** for the defaults, **Platform → Clients → Edit** to override one client.
+Blank inherits the plan; `0` means unlimited.
+
+### Product images (50 by default)
+
+1. Set **Product images** to `2` on a client and save.
+2. As that client, edit a product and try to upload a third image → the field is rejected with
+   *"This account is limited to 2 product images and is using 2."*
+3. Swap images instead of adding (remove one, add one) → allowed, because the removed image
+   frees its slot.
+4. The dashboard shows a `Product images 2 / 2` meter, and the product list says the same.
+
+### Products
+
+1. Set **Maximum products** to the client's current count.
+2. **Products** → the *New product* button is gone and the heading explains the limit.
+3. Type `/client/products/create` → **403**.
+
+### Storage
 
 1. Set **Storage allowance (MB)** to `1`.
-2. Edit any product in that store and upload an image larger than 1 MB → the field rejects it and
-   names the store's current usage.
-3. Upload a small image → it is accepted and lands in `storage/app/public/stores/<slug>/…`.
-4. The **Storage** column in Platform → Stores and the dashboard meter both follow the folder, so
-   deleting media frees the space immediately.
-
-Limits apply to everyone working in that store, including the super admin — only the limit itself
-is a super-admin setting.
+2. Upload a larger image → rejected by the field with the amount used.
 
 ---
 
-## 3. One website per store
+## 4. Orders: dispatch, delivered, cancel
 
-Every store is reachable at the same time; the template activated under **Appearance → Templates**
-is only what the main domain serves by default.
+**Sales → Orders** on either panel.
 
-| Store | Subdomain (local) | Entry link (no DNS needed) |
+| Action | Shown when | Records |
 |---|---|---|
-| Fashion | <http://fashion.localhost:8000> | `/store/fashion` |
-| Indian Grocery | <http://grocery.localhost:8000> | `/store/grocery` |
-| Heritage Grocery | <http://heritage.localhost:8000> | `/store/heritage` |
-| Plumbing | <http://plumbing.localhost:8000> | `/store/plumbing` |
-| Plumbing Services | <http://plumbing-services.localhost:8000> | `/store/plumbing-services` |
+| **Dispatch** | the order has not been dispatched, delivered or cancelled | status, `dispatched_at`, carrier/tracking if entered |
+| **Delivered** | the order is not already delivered or cancelled | status, `delivered_at` |
+| **Cancel** | the order is not delivered or cancelled | status, `cancelled_at`, the reason (required) |
+| **Update status** | any move is still allowed | the chosen step |
 
-Check that each host shows its own products/pages, that the cart and checkout work there, and that
-a service-only URL such as `/shop` 404s on the Plumbing Services host. Store owners see their own
-address (with a Copy link button) on their dashboard.
+Checks to make by hand:
 
-Which address is shown to share is set by `STORE_URL_MODE` in `.env` (`path` or `subdomain`);
-both always work. Subdomains need a wildcard DNS record and certificate — until then use the
-entry links, e.g. `https://ecommerce.petrovision.in/store/grocery`.
+1. Dispatch an order → the badge becomes *Dispatched* with the date beneath it; the **View**
+   page timeline shows who did it and when.
+2. Mark it delivered → the Dispatch, Delivered and Cancel buttons all disappear: a delivered
+   order is finished.
+3. Cancel a different order with a reason → the badge turns red and shows the date; nothing
+   further is offered.
+4. Select several orders → **Mark as dispatched** in the bulk menu; any order that cannot make
+   that move is listed as left unchanged.
+
+### Filters
+
+**Filter** (top right of the list):
+
+- **Status** — including *Cancelled*.
+- **Placed on** — one exact day.
+- **Placed from / Placed until** — a range; either end may be left open.
+- Each applied filter shows as a chip, and **Reset filters** clears them all.
 
 ---
 
-## 4. A separate database per store
+## 5. Product variants
 
-Off by default (`STORE_ISOLATION=shared`). To try it:
+**Products → Edit → Media & Variants.**
+
+1. Under **Variant attributes**, press **Add Variant**: name it `Material`, values
+   `Linen, Silk`. Add another named `Size` with `S, M, L`. A *Colour* attribute also takes
+   swatch colours.
+2. Switch **Sell this product by variant** on, then add **Combinations**: for each one fill in
+   *Chosen values* (e.g. `Size → M`, `Material → Linen`) and, where it differs, its own SKU,
+   price and stock. Leave a field blank to inherit the product's.
+3. On the storefront the product page offers every attribute; the price and stock follow the
+   combination chosen.
+4. Add to bag → the bag line shows `Size: M / Material: Linen`, priced from the variant.
+5. Place the order → **Orders → View** shows the same options and the variant's SKU on the
+   line, and the variant's own stock has gone down.
+6. Try to force it: post an option the product does not offer, or a combination with no
+   variant → **422**, nothing is added.
+7. Existing products are untouched: their old colour and size lists still work and are read as
+   a *Colour* and a *Size* attribute, with the product's single price, until variants are
+   switched on for them.
+
+---
+
+## 6. A database per client
+
+This installation already runs this way — `CLIENT_ISOLATION=database` in `.env`, one database
+per client — so the checks below describe the live setup rather than a change to make:
 
 ```bash
-# .env
-STORE_ISOLATION=database
-
-php artisan stores:provision      # creates each store database and builds it from its own schema + content
-php artisan optimize:clear
+php artisan clients:provision                 # creates client_<slug> for every client
+php artisan clients:provision acme --copy     # move an existing client's rows into its database
 ```
 
-What to check:
-
-- `database/store_*.sqlite` (locally) or `store_*` databases on the server hold only that store's rows.
-- A product created in one store appears in that store's database only.
-- A grocery product URL 404s on the fashion host.
-- Users, stores and settings still live in the main database, so one customer account works everywhere.
-- In the admin the super admin now always works inside a selected store: the "All stores" option and
-  the template tabs are gone (a query cannot span databases), and platform totals add the stores up.
-- Store owners notice no difference.
-
-Set `STORE_ISOLATION=shared` to go back. Content written while isolated stays in the store
-databases, so avoid switching back and forth with real data — see `docs/DATABASE.md`.
+1. Check the databases exist and hold 21 tables each.
+2. Edit a product as client A; client B's identically-seeded product is unchanged.
+3. `Platform → Clients` shows each client's database name (toggle the column on).
+4. Everything else behaves exactly as in shared mode — the application reads the client's own
+   database and the `client_id` scope still applies.
+5. After a `--copy`, the client's rows are still in the main database as well; nothing reads
+   them while isolation is `database`. Delete them only once the move has been verified, and
+   keep the pre-switch dump (`storage/backups/`) until then.
 
 ---
 
-## 5. PostgreSQL
+## 7. The Simple List storefront (no images)
 
-The application already runs on PostgreSQL locally (server in `D:\pgsql-portable`, database
-`maison`). Start it with
-`"D:\pgsql-portable\pgsql\bin\pg_ctl" -D "D:/pgsql-portable/data" -l "D:/pgsql-portable/server.log" start`
-if the machine has been rebooted.
+Assign a client to the **Simple List** store, then open its address (or `/c/<slug>`).
 
-To rebuild it from the dump:
-
-```bash
-pg_restore -h 127.0.0.1 -U maison -d maison --no-owner --clean --if-exists database/maison_pgsql.dump
-php artisan optimize:clear
-```
-
-Then confirm: storefront search still matches regardless of letter case (PostgreSQL LIKE is
-case-sensitive, the app switches to ILIKE), product filters by size/colour/diet still work (JSON
-columns), the discount filters on the shop page work, and creating a record in the admin succeeds
-(identity sequences are reset by the transfer).
-
----
-
-## 6. After deploying
-
-```bash
-git pull
-php artisan migrate
-npm run build
-php artisan optimize:clear
-```
-
-Optional: `php artisan db:seed --class=StoreOwnerSeeder` creates one demo owner per store.
-Import the bundled data with `mysql -u user -p <database> < database/maison_elan_data.sql` —
-it empties each table first, so back up anything you want to keep.
-
----
-
-## Regression checklist
-
-Quick pass after any change to roles, stores or the database layer:
-
-1. Each of the five storefronts loads its home, listing, detail, cart/booking and contact pages.
-2. A booking on Plumbing Services and an order on a catalogue store both complete.
-3. Super admin: every admin module opens, the store switcher works.
-4. Each owner: only their store's modules, and the URL tests in section 1 are all rejected.
-5. Limits: a store at its product limit blocks creation; an oversized upload is rejected.
+1. The home page *is* the list: a row per product with name, code, price, stock, a quantity
+   box and **Add**.
+2. No imagery anywhere — the list, the order panel and the order page contain no `<img>`.
+3. Set a quantity and press **Add** → the order panel opens with the line.
+4. Tick several rows → the bar at the bottom offers **Add selected to order**.
+5. Search by name or code; **Clear search** returns to the full list.
+6. A product with real choices (two sizes) shows **Choose options** instead of a quantity box
+   and links to its page, where the options are picked.
+7. The order page, checkout, confirmation and account pages are the shared ones — the same
+   coupons, delivery methods, payment methods and order tracking as every other template.
+8. Narrow the window to a phone width: each row becomes a labelled block with nothing cut off.

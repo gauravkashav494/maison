@@ -2,11 +2,11 @@
 
 namespace App\Filament\Widgets;
 
-use App\Admin\StoreContext;
+use App\Clients\ClientContext;
 use App\Templates\TemplateManager;
 use Filament\Widgets\Widget;
 
-/** Shows the public address of the store the session manages, ready to share. */
+/** The public address of the client the session works in, ready to share with its customers. */
 class StoreLink extends Widget
 {
     protected string $view = 'filament.widgets.store-link';
@@ -19,17 +19,17 @@ class StoreLink extends Widget
 
     public static function canView(): bool
     {
-        return app(StoreContext::class)->storefront() !== null;
+        return app(ClientContext::class)->client() !== null;
     }
 
     protected function getViewData(): array
     {
-        $store = app(StoreContext::class)->storefront();
+        $client = app(ClientContext::class)->client();
 
         return [
-            'store' => $store,
-            'url' => $store->publicUrl(),
-            'onMainDomain' => app(TemplateManager::class)->activeId() === $store->template,
+            'store' => $client,
+            'url' => $client->publicUrl(),
+            'onMainDomain' => app(TemplateManager::class)->activeId() === $client->templateId(),
             'mainUrl' => rtrim(config('app.url'), '/'),
         ];
     }

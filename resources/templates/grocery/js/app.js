@@ -82,10 +82,10 @@ Alpine.store('cart', {
     qtyOf(productId, size = null) {
         return this.items.filter((i) => i.product.id === productId && (size === null || i.size === size)).reduce((s, i) => s + i.qty, 0);
     },
-    async add(productId, size, color = null, qty = 1, open = false) {
+    async add(productId, size, color = null, qty = 1, open = false, options = null) {
         this.busy = true;
         try {
-            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty } }));
+            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty, options } }));
             if (open) Alpine.store('ui').openCart(); else Alpine.store('ui').notify('Added to cart');
         } catch (e) {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
@@ -300,6 +300,7 @@ Alpine.data('shopFilters', (initial) => ({
 }));
 
 Alpine.data('productPage', (product) => ({
+    options: {},
     p: product,
     image: 0,
     size: product.sizes.length === 1 ? product.sizes[0] : (product.sizes[0] ?? null),
@@ -331,7 +332,7 @@ Alpine.data('productPage', (product) => ({
     add() { Alpine.store('cart').inc(this.p.id, this.size, this.p.max_qty); },
     dec() { Alpine.store('cart').dec(this.p.id, this.size); },
     async buyNow() {
-        if (!this.qty) await Alpine.store('cart').add(this.p.id, this.size, null, 1, false);
+        if (!this.qty) await Alpine.store('cart').add(this.p.id, this.size, null, 1, false, this.options);
         window.location.href = '/checkout';
     },
     share() {
@@ -399,3 +400,15 @@ window.Alpine = Alpine;
 registerAppShell(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
+
+/* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
+Alpine.data('variantPricing', (variants) => ({
+    get current() {
+        const chosen = this.options || {};
+        const picked = Object.keys(chosen).filter((k) => chosen[k]);
+        return variants.find((v) => {
+            const names = Object.keys(v.options);
+            return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
+        }) || null;
+    },
+}));

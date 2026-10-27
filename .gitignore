@@ -27,3 +27,6 @@ Homestead.yaml
 Thumbs.db
 /database/*.sqlite*
 /database/*.backup-*.sqlite
+
+# Database backups taken before migrations; never committed.
+/storage/backups

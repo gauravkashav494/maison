@@ -2,38 +2,38 @@
 
 namespace App\Policies;
 
+use App\Contracts\AdminIdentity;
 use App\Models\Storefront;
-use App\Models\User;
 
-/** Stores (storefronts) are managed by super admins only. */
+/** Stores (the templates clients rent) are managed by SuperAdmins only. */
 class StorefrontPolicy
 {
-    public function viewAny(User $user): bool
+    public function viewAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function view(User $user, Storefront $record): bool
+    public function view(AdminIdentity $user, Storefront $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function create(User $user): bool
+    public function create(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function update(User $user, Storefront $record): bool
+    public function update(AdminIdentity $user, Storefront $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function delete(User $user, Storefront $record): bool
+    public function delete(AdminIdentity $user, Storefront $record): bool
     {
         return false; // a storefront mirrors a registered template; deactivate instead
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(AdminIdentity $user): bool
     {
         return false;
     }

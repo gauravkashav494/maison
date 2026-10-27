@@ -21,15 +21,18 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(StoreContext::class);
-        $this->app->singleton(\App\Stores\TenantManager::class);
+        // One resolved client per request: the scopes, the policies and the connection all
+        // read the same instance, so they cannot disagree about who is being served.
+        $this->app->singleton(\App\Clients\ClientContext::class);
+        $this->app->singleton(\App\Clients\ClientDatabase::class);
         $this->app->singleton(TemplateManager::class, fn () => new TemplateManager(config('templates.templates', [])));
     }
 
     public function boot(): void
     {
-        // The store schema (database/migrations/tenant) is applied to the main database as well,
-        // so a single-database install has the same store tables the per-store databases get.
-        $this->loadMigrationsFrom(database_path('migrations/tenant'));
+        // database/migrations/client is NOT part of the default run: the main database gets its
+        // tables from the ordinary migrations, and that folder is applied only inside a client's
+        // own database by clients:provision.
         \App\Support\DatabaseMacros::register();
 
         // Admin authorization: one scoped policy per template-owned model, plus platform modules.
@@ -39,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Storefront::class, StorefrontPolicy::class);
         Gate::policy(Store::class, StorePolicy::class);
+        Gate::policy(\App\Models\Client::class, \App\Policies\ClientPolicy::class);
+        Gate::policy(\App\Models\Plan::class, \App\Policies\PlanPolicy::class);
+        Gate::policy(\App\Models\ClientUser::class, \App\Policies\ClientUserPolicy::class);
+        Gate::policy(\App\Models\Customer::class, \App\Policies\CustomerPolicy::class);
 
         // Every template's view folder is registered as a fallback location so Blade can resolve
         // template components (<x-section-head>, <x-empty-state>, ...) when compiling outside a

@@ -20,9 +20,8 @@ class EditUser extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Own role/active state is disabled in the form (and therefore not submitted): keep current values.
-        if ($this->record->is(auth()->user())) {
-            $data['role'] = $this->record->role;
+        // Your own active state is disabled in the form (and therefore not submitted).
+        if ($this->record->is(filament()->auth()->user())) {
             $data['is_active'] = true;
         }
 

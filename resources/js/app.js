@@ -88,10 +88,10 @@ Alpine.store('cart', {
     async load() {
         this.apply(await api('/cart/items'));
     },
-    async add(productId, size, color = null, qty = 1, open = true) {
+    async add(productId, size, color = null, qty = 1, open = true, options = null) {
         this.busy = true;
         try {
-            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty } }));
+            this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty, options } }));
             if (open) Alpine.store('ui').openCart();
         } finally {
             this.busy = false;

@@ -2,38 +2,41 @@
 
 namespace App\Policies;
 
+use App\Contracts\AdminIdentity;
 use App\Models\Store;
-use App\Models\User;
 
-/** Store locations (the boutique locator) have no template owner, so only super admins manage them. */
+/**
+ * Store locations (the boutique locator) are platform content with no client of their own,
+ * so only a SuperAdmin manages them.
+ */
 class StorePolicy
 {
-    public function viewAny(User $user): bool
+    public function viewAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function view(User $user, Store $record): bool
+    public function view(AdminIdentity $user, Store $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function create(User $user): bool
+    public function create(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function update(User $user, Store $record): bool
+    public function update(AdminIdentity $user, Store $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function delete(User $user, Store $record): bool
+    public function delete(AdminIdentity $user, Store $record): bool
     {
         return $user->isSuperAdmin();
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin();
     }

@@ -5,7 +5,7 @@
         @foreach($order->items as $item)
             <li class="flex items-center gap-3 px-4 py-3">
                 <div class="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-line-soft bg-cream">@if($item->image)<img src="{{ \App\Support\Media::url($item->image) }}" alt="" class="img-cover">@endif</div>
-                <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $item->name }}</p><p class="text-xs text-muted">{{ $item->size }} · Qty {{ $item->qty }} × {{ money($item->price) }}</p></div>
+                <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $item->name }}</p><p class="text-xs text-muted">{{ $item->optionsLabel() }} · Qty {{ $item->qty }} × {{ money($item->price) }}</p></div>
                 <span class="text-sm font-semibold tabular">{{ money($item->total) }}</span>
             </li>
         @endforeach

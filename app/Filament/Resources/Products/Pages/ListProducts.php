@@ -14,14 +14,24 @@ class ListProducts extends ListRecords
 
     public function getSubheading(): ?string
     {
-        $quota = \App\Admin\StoreQuota::current();
-        if (! $quota || $quota->productLimit() === null) {
+        $quota = \App\Clients\ClientQuota::current();
+        if (! $quota || ($quota->productLimit() === null && $quota->imageLimit() === null)) {
             return null;
         }
 
-        return $quota->atProductLimit()
-            ? 'Product limit reached: '.$quota->productLabel().'. Delete a product, or ask the platform admin to raise the limit.'
-            : 'Using '.$quota->productLabel().' products in this store.';
+        $parts = [];
+        if ($quota->productLimit() !== null) {
+            $parts[] = $quota->atProductLimit()
+                ? 'Product limit reached: '.$quota->productLabel().'. Delete a product, or ask the platform admin to raise the limit.'
+                : 'Using '.$quota->productLabel().' products.';
+        }
+        if ($quota->imageLimit() !== null) {
+            $parts[] = $quota->atImageLimit()
+                ? 'Image limit reached: '.$quota->imageLabel().'. Remove an image, or ask the platform admin to raise the limit.'
+                : 'Using '.$quota->imageLabel().' product images.';
+        }
+
+        return implode(' ', $parts);
     }
 
     protected function getHeaderActions(): array

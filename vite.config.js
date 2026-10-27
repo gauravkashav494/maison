@@ -20,6 +20,9 @@ export default defineConfig({
                 'resources/templates/plumbing/js/app.js',
                 'resources/templates/plumbing-services/css/app.css',
                 'resources/templates/plumbing-services/js/app.js',
+                // Simple List template (image-free order list)
+                'resources/templates/simple/css/app.css',
+                'resources/templates/simple/js/app.js',
                 'resources/css/filament/admin/theme.css',
             ],
             refresh: true,

@@ -34,7 +34,7 @@ class Templates extends Page
     /** Activating a template changes the public website: super admin only. */
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->isSuperAdmin();
+        return (bool) filament()->auth()->user()?->isSuperAdmin();
     }
 
     public function getTemplates(): Collection

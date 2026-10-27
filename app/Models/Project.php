@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Before/after showcase of completed plumbing work. */
 class Project extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     use BelongsToTemplate;
 

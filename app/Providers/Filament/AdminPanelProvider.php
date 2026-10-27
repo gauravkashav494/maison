@@ -31,6 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->authGuard('admin')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(\App\Filament\Auth\Login::class)
             ->maxContentWidth(Width::Full)
@@ -41,10 +42,10 @@ class AdminPanelProvider extends PanelProvider
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: \App\Filament\Auth\Login::class)
-            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.store-switcher'))
+            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-switcher'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
-            ->navigationGroups(['Platform', 'Sales', 'Catalogue', 'Services', 'Content', 'Marketing', 'Appearance', 'Settings'])
+            ->navigationGroups(['Platform', 'Sales', 'Catalogue', 'Services', 'Content', 'Marketing', 'Appearance', 'Team', 'Settings'])
             ->colors([
                 'primary' => Color::Blue,
                 'gray' => Color::Slate,
@@ -83,7 +84,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 \App\Filament\Widgets\StoreLink::class,
-                \App\Filament\Widgets\StoreUsage::class,
+                \App\Filament\Widgets\ClientUsage::class,
                 \App\Filament\Widgets\PlatformStats::class,
                 StoreStats::class,
                 \App\Filament\Widgets\ServiceStats::class,
@@ -103,10 +104,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                \App\Http\Middleware\ApplyAdminStoreScope::class,
+                \App\Http\Middleware\ApplyAdminScope::class,
             ])
             ->persistentMiddleware([
-                \App\Http\Middleware\ApplyAdminStoreScope::class,
+                \App\Http\Middleware\ApplyAdminScope::class,
             ]);
     }
 }

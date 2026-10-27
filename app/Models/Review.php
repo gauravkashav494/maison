@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Review extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     use BelongsToTemplate;
 
@@ -21,6 +24,12 @@ class Review extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /** The storefront account that wrote this, or null for a guest review. */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function scopeApproved(Builder $q): Builder

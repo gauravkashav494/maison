@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 
 class MenuItem extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     protected $guarded = [];
 
@@ -51,7 +53,10 @@ class MenuItem extends Model
      */
     public static function renumber(int $menuId, ?array $flatOrder = null): void
     {
-        $items = static::where('menu_id', $menuId)->orderBy('sort_order')->orderBy('id')->get();
+        // One menu belongs to one client, so the whole menu is renumbered even when the
+        // request's client scope is not set yet (seeding, a console command, a queue job) —
+        // otherwise half a menu would be reordered against the other half.
+        $items = static::withoutGlobalScopes()->where('menu_id', $menuId)->orderBy('sort_order')->orderBy('id')->get();
         if ($items->isEmpty()) {
             return;
         }
@@ -95,9 +100,14 @@ class MenuItem extends Model
             }
         }
 
-        DB::transaction(function () use ($updates) {
+        // The client's own connection, not the default one: with a database per client these
+        // ids exist in every client's database, so writing to the default connection would
+        // renumber somebody else's menu.
+        $connection = (new static)->getConnection();
+
+        $connection->transaction(function () use ($connection, $updates) {
             foreach ($updates as $id => $values) {
-                DB::table('menu_items')->where('id', $id)->update($values);
+                $connection->table('menu_items')->where('id', $id)->update($values);
             }
         });
 
@@ -106,9 +116,10 @@ class MenuItem extends Model
 
     protected static function booted(): void
     {
-        // New items join the end of the menu instead of jumping to the top.
+        // New items join the end of the menu instead of jumping to the top. A position given
+        // explicitly is kept, including 0 — that is the first item, not a missing value.
         static::creating(function (self $item) {
-            if (! $item->sort_order) {
+            if ($item->sort_order === null) {
                 $item->sort_order = (int) static::where('menu_id', $item->menu_id)->max('sort_order') + 1;
             }
         });

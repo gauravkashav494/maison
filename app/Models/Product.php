@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\UsesStoreConnection;
+use App\Models\Concerns\BelongsToClient;
+use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
 use App\Support\Media;
@@ -14,7 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-    use UsesStoreConnection;
+    use UsesClientConnection;
+
+    use BelongsToClient;
 
     use BelongsToTemplate;
 
@@ -35,6 +38,9 @@ class Product extends Model
         'nutrition' => 'array',
         'specifications' => 'array',
         'rating' => 'float',
+        'has_variants' => 'boolean',
+        'variant_attributes' => 'array',
+        'variants' => 'array',
     ];
 
     public function category(): BelongsTo
@@ -118,6 +124,165 @@ class Product extends Model
     public function getUrlAttribute(): string
     {
         return route('products.show', $this->slug);
+    }
+
+    // ---- Variants ----------------------------------------------------------
+
+    /**
+     * The attributes this product varies by, in one shape whether they were entered as
+     * variant attributes or as the older colour and size lists.
+     *
+     * @return array<int, array{name:string, values:array<int,string>, swatches:array<string,string>}>
+     */
+    public function variantAttributes(): array
+    {
+        $attributes = [];
+
+        foreach ((array) $this->variant_attributes as $attribute) {
+            $name = trim((string) ($attribute['name'] ?? ''));
+            $values = array_values(array_filter(array_map('strval', (array) ($attribute['values'] ?? [])), 'strlen'));
+            if ($name === '' || ! $values) {
+                continue;
+            }
+            $attributes[] = ['name' => $name, 'values' => $values, 'swatches' => (array) ($attribute['swatches'] ?? [])];
+        }
+
+        if ($attributes) {
+            return $attributes;
+        }
+
+        // Older products: the colour and size lists are the attributes.
+        $colours = array_values(array_filter(array_map(fn ($c) => is_array($c) ? ($c['name'] ?? null) : $c, (array) $this->colors)));
+        if ($colours) {
+            $swatches = [];
+            foreach ((array) $this->colors as $colour) {
+                if (is_array($colour) && ! empty($colour['name']) && ! empty($colour['hex'])) {
+                    $swatches[$colour['name']] = $colour['hex'];
+                }
+            }
+            $attributes[] = ['name' => 'Colour', 'values' => $colours, 'swatches' => $swatches];
+        }
+        $sizes = array_values(array_filter(array_map('strval', (array) $this->sizes), 'strlen'));
+        if ($sizes) {
+            $attributes[] = ['name' => 'Size', 'values' => $sizes, 'swatches' => []];
+        }
+
+        return $attributes;
+    }
+
+    /** Attribute names, in the order the customer chooses them. */
+    public function variantAttributeNames(): array
+    {
+        return array_column($this->variantAttributes(), 'name');
+    }
+
+    /** True when this product sells per variant (price, SKU and stock come from the variant). */
+    public function sellsVariants(): bool
+    {
+        return (bool) $this->has_variants && $this->variantList() !== [];
+    }
+
+    /**
+     * The variant combinations, normalised. A variant with no price of its own inherits the
+     * product's price; the same goes for stock and SKU.
+     *
+     * @return array<int, array{options:array<string,string>, sku:?string, price:int, stock:int, is_active:bool, label:string}>
+     */
+    public function variantList(): array
+    {
+        $variants = [];
+
+        foreach ((array) $this->variants as $variant) {
+            $options = [];
+            foreach ((array) ($variant['options'] ?? []) as $name => $value) {
+                $name = trim((string) $name);
+                $value = trim((string) $value);
+                if ($name !== '' && $value !== '') {
+                    $options[$name] = $value;
+                }
+            }
+            if (! $options) {
+                continue;
+            }
+            $price = $variant['price'] ?? null;
+            $stock = $variant['stock'] ?? null;
+            $variants[] = [
+                'options' => $options,
+                'sku' => filled($variant['sku'] ?? null) ? (string) $variant['sku'] : $this->sku,
+                'price' => $price === null || $price === '' ? (int) $this->price : (int) $price,
+                'stock' => $stock === null || $stock === '' ? (int) $this->stock : (int) $stock,
+                'is_active' => (bool) ($variant['is_active'] ?? true),
+                'label' => implode(' / ', array_values($options)),
+            ];
+        }
+
+        return $variants;
+    }
+
+    /** The variant matching exactly these options, if it is on sale. */
+    public function findVariant(array $options): ?array
+    {
+        $wanted = $this->normaliseOptions($options);
+        if (! $wanted) {
+            return null;
+        }
+
+        foreach ($this->variantList() as $variant) {
+            if ($variant['is_active'] && $variant['options'] == $wanted) {
+                return $variant;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Keeps only options this product actually offers, in attribute order, so a value posted
+     * by hand cannot end up on an order line.
+     *
+     * @return array<string,string>
+     */
+    public function normaliseOptions(array $options): array
+    {
+        $clean = [];
+
+        foreach ($this->variantAttributes() as $attribute) {
+            $value = null;
+            foreach ($options as $name => $candidate) {
+                if (strcasecmp((string) $name, $attribute['name']) === 0) {
+                    $value = (string) $candidate;
+                    break;
+                }
+            }
+            if ($value === null) {
+                continue;
+            }
+            foreach ($attribute['values'] as $allowed) {
+                if (strcasecmp($allowed, $value) === 0) {
+                    $clean[$attribute['name']] = $allowed;
+                    break;
+                }
+            }
+        }
+
+        return $clean;
+    }
+
+    /** Price of a chosen combination (the product's own price when it does not sell variants). */
+    public function priceFor(array $options = []): int
+    {
+        return (int) ($this->sellsVariants() ? ($this->findVariant($options)['price'] ?? $this->price) : $this->price);
+    }
+
+    /** Stock of a chosen combination. */
+    public function stockFor(array $options = []): int
+    {
+        if (! $this->sellsVariants()) {
+            return (int) $this->stock;
+        }
+        $variant = $this->findVariant($options);
+
+        return (int) ($variant ? $variant['stock'] : array_sum(array_column(array_filter($this->variantList(), fn ($v) => $v['is_active']), 'stock')));
     }
 
     /** Compact representation used by the storefront JS (quick view, search, cart). */

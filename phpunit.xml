@@ -26,6 +26,9 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <!-- The suite exercises the row-level client scope, so it runs in one database;
+             per-client databases are covered by ClientDatabaseIsolationTest. -->
+        <env name="CLIENT_ISOLATION" value="shared"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

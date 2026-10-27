@@ -26,15 +26,16 @@ class Fields
      */
     public static function image(string $name, ?string $label = null, string $directory = 'uploads', bool $multiple = false): FileUpload
     {
-        // Media of a store lives under stores/<slug>/… so its storage can be measured and capped.
-        $store = app(\App\Admin\StoreContext::class)->storefront();
+        // A client's media lives under clients/<slug>/… so its storage can be measured and capped.
+        $client = app(\App\Clients\ClientContext::class)->client();
 
         $field = FileUpload::make($name)
             ->label($label ?? Str::headline($name))
             ->disk('public')
-            ->directory($store ? 'stores/'.$store->slug.'/'.$directory : $directory)
-            ->rules([new \App\Rules\WithinStoreStorage])
-            ->helperText(fn () => ($q = \App\Admin\StoreQuota::current())?->storageLimit() === null ? null : 'Store media: '.$q->storageLabel().' used.')            ->visibility('public')
+            ->directory($client ? 'clients/'.$client->slug.'/'.$directory : $directory)
+            ->rules([new \App\Rules\WithinClientStorage])
+            ->helperText(fn () => ($q = \App\Clients\ClientQuota::current())?->storageLimit() === null ? null : 'Media storage: '.$q->storageLabel().' used.')
+            ->visibility('public')
             ->image()
             ->imageEditor()
             ->maxSize(8192)
@@ -79,7 +80,13 @@ class Fields
                 ->required()
                 ->maxLength(255)
                 ->alphaDash()
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $scopeColumn ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule)
+                // Slugs are unique inside a client, not across the platform: two clients may
+                // each have a "shirts" category.
+                ->unique(ignoreRecord: true, modifyRuleUsing: function (Unique $rule, Get $get) use ($scopeColumn) {
+                    $rule = $rule->where('client_id', app(\App\Clients\ClientContext::class)->id());
+
+                    return $scopeColumn ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule;
+                })
                 ->helperText('Used in the page URL. Lowercase letters, numbers and dashes only.'),
         ];
     }

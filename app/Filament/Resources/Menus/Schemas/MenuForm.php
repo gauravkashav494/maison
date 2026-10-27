@@ -16,7 +16,7 @@ class MenuForm
             Select::make('location')
                 ->options(fn () => app(TemplateManager::class)->allMenuLocations())
                 ->required()
-                ->unique(ignoreRecord: true)
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(\App\Clients\ClientContext::class)->id()))
                 ->helperText('Where on the storefront this menu is rendered. Each template has its own locations.'),
         ]);
     }

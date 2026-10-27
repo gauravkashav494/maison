@@ -34,7 +34,7 @@
                         <a :href="item.product.url" class="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-line bg-paper"><img :src="item.product.images[0]" alt="" class="img-cover"></a>
                         <div class="min-w-0 flex-1">
                             <a :href="item.product.url" class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug" x-text="item.product.name"></a>
-                            <p class="mt-0.5 text-xs text-slate" x-text="item.size"></p>
+                            <p class="mt-0.5 text-xs text-slate" x-text="item.options_label || item.size"></p>
                             <div class="mt-1.5 flex items-center justify-between">
                                 <div class="text-sm font-bold tabular"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="ml-1 text-xs font-medium text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span></div>
                                 <div class="stepper">

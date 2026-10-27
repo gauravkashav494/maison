@@ -93,6 +93,9 @@
                     </div>
                 </div>
 
+                {{-- Any further attributes this product varies by (material, style, …) --}}
+                <x-variant-options :product="$product" />
+
                 <div class="mt-8 flex gap-3" x-ref="buy">
                     <div class="flex h-14 items-center border border-ink/20">
                         <button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="minus" :size="14" :stroke="1.5" /></button>

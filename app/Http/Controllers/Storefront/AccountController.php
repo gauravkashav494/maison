@@ -4,8 +4,9 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
+use App\Clients\ClientContext;
+use App\Models\Customer;
 use App\Models\Order;
-use App\Models\User;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -17,8 +18,23 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
+/**
+ * Storefront accounts.
+ *
+ * A shopper belongs to the client whose storefront they are on: that client is added to
+ * every credential check, every lookup and every row written, so the same email address can
+ * be a customer of two clients without either account reaching the other's orders,
+ * addresses or profile. The client is the one resolved for the request (host or entry link),
+ * never a value from the form.
+ */
 class AccountController extends Controller
 {
+    /** The client this storefront belongs to. */
+    private function clientId(): ?int
+    {
+        return app(ClientContext::class)->id();
+    }
+
     // ---- Authentication ----------------------------------------------------
 
     public function loginForm(): View
@@ -29,7 +45,10 @@ class AccountController extends Controller
     public function login(Request $request): RedirectResponse
     {
         $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        $clientId = $this->clientId();
+
+        // The client is part of the credentials, so an account of another client never matches.
+        if (! $clientId || ! Auth::attempt($credentials + ['client_id' => $clientId, 'is_active' => true], $request->boolean('remember'))) {
             return back()->withInput($request->only('email'))->withErrors(['email' => 'These credentials do not match our records.']);
         }
         $request->session()->regenerate();
@@ -44,17 +63,21 @@ class AccountController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
+        $clientId = $this->clientId();
+        abort_unless($clientId !== null, 404);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            // Unique within this client only: the same address may shop with another client.
+            'email' => ['required', 'email', 'max:190', \Illuminate\Validation\Rule::unique('customers', 'email')->where('client_id', $clientId)],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
-        $user = User::create($data);
-        Auth::login($user);
+        $customer = Customer::create($data + ['client_id' => $clientId]);
+        Auth::login($customer);
         $request->session()->regenerate();
 
-        return redirect()->route('account.index')->with('status', 'Welcome to Maison Élan.');
+        return redirect()->route('account.index')->with('status', 'Welcome to '.setting('site.name', config('app.name')).'.');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -74,7 +97,10 @@ class AccountController extends Controller
     public function forgot(Request $request): RedirectResponse
     {
         $request->validate(['email' => ['required', 'email']]);
-        Password::sendResetLink($request->only('email'));
+        if ($clientId = $this->clientId()) {
+            // Scoped to this client: a link is only ever sent to its own customer.
+            Password::broker('customers')->sendResetLink($request->only('email') + ['client_id' => $clientId, 'is_active' => true]);
+        }
 
         // Always respond the same way so addresses cannot be enumerated.
         return back()->with('status', 'If an account exists for that email, a reset link is on its way.');
@@ -92,11 +118,14 @@ class AccountController extends Controller
             'email' => ['required', 'email'],
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
-                event(new PasswordReset($user));
+        $clientId = $this->clientId();
+        abort_unless($clientId !== null, 404);
+
+        $status = Password::broker('customers')->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token') + ['client_id' => $clientId],
+            function (Customer $customer, string $password) {
+                $customer->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+                event(new PasswordReset($customer));
             },
         );
 
@@ -161,7 +190,7 @@ class AccountController extends Controller
 
     public function updateAddress(Request $request, Address $address): RedirectResponse
     {
-        abort_unless($address->user_id === $request->user()->id, 403);
+        abort_unless((int) $address->customer_id === (int) $request->user()->id, 403);
         $data = $this->validateAddress($request);
         if (! empty($data['is_default'])) {
             $request->user()->addresses()->update(['is_default' => false]);
@@ -173,7 +202,7 @@ class AccountController extends Controller
 
     public function destroyAddress(Request $request, Address $address): RedirectResponse
     {
-        abort_unless($address->user_id === $request->user()->id, 403);
+        abort_unless((int) $address->customer_id === (int) $request->user()->id, 403);
         $address->delete();
 
         return back()->with('status', 'Address removed.');
@@ -207,7 +236,8 @@ class AccountController extends Controller
         $user = $request->user();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email,'.$user->id],
+            // Unique inside this client only.
+            'email' => ['required', 'email', 'max:190', \Illuminate\Validation\Rule::unique('customers', 'email')->where('client_id', $user->client_id)->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
         ]);
         $user->update($data);

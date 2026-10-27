@@ -19,24 +19,54 @@ class Cart
 
     private const SHIPPING = 'cart.shipping';
 
-    /** @return array<string, array{product_id:int,size:string,color:?string,qty:int}> */
+    /** @return array<string, array{product_id:int,options:array<string,string>,size:?string,color:?string,qty:int}> */
     public function raw(): array
     {
-        return Session::get(self::KEY, []);
+        return array_map(function ($line) {
+            // Lines saved before variants existed carry only a size and a colour.
+            $line['options'] ??= array_filter([
+                'Size' => $line['size'] ?? null,
+                'Colour' => $line['color'] ?? null,
+            ], fn ($value) => filled($value));
+
+            return $line;
+        }, Session::get(self::KEY, []));
     }
 
-    public function add(int $productId, string $size, ?string $color, int $qty = 1): void
+    /**
+     * Adds a product in the chosen combination. The options are whatever the product varies
+     * by (Size, Colour, Material, …) and must already have been checked against the product;
+     * size and colour are kept alongside them so older views and order lines still work.
+     *
+     * @param  array<string,string>  $options
+     */
+    public function add(int $productId, array $options, int $qty = 1): void
     {
         $items = $this->raw();
-        $key = $this->key($productId, $size, $color);
+        $key = $this->key($productId, $options);
         $items[$key] = [
             'product_id' => $productId,
-            'size' => $size,
-            'color' => $color,
+            'options' => $options,
+            'size' => $this->option($options, 'size'),
+            'color' => $this->option($options, 'colour', 'color'),
             'qty' => ($items[$key]['qty'] ?? 0) + max(1, $qty),
         ];
         $items = [$key => $items[$key]] + $items; // most recently added first
         Session::put(self::KEY, $items);
+    }
+
+    /** First option whose attribute name matches one of these (case-insensitively). */
+    private function option(array $options, string ...$names): ?string
+    {
+        foreach ($options as $attribute => $value) {
+            foreach ($names as $name) {
+                if (strcasecmp((string) $attribute, $name) === 0) {
+                    return (string) $value;
+                }
+            }
+        }
+
+        return null;
     }
 
     public function update(string $key, int $qty): void
@@ -145,16 +175,27 @@ class Cart
             if (! $product || ! $product->is_active) {
                 continue;
             }
-            $lineTotal = $product->price * $line['qty'];
+            // A product sold by variant is priced by the chosen combination, not by itself.
+            $options = $line['options'] ?? [];
+            $variant = $product->sellsVariants() ? $product->findVariant($options) : null;
+            $unitPrice = $variant['price'] ?? $product->price;
+            $lineTotal = $unitPrice * $line['qty'];
             $subtotal += $lineTotal;
+            $card = $product->toCard();
+            $card['price'] = $unitPrice;
+            $card['price_formatted'] = money($unitPrice);
             $items[] = [
                 'key' => $key,
                 'qty' => $line['qty'],
-                'size' => $line['size'],
-                'color' => $line['color'],
+                'size' => $line['size'] ?? null,
+                'color' => $line['color'] ?? null,
+                'options' => $options,
+                'options_label' => implode(' / ', array_map(fn ($name, $value) => $name.': '.$value, array_keys($options), array_values($options))),
+                'variant_sku' => $variant['sku'] ?? $product->sku,
+                'unit_price' => $unitPrice,
                 'line_total' => $lineTotal,
                 'line_total_formatted' => money($lineTotal),
-                'product' => $product->toCard(),
+                'product' => $card,
             ];
         }
 
@@ -208,8 +249,11 @@ class Cart
         ];
     }
 
-    private function key(int $productId, string $size, ?string $color): string
+    /** One line per product and combination, so the same product in two variants stays apart. */
+    private function key(int $productId, array $options): string
     {
-        return substr(md5($productId.'|'.$size.'|'.($color ?? '')), 0, 12);
+        ksort($options);
+
+        return substr(md5($productId.'|'.json_encode($options)), 0, 12);
     }
 }

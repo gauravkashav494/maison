@@ -69,6 +69,9 @@
             @if(!empty($g['offer_badge']))<p class="mt-5 inline-block rounded-md bg-red px-3 py-1.5 text-xs font-semibold text-cream">{{ $g['offer_badge'] }} <span class="font-normal text-cream/80">on selected products</span></p>@endif
 
             {{-- Pack size cards --}}
+            {{-- Any further attributes this product varies by (material, style, …) --}}
+            <x-variant-options :product="$product" />
+
             <div class="mt-5" x-ref="buy">
                 <p class="text-xs font-medium text-muted">Select Pack Size</p>
                 <div class="mt-2 flex flex-wrap gap-3">

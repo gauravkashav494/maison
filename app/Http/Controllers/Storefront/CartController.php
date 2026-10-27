@@ -35,14 +35,31 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],
-            'size' => ['required', 'string', 'max:40'],
+            'options' => ['nullable', 'array'],
+            'options.*' => ['nullable', 'string', 'max:60'],
+            'size' => ['nullable', 'string', 'max:40'],
             'color' => ['nullable', 'string', 'max:40'],
             'qty' => ['nullable', 'integer', 'min:1', 'max:20'],
         ]);
         $product = Product::active()->findOrFail($data['product_id']);
-        abort_unless(in_array($data['size'], $product->sizes ?? [], true), 422, 'Invalid size.');
 
-        $this->cart->add($product->id, $data['size'], $data['color'] ?? null, (int) ($data['qty'] ?? 1));
+        // Size and colour are the older form fields; they are read as two of the attributes.
+        $posted = (array) ($data['options'] ?? []);
+        filled($data['size'] ?? null) and $posted['Size'] ??= $data['size'];
+        filled($data['color'] ?? null) and $posted['Colour'] ??= $data['color'];
+
+        // Only values this product actually offers survive, so nothing arbitrary reaches the order.
+        $options = $product->normaliseOptions($posted);
+        $missing = array_diff($product->variantAttributeNames(), array_keys($options));
+        abort_if($missing !== [], 422, 'Please choose '.implode(', ', $missing).'.');
+
+        if ($product->sellsVariants()) {
+            $variant = $product->findVariant($options);
+            abort_unless((bool) $variant, 422, 'That combination is not available.');
+            abort_unless($variant['stock'] > 0, 422, 'That combination is out of stock.');
+        }
+
+        $this->cart->add($product->id, $options, (int) ($data['qty'] ?? 1));
 
         return response()->json($this->cart->toArray());
     }
@@ -159,7 +176,7 @@ class CartController extends Controller
             $order = Order::create([
                 'number' => Order::generateNumber(),
                 'template' => template()->id(),
-                'user_id' => $request->user()?->id,
+                'customer_id' => $request->user()?->id,
                 'status' => 'confirmed',
                 'email' => strtolower($data['email']),
                 'phone' => $data['phone'],
@@ -192,11 +209,14 @@ class CartController extends Controller
                     'image' => $line['product']['images'][0] ?? null,
                     'size' => $line['size'],
                     'color' => $line['color'],
-                    'price' => $line['product']['price'],
+                    // What the customer chose, recorded with the order rather than inferred later.
+                    'options' => $line['options'] ?: null,
+                    'variant_sku' => $line['variant_sku'] ?? null,
+                    'price' => $line['unit_price'] ?? $line['product']['price'],
                     'qty' => $line['qty'],
                     'total' => $line['line_total'],
                 ]);
-                Product::whereKey($line['product']['id'])->where('stock', '>=', $line['qty'])->decrement('stock', $line['qty']);
+                $this->reduceStock($line);
             }
 
             if (! empty($cart['coupon']['code'])) {
@@ -226,12 +246,41 @@ class CartController extends Controller
         return redirect()->route('orders.confirmation', $order->number);
     }
 
+    /**
+     * Takes the sold quantity off the stock. A product sold by variant has its stock on the
+     * variant, so that is reduced as well as the product total.
+     */
+    private function reduceStock(array $line): void
+    {
+        $qty = (int) $line['qty'];
+        $product = Product::find($line['product']['id']);
+        if (! $product) {
+            return;
+        }
+
+        $options = $line['options'] ?? [];
+        if ($product->sellsVariants() && $options) {
+            $wanted = $product->normaliseOptions($options);
+            $variants = (array) $product->variants;
+            foreach ($variants as $index => $variant) {
+                if ($product->normaliseOptions((array) ($variant['options'] ?? [])) == $wanted) {
+                    $current = $variant['stock'] ?? $product->stock;
+                    $variants[$index]['stock'] = max(0, (int) $current - $qty);
+                    $product->update(['variants' => $variants]);
+                    break;
+                }
+            }
+        }
+
+        Product::whereKey($product->id)->where('stock', '>=', $qty)->decrement('stock', $qty);
+    }
+
     public function confirmation(Request $request, string $number): View
     {
         $order = Order::with('items')->where('number', $number)->firstOrFail();
         // Guests may only see the order they just placed; customers may see their own.
         abort_unless(
-            session('last_order_number') === $order->number || ($request->user() && $order->user_id === $request->user()->id),
+            session('last_order_number') === $order->number || ($request->user() && (int) $order->customer_id === (int) $request->user()->id),
             403,
         );
 

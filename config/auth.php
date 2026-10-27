@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\ClientUser;
+use App\Models\Customer;
 use App\Models\User;
 
 return [
@@ -17,7 +19,7 @@ return [
 
     'defaults' => [
         'guard' => env('AUTH_GUARD', 'web'),
-        'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
+        'passwords' => env('AUTH_PASSWORD_BROKER', 'customers'),
     ],
 
     /*
@@ -37,10 +39,25 @@ return [
     |
     */
 
+    /*
+    | Three guards, one per kind of account, so no account can act outside its own area:
+    | storefront shoppers (web), the SuperAdmin panel (admin) and a client's own staff panel
+    | (client). Each has its own provider, its own table and its own reset tokens.
+    */
     'guards' => [
         'web' => [
             'driver' => 'session',
+            'provider' => 'customers',
+        ],
+
+        'admin' => [
+            'driver' => 'session',
             'provider' => 'users',
+        ],
+
+        'client' => [
+            'driver' => 'session',
+            'provider' => 'client_users',
         ],
     ],
 
@@ -62,15 +79,25 @@ return [
     */
 
     'providers' => [
+        // SuperAdmins.
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // A client's Client Admin / Admin Staff accounts.
+        'client_users' => [
+            'driver' => 'eloquent',
+            'model' => ClientUser::class,
+        ],
+
+        // Storefront shoppers. Credentials are always matched together with the client being
+        // served, so the same address may exist for two clients without either being able to
+        // sign into the other (see AccountController).
+        'customers' => [
+            'driver' => 'eloquent',
+            'model' => Customer::class,
+        ],
     ],
 
     /*
@@ -96,6 +123,22 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'client_users' => [
+            'provider' => 'client_users',
+            'table' => 'client_user_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // A separate table: a token issued to a shopper must not reset a staff account that
+        // happens to use the same address.
+        'customers' => [
+            'provider' => 'customers',
+            'table' => 'customer_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

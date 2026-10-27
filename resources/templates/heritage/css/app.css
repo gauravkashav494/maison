@@ -4,6 +4,8 @@
 /* Scan only this template's views/scripts — the bundle stays isolated from the other templates. */
 @source '../../../views/templates/heritage/**/*.blade.php';
 @source '../js/**/*.js';
+/* Shared storefront components used by this template. */
+@source '../../../views/components/variant-options.blade.php';
 @source inline("{sm:,md:,lg:,xl:,}grid-cols-{2,3,4,5,6}");
 @source inline("col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
 

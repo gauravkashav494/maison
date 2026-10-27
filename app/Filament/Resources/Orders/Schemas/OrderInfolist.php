@@ -25,7 +25,7 @@ class OrderInfolist
                             ->schema([
                                 ImageEntry::make('image_url')->hiddenLabel()->square()->imageSize(56),
                                 TextEntry::make('name')->hiddenLabel()->weight('bold')
-                                    ->helperText(fn ($record) => trim(($record->color ? $record->color.' · ' : '').'Size '.$record->size.($record->sku ? ' · '.$record->sku : ''))),
+                                    ->helperText(fn ($record) => trim(implode(' · ', array_filter([$record->optionsLabel(), $record->variant_sku ?: $record->sku])))),
                                 TextEntry::make('qty')->label('Qty')->alignRight(),
                                 TextEntry::make('total')->label('Total')->formatStateUsing(fn (int $state) => money($state))->alignRight(),
                             ])
@@ -43,7 +43,7 @@ class OrderInfolist
                     ->schema([
                         TextEntry::make('email')->copyable(),
                         TextEntry::make('phone')->copyable(),
-                        TextEntry::make('user.name')->label('Account')->placeholder('Guest checkout'),
+                        TextEntry::make('customer.name')->label('Account')->placeholder('Guest checkout'),
                         TextEntry::make('shipping_address')->label('Ships to')->state(fn (Order $r) => implode("\n", $r->shippingAddressLines()))->html(false),
                         TextEntry::make('shipping_method'),
                         TextEntry::make('payment_method')->formatStateUsing(fn ($state) => Order::PAYMENT_METHODS[$state] ?? $state),

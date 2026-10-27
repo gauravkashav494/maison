@@ -179,7 +179,7 @@ class ServicesController extends Controller
         $data['service_name'] = $service?->name ?? $data['service_name'];
         $data['type'] = $data['type'] ?? ($service?->is_emergency ? 'emergency' : 'booking');
         $data['template'] = template()->id();
-        $data['user_id'] = $request->user()?->id;
+        $data['customer_id'] = $request->user()?->id;
         if (($data['time_slot'] ?? null) === 'asap') {
             $data['preferred_date'] = $data['preferred_date'] ?? today();
         }
@@ -194,7 +194,7 @@ class ServicesController extends Controller
     {
         $booking = ServiceRequest::with(['service'])->where('reference', $reference)->firstOrFail();
         $owned = $request->session()->has('booking.'.$reference)
-            || ($request->user() && $booking->user_id === $request->user()->id);
+            || ($request->user() && (int) $booking->customer_id === (int) $request->user()->id);
         abort_unless($owned, 404);
 
         return view('services.confirmation', [
@@ -233,7 +233,7 @@ class ServicesController extends Controller
         $data['type'] = 'quote';
         $data['time_slot'] = 'asap';
         $data['template'] = template()->id();
-        $data['user_id'] = $request->user()?->id;
+        $data['customer_id'] = $request->user()?->id;
 
         $quote = ServiceRequest::create($data);
         $request->session()->put('booking.'.$quote->reference, true);
@@ -250,7 +250,7 @@ class ServicesController extends Controller
         $bookings = collect();
 
         if ($request->user()) {
-            $bookings = ServiceRequest::with('service')->where('user_id', $request->user()->id)->orderByDesc('id')->get();
+            $bookings = ServiceRequest::with('service')->where('customer_id', $request->user()->id)->orderByDesc('id')->get();
         }
 
         if ($request->isMethod('post')) {
@@ -278,7 +278,7 @@ class ServicesController extends Controller
     public function accountBookings(Request $request): View
     {
         return view('account.bookings', [
-            'bookings' => ServiceRequest::with('service')->where('user_id', $request->user()->id)->orderByDesc('id')->get(),
+            'bookings' => ServiceRequest::with('service')->where('customer_id', $request->user()->id)->orderByDesc('id')->get(),
             'seo' => Seo::simple('My bookings', null, true),
         ]);
     }
