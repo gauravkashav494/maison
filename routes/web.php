@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Storefront\BulkOrderController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CatalogController;
 use App\Http\Controllers\Storefront\HomeController;
@@ -19,6 +20,11 @@ Route::get('/collections/{slug}', [CatalogController::class, 'collection'])->nam
 Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('products.show');
 Route::post('/product/{slug}/reviews', [CatalogController::class, 'storeReview'])->middleware('throttle:5,1')->name('products.reviews.store');
 Route::get('/search', [CatalogController::class, 'search'])->name('search');
+
+// A single page for adding many products to the cart at once (search, pick, set a
+// quantity, repeat) instead of one at a time. Each store serves it on its own URL with only
+// its own products; service-only templates 404 (ResolveTemplate::CATALOGUE_ROUTES).
+Route::get('/bulk-order', [BulkOrderController::class, 'index'])->name('bulk-order');
 
 // Editorial
 Route::get('/journal', [CatalogController::class, 'journal'])->name('journal.index');

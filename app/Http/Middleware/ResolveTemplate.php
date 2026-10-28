@@ -30,7 +30,7 @@ use Symfony\Component\HttpFoundation\Response;
 class ResolveTemplate
 {
     /** Route names that only make sense with a product catalogue. */
-    public const CATALOGUE_ROUTES = ['shop.*', 'collections.*', 'products.*', 'search', 'cart', 'cart.*', 'checkout', 'checkout.*', 'orders.*', 'track', 'api.search', 'api.products', 'api.product', 'account.orders', 'account.order', 'account.wishlist'];
+    public const CATALOGUE_ROUTES = ['shop.*', 'collections.*', 'products.*', 'search', 'bulk-order', 'cart','cart.*', 'checkout', 'checkout.*', 'orders.*', 'track', 'api.search', 'api.products', 'api.product', 'account.orders', 'account.order', 'account.wishlist'];
 
     public function handle(Request $request, Closure $next): Response
     {
