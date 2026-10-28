@@ -65,8 +65,9 @@ function bulkOrder(suggestions = []) {
             row.query = '';
             row.open = false;
         },
+        // 20 mirrors the per-line limit CartController accepts; a product's own max_qty can be lower.
         maxQty(row) {
-            return row.product?.max_qty || 99;
+            return Math.min(row.product?.max_qty || 20, 20);
         },
         setQty(row, n) {
             row.qty = Math.min(this.maxQty(row), Math.max(1, Number(n) || 1));
@@ -85,13 +86,26 @@ function bulkOrder(suggestions = []) {
             if (!rows.length) return;
             this.submitting = true;
             this.error = null;
-            try {
-                for (const row of rows) {
-                    await Alpine.store('cart').add(row.product.id, row.size, row.color, row.qty, false);
+            // Lines that reach the cart leave the form; any that fail stay, so nothing is lost silently.
+            // The cart store returns false (most templates) or throws (Fashion) when a line is refused.
+            const failed = [];
+            for (const row of rows) {
+                let ok;
+                try {
+                    ok = (await Alpine.store('cart').add(row.product.id, row.size, row.color, row.qty, false)) !== false;
+                } catch {
+                    ok = false;
                 }
-                window.location.href = '/cart';
-            } catch {
-                this.error = 'Something went wrong adding these items. Please try again.';
+                if (ok) this.removeRow(row.key); else failed.push(row);
+            }
+            try {
+                if (!failed.length) {
+                    window.location.href = '/cart';
+                    return;
+                }
+                this.error = failed.length === rows.length
+                    ? 'These items could not be added. Please check them and try again.'
+                    : `${rows.length - failed.length} added to your cart. The ${failed.length === 1 ? 'item' : `${failed.length} items`} left below could not be added — please check and try again.`;
             } finally {
                 this.submitting = false;
             }

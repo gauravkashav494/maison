@@ -79,6 +79,12 @@ class AdminPanelProvider extends PanelProvider
                     ->sort(52)
                     ->icon('heroicon-o-bars-3')
                     ->url(fn () => MenuResource::getUrl('index', ['tab' => 'plumbing-services'])),
+                NavigationItem::make('Bulk Order · Navigation')
+                    ->group('Appearance')
+                    ->visible(fn () => app(\App\Admin\StoreContext::class)->allowsTemplate('bulk'))
+                    ->sort(62)
+                    ->icon('heroicon-o-bars-3')
+                    ->url(fn () => MenuResource::getUrl('index', ['tab' => 'bulk'])),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([

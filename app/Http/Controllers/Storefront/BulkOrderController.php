@@ -23,8 +23,17 @@ class BulkOrderController extends Controller
     {
         return view('shop.bulk-order', [
             'seo' => Seo::simple('Bulk Order', 'Search for products, set quantities and add them all to your cart at once.', noindex: true),
-            // Shown the moment a search box is clicked, before anything is typed.
-            'suggestions' => Product::active()->bestSellers()->with('category')->limit(8)->get()->map->toCard()->values(),
+            'suggestions' => static::suggestions(),
         ]);
+    }
+
+    /**
+     * Products shown the moment a search box is clicked, before anything is typed: best
+     * sellers first, topped up with other products so a new store's list is never empty.
+     */
+    public static function suggestions(): \Illuminate\Support\Collection
+    {
+        return Product::active()->with('category')->orderByDesc('is_best_seller')->orderBy('sort_order')
+            ->limit(8)->get()->map->toCard()->values();
     }
 }

@@ -79,8 +79,10 @@ Alpine.store('cart', {
         try {
             this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty } }));
             if (open) Alpine.store('ui').openCart(); else Alpine.store('ui').notify('Added to cart');
+            return true;
         } catch (e) {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
+            return false;
         } finally { this.busy = false; }
     },
     async update(key, qty) { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); },

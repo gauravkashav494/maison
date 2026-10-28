@@ -20,6 +20,9 @@ export default defineConfig({
                 'resources/templates/plumbing/js/app.js',
                 'resources/templates/plumbing-services/css/app.css',
                 'resources/templates/plumbing-services/js/app.js',
+                // Bulk Order template
+                'resources/templates/bulk/css/app.css',
+                'resources/templates/bulk/js/app.js',
                 'resources/css/filament/admin/theme.css',
             ],
             refresh: true,
