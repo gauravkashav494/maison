@@ -8,7 +8,6 @@ use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
 use App\Clients\Scopes\ClientOwned;
 use App\Contracts\AdminIdentity;
-use App\Models\Client;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
@@ -29,8 +28,6 @@ use Symfony\Component\HttpFoundation\Response;
  *   3. the template scope and the policies keep working on top.
  *
  * A client's staff cannot influence any of this: their client comes from their account row.
- * A SuperAdmin may switch client with ?switch_client=<id>, which is validated against the
- * clients table before it is stored in the session.
  */
 class ApplyAdminScope
 {
@@ -44,28 +41,8 @@ class ApplyAdminScope
     {
         $identity = $this->identity($request);
 
-        if ($identity?->isSuperAdmin() && $request->query->has('switch_client')) {
-            $chosen = (string) $request->query('switch_client');
-            $client = $chosen !== '' && $chosen !== 'all' ? Client::find($chosen) : null;
-            $client
-                ? $request->session()->put(ClientContext::SESSION_KEY, $client->id)
-                : $request->session()->forget(ClientContext::SESSION_KEY);
-
-            return redirect()->to($request->fullUrlWithoutQuery('switch_client'));
-        }
-
-        // Only a SuperAdmin's choice is read from the session; staff accounts ignore it entirely.
-        $chosen = $identity?->isSuperAdmin() && $request->hasSession()
-            ? $request->session()->get(ClientContext::SESSION_KEY)
-            : null;
-
-        $this->clients->resolveForIdentity($identity, $chosen);
-
-        // A per-client database cannot answer a query across clients, so one is always selected.
-        if ($identity?->isSuperAdmin() && ! $this->clients->id() && $this->databases->isolated()) {
-            $first = Client::active()->orderBy('name')->value('id');
-            $first && $this->clients->resolveForIdentity($identity, $first);
-        }
+        // A SuperAdmin works in no client at all; a client's staff are bound to their own.
+        $this->clients->resolveForIdentity($identity);
 
         $this->databases->use($this->clients->client());
         $this->stores->resolve($identity, $this->clients->templateId());

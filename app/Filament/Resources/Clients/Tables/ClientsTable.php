@@ -44,9 +44,6 @@ class ClientsTable
                 TernaryFilter::make('is_active')->label('Active'),
             ])
             ->recordActions([
-                Action::make('manage')->label('Manage')->icon('heroicon-o-arrow-right-circle')
-                    ->url(fn (Client $r) => url('/admin?switch_client='.$r->id))
-                    ->tooltip('Work inside the data of this client'),
                 Action::make('toggle')->label(fn (Client $r) => $r->is_active ? 'Deactivate' : 'Activate')
                     ->icon(fn (Client $r) => $r->is_active ? 'heroicon-o-pause-circle' : 'heroicon-o-play-circle')
                     ->color(fn (Client $r) => $r->is_active ? 'gray' : 'success')

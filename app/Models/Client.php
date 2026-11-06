@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
  */
 class Client extends Model
 {
+    use Concerns\LogsPlatformActivity;
+
     public const COOKIE = 'client';
 
     /** Session key mirroring the cookie, so an entry link survives a browser that drops it. */
@@ -29,10 +31,11 @@ class Client extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'modules' => 'array'];
 
     protected static function booted(): void
     {
+        static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
         static::saved(fn () => Cache::forget('clients.hosts'));
         static::deleted(fn () => Cache::forget('clients.hosts'));
     }
@@ -53,6 +56,17 @@ class Client extends Model
     public function users(): HasMany
     {
         return $this->hasMany(ClientUser::class)->orderBy('name');
+    }
+
+    public function roles(): HasMany
+    {
+        return $this->hasMany(ClientRole::class)->orderBy('name');
+    }
+
+    /** Is this module switched on for the client? Null means nobody has narrowed the list yet. */
+    public function hasModule(string $module): bool
+    {
+        return $this->modules === null || in_array($module, $this->modules, true);
     }
 
     public function customers(): HasMany

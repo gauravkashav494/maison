@@ -1,1 +1,1 @@
-<div class="fi-sidebar-footer">© {{ date('Y') }} {{ setting('site.name', config('app.name')) }}</div>
+<div class="fi-sidebar-footer">© {{ date('Y') }} {{ filament()->getBrandName() }}</div>

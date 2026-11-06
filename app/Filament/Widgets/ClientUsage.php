@@ -23,8 +23,11 @@ class ClientUsage extends Widget
     public static function canView(): bool
     {
         $quota = ClientQuota::current();
+        $user = app(\App\Admin\StoreContext::class)->user();
+        $allowed = ($user instanceof \App\Models\ClientUser && $user->isClientAdmin())
+            || \App\Clients\ClientAccess::current('products', 'view');
 
-        return $quota && ($quota->productLimit() !== null || $quota->imageLimit() !== null || $quota->storageLimit() !== null);
+        return $allowed && $quota && ($quota->productLimit() !== null || $quota->imageLimit() !== null || $quota->storageLimit() !== null);
     }
 
     protected function getViewData(): array

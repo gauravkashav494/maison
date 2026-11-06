@@ -27,10 +27,9 @@ use App\Templates\TemplateManager;
 /**
  * Which store the admin session is working in.
  *
- * Store owners are locked to the template of their storefront (taken from the account,
- * never from the request). Super admins see everything, or narrow to one store with the
- * topbar switcher. ApplyAdminScope resolves the context once per request and applies
- * the AdminStoreScope global scope to every model listed here.
+ * A client's staff are locked to the template of their client's store (taken from the
+ * account, never from the request). ApplyAdminScope resolves the context once per request and
+ * applies the AdminStoreScope global scope to every model listed here.
  */
 class StoreContext
 {
@@ -117,11 +116,9 @@ class StoreContext
     /** Can this session open the given admin module (model class)? */
     public function allowsModel(string $model): bool
     {
-        if (! $this->user) {
+        // A SuperAdmin runs the platform and has no access to a client's business data.
+        if (! $this->user || $this->isSuperAdmin()) {
             return false;
-        }
-        if ($this->isSuperAdmin()) {
-            return true;
         }
         if (! $this->template) {
             return false;
@@ -155,7 +152,14 @@ class StoreContext
         }
         $template = $this->templateObject();
 
-        return $template && in_array($pageClass, $template->adminPages(), true);
+        // Site settings (brand, contact, checkout, SEO) apply to every store; a client's save
+        // stays its own, because settings are stored per client.
+        $forThisStore = $pageClass === \App\Filament\Pages\SiteSettings::class
+            || ($template && in_array($pageClass, $template->adminPages(), true));
+
+        return $template
+            && $forThisStore
+            && \App\Clients\ClientAccess::allows($this->user, 'appearance', 'update');
     }
 
     /** Label shown in the topbar. */

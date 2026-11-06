@@ -33,6 +33,7 @@ class ReviewsTable
             ])
             ->recordActions([
                 Action::make('approve')->icon('heroicon-o-check')->color('success')
+                    ->authorize(fn () => \App\Clients\ClientAccess::current('reviews', 'update'))
                     ->visible(fn (Review $r) => ! $r->is_approved)
                     ->action(fn (Review $r) => $r->update(['is_approved' => true])),
                 EditAction::make(),
@@ -40,6 +41,7 @@ class ReviewsTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('approveSelected')->label('Approve selected')->icon('heroicon-o-check')
+                        ->authorize(fn () => \App\Clients\ClientAccess::current('reviews', 'update'))
                         ->action(fn (Collection $records) => $records->each->update(['is_approved' => true]))->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                 ]),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Clients\ClientContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
@@ -22,7 +23,9 @@ class Setting extends Model
     public static function get(string $key, mixed $default = null): mixed
     {
         [$group, $path] = array_pad(explode('.', $key, 2), 2, null);
-        $value = static::allCached()[$group] ?? null;
+        $all = static::allCached();
+        $own = static::clientKey($group);
+        $value = ($own !== null ? ($all[$own] ?? null) : null) ?? $all[$group] ?? null;
 
         if ($path === null) {
             return $value ?? $default;
@@ -35,8 +38,21 @@ class Setting extends Model
 
     public static function set(string $group, array $value): void
     {
-        static::updateOrCreate(['key' => $group], ['value' => $value]);
+        static::updateOrCreate(['key' => static::clientKey($group) ?? $group], ['value' => $value]);
         Cache::forget('settings.all');
+    }
+
+    /**
+     * Key of the current client's own copy of a group, or null outside a client's request.
+     *
+     * Settings are stored per client, so two clients on one store never edit each other's
+     * homepage. A group the client has not saved yet falls back to the platform-wide value.
+     */
+    private static function clientKey(string $group): ?string
+    {
+        $clients = app(ClientContext::class);
+
+        return $clients->isLocked() && $clients->id() ? 'client:'.$clients->id().':'.$group : null;
     }
 
     public static function allCached(): array

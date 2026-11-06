@@ -46,6 +46,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(\App\Models\Plan::class, \App\Policies\PlanPolicy::class);
         Gate::policy(\App\Models\ClientUser::class, \App\Policies\ClientUserPolicy::class);
         Gate::policy(\App\Models\Customer::class, \App\Policies\CustomerPolicy::class);
+        Gate::policy(\App\Models\ClientRole::class, \App\Policies\ClientRolePolicy::class);
+        Gate::policy(\App\Models\PlatformActivity::class, \App\Policies\PlatformActivityPolicy::class);
+
+        // Inline table edits write straight to the row without calling a policy.
+        \Filament\Tables\Columns\ToggleColumn::configureUsing(fn ($column) => $column->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => ! \App\Clients\ClientAccess::canEditInline($record)));
+        \Filament\Tables\Columns\SelectColumn::configureUsing(fn ($column) => $column->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => ! \App\Clients\ClientAccess::canEditInline($record)));
 
         // Every template's view folder is registered as a fallback location so Blade can resolve
         // template components (<x-section-head>, <x-empty-state>, ...) when compiling outside a

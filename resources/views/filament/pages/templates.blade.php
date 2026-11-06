@@ -82,7 +82,8 @@
                         @endif
                         <div class="tpl-links">
                             @foreach($template->adminPages() as $page)
-                                @if(class_exists($page))
+                                {{-- Template settings belong to each client; only pages on this panel can be linked. --}}
+                                @if(in_array($page, filament()->getCurrentOrDefaultPanel()->getPages(), true))
                                     <x-filament::link :href="$page::getUrl()" size="sm" icon="heroicon-m-adjustments-horizontal">{{ $page::getNavigationLabel() }}</x-filament::link>
                                 @endif
                             @endforeach

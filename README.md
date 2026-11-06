@@ -1,4 +1,4 @@
-# Maison Élan — Laravel storefront + CMS
+# EcomVision — Laravel storefront + CMS
 
 Laravel 12 · Filament 5 admin · Blade + Alpine.js · Tailwind CSS v4 · SQLite (dev) / MySQL (prod)
 

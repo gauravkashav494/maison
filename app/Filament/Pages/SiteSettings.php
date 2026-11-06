@@ -108,7 +108,7 @@ class SiteSettings extends Page
                         ]),
                         Section::make('Titles & descriptions')->schema([
                             TextInput::make('seo.default_title')->label('Homepage title')->maxLength(70),
-                            TextInput::make('seo.title_suffix')->label('Title suffix')->helperText('Appended to every page title, e.g. " — Maison Élan".'),
+                            TextInput::make('seo.title_suffix')->label('Title suffix')->helperText('Appended to every page title, e.g. " — EcomVision".'),
                             Textarea::make('seo.default_description')->label('Default meta description')->rows(3)->maxLength(320),
                             Fields::image('seo.default_og_image', 'Default social share image (1200×630)', 'seo'),
                         ]),

@@ -19,7 +19,7 @@ class RecentOrders extends Widget
 
     public static function canView(): bool
     {
-        return \App\Filament\Widgets\StoreStats::canView();
+        return StoreStats::canView() && \App\Clients\ClientAccess::current('orders', 'view');
     }
 
     protected function getViewData(): array

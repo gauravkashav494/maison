@@ -51,6 +51,7 @@ class ClientPanelProvider extends PanelProvider
         \App\Filament\Resources\Subscribers\SubscriberResource::class,
         \App\Filament\Resources\Customers\CustomerResource::class,
         \App\Filament\Resources\ClientUsers\ClientUserResource::class,
+        \App\Filament\Resources\ClientRoles\ClientRoleResource::class,
     ];
 
     /** Appearance and content settings for the templates; each page checks its own access. */
@@ -77,7 +78,7 @@ class ClientPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(\App\Filament\Auth\Login::class)
             ->maxContentWidth(Width::Full)
-            ->brandName(fn () => app(\App\Clients\ClientContext::class)->client()?->name ?? setting('site.name', config('app.name')))
+            ->brandName(fn () => app(\App\Clients\ClientContext::class)->client()?->name ?? config('app.name'))
             ->brandLogo(fn () => view('filament.partials.brand'))
             ->favicon(null)
             ->sidebarCollapsibleOnDesktop()

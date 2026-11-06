@@ -2,14 +2,15 @@
 
 namespace App\Policies;
 
+use App\Clients\ClientAccess;
 use App\Clients\ClientContext;
 use App\Contracts\AdminIdentity;
 use App\Models\Customer;
-use App\Models\ClientUser;
 
 /**
- * A client's shoppers. Both of a client's staff roles may look after their own customers;
- * nobody sees another client's, whichever store the two clients happen to share.
+ * A client's shoppers, reached only by the client's own staff whose role allows it. Nobody sees
+ * another client's, whichever store the two clients happen to share, and a SuperAdmin sees
+ * totals rather than people.
  */
 class CustomerPolicy
 {
@@ -17,42 +18,36 @@ class CustomerPolicy
 
     public function viewAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin() || ($user instanceof ClientUser && $user->isActiveAccount());
+        return ClientAccess::allows($user, 'customers', 'view');
     }
 
     public function view(AdminIdentity $user, Customer $record): bool
     {
-        return $this->owns($user, $record);
+        return ClientAccess::allows($user, 'customers', 'view') && $this->owns($user, $record);
     }
 
     public function create(AdminIdentity $user): bool
     {
-        return $this->viewAny($user);
+        return ClientAccess::allows($user, 'customers', 'create');
     }
 
     public function update(AdminIdentity $user, Customer $record): bool
     {
-        return $this->owns($user, $record);
+        return ClientAccess::allows($user, 'customers', 'update') && $this->owns($user, $record);
     }
 
     public function delete(AdminIdentity $user, Customer $record): bool
     {
-        return $this->owns($user, $record) && ($user->isSuperAdmin() || ($user instanceof ClientUser && $user->isClientAdmin()));
+        return ClientAccess::allows($user, 'customers', 'delete') && $this->owns($user, $record);
     }
 
     public function deleteAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin() || ($user instanceof ClientUser && $user->isClientAdmin());
+        return ClientAccess::allows($user, 'customers', 'delete');
     }
 
     private function owns(AdminIdentity $user, Customer $record): bool
     {
-        if (! $this->viewAny($user)) {
-            return false;
-        }
-
-        return $user->isSuperAdmin()
-            ? $this->clients->owns($record->client_id)
-            : $user->clientId() === $record->client_id && $this->clients->owns($record->client_id);
+        return $user->clientId() === (int) $record->client_id && $this->clients->owns($record->client_id);
     }
 }

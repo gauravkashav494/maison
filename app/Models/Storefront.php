@@ -17,6 +17,8 @@ use Illuminate\Support\Str;
  */
 class Storefront extends Model
 {
+    use Concerns\LogsPlatformActivity;
+
     protected $guarded = [];
 
     protected $casts = ['is_active' => 'boolean'];

@@ -11,8 +11,9 @@ Three separate tables, three separate guards. No account can act outside its own
 
 | Who | Table | Guard | Signs in at | Sees |
 |---|---|---|---|---|
-| **SuperAdmin** (platform operator) | `users` | `admin` | `/admin` | everything: clients, stores, plans, every client's data |
-| **Client Admin / Admin Staff** | `client_users` | `client` | `/client` | one client's own data, nothing else |
+| **SuperAdmin** (platform operator) | `users` | `admin` | `/admin` | clients, stores, plans and platform accounts; each client's business only as totals |
+| **Client Admin** | `client_users` | `client` | `/client` | everything in the modules switched on for their client, plus staff and roles |
+| **Admin Staff** | `client_users` | `client` | `/client` | what their role grants, within those modules |
 | **Customer** (shopper) | `customers` | `web` | the storefront | their own orders and addresses |
 
 * `users` holds **nothing but** SuperAdmins. A client's staff and its shoppers are separate
@@ -21,6 +22,34 @@ Three separate tables, three separate guards. No account can act outside its own
   shopping with two clients is two accounts, and neither client can see the other's.
 * Each guard has its own password-reset table, so a token issued to a shopper cannot reset a
   staff account that happens to use the same address.
+
+### What each account can reach
+
+`/admin` lists its screens explicitly (`AdminPanelProvider::RESOURCES`): nothing a client owns is
+registered there, so `/admin/orders` is a 404. **Client totals** shows counts and revenue per
+client; no platform screen shows an individual order, customer or product.
+
+On `/client`, three checks must all pass (`App\Clients\ClientAccess`):
+
+1. **Module** — switched on for the client under **Clients → Edit → Modules**. A client with no
+   list yet (`clients.modules` is null) has everything its store supports.
+2. **Role** — a Client Admin holds every action of those modules. Admin Staff hold what their role
+   lists, as `<module>.<action>` such as `orders.view`. Every client starts with the Manager,
+   Catalogue, Customer support and Content editor roles, and a Client Admin edits them under
+   **Team → Roles**. Staff without a role can open the dashboard and nothing else.
+3. **Record** — the row belongs to the client, as described below.
+
+Refusal is on the server: a forbidden URL answers 403 whatever the menu shows. Modules and
+permissions are listed in `config/client_modules.php`; a screen not listed there is refused, so a
+new content model needs an entry. Run `php artisan config:cache` after changing it if the config
+is cached.
+
+Settings are per client too: a client's save is stored under `client:<id>:<group>` and read back
+for that client's panel and storefront. A group it has not saved falls back to the platform value
+edited under **Settings → Site settings** or seeded with the template.
+
+**Settings → Activity log** records who created, changed or deleted a client, plan, store, role or
+account, with the names of the changed fields and never their values.
 
 ---
 

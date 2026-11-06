@@ -196,7 +196,7 @@ class ClientDatabaseIsolationTest extends TestCase
             ->assertDontSee('Beta Coat');
     }
 
-    public function test_switching_client_in_the_admin_panel_switches_database(): void
+    public function test_the_operators_totals_read_each_clients_own_database(): void
     {
         $operator = User::create([
             'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
@@ -205,11 +205,11 @@ class ClientDatabaseIsolationTest extends TestCase
 
         $this->actingAs($operator, 'admin');
 
-        $this->get('/admin/products?switch_client='.$this->alpha->id)->assertRedirect('/admin/products');
-        $this->get('/admin/products')->assertSuccessful()->assertSee('Alpha Coat')->assertDontSee('Beta Coat');
+        $this->get('/admin/client-totals')->assertSuccessful()->assertDontSee('Alpha Coat');
 
-        $this->get('/admin/products?switch_client='.$this->beta->id)->assertRedirect('/admin/products');
-        $this->get('/admin/products')->assertSuccessful()->assertSee('Beta Coat')->assertDontSee('Alpha Coat');
+        $totals = \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug);
+        $this->assertSame(1, $totals['alpha-db']['products']);
+        $this->assertSame(1, $totals['beta-db']['products']);
     }
 
     public function test_the_storefront_serves_the_clients_own_catalogue(): void

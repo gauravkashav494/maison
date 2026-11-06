@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\Clients\Schemas;
 
 use App\Clients\ClientDatabase;
+use App\Clients\ClientModules;
 use App\Clients\ClientQuota;
 use App\Models\Client;
 use App\Models\Plan;
 use App\Models\Storefront;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -34,6 +36,9 @@ class ClientForm
                     ->required()
                     ->native(false)
                     ->searchable()
+                    ->live()
+                    // Every module the new store supports starts switched on.
+                    ->afterStateUpdated(fn ($set, $state) => $set('modules', array_keys(ClientModules::optionsForStorefront($state))))
                     ->helperText('The store (template) this client runs. Two clients may run the same store; they share no data.'),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('Inactive clients cannot sign in and their storefront stops answering.'),
@@ -46,6 +51,22 @@ class ClientForm
                 ->schema([
                     TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
                         ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://.'),
+                ]),
+            Section::make('Modules')
+                ->description('What this client can use. A module switched off disappears from their panel, for every member of their team.')
+                ->schema([
+                    CheckboxList::make('modules')
+                        ->hiddenLabel()
+                        ->options(fn ($get) => ClientModules::optionsForStorefront($get('storefront_id')))
+                        // A client nobody has narrowed yet has everything its store supports.
+                        ->formatStateUsing(function (?array $state, $get) {
+                            $available = array_keys(ClientModules::optionsForStorefront($get('storefront_id')));
+
+                            return $state === null ? $available : array_values(array_intersect($state, $available));
+                        })
+                        ->default([])
+                        ->columns(3)
+                        ->bulkToggleable(),
                 ]),
             Section::make('Plan & limits')
                 ->description('The plan sets the defaults; a value entered here overrides it for this client only. Blank means "use the plan", and 0 means unlimited.')

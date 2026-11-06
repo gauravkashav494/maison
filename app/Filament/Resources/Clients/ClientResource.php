@@ -23,7 +23,7 @@ class ClientResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBriefcase;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Platform';
+    protected static string|\UnitEnum|null $navigationGroup = 'Clients';
 
     protected static ?int $navigationSort = 1;
 

@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Plan extends Model
 {
+    use Concerns\LogsPlatformActivity;
+
     protected $guarded = [];
 
     protected $casts = ['is_default' => 'boolean'];

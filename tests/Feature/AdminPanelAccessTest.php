@@ -12,11 +12,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * The SuperAdmin panel: what the platform operator can reach, and what switching client does.
- *
- * The switcher is the one place a client is chosen from the request, so it is checked here:
- * only an existing, active client id is accepted, and once chosen it narrows every content
- * query exactly as a client's own session is narrowed.
+ * The SuperAdmin panel: what the platform operator can reach. ClientPermissionsTest covers
+ * what is deliberately not on it.
  */
 class AdminPanelAccessTest extends TestCase
 {
@@ -60,27 +57,7 @@ class AdminPanelAccessTest extends TestCase
         $this->get('/admin/plans')->assertSuccessful();
         $this->get('/admin/storefronts')->assertSuccessful();
         $this->get('/admin/users')->assertSuccessful();
-        $this->get('/admin/customers')->assertSuccessful();
         $this->get('/admin/client-users')->assertSuccessful();
-        $this->get('/admin/products')->assertSuccessful();
-    }
-
-    public function test_switching_client_narrows_the_content_and_only_accepts_a_real_client(): void
-    {
-        $this->actingAs($this->operator, 'admin');
-
-        $this->get('/admin/products?switch_client='.$this->alpha->id)->assertRedirect('/admin/products');
-        $this->assertSame($this->alpha->id, session('admin.client'));
-        $this->get('/admin/products')->assertSuccessful()->assertSee('Alpha Coat')->assertDontSee('Beta Coat');
-
-        // An id that names no client clears the choice instead of selecting something else.
-        $this->get('/admin/products?switch_client=99999')->assertRedirect('/admin/products');
-        $this->assertNull(session('admin.client'));
-
-        // An inactive client is not selectable either.
-        $this->beta->update(['is_active' => false]);
-        $this->get('/admin/products?switch_client='.$this->beta->id)->assertRedirect('/admin/products');
-        $this->get('/admin/products')->assertSuccessful()->assertSee('Alpha Coat');
     }
 
     public function test_a_client_staff_account_cannot_switch_client_through_the_url(): void

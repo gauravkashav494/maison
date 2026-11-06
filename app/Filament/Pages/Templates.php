@@ -22,7 +22,7 @@ class Templates extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSwatch;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Appearance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Platform';
 
     protected static ?int $navigationSort = 1;
 

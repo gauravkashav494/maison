@@ -35,7 +35,7 @@ class ServiceRequestsTable
             ])
             ->recordActions([EditAction::make()])
             ->toolbarActions([BulkActionGroup::make([
-                BulkAction::make('contacted')->label('Mark contacted')->icon('heroicon-o-phone')->action(fn (Collection $records) => $records->each->update(['status' => 'contacted']))->deselectRecordsAfterCompletion(),
+                BulkAction::make('contacted')->label('Mark contacted')->icon('heroicon-o-phone')->authorize(fn () => \App\Clients\ClientAccess::current('service_requests', 'update'))->action(fn (Collection $records) => $records->each->update(['status' => 'contacted']))->deselectRecordsAfterCompletion(),
                 DeleteBulkAction::make(),
             ])]);
     }

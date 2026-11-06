@@ -27,7 +27,7 @@ SuperAdmins are managed under **Platform → Super Admins**; a client's own staf
 php artisan test
 ```
 
-56 tests cover what is hardest to check by hand: client isolation (including two clients on
+92 tests cover what is hardest to check by hand: client isolation (including two clients on
 one store), the panels' access rules, order fulfilment transitions, variants and the
 allowances. `tests/Feature/ClientIsolationTest.php` is the one to read first.
 
@@ -53,22 +53,30 @@ allowances. `tests/Feature/ClientIsolationTest.php` is the one to read first.
 | `/client/products?switch_client=<other client id>` | ignored; still your own data |
 | `/?preview_template=fashion` | stays on your own storefront |
 
-Sign in as **Admin Staff** instead of Client Admin and `Team → Staff` disappears, and
-`/client/client-users` answers 403.
+**As Admin Staff**, create an account under `Team → Staff` with the *Catalogue* role and sign in:
+
+- The sidebar has Products, Categories, Collections and Reviews, and no Team group.
+- `/client/orders`, `/client/customers`, `/client/client-users` and `/client/client-roles` answer 403.
+- Edit the role under `Team → Roles` as the Client Admin, leaving only *View* on Products: the
+  table toggles stop working and `/client/products/create` answers 403.
+
+**Switching a module off:** on `/admin`, open `Clients → Edit`, untick *Products* under Modules and
+save. Products disappears for everyone at that client, and `/client/products` answers 403 even
+for the Client Admin.
 
 **As the SuperAdmin** (`/admin`)
 
-- The topbar has a client switcher: **All clients** plus each client.
-- Choosing a client narrows every list to it; another client's ids then 404.
-- `?switch_client=99999` (an id that names no client) clears the choice instead of selecting
-  something else, and an inactive client cannot be selected.
-- The dashboard shows platform totals: clients, stores, catalogue, customers and demand.
+- The sidebar has Clients, Client admins, Client totals, Stores, Templates, Plans, Store locations,
+  Super Admins, Site settings and Activity log, and no client switcher.
+- `/admin/orders`, `/admin/products`, `/admin/customers` and `/admin/pages` answer 404.
+- The dashboard and Client totals show counts and revenue per client, never a customer or an order.
+- Client admins lists each client's main account, not the rest of their team.
 
 ---
 
 ## 2. Two clients on one store — the important test
 
-1. **Platform → Clients → New client**: name `Alpha Test`, store *Fashion Store*, save.
+1. **Clients → Clients → New client**: name `Alpha Test`, store *Fashion Store*, save.
 2. Create a second client `Beta Test` on the **same** store.
 3. Give each a Client Admin (**Platform → Clients** → its Staff, or `/client` as that client).
 4. Sign in as Alpha's admin, add a product, note its id from the URL.

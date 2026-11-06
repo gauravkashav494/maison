@@ -2,7 +2,7 @@
     use Filament\Support\Facades\FilamentView;
     use Filament\View\PanelsRenderHook;
 
-    $siteName = setting('site.name', config('app.name'));
+    $siteName = filament()->getBrandName();
     $image = $this->visualImage();
     $mark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 6.5L12 21 5 9.5z"/><path d="M5 9.5h14M12 3l-3.5 6.5L12 21l3.5-11.5z"/></svg>';
 @endphp

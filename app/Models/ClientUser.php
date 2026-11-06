@@ -19,7 +19,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
 {
-    use HasFactory, Notifiable;
+    use Concerns\LogsPlatformActivity, HasFactory, Notifiable;
 
     public const ROLE_CLIENT_ADMIN = 'client_admin';
 
@@ -30,7 +30,7 @@ class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
         self::ROLE_ADMIN_STAFF => 'Admin Staff',
     ];
 
-    protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'role', 'is_active'];
+    protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'role', 'client_role_id', 'is_active'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -46,6 +46,21 @@ class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function clientRole(): BelongsTo
+    {
+        return $this->belongsTo(ClientRole::class);
+    }
+
+    /** Does this staff account's role grant the permission? No role, or another client's, grants nothing. */
+    public function hasPermission(string $permission): bool
+    {
+        $role = $this->clientRole;
+
+        return $role !== null
+            && (int) $role->client_id === (int) $this->client_id
+            && in_array($permission, $role->permissions ?? [], true);
     }
 
     /** Only the client panel, and only while both the account and its client are active. */
