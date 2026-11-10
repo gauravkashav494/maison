@@ -16,7 +16,7 @@ class StorefrontsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('bold'),
                 TextColumn::make('template')->label('Template')->formatStateUsing(fn (Storefront $r) => $r->template_name)->badge()->color('gray')

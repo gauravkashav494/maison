@@ -14,7 +14,7 @@ class ListClients extends ListRecords
     public function getSubheading(): ?string
     {
         return app(ClientDatabase::class)->isolated()
-            ? 'Every client has its own database. After creating one, run "php artisan clients:provision <slug>" to build it.'
+            ? 'Every client has its own database, created automatically when the client is saved.'
             : 'All clients share one database; their rows are kept apart by client. Set CLIENT_ISOLATION=database for a database each.';
     }
 

@@ -12,7 +12,7 @@ class SettingsSeeder extends Seeder
 {
     public function run(): void
     {
-        Setting::set('site', [
+        $this->fillIfMissing('site', [
             'name' => 'Maison Élan',
             'logo_primary' => 'MAISON',
             'logo_accent' => 'Élan',
@@ -36,7 +36,7 @@ class SettingsSeeder extends Seeder
             'page_header_image' => Media::unsplash('1558769132-cb1aea458c5e', 2000, '&h=900'),
         ]);
 
-        Setting::set('seo', [
+        $this->fillIfMissing('seo', [
             'default_title' => 'Maison Élan — Luxury fashion & lifestyle',
             'title_suffix' => ' — Maison Élan',
             'default_description' => 'Clothing, fragrance, timepieces, leather goods and accessories designed for the moments that define you.',
@@ -47,7 +47,7 @@ class SettingsSeeder extends Seeder
             'discourage_indexing' => true, // switch off in Site settings → SEO defaults when going live
         ]);
 
-        Setting::set('home', [
+        $this->fillIfMissing('home', [
             'hero_eyebrow' => 'Autumn / Winter 2026 — The New Season',
             'hero_eyebrow_short' => 'AW 2026 — New Season',
             'hero_heading' => "The quiet\n*confidence* of\ndressing well.",
@@ -126,5 +126,13 @@ class SettingsSeeder extends Seeder
             'newsletter_heading' => 'Enter the world of *Maison Élan*',
             'newsletter_text' => 'Early access to new collections, private sales and stories from the atelier — a few times a season, never more.',
         ]);
+    }
+
+    /** These groups are shared by every client on the store, so seeding one must not reset them. */
+    private function fillIfMissing(string $group, array $value): void
+    {
+        if (Setting::get($group) === null) {
+            Setting::set($group, $value);
+        }
     }
 }

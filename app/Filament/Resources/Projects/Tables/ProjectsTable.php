@@ -17,7 +17,7 @@ class ProjectsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('sort_order')
+            ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->columns([
                 ImageColumn::make('after_image')->label('')->state(fn (Project $r) => Media::url($r->after_image))->square()->imageSize(44),

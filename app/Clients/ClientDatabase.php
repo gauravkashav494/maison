@@ -3,9 +3,12 @@
 namespace App\Clients;
 
 use App\Models\Client;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\SQLiteDatabaseDoesNotExistException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Points the content models at the right client's database.
@@ -62,6 +65,12 @@ class ClientDatabase
         return $client->databaseName();
     }
 
+    /** Cache key for data read from the selected client's content, so clients never share it. */
+    public function cacheKey(string $key): string
+    {
+        return $this->client ? 'client:'.$this->client->id.':'.$key : $key;
+    }
+
     /** Serve this client: register (once) and select its connection. */
     public function use(?Client $client): void
     {
@@ -85,6 +94,39 @@ class ClientDatabase
         } finally {
             $this->use($previous);
         }
+    }
+
+    /**
+     * forClient() for reads that describe a client rather than serve it: a client whose database
+     * is not built yet (just created, or provisioning failed) gets $default instead of an error,
+     * so the admin pages that list it, and offer the retry, keep working.
+     */
+    public function forClientOr(Client $client, callable $callback, mixed $default): mixed
+    {
+        try {
+            return $this->forClient($client, $callback);
+        } catch (QueryException $e) {
+            if (! $this->isNotProvisioned($e)) {
+                throw $e;
+            }
+
+            return $default;
+        }
+    }
+
+    /** Did this query fail because the client's database, or its tables, do not exist yet? */
+    private function isNotProvisioned(QueryException $e): bool
+    {
+        return $e->getPrevious() instanceof SQLiteDatabaseDoesNotExistException
+            || Str::contains($e->getMessage(), [
+                '[1049]',           // MySQL: unknown database
+                'SQLSTATE[42S02]',  // MySQL: table not found
+                'SQLSTATE[42P01]',  // PostgreSQL: relation not found
+                'SQLSTATE[3F000]',  // PostgreSQL: schema not found
+                'SQLSTATE[3D000]',  // PostgreSQL: database not found
+                'does not exist (Connection:', // PostgreSQL: refused at connect time
+                'no such table',    // SQLite
+            ]);
     }
 
     /** Define the client's connection in config (idempotent) and return its name. */

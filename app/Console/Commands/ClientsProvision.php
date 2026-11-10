@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
  *   php artisan clients:provision acme         # one client
  *   php artisan clients:provision --fresh      # drop the client's tables and rebuild them
  *   php artisan clients:provision --no-seed    # schema only, no content
+ *   php artisan clients:provision --no-samples # the store's content, minus its sample catalogue
  *
  * For each client it creates the database (or PostgreSQL schema), builds the content schema
  * from database/migrations/client, and fills it with that store's own content by running the
@@ -31,6 +32,7 @@ class ClientsProvision extends Command
         {slug? : Only this client}
         {--fresh : Drop the content tables first and rebuild them}
         {--no-seed : Create the schema without any content}
+        {--no-samples : Seed the store (menus, pages, settings) but leave out its sample products, categories, collections and services}
         {--copy : Move this client\'s existing rows out of the main database instead of seeding}';
 
     protected $description = 'Create each client database and build it from the store that client runs';
@@ -85,8 +87,15 @@ class ClientsProvision extends Command
             if ($this->option('copy')) {
                 $this->components->task('  copy existing rows', fn () => $this->copyExistingRows($connection, $client));
             } elseif (! $this->option('no-seed')) {
-                $this->components->task('  content', fn () => $databases->forClient($client, function () use ($client) {
+                $this->components->task('  content', fn () => $databases->forClient($client, function () use ($client, $connection) {
+                    // Samples are only ever removed from a catalogue they just created.
+                    $removeSamples = $this->option('no-samples') && $this->catalogueIsEmpty($connection);
+
                     $client->templateObject()->install();
+
+                    if ($removeSamples) {
+                        $this->removeSampleCatalogue($connection);
+                    }
 
                     return true;
                 }));
@@ -110,6 +119,43 @@ class ClientsProvision extends Command
         $this->table(['Client', 'Database', 'Tables', 'Products', 'Services', 'Pages', 'Menu items'], $summary);
 
         return self::SUCCESS;
+    }
+
+    private function catalogueIsEmpty(string $connection): bool
+    {
+        return collect(['products', 'categories', 'collections', 'services', 'service_areas', 'projects', 'testimonials'])
+            ->every(fn (string $table) => ! DB::connection($connection)->table($table)->exists());
+    }
+
+    /**
+     * Empties a just-seeded catalogue, along with the menu links that pointed into it.
+     *
+     * Deleted rather than truncated on purpose: the store's homepage settings hold seeded product
+     * and collection ids, and those settings are shared by every client on the store. If the ids
+     * restarted at 1, a client's real row could later land on such an id and be featured by mistake.
+     */
+    private function removeSampleCatalogue(string $connection): void
+    {
+        $database = DB::connection($connection);
+
+        $deadLinks = [
+            ...$database->table('categories')->pluck('slug')->map(fn ($slug) => '/shop/'.$slug),
+            ...$database->table('collections')->pluck('slug')->map(fn ($slug) => '/collections/'.$slug),
+            ...$database->table('services')->pluck('slug')->map(fn ($slug) => '/services/'.$slug),
+            ...$database->table('service_areas')->pluck('slug')->map(fn ($slug) => '/service-areas/'.$slug),
+        ];
+
+        // Children first and explicitly: client SQLite connections have foreign keys off.
+        $database->table('collection_product')->delete();
+        $database->table('reviews')->delete();
+        $database->table('products')->delete();
+        $database->table('collections')->delete();
+        $database->table('categories')->delete();
+        $database->table('testimonials')->delete();
+        $database->table('projects')->delete();
+        $database->table('services')->delete();
+        $database->table('service_areas')->delete();
+        $database->table('menu_items')->whereIn('url', $deadLinks)->delete();
     }
 
     /**

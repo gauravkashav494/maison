@@ -35,6 +35,9 @@ class ClientDatabaseIsolationTest extends TestCase
 
     private ClientUser $alphaAdmin;
 
+    /** @var array<Client> clients a test provisioned itself */
+    private array $extraClients = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -66,7 +69,7 @@ class ClientDatabaseIsolationTest extends TestCase
     {
         $databases = app(ClientDatabase::class);
 
-        foreach ([$this->alpha ?? null, $this->beta ?? null] as $client) {
+        foreach ([$this->alpha ?? null, $this->beta ?? null, ...$this->extraClients] as $client) {
             if (! $client) {
                 continue;
             }
@@ -210,6 +213,217 @@ class ClientDatabaseIsolationTest extends TestCase
         $totals = \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug);
         $this->assertSame(1, $totals['alpha-db']['products']);
         $this->assertSame(1, $totals['beta-db']['products']);
+    }
+
+    private function operator(): User
+    {
+        return User::create([
+            'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
+            'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
+        ]);
+    }
+
+    public function test_a_client_without_a_database_reads_as_empty(): void
+    {
+        $client = Client::create(['name' => 'Gamma', 'slug' => 'gamma-db', 'storefront_id' => $this->alpha->storefront_id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
+
+        $quota = \App\Clients\ClientQuota::for($client);
+        $this->assertSame(0, $quota->productCount());
+        $this->assertSame(0, $quota->imageCount());
+        $this->assertSame([], $quota->imagePaths());
+        $this->assertSame(0, \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug)['gamma-db']['products']);
+
+        // The pages that offer the retry have to open for that client.
+        $this->actingAs($this->operator(), 'admin');
+        $this->get('/admin/clients')->assertSuccessful()->assertSee('Gamma');
+        $this->get('/admin/clients/'.$client->getRouteKey().'/edit')->assertSuccessful();
+    }
+
+    public function test_a_client_with_an_empty_database_reads_as_empty(): void
+    {
+        $databases = app(ClientDatabase::class);
+        $databases->forClient($this->alpha, fn () => \Illuminate\Support\Facades\Schema::connection($databases->connection())->drop('products'));
+
+        $this->assertSame(0, \App\Clients\ClientQuota::for($this->alpha)->productCount());
+        $this->assertSame([], \App\Clients\ClientQuota::for($this->alpha)->imagePaths());
+    }
+
+    public function test_other_query_errors_are_not_hidden(): void
+    {
+        $databases = app(ClientDatabase::class);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        $databases->forClientOr($this->alpha, fn () => DB::connection($databases->connection())->select('select no_such_function()'), 0);
+    }
+
+    public function test_a_client_can_be_created_before_its_database_exists(): void
+    {
+        // Stops at the point the real flow reaches first: saved, nothing provisioned yet.
+        $this->mock(\App\Clients\ClientProvisioner::class, fn ($mock) => $mock->shouldReceive('isNeeded')->andReturnFalse());
+
+        $this->actingAs($this->operator(), 'admin');
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
+            ->fillForm(['name' => 'Delta', 'slug' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('clients', ['slug' => 'delta-db']);
+    }
+
+    public static function stores(): array
+    {
+        return array_combine($ids = ['fashion', 'grocery', 'heritage', 'plumbing', 'plumbing-services', 'simple'], array_map(fn ($id) => [$id], $ids));
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('stores')]
+    public function test_a_store_without_samples_has_no_products_and_still_renders(string $template): void
+    {
+        $store = Storefront::firstOrCreate(['template' => $template], ['name' => $template, 'slug' => $template, 'is_active' => true]);
+        $client = Client::create(['name' => 'Gamma', 'slug' => 'gamma-db', 'storefront_id' => $store->id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
+        $this->extraClients[] = $client;
+
+        $this->artisan('clients:provision', ['slug' => $client->slug, '--no-samples' => true])->assertSuccessful();
+
+        $database = DB::connection(app(ClientDatabase::class)->connectionNameFor($client));
+        $this->assertSame(0, $database->table('products')->count());
+        $this->assertSame(0, $database->table('categories')->count());
+        $this->assertSame(0, $database->table('collections')->count());
+        $this->assertSame(0, $database->table('collection_product')->count());
+        foreach (['services', 'service_areas', 'projects', 'testimonials'] as $table) {
+            $this->assertSame(0, $database->table($table)->count(), $table);
+        }
+        $this->assertGreaterThan(0, $database->table('menus')->count());
+
+        foreach (['/', '/shop', '/collections'] as $path) {
+            $this->flushSession();
+            $this->assertLessThan(500, $this->withSession([Client::SESSION_KEY => $client->slug])->get($path)->getStatusCode(), $path);
+        }
+
+        // No menu may be left pointing at sample content that was removed, or at a broken page.
+        foreach ($database->table('menu_items')->where('url', 'like', '/%')->pluck('url')->unique() as $url) {
+            $this->flushSession();
+            $status = $this->withSession([Client::SESSION_KEY => $client->slug])->get($url)->getStatusCode();
+            $this->assertLessThan(500, $status, $url);
+            if (preg_match('#^/(shop|collections|services|service-areas)/#', $url)) {
+                $this->assertNotSame(404, $status, $url);
+            }
+        }
+
+        if ($template === 'plumbing-services') {
+            $this->flushSession();
+            $this->withSession([Client::SESSION_KEY => $client->slug])->get('/services/no-such-service')->assertRedirect(route('services.index'));
+            $this->flushSession();
+            $this->withSession([Client::SESSION_KEY => $client->slug])->get('/service-areas/no-such-area')->assertRedirect(route('areas.index'));
+        }
+    }
+
+    public function test_removing_samples_never_touches_existing_categories(): void
+    {
+        $databases = app(ClientDatabase::class);
+        $databases->forClient($this->alpha, fn () => DB::connection($databases->connection())->table('categories')->insert([
+            'client_id' => $this->alpha->id, 'template' => 'fashion', 'name' => 'Real Category', 'slug' => 'real-category',
+            'created_at' => now(), 'updated_at' => now(),
+        ]));
+        $databases->forClient($this->alpha, fn () => DB::connection($databases->connection())->table('products')->delete());
+
+        $this->artisan('clients:provision', ['slug' => $this->alpha->slug, '--no-samples' => true])->assertSuccessful();
+
+        $this->assertTrue(DB::connection($databases->connectionNameFor($this->alpha))->table('categories')->where('slug', 'real-category')->exists());
+    }
+
+    public function test_removing_samples_never_touches_a_catalogue_that_already_has_products(): void
+    {
+        $this->artisan('clients:provision', ['slug' => $this->alpha->slug, '--no-samples' => true])->assertSuccessful();
+
+        $names = app(ClientDatabase::class)->forClient($this->alpha, fn () => Product::withoutGlobalScopes()->pluck('name')->all());
+        $this->assertContains('Alpha Coat', $names);
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith([true])]
+    #[\PHPUnit\Framework\Attributes\TestWith([false])]
+    public function test_the_create_form_passes_on_the_sample_products_choice(bool $choice): void
+    {
+        $this->mock(\App\Clients\ClientProvisioner::class, function ($mock) use ($choice) {
+            $mock->shouldReceive('isNeeded')->andReturnTrue();
+            $mock->shouldReceive('provision')->once()->withArgs(fn ($client, $samples) => $samples === $choice)->andReturn(['ok' => true, 'message' => 'ready']);
+        });
+
+        $this->actingAs($this->operator(), 'admin');
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
+            ->fillForm(['name' => 'Delta', 'slug' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id, 'sample_products' => $choice])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('clients', ['slug' => 'delta-db']);
+    }
+
+    public function test_the_retry_offers_the_sample_products_choice_when_there_is_no_database(): void
+    {
+        $this->mock(\App\Clients\ClientProvisioner::class, function ($mock) {
+            $mock->shouldReceive('isNeeded')->andReturnTrue();
+            $mock->shouldReceive('databaseExists')->andReturnFalse();
+            $mock->shouldReceive('provision')->once()->withArgs(fn ($client, $samples) => $samples === true)->andReturn(['ok' => true, 'message' => 'ready']);
+        });
+
+        $this->actingAs($this->operator(), 'admin');
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\EditClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->callAction('provision', ['sample_products' => true])
+            ->assertHasNoActionErrors();
+    }
+
+    public function test_a_missing_category_or_collection_redirects_instead_of_a_404(): void
+    {
+        $databases = app(ClientDatabase::class);
+        $databases->forClient($this->alpha, fn () => DB::connection($databases->connection())->table('categories')->insert([
+            'client_id' => $this->alpha->id, 'template' => 'fashion', 'name' => 'Real Category', 'slug' => 'real-category',
+            'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]));
+
+        $session = [Client::SESSION_KEY => $this->alpha->slug];
+
+        $this->withSession($session)->get('/shop/no-such-category')->assertRedirect(route('shop.index'));
+        $this->withSession($session)->get('/collections/no-such-collection')->assertRedirect(route('collections.index'));
+
+        // Pages that do exist are untouched.
+        $this->withSession($session)->get('/shop/real-category')->assertSuccessful();
+        $this->withSession($session)->get('/shop/sale')->assertSuccessful();
+    }
+
+    public function test_clients_on_the_same_store_do_not_share_cached_menus(): void
+    {
+        $databases = app(ClientDatabase::class);
+
+        $databases->forClient($this->alpha, function () {
+            $menu = \App\Models\Menu::create(['location' => 'header', 'name' => 'Header', 'client_id' => $this->alpha->id]);
+            $menu->allItems()->create(['label' => 'Alpha Link', 'url' => '/alpha', 'client_id' => $this->alpha->id]);
+        });
+
+        $alpha = $databases->forClient($this->alpha, fn () => \App\Models\Menu::tree('header')->pluck('label')->all());
+        $beta = $databases->forClient($this->beta, fn () => \App\Models\Menu::tree('header')->pluck('label')->all());
+
+        $this->assertSame(['Alpha Link'], $alpha);
+        $this->assertSame([], $beta);
+    }
+
+    public function test_seeding_a_fashion_client_keeps_the_stores_shared_settings(): void
+    {
+        \App\Models\Setting::query()->whereIn('key', ['site', 'seo', 'home'])->delete();
+        \App\Models\Setting::set('home', ['hero_eyebrow' => 'Edited by the operator']);
+
+        $databases = app(ClientDatabase::class);
+        $databases->forClient($this->alpha, fn () => app(\Database\Seeders\SettingsSeeder::class)->run());
+
+        $this->assertSame(['hero_eyebrow' => 'Edited by the operator'], \App\Models\Setting::get('home'));
+
+        // A group that was never saved still gets its defaults.
+        $this->assertSame('Maison Élan', \App\Models\Setting::get('site.name'));
     }
 
     public function test_the_storefront_serves_the_clients_own_catalogue(): void

@@ -39,9 +39,15 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function show(string $slug): View
+    public function show(string $slug): View|RedirectResponse
     {
-        $service = Service::active()->where('slug', $slug)->firstOrFail();
+        $service = Service::active()->where('slug', $slug)->first();
+
+        // Store banners can link to a service this client doesn't have.
+        if (! $service) {
+            return to_route('services.index');
+        }
+
         $faqs = collect($service->faqs ?: [])->filter(fn ($f) => ! empty($f['question']) && ! empty($f['answer']))->values();
         if ($faqs->isEmpty()) {
             $faqs = Faq::active()->limit(5)->get()->map(fn ($f) => ['question' => $f->question, 'answer' => $f->answer]);
@@ -113,9 +119,13 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function area(string $slug): View
+    public function area(string $slug): View|RedirectResponse
     {
-        $area = ServiceArea::active()->where('slug', $slug)->firstOrFail();
+        $area = ServiceArea::active()->where('slug', $slug)->first();
+
+        if (! $area) {
+            return to_route('areas.index');
+        }
 
         return view('services.area', [
             'area' => $area,

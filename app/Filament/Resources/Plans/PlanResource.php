@@ -61,7 +61,7 @@ class PlanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('position')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('bold')->description(fn (Plan $r) => $r->price_label),
                 TextColumn::make('image_limit')->label('Images')->alignRight()->placeholder('Unlimited')->numeric(),

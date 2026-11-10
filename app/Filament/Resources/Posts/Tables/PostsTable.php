@@ -17,7 +17,7 @@ class PostsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('published_at', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 ImageColumn::make('image')->label('')->state(fn (Post $r) => Media::url($r->image))->square()->imageSize(44),
                 TextColumn::make('title')->searchable()->sortable()->description(fn (Post $r) => $r->category),

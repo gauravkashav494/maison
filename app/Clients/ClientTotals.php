@@ -28,7 +28,9 @@ class ClientTotals
                 'orders' => Order::withoutGlobalScopes()->where('client_id', $client->id)->count(),
                 'revenue' => (int) Order::withoutGlobalScopes()->where('client_id', $client->id)->where('status', '!=', 'cancelled')->sum('total'),
             ];
-            $counts = $databases->isolated() ? $databases->forClient($client, $read) : $read();
+            $counts = $databases->isolated()
+                ? $databases->forClientOr($client, $read, ['products' => 0, 'services' => 0, 'orders' => 0, 'revenue' => 0])
+                : $read();
 
             return $counts + [
                 'client' => $client,

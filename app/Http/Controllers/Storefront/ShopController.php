@@ -8,6 +8,7 @@ use App\Models\Collection;
 use App\Models\Product;
 use App\Support\Seo;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,14 +19,17 @@ class ShopController extends Controller
         return $this->listing($request, Product::query(), 'Shop', 'All pieces', Seo::simple('Shop all', 'Clothing, fragrance, timepieces, leather goods and accessories.'));
     }
 
-    public function category(Request $request, string $slug): View
+    public function category(Request $request, string $slug): View|RedirectResponse
     {
         // Merchandising slugs share the /shop/{slug} namespace with categories.
         return match ($slug) {
             'new-arrivals' => $this->listing($request, Product::newArrivals(), 'New Arrivals', 'Just in', Seo::simple('New Arrivals', 'The latest additions to the edit — arriving weekly, in limited quantities.')),
             'best-sellers' => $this->listing($request, Product::bestSellers(), 'Best Sellers', 'Most loved', Seo::simple('Best Sellers', 'The pieces our clients return to — season after season.')),
             'sale' => $this->listing($request, Product::onSale(), 'Sale', 'Reduced', Seo::simple('Sale', 'Selected pieces at reduced prices, while stock lasts.')),
-            default => $this->categoryListing($request, Category::active()->where('slug', $slug)->firstOrFail()),
+            // Store banners can link to a category this client doesn't have; send them to the shop.
+            default => ($category = Category::active()->where('slug', $slug)->first())
+                ? $this->categoryListing($request, $category)
+                : to_route('shop.index'),
         };
     }
 

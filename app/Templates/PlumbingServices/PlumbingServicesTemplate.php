@@ -138,9 +138,9 @@ class PlumbingServicesTemplate extends Template
     {
         return [
             'biz' => $this->contact(),
-            'navServices' => Cache::remember('plumbing_services.nav_services', 600, fn () => Service::active()
+            'navServices' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('plumbing_services.nav_services'), 600, fn () => Service::active()
                 ->get(['id', 'name', 'slug', 'icon', 'excerpt', 'is_emergency', 'is_popular'])),
-            'navAreas' => Cache::remember('plumbing_services.nav_areas', 600, fn () => ServiceArea::active()
+            'navAreas' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
                 ->get(['id', 'name', 'slug', 'state', 'response_time'])),
         ];
     }

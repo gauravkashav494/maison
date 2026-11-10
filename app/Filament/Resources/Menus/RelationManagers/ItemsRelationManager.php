@@ -38,26 +38,6 @@ class ItemsRelationManager extends RelationManager
         MenuItem::renumber((int) $this->getOwnerRecord()->getKey(), $order);
     }
 
-    /** Swap an item with its previous/next sibling (same parent). */
-    protected function nudge(MenuItem $record, int $direction): void
-    {
-        $siblings = MenuItem::where('menu_id', $record->menu_id)
-            ->where('parent_id', $record->parent_id)
-            ->orderBy('sort_order')
-            ->get()
-            ->values();
-        $i = $siblings->search(fn (MenuItem $m) => $m->id === $record->id);
-        $j = $i + $direction;
-        if ($i === false || $j < 0 || $j >= $siblings->count()) {
-            return;
-        }
-        $other = $siblings[$j];
-        \Illuminate\Support\Facades\DB::table('menu_items')->where('id', $record->id)->update(['sort_order' => $other->sort_order]);
-        \Illuminate\Support\Facades\DB::table('menu_items')->where('id', $other->id)->update(['sort_order' => $record->sort_order]);
-
-        MenuItem::renumber((int) $record->menu_id);
-    }
-
     public function form(Schema $schema): Schema
     {
         $menuId = $this->getOwnerRecord()->getKey();
@@ -104,7 +84,7 @@ class ItemsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('label')
-            ->defaultSort('sort_order')
+            ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->paginated(false)
             ->reorderRecordsTriggerAction(fn (Action $action, bool $isReordering) => $action
@@ -112,7 +92,7 @@ class ItemsRelationManager extends RelationManager
                 ->color($isReordering ? 'gray' : 'primary')
                 ->icon($isReordering ? 'heroicon-o-check' : 'heroicon-o-arrows-up-down')
                 ->label($isReordering ? 'Done — save order' : 'Drag & drop reorder'))
-            ->description('Use the ↑ ↓ buttons to nudge an item, or click “Drag & drop reorder” to drag rows. Dragging a sub-item under another top-level item moves it there.')
+            ->description('Newest items are listed first. Click “Drag & drop reorder” to see the menu order and drag rows. Dragging a sub-item under another top-level item moves it there.')
             ->columns([
                 TextColumn::make('label')
                     ->formatStateUsing(fn (string $state, MenuItem $r) => ($r->parent_id ? '  ↳ ' : '').$state)
@@ -133,20 +113,6 @@ class ItemsRelationManager extends RelationManager
                 CreateAction::make(),
             ])
             ->recordActions([
-                Action::make('moveUp')
-                    ->label('Move up')
-                    ->hiddenLabel()
-                    ->icon('heroicon-m-chevron-up')
-                    ->color('gray')
-                    ->tooltip('Move up')
-                    ->action(fn (MenuItem $record) => $this->nudge($record, -1)),
-                Action::make('moveDown')
-                    ->label('Move down')
-                    ->hiddenLabel()
-                    ->icon('heroicon-m-chevron-down')
-                    ->color('gray')
-                    ->tooltip('Move down')
-                    ->action(fn (MenuItem $record) => $this->nudge($record, 1)),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

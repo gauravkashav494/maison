@@ -75,6 +75,7 @@ class ClientPanelProvider extends PanelProvider
             ->id('client')
             ->path('client')
             ->authGuard('client')
+            ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(\App\Filament\Auth\Login::class)
             ->maxContentWidth(Width::Full)

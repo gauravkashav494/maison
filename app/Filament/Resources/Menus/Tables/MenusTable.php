@@ -18,7 +18,7 @@ class MenusTable
                 TextColumn::make('location')->formatStateUsing(fn (string $state) => app(TemplateManager::class)->allMenuLocations()[$state] ?? $state)->badge()->color('gray'),
                 TextColumn::make('all_items_count')->counts('allItems')->label('Items')->alignRight(),
             ])
-            ->defaultSort('template')
+            ->defaultSort('created_at', 'desc')
             ->recordActions([EditAction::make()->label('Manage items')]);
     }
 }

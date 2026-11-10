@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Clients\ClientDatabase;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
@@ -43,7 +44,7 @@ class Menu extends Model
     /** Cached tree for a location: active top-level items with nested `children`. */
     public static function tree(string $location): SupportCollection
     {
-        return Cache::rememberForever("menu.{$location}", function () use ($location) {
+        return Cache::rememberForever(static::cacheKey($location), function () use ($location) {
             $menu = static::where('location', $location)->first();
             if (! $menu) {
                 return collect();
@@ -66,8 +67,13 @@ class Menu extends Model
     public static function flush(): void
     {
         foreach (array_keys(app(TemplateManager::class)->allMenuLocations()) as $loc) {
-            Cache::forget("menu.{$loc}");
+            Cache::forget(static::cacheKey($loc));
         }
+    }
+
+    private static function cacheKey(string $location): string
+    {
+        return app(ClientDatabase::class)->cacheKey("menu.{$location}");
     }
 
     protected static function booted(): void
@@ -78,7 +84,7 @@ class Menu extends Model
         });
         static::saved(function (Menu $menu) {
             static::flush();
-            Cache::forget("menu.{$menu->location}");
+            Cache::forget(static::cacheKey((string) $menu->location));
         });
         static::deleted(fn () => static::flush());
     }

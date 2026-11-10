@@ -88,13 +88,17 @@ class ClientForm
                 ]),
             Section::make('Database')
                 ->description(fn (?Client $record) => app(ClientDatabase::class)->isolated()
-                    ? 'This installation gives every client its own database. Run "php artisan clients:provision '.($record->slug ?? '<slug>').'" once to create it and fill it with the content of its store.'
+                    ? 'This installation gives every client its own database. It is created and filled with its store\'s content automatically when the client is saved; use "Provision database" above to retry.'
                     : 'This installation keeps all clients in one database (CLIENT_ISOLATION=shared); rows are separated by client.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('database')->label('Database name')->maxLength(64)
                         ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<slug>')
                         ->helperText('Leave blank to use the generated name. Only change it when the database already exists under another name.'),
+                    Toggle::make('sample_products')->label('Add sample products and services')->default(false)->inline(false)
+                        ->dehydrated(false)
+                        ->visible(fn (?Client $record) => $record === null && app(ClientDatabase::class)->isolated())
+                        ->helperText('Fills the store with its demo products, categories and collections, or services, areas and projects, which the client can edit or delete later. Menus and pages are added either way.'),
                 ]),
         ]);
     }

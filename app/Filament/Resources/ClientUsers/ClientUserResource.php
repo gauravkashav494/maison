@@ -133,7 +133,7 @@ class ClientUserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->description(fn (ClientUser $r) => $r->email),
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()

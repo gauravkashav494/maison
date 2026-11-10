@@ -103,7 +103,7 @@ class ClientRoleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('bold')->description(fn (ClientRole $r) => $r->description),
                 TextColumn::make('permission_count')->label('Permissions')

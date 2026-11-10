@@ -31,9 +31,15 @@ class CatalogController extends Controller
         ]);
     }
 
-    public function collection(string $slug): View
+    public function collection(string $slug): View|RedirectResponse
     {
-        $collection = Collection::active()->where('slug', $slug)->firstOrFail();
+        $collection = Collection::active()->where('slug', $slug)->first();
+
+        // Store banners can link to a collection this client doesn't have.
+        if (! $collection) {
+            return to_route('collections.index');
+        }
+
         $products = $collection->products()->with('category')->active()->get();
 
         return view('shop.collection', [

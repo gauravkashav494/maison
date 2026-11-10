@@ -17,7 +17,7 @@ class ServiceAreasTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('sort_order')
+            ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->columns([
                 ImageColumn::make('image')->label('')->state(fn (ServiceArea $r) => Media::url($r->image))->square()->imageSize(44),

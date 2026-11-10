@@ -39,12 +39,12 @@ class ClientQuota
     }
 
     /** Run a query inside this client's own database (and without the request's scopes). */
-    private function inClient(callable $callback): mixed
+    private function inClient(callable $callback, mixed $whenNotProvisioned): mixed
     {
         $databases = app(ClientDatabase::class);
 
         return $databases->isolated()
-            ? $databases->forClient($this->client, $callback)
+            ? $databases->forClientOr($this->client, $callback, $whenNotProvisioned)
             : $callback($this->client);
     }
 
@@ -60,7 +60,7 @@ class ClientQuota
 
     public function productCount(): int
     {
-        return (int) $this->inClient(fn () => $this->products()->count());
+        return (int) $this->inClient(fn () => $this->products()->count(), 0);
     }
 
     public function productLimit(): ?int
@@ -102,6 +102,9 @@ class ClientQuota
         return $this->inClient(function () {
             $paths = [];
             $columns = array_values(array_filter(['images', 'variants'], fn ($column) => Schema::connection((new Product)->getConnectionName())->hasColumn('products', $column)));
+            if ($columns === []) {
+                return [];
+            }
             $this->products()->select($columns)->cursor()->each(function (Product $product) use (&$paths) {
                 foreach ((array) $product->images as $path) {
                     if (filled($path)) {
@@ -118,7 +121,7 @@ class ClientQuota
             });
 
             return array_keys($paths);
-        });
+        }, []);
     }
 
     public function imageLimit(): ?int

@@ -3,7 +3,7 @@
     $promos = array_values(array_filter((array) ($h['promo_messages'] ?? [])));
     $links = $menus['header'] ?? collect();
     $cats = $navCategories ?? collect();
-    $needs = \Illuminate\Support\Facades\Cache::remember('heritage.nav_needs', 600, fn () => \App\Models\Collection::active()->orderBy('sort_order')->get(['id', 'name', 'slug', 'description']));
+    $needs = \Illuminate\Support\Facades\Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('heritage.nav_needs'), 600, fn () => \App\Models\Collection::active()->orderBy('sort_order')->get(['id', 'name', 'slug', 'description']));
 @endphp
 
 {{-- Announcement ticker --}}

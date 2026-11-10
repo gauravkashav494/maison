@@ -16,7 +16,7 @@ class PagesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('title')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('title')->searchable()->sortable()->description(fn (Page $r) => '/'.$r->slug),
                 TextColumn::make('template')->badge()->color('gray'),

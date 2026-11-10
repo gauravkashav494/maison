@@ -19,7 +19,7 @@ class ClientsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('bold')
                     ->description(fn (Client $r) => $r->slug),

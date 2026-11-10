@@ -99,7 +99,7 @@ class HeritageTemplate extends Template
     public function viewData(): array
     {
         return [
-            'navCategories' => Cache::remember('heritage.nav_categories', 600, fn () => Category::active()
+            'navCategories' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('heritage.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
                 ->with(['children' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')])
                 ->get()),
