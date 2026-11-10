@@ -60,6 +60,15 @@ class SimpleTemplateTest extends TestCase
         $this->assertTrue($store->templateObject()->isInstalled());
     }
 
+    public function test_the_contact_page_linked_from_the_menu_opens(): void
+    {
+        $this->visit('/contact')
+            ->assertOk()
+            ->assertSee('Contact us')
+            ->assertSee(route('contact.store'), false)
+            ->assertSee('name="message"', false);
+    }
+
     public function test_the_catalogue_is_seeded_without_any_images(): void
     {
         $products = Product::withoutGlobalScopes()->where('client_id', $this->client->id)->get();

@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Templates\Template;
 use Database\Seeders\SimpleCatalogSeeder;
 use Database\Seeders\SimpleMenuSeeder;
+use Database\Seeders\SimplePagesSeeder;
 use Database\Seeders\SimpleSettingsSeeder;
 use Illuminate\Support\Facades\Cache;
 
@@ -87,6 +88,7 @@ class SimpleTemplate extends Template
         app(SimpleSettingsSeeder::class)->run();
         app(SimpleMenuSeeder::class)->run();
         app(SimpleCatalogSeeder::class)->run();
+        app(SimplePagesSeeder::class)->run();
         Cache::flush();
     }
 
