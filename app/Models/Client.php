@@ -201,7 +201,7 @@ class Client extends Model
     /** Entry link on the main domain; works without any DNS setup. */
     public function entryUrl(): string
     {
-        return rtrim(config('app.url'), '/').'/c/'.$this->slug;
+        return rtrim(config('app.url'), '/').'/store/'.$this->slug;
     }
 
     /** Public address of this client's storefront, in the configured style. */

@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Entry links for hosts without wildcard DNS.
  *
- *   /c/<client-slug>     pins a client's storefront in a cookie and opens it on this domain
- *   /store/<store-slug>  the older store-level link, kept working for existing links
+ *   /store/<client-slug>  pins a client's storefront in a cookie and opens it on this domain
+ *   /store/<store-slug>   the older store-level link, used when no client has that slug
+ *   /c/<client-slug>      the previous address of the client link, redirects to it
  *
  * The cookie only chooses which public storefront is shown; it grants nothing. Any shopper
  * session is ended as the client changes, so one client's account never follows the visitor
@@ -21,7 +22,12 @@ use Illuminate\Support\Facades\Auth;
  */
 class StoreEntryController extends Controller
 {
-    public function enterClient(Request $request, string $slug): RedirectResponse
+    public function redirectOldClientLink(Request $request, string $slug): RedirectResponse
+    {
+        return redirect()->route('store.enter', ['slug' => $slug] + $request->query());
+    }
+
+    private function enterClient(Request $request, string $slug): RedirectResponse
     {
         $client = Client::active()->where('slug', $slug)->firstOrFail();
         $this->endShopperSession($request);
@@ -34,7 +40,7 @@ class StoreEntryController extends Controller
 
     /**
      * A standing link straight to the Simple List template's bulk order page. It pins the
-     * cookie exactly as /c/<slug> does — so the cart, checkout and order confirmation that
+     * cookie exactly as /store/<client-slug> does — so the cart, checkout and order confirmation that
      * follow all resolve to the same client — but looks the client up by template instead of
      * a fixed slug, and always overrides whatever store the cookie previously pointed to, so
      * opening this link never requires visiting /store/exit first.
@@ -55,6 +61,10 @@ class StoreEntryController extends Controller
 
     public function enter(Request $request, string $slug): RedirectResponse
     {
+        if (Client::active()->where('slug', $slug)->exists()) {
+            return $this->enterClient($request, $slug);
+        }
+
         $store = Storefront::active()->where('slug', $slug)->firstOrFail();
         $this->endShopperSession($request);
 

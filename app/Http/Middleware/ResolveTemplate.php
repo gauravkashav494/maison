@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Selects the client and the template for a storefront request.
  *
  * The client comes from the host (<slug>.<base domain> or a custom domain), or from the
- * entry-link cookie set by /c/<slug> when there is no DNS for subdomains. That client
+ * entry-link cookie set by /store/<slug> when there is no DNS for subdomains. That client
  * decides three things: which database the content models read, the `client_id` scope on
  * every query, and the template whose views are used. A signed-in shopper belonging to a
  * different client is signed out rather than shown this client's pages — a session cannot

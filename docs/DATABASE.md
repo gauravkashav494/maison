@@ -81,7 +81,7 @@ Every client is reachable on its own address as soon as it is created:
 |---|---|---|
 | Subdomain | `https://acme.yourdomain.com` | a wildcard DNS record and certificate |
 | Custom domain | `https://shop.acme.com` | the client's DNS pointed at this server |
-| Entry link | `https://yourdomain.com/c/acme` | nothing — it remembers the client for that visitor |
+| Entry link | `https://yourdomain.com/store/acme` | nothing — it remembers the client for that visitor |
 
 `STORE_URL_MODE=subdomain|path` decides which form the admin shows for sharing; all of them
 keep working. A shopper's session is dropped when the visitor moves to another client's

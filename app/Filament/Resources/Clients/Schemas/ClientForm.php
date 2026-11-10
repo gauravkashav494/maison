@@ -25,6 +25,7 @@ class ClientForm
                 TextInput::make('name')->required()->maxLength(120)->live(onBlur: true)
                     ->afterStateUpdated(fn ($set, $get, $state) => blank($get('slug')) ? $set('slug', Str::slug((string) $state)) : null),
                 TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true)
+                    ->notIn(['exit']) // /store/exit is the "leave this store" link
                     ->disabled(fn (?Client $record) => $record !== null)
                     ->dehydrated()
                     ->helperText(fn (?Client $record) => $record

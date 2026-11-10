@@ -87,11 +87,12 @@ Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 
-// Entry links for visitors on the main domain: /c/<client> opens that client's storefront
-// (cookie), /store/<store> is the older store-level link and still works.
+// Entry links for visitors on the main domain: /store/<client> opens that client's storefront
+// (cookie), and /store/<store> keeps working for the older store-level links. /c/<client> is the
+// previous address of the client link and redirects, so links already shared keep working.
 Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
 Route::get('/store/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('slug', '[a-z0-9-]+')->name('store.enter');
-Route::get('/c/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enterClient'])->where('slug', '[a-z0-9-]+')->name('client.enter');
+Route::get('/c/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('slug', '[a-z0-9-]+');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';
