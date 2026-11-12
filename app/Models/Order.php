@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\TracksSyncVersion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,6 +18,15 @@ class Order extends Model
     use BelongsToClient;
 
     use BelongsToTemplate;
+
+    use TracksSyncVersion;
+
+    /** Changes the local system needs to hear about. */
+    public const SYNC_TRACKED = [
+        'status', 'payment_status', 'carrier', 'tracking_number', 'notes', 'cancellation_reason', 'email', 'phone',
+        'shipping_name', 'shipping_line1', 'shipping_line2', 'shipping_city', 'shipping_state', 'shipping_postal_code',
+        'shipping_country',
+    ];
 
     protected $guarded = [];
 

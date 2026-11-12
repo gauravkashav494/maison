@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
+use App\Models\Concerns\TracksSyncVersion;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,11 @@ class Product extends Model
     use BelongsToTemplate;
 
     use HasSeo;
+
+    use TracksSyncVersion;
+
+    /** EcomVision-owned fields the local system is told about. */
+    public const SYNC_TRACKED = ['slug', 'description', 'is_active', 'has_variants', 'variant_attributes'];
 
     protected $guarded = [];
 

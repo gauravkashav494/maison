@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TracksSyncVersion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,7 +18,10 @@ use Illuminate\Notifications\Notifiable;
  */
 class Customer extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, TracksSyncVersion;
+
+    /** The profile fields the local system is told about. */
+    public const SYNC_TRACKED = ['name', 'email', 'phone', 'is_active'];
 
     protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'is_active'];
 

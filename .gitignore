@@ -30,3 +30,5 @@ Thumbs.db
 
 # Database backups taken before migrations; never committed.
 /storage/backups
+
+/resources/agent/dist/
