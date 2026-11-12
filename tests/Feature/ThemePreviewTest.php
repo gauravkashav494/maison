@@ -30,7 +30,7 @@ class ThemePreviewTest extends TestCase
 
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha-theme-test', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha-theme-test', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
     }
 
     protected function tearDown(): void
@@ -106,6 +106,6 @@ class ThemePreviewTest extends TestCase
 
     public function test_client_names_cannot_take_the_theme_prefix(): void
     {
-        $this->assertSame('store-theme-fashion', Client::uniqueSlug('Theme Fashion'));
+        $this->assertSame('store-theme-fashion', Client::uniqueSubdomain('Theme Fashion'));
     }
 }

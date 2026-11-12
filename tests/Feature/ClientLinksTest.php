@@ -18,7 +18,7 @@ class ClientLinksTest extends TestCase
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::firstOrCreate(['slug' => 'fashion'], ['name' => 'Fashion Store', 'template' => 'fashion', 'is_active' => true]);
 
-        return Client::create($attributes + ['name' => 'Acme', 'slug' => 'acme', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        return Client::create($attributes + ['name' => 'Acme', 'subdomain' => 'acme', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
     }
 
     public function test_the_login_is_on_the_store_subdomain(): void

@@ -3,6 +3,13 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Storefront\AddressRequest;
+use App\Http\Requests\Storefront\ForgotPasswordRequest;
+use App\Http\Requests\Storefront\LoginRequest;
+use App\Http\Requests\Storefront\PasswordUpdateRequest;
+use App\Http\Requests\Storefront\ProfileRequest;
+use App\Http\Requests\Storefront\RegisterRequest;
+use App\Http\Requests\Storefront\ResetPasswordRequest;
 use App\Models\Address;
 use App\Clients\ClientContext;
 use App\Models\Customer;
@@ -15,7 +22,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 /**
@@ -42,9 +48,9 @@ class AccountController extends Controller
         return view('account.login', ['seo' => Seo::simple('Sign in', null, noindex: true)]);
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(LoginRequest $request): RedirectResponse
     {
-        $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
+        $credentials = $request->safe()->only(['email', 'password']);
         $clientId = $this->clientId();
 
         // The client is part of the credentials, so an account of another client never matches.
@@ -61,18 +67,12 @@ class AccountController extends Controller
         return view('account.register', ['seo' => Seo::simple('Create an account', null, noindex: true)]);
     }
 
-    public function register(Request $request): RedirectResponse
+    public function register(RegisterRequest $request): RedirectResponse
     {
         $clientId = $this->clientId();
         abort_unless($clientId !== null, 404);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            // Unique within this client only: the same address may shop with another client.
-            'email' => ['required', 'email', 'max:190', \Illuminate\Validation\Rule::unique('customers', 'email')->where('client_id', $clientId)],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
+        $data = $request->validated();
         $customer = Customer::create($data + ['client_id' => $clientId]);
         Auth::login($customer);
         $request->session()->regenerate();
@@ -94,9 +94,8 @@ class AccountController extends Controller
         return view('account.forgot', ['seo' => Seo::simple('Forgot password', null, noindex: true)]);
     }
 
-    public function forgot(Request $request): RedirectResponse
+    public function forgot(ForgotPasswordRequest $request): RedirectResponse
     {
-        $request->validate(['email' => ['required', 'email']]);
         if ($clientId = $this->clientId()) {
             // Scoped to this client: a link is only ever sent to its own customer.
             Password::broker('customers')->sendResetLink($request->only('email') + ['client_id' => $clientId, 'is_active' => true]);
@@ -111,13 +110,8 @@ class AccountController extends Controller
         return view('account.reset', ['token' => $token, 'email' => $request->query('email'), 'seo' => Seo::simple('Reset password', null, noindex: true)]);
     }
 
-    public function reset(Request $request): RedirectResponse
+    public function reset(ResetPasswordRequest $request): RedirectResponse
     {
-        $request->validate([
-            'token' => ['required'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
         $clientId = $this->clientId();
         abort_unless($clientId !== null, 404);
 
@@ -175,9 +169,9 @@ class AccountController extends Controller
         return view('account.addresses', ['addresses' => $request->user()->addresses, 'seo' => Seo::simple('Saved addresses', null, noindex: true)]);
     }
 
-    public function storeAddress(Request $request): RedirectResponse
+    public function storeAddress(AddressRequest $request): RedirectResponse
     {
-        $data = $this->validateAddress($request);
+        $data = $request->validated();
         $user = $request->user();
         if (! empty($data['is_default']) || $user->addresses()->count() === 0) {
             $user->addresses()->update(['is_default' => false]);
@@ -188,10 +182,10 @@ class AccountController extends Controller
         return back()->with('status', 'Address saved.');
     }
 
-    public function updateAddress(Request $request, Address $address): RedirectResponse
+    public function updateAddress(AddressRequest $request, Address $address): RedirectResponse
     {
         abort_unless((int) $address->customer_id === (int) $request->user()->id, 403);
-        $data = $this->validateAddress($request);
+        $data = $request->validated();
         if (! empty($data['is_default'])) {
             $request->user()->addresses()->update(['is_default' => false]);
         }
@@ -208,22 +202,6 @@ class AccountController extends Controller
         return back()->with('status', 'Address removed.');
     }
 
-    private function validateAddress(Request $request): array
-    {
-        return $request->validate([
-            'label' => ['nullable', 'string', 'max:40'],
-            'name' => ['required', 'string', 'max:120'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'line1' => ['required', 'string', 'max:190'],
-            'line2' => ['nullable', 'string', 'max:190'],
-            'city' => ['required', 'string', 'max:80'],
-            'state' => ['required', 'string', 'max:80'],
-            'postal_code' => ['required', 'string', 'max:20'],
-            'country' => ['required', 'string', 'max:80'],
-            'is_default' => ['nullable', 'boolean'],
-        ]);
-    }
-
     // ---- Profile -----------------------------------------------------------
 
     public function profile(Request $request): View
@@ -231,26 +209,18 @@ class AccountController extends Controller
         return view('account.profile', ['user' => $request->user(), 'seo' => Seo::simple('Account information', null, noindex: true)]);
     }
 
-    public function updateProfile(Request $request): RedirectResponse
+    public function updateProfile(ProfileRequest $request): RedirectResponse
     {
         $user = $request->user();
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            // Unique inside this client only.
-            'email' => ['required', 'email', 'max:190', \Illuminate\Validation\Rule::unique('customers', 'email')->where('client_id', $user->client_id)->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:30'],
-        ]);
+        $data = $request->validated();
         $user->update($data);
 
         return back()->with('status', 'Your details have been updated.');
     }
 
-    public function updatePassword(Request $request): RedirectResponse
+    public function updatePassword(PasswordUpdateRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
+        $data = $request->validated();
         $request->user()->update(['password' => Hash::make($data['password'])]);
 
         return back()->with('status', 'Your password has been changed.');

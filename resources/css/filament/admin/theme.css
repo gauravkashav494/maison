@@ -130,7 +130,7 @@ html { font-size: 14px; }
 .fi-sidebar-item-grouped-border-part { border-color: var(--navy-line); }
 .fi-sidebar-item-badge-ctn .fi-badge { font-size: 0.65rem; }
 
-.fi-sidebar-footer { border-top: 1px solid var(--navy-line); padding: 0.85rem 1rem; text-align: center; font-size: 0.6875rem; color: var(--navy-muted); }
+.fi-sidebar-footer { border-top: 1px solid var(--navy-line); padding: 0.85rem 1rem; text-align: center; font-size: 0.6875rem; color: var(--navy-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- Workspace ------------------------------------------------------------- */
 .fi-main { padding-top: 0; }
@@ -185,6 +185,8 @@ a.fi-admin-stat:hover { box-shadow: 0 0 0 1px #cfd8e6, 0 8px 20px -12px rgba(16,
 .fi-admin-row:last-child { border-bottom: 0; }
 a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-admin-row-title { font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+.fi-admin-row-link { display: inline-block; text-decoration: none; }
+.fi-admin-row-link:hover { color: var(--link, #1d4ed8); text-decoration: underline; text-underline-offset: 3px; }
 .fi-admin-row-sub { margin-top: 0.15rem; font-size: 0.72rem; color: var(--ink-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .fi-admin-row-meta { display: flex; align-items: center; gap: 0.9rem; font-size: 0.75rem; color: var(--ink-muted); white-space: nowrap; }
 .fi-admin-row-meta strong { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -277,6 +279,15 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-foot a { color: rgba(255, 255, 255, 0.85); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.3); }
 .fi-login-foot a:hover { color: #fff; border-color: #fff; }
 .dark .fi-login-card { box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+/* Classic in dark mode: dark --navy disappears on the dark card, so fields, focus ring, button and mark use lighter blues */
+.dark .fi-login[data-style="classic"] .fi-input-wrp { background: rgba(255, 255, 255, 0.05); --tw-ring-color: rgba(255, 255, 255, 0.14); }
+.dark .fi-login[data-style="classic"] .fi-input-wrp:focus-within { background: rgba(255, 255, 255, 0.08); --tw-ring-color: #60a5fa; box-shadow: 0 0 0 1.5px var(--tw-ring-color), 0 0 0 4px rgba(96, 165, 250, 0.18); }
+.dark .fi-login[data-style="classic"] .fi-input { color: var(--ink); }
+.dark .fi-login[data-style="classic"] .fi-input::placeholder { color: var(--ink-faint); }
+.dark .fi-login[data-style="classic"] .fi-checkbox-input:not(:checked) { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.3); }
+.dark .fi-login[data-style="classic"] .fi-btn { background: #2563eb !important; color: #fff !important; }
+.dark .fi-login[data-style="classic"] .fi-btn:hover { filter: none; background: #3b82f6 !important; box-shadow: 0 12px 24px -14px rgba(37, 99, 235, 0.9); }
+.dark .fi-login[data-style="classic"] .fi-login-mark-dark { background: #2563eb; }
 /* ---- Dark mode --------------------------------------------------------------
    The navy chrome stays; the workspace, cards and text flip via the tokens above. */
 .dark .fi-admin-pill.is-green { background: rgba(22, 163, 74, 0.22); color: #86efac; }

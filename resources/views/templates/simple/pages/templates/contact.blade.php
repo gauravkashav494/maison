@@ -27,16 +27,16 @@
                 <p class="ol-note">{{ session('contact_status') }}</p>
             </div>
         @else
-            <form method="post" action="{{ route('contact.store') }}" class="ol-steps">
+            <form method="post" action="{{ route('contact.store') }}" class="ol-steps" novalidate>
                 @csrf
                 <div hidden aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
                 <div class="ol-grid" style="margin-top:0">
-                    <label class="ol-field">Name
-                        <input name="name" required autocomplete="name" value="{{ old('name', auth()->user()?->name) }}">
+                    <label class="ol-field">Name<span class="req" aria-hidden="true">*</span>
+                        <input name="name" autocomplete="name" value="{{ old('name', auth()->user()?->name) }}">
                         @error('name')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">Email
-                        <input name="email" type="email" required autocomplete="email" value="{{ old('email', auth()->user()?->email) }}">
+                    <label class="ol-field">Email<span class="req" aria-hidden="true">*</span>
+                        <input name="email" type="email" autocomplete="email" value="{{ old('email', auth()->user()?->email) }}">
                         @error('email')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
                     <label class="ol-field">Phone (optional)
@@ -46,10 +46,10 @@
                     <label class="ol-field">Subject
                         <select name="subject">
                             @foreach($subjects as $subject)<option @selected(old('subject') === $subject)>{{ $subject }}</option>@endforeach
-                        </select>
+                        </select>@error('subject')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field is-wide">Message
-                        <textarea name="message" rows="6" required>{{ old('message') }}</textarea>
+                    <label class="ol-field is-wide">Message<span class="req" aria-hidden="true">*</span>
+                        <textarea name="message" rows="6">{{ old('message') }}</textarea>
                         @error('message')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
                 </div>

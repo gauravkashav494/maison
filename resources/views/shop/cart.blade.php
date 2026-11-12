@@ -69,7 +69,7 @@
                         </div>
                     </template>
                     <template x-if="!$store.cart.coupon">
-                        <form @submit.prevent="$store.cart.applyCoupon(code)" class="flex max-w-md items-end gap-4">
+                        <form @submit.prevent="$store.cart.applyCoupon(code)" class="flex max-w-md items-end gap-4" novalidate>
                             <input x-model="code" placeholder="Enter code" class="input-luxe uppercase" aria-label="Promo code">
                             <button type="submit" :disabled="$store.cart.couponBusy" class="shrink-0 border-b border-ink pb-3 text-[0.6875rem] uppercase tracking-[0.2em] hover:opacity-60">Apply</button>
                         </form>

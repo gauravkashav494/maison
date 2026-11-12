@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Product;
 use App\Support\Media;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class ProductsTable
@@ -44,18 +45,15 @@ class ProductsTable
                 TextColumn::make('updated_at')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TrashedFilter::make(),
                 SelectFilter::make('category')->relationship('category', 'name')->preload(),
                 TernaryFilter::make('is_active')->label('Visible'),
                 TernaryFilter::make('is_new')->label('New arrival'),
                 TernaryFilter::make('is_best_seller')->label('Best seller'),
             ])
-            ->recordActions([
-                EditAction::make(),
-            ])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                BulkActionGroup::make(RowActions::trashBulk()),
             ]);
     }
 }

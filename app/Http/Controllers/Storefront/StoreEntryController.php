@@ -13,17 +13,17 @@ use Illuminate\Support\Facades\Auth;
  * Old entry links on the main domain. A client is only ever reached on its own subdomain (or
  * custom domain), so every link that names a client redirects there:
  *
- *   /store/<client-slug>  redirects to <client-slug>.<base domain>
- *   /c/<client-slug>      the older form of the same link, redirects the same way
+ *   /store/<subdomain>    redirects to <subdomain>.<base domain>
+ *   /c/<subdomain>        the older form of the same link, redirects the same way
  *   /store/<store-slug>   redirects to the store's theme preview (theme-<template>.<base domain>)
  *
  * Each redirect also drops the old client cookie, so the main domain stops showing that client.
  */
 class StoreEntryController extends Controller
 {
-    public function redirectOldClientLink(Request $request, string $slug): RedirectResponse
+    public function redirectOldClientLink(Request $request, string $subdomain): RedirectResponse
     {
-        return $this->toClient($request, Client::active()->where('slug', $slug)->firstOrFail());
+        return $this->toClient($request, Client::active()->where('subdomain', $subdomain)->firstOrFail());
     }
 
     /** Sends the visitor to the client's own address, keeping a same-site `to` path. */
@@ -50,13 +50,14 @@ class StoreEntryController extends Controller
         return $this->toClient($request, $client, '/shop');
     }
 
-    public function enter(Request $request, string $slug): RedirectResponse
+    /** A client's subdomain, or else a store's slug (which opens that store's theme preview). */
+    public function enter(Request $request, string $subdomain): RedirectResponse
     {
-        if ($client = Client::active()->where('slug', $slug)->first()) {
+        if ($client = Client::active()->where('subdomain', $subdomain)->first()) {
             return $this->toClient($request, $client);
         }
 
-        $store = Storefront::active()->where('slug', $slug)->firstOrFail();
+        $store = Storefront::active()->where('slug', $subdomain)->firstOrFail();
         $theme = $store->theme();
         abort_unless($theme?->is_active, 404);
 

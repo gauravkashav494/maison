@@ -29,7 +29,7 @@ class RecentClients extends Widget
         return [
             'clients' => Client::with(['storefront', 'plan'])->latest()->limit(6)->get(),
             'indexUrl' => ClientResource::getUrl('index'),
-            'editUrl' => fn (Client $client) => ClientResource::getUrl('edit', ['record' => $client]),
+            'viewUrl' => fn (Client $client) => ClientResource::getUrl('view', ['record' => $client]),
             'usage' => fn (Client $client) => ClientQuota::for($client)->productLabel(),
         ];
     }

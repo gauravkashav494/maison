@@ -1,7 +1,7 @@
 {{-- Desktop inline search with live results panel. Search is the primary way plumbing buyers shop, so it is wide and always visible. --}}
 @php $p = tsetting('site'); @endphp
 <div x-data="search(@js($p['search_suggestions'] ?? []))" class="relative" @click.outside="focused = false" @keydown.escape="focused = false">
-    <form @submit.prevent="submit()" role="search" class="flex h-12 overflow-hidden rounded-xl border-2 border-primary bg-white focus-within:shadow-[0_0_0_4px_rgba(25,118,210,.15)]">
+    <form @submit.prevent="submit()" role="search" class="flex h-12 overflow-hidden rounded-xl border-2 border-primary bg-white focus-within:shadow-[0_0_0_4px_rgba(25,118,210,.15)]" novalidate>
         <x-ico name="search" :size="20" class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate" />
         <input x-ref="input" x-model="q" @focus="focused = true" type="search" :placeholder="placeholder" autocomplete="off" aria-label="Search products" class="min-w-0 flex-1 bg-transparent pl-12 pr-3 text-[0.95rem] text-ink outline-none placeholder:text-mist">
         <button type="submit" class="shrink-0 bg-primary px-6 text-sm font-bold text-white hover:bg-deep">Search</button>

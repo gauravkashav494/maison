@@ -4,10 +4,10 @@
 <x-auth-shell auth-quote="Welcome back. Your wishlist, orders and addresses are where you left them.">
     <p class="eyebrow text-taupe">Account</p>
     <h1 class="display-sm mt-3">Sign in</h1>
-    <form method="post" action="{{ route('login') }}" class="mt-8 space-y-6">
+    <form method="post" action="{{ route('login') }}" class="mt-8 space-y-6" novalidate>
         @csrf
-        <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Email</span><input name="email" type="email" required autofocus value="{{ old('email') }}" class="input-luxe" autocomplete="email"></label>
-        <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Password</span><input name="password" type="password" required class="input-luxe" autocomplete="current-password"></label>
+        <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" autofocus value="{{ old('email') }}" class="input-luxe" autocomplete="email"></label>
+        <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="input-luxe" autocomplete="current-password">@error('password')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
         @error('email')<p class="text-sm text-rouge">{{ $message }}</p>@enderror
         <div class="flex items-center justify-between text-sm">
             <label class="flex items-center gap-2"><input type="checkbox" name="remember" class="accent-ink"> Remember me</label>

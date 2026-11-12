@@ -2,12 +2,13 @@
 
 namespace App\Filament\Resources\Testimonials\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Testimonial;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class TestimonialsTable
@@ -24,7 +25,8 @@ class TestimonialsTable
                 TextColumn::make('body')->label('Review')->limit(60)->wrap(),
                 ToggleColumn::make('is_active')->label('Visible'),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
     }
 }

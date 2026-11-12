@@ -1,7 +1,7 @@
 {{-- Full-screen search (phones/tablets): live service and problem suggestions --}}
 @php $p = tsetting('site'); $suggestions = array_values($p['search_suggestions'] ?? []); @endphp
 <div x-data="search(@js($suggestions), @js($p['search_placeholder'] ?? 'Search plumbing services'))" x-show="$store.ui.searchOpen" x-cloak x-init="$watch('$store.ui.searchOpen', (v) => { if (v) { open(); $nextTick(() => $refs.input?.focus()); } })" class="fixed inset-0 z-[80] flex flex-col bg-white lg:hidden" x-trap.noscroll="$store.ui.searchOpen" role="dialog" aria-modal="true" aria-label="Search">
-    <form action="{{ route('services.index') }}" method="get" @submit.prevent="submit()" class="app-bar flex h-[3.75rem] items-center gap-1 border-b border-line-soft pl-2 pr-4">
+    <form action="{{ route('services.index') }}" method="get" @submit.prevent="submit()" class="app-bar flex h-[3.75rem] items-center gap-1 border-b border-line-soft pl-2 pr-4" novalidate>
         <button type="button" @click="$store.ui.searchOpen = false" class="icon-btn" aria-label="Close search"><x-ico name="arrow-left" :size="22" /></button>
         <div class="flex h-11 flex-1 items-center gap-2 rounded-full bg-canvas px-4 ring-1 ring-line">
             <x-ico name="search" :size="18" class="text-primary" />

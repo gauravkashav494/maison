@@ -46,8 +46,8 @@ class ClientIsolationTest extends TestCase
         // One store, two clients on it — the exact situation that used to leak.
         $this->store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
 
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
 
         $this->alphaAdmin = ClientUser::create(['client_id' => $this->alpha->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test', 'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
         $this->betaAdmin = ClientUser::create(['client_id' => $this->beta->id, 'name' => 'Beta Admin', 'email' => 'admin@beta.test', 'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);

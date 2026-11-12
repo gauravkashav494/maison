@@ -70,7 +70,7 @@ customers. That is enforced in four places at once, so no single mistake exposes
    which is validated against the `clients` table before it is used. A client id in a request
    is never trusted.
 
-Set up under **Platform → Clients**: name, slug (fixed — the database and address are named
+Set up under **Platform → Clients**: name, subdomain (fixed — the database and address are named
 after it), store, plan, limits, custom domain.
 
 ### Public address
@@ -214,7 +214,7 @@ Edit**). Blank inherits the plan, `0` means unlimited.
 * Replacing images frees their slots in the same check, so swapping pictures never trips the
   limit.
 * Storage is measured from the disk, so deleting media frees it immediately. Uploads land in
-  `storage/app/public/clients/<slug>/…`.
+  `storage/app/public/clients/<subdomain>/…`.
 * All three are shown on the client's dashboard (the usage widget) and on the product list.
 
 ---

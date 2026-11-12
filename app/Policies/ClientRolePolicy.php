@@ -42,6 +42,27 @@ class ClientRolePolicy
         return $this->isClientAdmin($user);
     }
 
+    public function restore(AdminIdentity $user, ClientRole $record): bool
+    {
+        return $this->mayManage($user, $record);
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
+    /** Deleting permanently follows the same rules as deleting. */
+    public function forceDelete(AdminIdentity $user, ClientRole $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
     private function isClientAdmin(AdminIdentity $user): bool
     {
         return $user instanceof ClientUser && $user->isActiveAccount() && $user->isClientAdmin();

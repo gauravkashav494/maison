@@ -62,3 +62,6 @@
 }
 @keyframes app-enter { from { opacity: 0; translate: 22px 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes app-leave { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: -10px 0; } }
+
+/* Required-field marker next to a form label. Validation itself happens on the server. */
+.req { margin-left: 0.2em; color: #dc2626; font-weight: 700; text-transform: none; letter-spacing: 0; }

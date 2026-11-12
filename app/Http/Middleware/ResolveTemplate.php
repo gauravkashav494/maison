@@ -23,6 +23,7 @@ use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
 use App\Models\Subscriber;
+use App\Models\Store;
 use App\Models\Storefront;
 use App\Models\Testimonial;
 use App\Templates\Scopes\TemplateVisibility;
@@ -36,7 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Selects the client and the template for a storefront request.
  *
- * The client comes from the host (<slug>.<base domain> or a custom domain). The main domain is
+ * The client comes from the host (<subdomain>.<base domain> or a custom domain). The main domain is
  * the Super Admin panel, so a storefront path there redirects to the panel. That client
  * decides three things: which database the content models read, the `client_id` scope on
  * every query, and the template whose views are used. A signed-in shopper belonging to a
@@ -60,7 +61,7 @@ class ResolveTemplate
      * only, so an order number, coupon code or booking reference from one client's site cannot
      * be looked up on another's.
      */
-    public const CLIENT_SCOPED = [Order::class, Coupon::class, Review::class, ServiceRequest::class, ContactMessage::class, Subscriber::class];
+    public const CLIENT_SCOPED = [Order::class, Coupon::class, Review::class, ServiceRequest::class, ContactMessage::class, Subscriber::class, Store::class];
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -77,11 +78,11 @@ class ResolveTemplate
             return $this->previewTemplate($request, $manager);
         }
 
-        // Each client is public on its own host (<slug>.<base domain> or a custom domain).
+        // Each client is public on its own host (<subdomain>.<base domain> or a custom domain).
         $client = $this->clientForRequest($request);
         $hostTemplate = $client ? null : Storefront::templateForHost($request->getHost());
 
-        // The old entry links (/store/<slug>, /c/<slug>, /bulkorder) redirect on their own.
+        // The old entry links (/store/<subdomain>, /c/<subdomain>, /bulkorder) redirect on their own.
         $isEntryLink = $request->is('store/*', 'c/*', 'bulkorder');
 
         if (! $client && ! $isEntryLink) {
@@ -173,7 +174,7 @@ class ResolveTemplate
         // The host (a subdomain or a custom domain). The session key is set only by tests,
         // which run on a single host; the old entry-link cookie is no longer honoured.
         $id = Client::idForHost($request->getHost())
-            ?? Client::idForSlug($request->hasSession() ? $request->session()->get(Client::SESSION_KEY) : null);
+            ?? Client::idForSubdomain($request->hasSession() ? $request->session()->get(Client::SESSION_KEY) : null);
 
         return $id ? Client::withThemes()->active()->find($id) : null;
     }

@@ -1,7 +1,7 @@
 {{-- Full-screen search (mobile) --}}
 @php $h = tsetting('site'); @endphp
 <div x-data="search(@js($h['search_suggestions'] ?? []))" x-show="$store.ui.searchOpen" x-cloak class="fixed inset-0 z-[80] flex flex-col bg-warm lg:hidden" x-trap.noscroll="$store.ui.searchOpen">
-    <form @submit.prevent="submit()" role="search" class="flex items-center gap-2 border-b border-line px-3 py-2">
+    <form @submit.prevent="submit()" role="search" class="flex items-center gap-2 border-b border-line px-3 py-2" novalidate>
         <button type="button" @click="$store.ui.closeAll()" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-cream" aria-label="Back"><x-ico name="arrow-left" :size="20" /></button>
         <div class="relative flex-1">
             <x-ico name="search" :size="18" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />

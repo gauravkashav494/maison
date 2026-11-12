@@ -3,11 +3,12 @@
 namespace App\Filament\Resources\Customers;
 
 use App\Clients\ClientContext;
+use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -29,6 +31,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class CustomerResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = Customer::class;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -91,8 +95,9 @@ class CustomerResource extends Resource
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 
     public static function getGloballySearchableAttributes(): array

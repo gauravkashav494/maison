@@ -6,9 +6,11 @@ use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class OrderItem extends Model
 {
+    use SoftDeletes;
     use UsesClientConnection;
 
     protected $guarded = [];
@@ -17,7 +19,7 @@ class OrderItem extends Model
 
     public function order(): BelongsTo
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(Order::class)->withTrashed();
     }
 
     /**
@@ -43,7 +45,7 @@ class OrderItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 
     public function getImageUrlAttribute(): ?string

@@ -2,10 +2,10 @@
 
 @section('content')
 <x-auth-shell title="Welcome back" text="Log in to see your bookings and saved addresses.">
-    <form method="post" action="{{ route('login') }}" class="space-y-4">
+    <form method="post" action="{{ route('login') }}" class="space-y-4" novalidate>
         @csrf
-        <div><label class="label" for="email">Email</label><input id="email" name="email" type="email" required autofocus value="{{ old('email') }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<p class="error">{{ $message }}</p>@enderror</div>
-        <div><label class="label" for="password">Password</label><input id="password" name="password" type="password" required class="field" autocomplete="current-password"></div>
+        <div><label class="label" for="email">Email<span class="req" aria-hidden="true">*</span></label><input id="email" name="email" type="email" autofocus value="{{ old('email') }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<p class="error">{{ $message }}</p>@enderror</div>
+        <div><label class="label" for="password">Password<span class="req" aria-hidden="true">*</span></label><input id="password" name="password" type="password" class="field" autocomplete="current-password">@error('password')<p class="error">{{ $message }}</p>@enderror</div>
         <div class="flex items-center justify-between text-sm">
             <label class="flex items-center gap-2"><input type="checkbox" name="remember" class="check"> Keep me logged in</label>
             <a href="{{ route('password.request') }}" class="font-semibold text-primary hover:underline">Forgot password?</a>

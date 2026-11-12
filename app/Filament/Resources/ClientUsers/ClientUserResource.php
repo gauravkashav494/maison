@@ -3,23 +3,32 @@
 namespace App\Filament\Resources\ClientUsers;
 
 use App\Clients\ClientContext;
+use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
@@ -35,6 +44,8 @@ use Illuminate\Validation\Rule;
  */
 class ClientUserResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = ClientUser::class;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -53,6 +64,15 @@ class ClientUserResource extends Resource
     public static function getNavigationLabel(): string
     {
         return app(ClientContext::class)->isSuperAdmin() ? 'Client admins' : 'Staff';
+    }
+
+    /**
+     * A SuperAdmin manages each client's admins on the client itself (Clients → Edit → Client
+     * admins), so the menu entry is hidden on /admin. The routes stay, for links from a client.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! app(ClientContext::class)->isSuperAdmin() && parent::shouldRegisterNavigation();
     }
 
     public static function getNavigationGroup(): ?string
@@ -93,10 +113,12 @@ class ClientUserResource extends Resource
                     ->dehydrated(fn ($state) => filled($state))
                     ->required(fn (string $operation) => $operation === 'create')
                     ->minLength(8)
-                    ->helperText(fn (string $operation) => $operation === 'create' ? 'Minimum 8 characters.' : 'Leave blank to keep the current password.'),
+                    ->hint('Minimum 8 characters')
+                    ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.')
+                    ->helperText(fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password.'),
             ]),
-            Section::make('Role')->columns(2)->schema([
-                Select::make('role')
+            Section::make('Access')->columns(2)->schema([
+                Select::make('role')->label('Account type')
                     ->options(ClientUser::ROLES)
                     ->default(ClientUser::ROLE_ADMIN_STAFF)
                     ->required()
@@ -104,16 +126,16 @@ class ClientUserResource extends Resource
                     ->live()
                     ->visible(fn () => ! $clients->isSuperAdmin())
                     ->disabled(fn (?ClientUser $record) => $record && $record->is(filament()->auth()->user()))
-                    ->helperText('A Client Admin can do everything, including managing staff. Admin Staff can do what their role allows.'),
+                    ->helperText('A Client Admin can do everything, including managing staff. Admin Staff can only do what the role below allows.'),
                 Select::make('client_role_id')
-                    ->label('What they can do')
+                    ->label('Role')
                     ->options(fn () => ClientRole::where('client_id', $clients->id() ?? 0)->orderBy('name')->pluck('name', 'id'))
                     ->visible(fn ($get) => ! $clients->isSuperAdmin() && $get('role') === ClientUser::ROLE_ADMIN_STAFF)
                     ->required(fn ($get) => ! $clients->isSuperAdmin() && $get('role') === ClientUser::ROLE_ADMIN_STAFF)
                     // Only a role of this client: an id from another client is refused.
                     ->rule(fn () => Rule::exists('client_roles', 'id')->where('client_id', $clients->id() ?? 0))
                     ->native(false)
-                    ->helperText('Roles are managed under Team → Roles.'),
+                    ->helperText('Only for Admin Staff. Roles are managed under Team → Roles.'),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->disabled(fn (?ClientUser $record) => $record && $record->is(filament()->auth()->user()))
                     ->helperText('A disabled account cannot sign in.'),
@@ -130,6 +152,47 @@ class ClientUserResource extends Resource
         ]);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        $superAdmin = fn () => app(ClientContext::class)->isSuperAdmin();
+
+        return $schema->columns(3)->components([
+            Grid::make(1)->columnSpan(2)->schema([
+                Section::make('Account')->columns(2)->schema([
+                    TextEntry::make('name')->weight('bold'),
+                    TextEntry::make('email')->copyable()->icon('heroicon-m-envelope'),
+                    TextEntry::make('phone')->placeholder('—')->copyable()->icon('heroicon-m-phone'),
+                ]),
+                Section::make('Access')->columns(2)->schema([
+                    TextEntry::make('role')->label('Account type')->badge()
+                        ->formatStateUsing(fn (?string $state) => ClientUser::ROLES[$state] ?? $state)
+                        ->color(fn (ClientUser $r) => $r->isClientAdmin() ? 'info' : 'gray'),
+                    TextEntry::make('clientRole.name')->label('Role')
+                        ->state(fn (ClientUser $r) => $r->isClientAdmin() ? 'Everything, including managing staff' : ($r->clientRole?->name ?? 'No role — cannot do anything yet'))
+                        ->color(fn (ClientUser $r) => ! $r->isClientAdmin() && ! $r->clientRole ? 'danger' : null),
+                ]),
+                Section::make('Client')->columns(2)->visible($superAdmin)->schema([
+                    TextEntry::make('client.name')->label('Client')->weight('bold')
+                        ->url(fn (ClientUser $r) => $r->client ? ClientResource::getUrl('view', ['record' => $r->client]) : null)
+                        ->color('primary')
+                        ->helperText(fn (ClientUser $r) => $r->client?->storefront?->name),
+                    ViewEntry::make('login_url')->label('Signs in at')
+                        ->state(fn (ClientUser $r) => $r->client?->loginUrl())
+                        ->view('filament.tables.columns.link-copy')
+                        ->viewData(['inline' => true, 'icon' => 'heroicon-m-arrow-right-end-on-rectangle']),
+                ]),
+            ]),
+            Grid::make(1)->columnSpan(1)->schema([
+                Section::make('Status')->schema([
+                    IconEntry::make('is_active')->label('Can sign in')->boolean(),
+                    TextEntry::make('email_verified_at')->label('Email verified')->dateTime('d M Y')->placeholder('Not verified'),
+                    TextEntry::make('created_at')->label('Added')->dateTime('d M Y, H:i'),
+                    TextEntry::make('updated_at')->label('Last updated')->since(),
+                ]),
+            ]),
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -138,7 +201,7 @@ class ClientUserResource extends Resource
                 TextColumn::make('name')->searchable()->sortable()->description(fn (ClientUser $r) => $r->email),
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()
                     ->visible(fn () => app(ClientContext::class)->isSuperAdmin()),
-                TextColumn::make('role')->badge()
+                TextColumn::make('role')->label('Access')->badge()
                     ->formatStateUsing(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? ClientUser::ROLES[$state] : ($r->clientRole?->name ?? 'No role'))
                     ->color(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? 'info' : ($r->clientRole ? 'gray' : 'danger')),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->toggleable(),
@@ -146,10 +209,27 @@ class ClientUserResource extends Resource
                 TextColumn::make('created_at')->label('Added')->date('d M Y')->sortable()->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('role')->options(ClientUser::ROLES)->visible(fn () => ! app(ClientContext::class)->isSuperAdmin()),
+                SelectFilter::make('role')->label('Account type')->options(ClientUser::ROLES)->visible(fn () => ! app(ClientContext::class)->isSuperAdmin()),
+                TrashedFilter::make(),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->recordActions([
+                RowActions::group([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    Action::make('toggle')->label(fn (ClientUser $r) => $r->is_active ? 'Deactivate' : 'Activate')
+                        ->icon(fn (ClientUser $r) => $r->is_active ? 'heroicon-o-pause-circle' : 'heroicon-o-play-circle')
+                        ->color(fn (ClientUser $r) => $r->is_active ? 'danger' : 'success')
+                        // Nobody switches off their own account, and only someone allowed to edit it may toggle it.
+                        // and a client always keeps one active Client Admin (the same rule as deleting).
+                        ->visible(fn (ClientUser $r) => ! $r->trashed() && ! $r->is(filament()->auth()->user()) && static::canEdit($r)
+                            && ! ($r->is_active && $r->isClientAdmin() && ClientUser::where('client_id', $r->client_id)
+                                ->where('role', ClientUser::ROLE_CLIENT_ADMIN)->where('is_active', true)->count() <= 1))
+                        ->requiresConfirmation()
+                        ->action(fn (ClientUser $r) => $r->update(['is_active' => ! $r->is_active])),
+                    ...RowActions::trash(),
+                ]),
+            ])
+            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 
     public static function getPages(): array
@@ -157,6 +237,7 @@ class ClientUserResource extends Resource
         return [
             'index' => Pages\ListClientUsers::route('/'),
             'create' => Pages\CreateClientUser::route('/create'),
+            'view' => Pages\ViewClientUser::route('/{record}'),
             'edit' => Pages\EditClientUser::route('/{record}/edit'),
         ];
     }

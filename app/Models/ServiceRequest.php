@@ -6,14 +6,15 @@ use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\UsesClientConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /** A booking, emergency call-back or quote request submitted from the Plumbing Services template. */
 class ServiceRequest extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     protected $guarded = [];
 
@@ -43,24 +44,24 @@ class ServiceRequest extends Model
 
     public function service(): BelongsTo
     {
-        return $this->belongsTo(Service::class);
+        return $this->belongsTo(Service::class)->withTrashed();
     }
 
     public function serviceArea(): BelongsTo
     {
-        return $this->belongsTo(ServiceArea::class);
+        return $this->belongsTo(ServiceArea::class)->withTrashed();
     }
 
     /** The storefront account that placed this, or null for a guest. */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function getSlotLabelAttribute(): ?string

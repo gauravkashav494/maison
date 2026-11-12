@@ -32,7 +32,7 @@ class SimpleTemplateTest extends TestCase
         $store = Storefront::where('template', 'simple')->firstOrFail();
 
         $this->client = Client::create([
-            'name' => 'Order List Demo', 'slug' => 'orderlist',
+            'name' => 'Order List Demo', 'subdomain' => 'orderlist',
             'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true,
         ]);
 
@@ -47,7 +47,7 @@ class SimpleTemplateTest extends TestCase
         $url = parse_url($path);
         $path = ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : '');
 
-        return $this->get(Client::where('slug', 'orderlist')->firstOrFail()->publicUrl().$path);
+        return $this->get(Client::where('subdomain', 'orderlist')->firstOrFail()->publicUrl().$path);
     }
 
     private function order(array $payload)

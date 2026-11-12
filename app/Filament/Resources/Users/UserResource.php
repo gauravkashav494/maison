@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
@@ -13,9 +14,12 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = User::class;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -41,7 +45,7 @@ class UserResource extends Resource
     }
 
     /** This resource is for platform operators only; nothing else in `users` is listed. */
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->where('role', User::ROLE_SUPER_ADMIN);
     }

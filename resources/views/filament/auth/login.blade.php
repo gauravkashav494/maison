@@ -2,7 +2,8 @@
     use Filament\Support\Facades\FilamentView;
     use Filament\View\PanelsRenderHook;
 
-    $siteName = filament()->getBrandName();
+    $page = $this->page();
+    $siteName = $page['brand'] ?? filament()->getBrandName();
     $image = $this->visualImage();
     $mark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 6.5L12 21 5 9.5z"/><path d="M5 9.5h14M12 3l-3.5 6.5L12 21l3.5-11.5z"/></svg>';
 @endphp
@@ -21,8 +22,8 @@
                 </a>
                 <div class="fi-login-quote">
                     <span class="fi-login-rule"></span>
-                    <p class="fi-login-quote-text">Where craft meets commerce.</p>
-                    <p class="fi-login-quote-sub">Orders, catalogue, content and storefront templates — all in one calm place.</p>
+                    <p class="fi-login-quote-text">{{ $page['quote'] }}</p>
+                    <p class="fi-login-quote-sub">{{ $page['quote_sub'] }}</p>
                 </div>
             </div>
         </aside>
@@ -32,13 +33,13 @@
             {{ FilamentView::renderHook(PanelsRenderHook::SIMPLE_PAGE_START, scopes: $this->getRenderHookScopes()) }}
             <div class="fi-login-form">
                 <span class="fi-login-mark fi-login-mark-dark">{!! $mark !!}</span>
-                <p class="fi-login-kicker">Administration</p>
-                <h1 class="fi-login-title">Welcome back</h1>
-                <p class="fi-login-subtitle">Sign in to manage {{ $siteName }}.</p>
+                <p class="fi-login-kicker">{{ $page['kicker'] }}</p>
+                <h1 class="fi-login-title">{{ $page['heading'] }}</h1>
+                <p class="fi-login-subtitle">{{ $page['subtitle'] }}</p>
                 <div class="fi-simple-page-content">
                     {{ $this->content }}
                 </div>
-                <p class="fi-login-help">Trouble signing in? Ask the site owner to reset your access.</p>
+                @if (filled($page['help'] ?? null))<p class="fi-login-help">{{ $page['help'] }}</p>@endif
             </div>
             <x-filament-actions::modals />
             {{ FilamentView::renderHook(PanelsRenderHook::SIMPLE_PAGE_END, scopes: $this->getRenderHookScopes()) }}

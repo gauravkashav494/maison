@@ -2,13 +2,14 @@
 
 namespace App\Filament\Resources\ContactMessages\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\ContactMessage;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class ContactMessagesTable
@@ -24,8 +25,10 @@ class ContactMessagesTable
                 TextColumn::make('message')->limit(70)->wrap()->color('gray'),
                 TextColumn::make('created_at')->since()->sortable(),
             ])
-            ->filters([TernaryFilter::make('is_read')->label('Read')])
-            ->recordActions([EditAction::make()->label('Open')->after(fn (ContactMessage $record) => $record->update(['is_read' => true]))])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TernaryFilter::make('is_read')->label('Read'),
+                TrashedFilter::make(),
+            ])
+            ->recordActions([RowActions::group([EditAction::make()->label('Open')->after(fn (ContactMessage $record) => $record->update(['is_read' => true])), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
     }
 }

@@ -20,7 +20,7 @@
                     <a href="{{ $url }}" class="link-underline shrink-0 pb-0.5 {{ request()->is($pattern) ? 'text-ink' : 'text-smoke hover:text-ink' }}" data-active="{{ request()->is($pattern) ? 'true' : 'false' }}">{{ $label }}</a>
                 @endforeach
                 @auth
-                    <form method="post" action="{{ route('logout') }}" class="shrink-0">@csrf<button type="submit" class="link-underline pb-0.5 text-smoke hover:text-ink">Sign out</button></form>
+                    <form method="post" action="{{ route('logout') }}" class="shrink-0" novalidate>@csrf<button type="submit" class="link-underline pb-0.5 text-smoke hover:text-ink">Sign out</button></form>
                 @endauth
             </nav>
         </aside>

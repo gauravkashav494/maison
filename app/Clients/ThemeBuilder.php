@@ -35,7 +35,7 @@ class ThemeBuilder
             return ['ok' => false, 'message' => 'No store uses the '.$manager->get($templateId)->name().' template yet. Add one under Platform → Stores first.'];
         }
 
-        $client = Client::themeFor($templateId) ?? new Client(['slug' => Client::themeSlug($templateId)]);
+        $client = Client::themeFor($templateId) ?? new Client(['subdomain' => Client::themeSubdomain($templateId)]);
         $client->fill([
             'name' => $manager->get($templateId)->name().' theme',
             'storefront_id' => $store->id,

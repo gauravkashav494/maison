@@ -4,6 +4,8 @@ namespace App\Filament\Resources\ServiceAreas\Pages;
 
 use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditServiceArea extends EditRecord
@@ -13,7 +15,7 @@ class EditServiceArea extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make(), RestoreAction::make(), ForceDeleteAction::make()->label('Delete permanently'),
         ];
     }
 }

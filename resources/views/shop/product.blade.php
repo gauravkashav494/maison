@@ -181,19 +181,20 @@
 
             @if(session('review_status'))<p class="mt-4 text-sm text-emerald-700">{{ session('review_status') }}</p>@endif
 
-            <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-8 space-y-5 border-t border-ink/10 pt-8">
+            <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-8 space-y-5 border-t border-ink/10 pt-8" novalidate>
                 @csrf
                 <div>
-                    <p class="mb-2 text-[0.6875rem] uppercase tracking-[0.2em]">Your rating</p>
+                    <p class="mb-2 text-[0.6875rem] uppercase tracking-[0.2em]">Your rating<span class="req" aria-hidden="true">*</span></p>
                     <div class="flex gap-1" @mouseleave="hover = 0">
                         <template x-for="i in 5" :key="i"><button type="button" @click="rating = i" @mouseenter="hover = i" class="text-2xl leading-none" :class="(hover || rating) >= i ? 'text-ink' : 'text-ink/20'" :aria-label="`${i} stars`">★</button></template>
                     </div>
                     <input type="hidden" name="rating" :value="rating">
+                    @error('rating')<p class="mt-2 text-xs text-rouge">{{ $message }}</p>@enderror
                 </div>
-                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="input-luxe"></label>
-                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="input-luxe"></label>
-                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Title</span><input name="title" value="{{ old('title') }}" class="input-luxe"></label>
-                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Review</span><textarea name="body" required rows="4" class="input-luxe">{{ old('body') }}</textarea></label>
+                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Name<span class="req" aria-hidden="true">*</span></span><input name="name" value="{{ old('name', auth()->user()?->name) }}" class="input-luxe">@error('name')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="input-luxe">@error('email')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Title</span><input name="title" value="{{ old('title') }}" class="input-luxe">@error('title')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em]">Review<span class="req" aria-hidden="true">*</span></span><textarea name="body" rows="4" class="input-luxe">{{ old('body') }}</textarea></label>
                 @error('body')<p class="text-sm text-rouge">{{ $message }}</p>@enderror
                 <button type="submit" class="btn btn-primary">Submit review</button>
             </form>

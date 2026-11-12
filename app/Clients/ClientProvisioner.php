@@ -2,6 +2,7 @@
 
 namespace App\Clients;
 
+use App\Console\Commands\ClientsProvision;
 use App\Models\Client;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -9,9 +10,9 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Builds a client's own database from the admin, by running `clients:provision <slug>`.
+ * Builds a client's own database from the admin, by running `clients:provision <subdomain>`.
  *
- * Used right after a client is created, and by the "Provision database" action to retry. The
+ * Used right after a client is created, and by the "Repair database" action to retry. The
  * database is seeded only when it is first created; a retry on an existing database just applies
  * missing tables, so a client's edited content is never overwritten. In shared mode there is nothing to build and this does nothing.
  */
@@ -40,19 +41,19 @@ class ClientProvisioner
             // Seed only a brand-new database: re-seeding updates rows in place, which would
             // overwrite content the client has already edited.
             $code = Artisan::call('clients:provision', array_filter([
-                'slug' => $client->slug,
+                'subdomain' => $client->subdomain,
                 '--no-seed' => $this->databaseExists($client) ?: null,
                 '--no-samples' => $withSamples ? null : true,
             ]));
             $output = trim(Artisan::output());
         } catch (Throwable $e) {
-            Log::error('Client provisioning failed', ['client' => $client->slug, 'error' => $e->getMessage()]);
+            Log::error('Client provisioning failed', ['client' => $client->subdomain, 'error' => $e->getMessage()]);
 
             return ['ok' => false, 'message' => $e->getMessage()];
         }
 
         if ($code !== 0 || str_contains($output, 'skipped')) {
-            Log::warning('Client provisioning did not complete', ['client' => $client->slug, 'output' => $output]);
+            Log::warning('Client provisioning did not complete', ['client' => $client->subdomain, 'output' => $output]);
 
             return ['ok' => false, 'message' => $output !== '' ? $output : 'The provision command reported a failure.'];
         }
@@ -79,5 +80,29 @@ class ClientProvisioner
             $config['driver'] === 'pgsql' => $server->selectOne('select 1 from pg_database where datname = ?', [$name]),
             default => $server->selectOne('select 1 from information_schema.schemata where schema_name = ?', [$name]),
         };
+    }
+
+    /**
+     * Why this client's database needs the "Repair database" button, or null when it is fine:
+     * 'missing' (never built), 'failed' (the background setup reported an error) or
+     * 'outdated' (client migrations added since it was built).
+     */
+    public function repairReason(Client $client): ?string
+    {
+        if (! $this->isNeeded()) {
+            return null;
+        }
+        if ((ClientSetup::status($client)['state'] ?? null) === ClientSetup::FAILED) {
+            return 'failed';
+        }
+        if (! $this->databaseExists($client)) {
+            return 'missing';
+        }
+
+        $files = collect(glob(base_path(ClientsProvision::CLIENT_MIGRATIONS.'/*.php')) ?: [])
+            ->map(fn (string $path) => basename($path, '.php'));
+        $ran = $this->databases->forClientOr($client, fn () => DB::connection($this->databases->connection())->table('migrations')->pluck('migration'), null);
+
+        return $ran === null || $files->diff($ran)->isNotEmpty() ? 'outdated' : null;
     }
 }

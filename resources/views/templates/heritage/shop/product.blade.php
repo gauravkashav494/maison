@@ -208,20 +208,21 @@
                 <div x-data="reviewForm()" class="mt-5">
                     <button type="button" @click="open = !open" class="btn btn-outline rounded-full {{ $reviews->isEmpty() ? 'mx-auto w-full max-w-md' : 'btn-block' }}">Write a review</button>
                     @if(session('review_status'))<p class="mt-3 rounded-lg bg-cream p-3 text-sm text-maroon">{{ session('review_status') }}</p>@endif
-                    <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-5 rounded-2xl border border-line-soft bg-cream/60 p-5 text-left sm:p-6">
+                    <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-5 rounded-2xl border border-line-soft bg-cream/60 p-5 text-left sm:p-6" novalidate>
                         <p class="font-serif text-lg font-semibold text-maroon">Share your experience</p>
                         @csrf
                         <div class="mt-4 grid gap-4 {{ $reviews->isEmpty() ? 'lg:grid-cols-2 lg:gap-x-8' : '' }}">
                         <div class="space-y-4">
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2"><span class="label !mb-0">Your rating</span><div class="flex gap-1">@for($i = 1; $i <= 5; $i++)<button type="button" @click="rating = {{ $i }}" @mouseenter="hover = {{ $i }}" @mouseleave="hover = 0" class="text-star" aria-label="{{ $i }} stars"><svg width="26" height="26" viewBox="0 0 24 24" :fill="(hover || rating) >= {{ $i }} ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5l-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/></svg></button>@endfor</div><input type="hidden" name="rating" :value="rating"></div>
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2"><span class="label !mb-0">Your rating<span class="req" aria-hidden="true">*</span></span><div class="flex gap-1">@for($i = 1; $i <= 5; $i++)<button type="button" @click="rating = {{ $i }}" @mouseenter="hover = {{ $i }}" @mouseleave="hover = 0" class="text-star" aria-label="{{ $i }} stars"><svg width="26" height="26" viewBox="0 0 24 24" :fill="(hover || rating) >= {{ $i }} ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5l-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/></svg></button>@endfor</div><input type="hidden" name="rating" :value="rating"></div>
+                        @error('rating')<p class="error-text">{{ $message }}</p>@enderror
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="block"><span class="label">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="field"></label>
-                            <label class="block"><span class="label">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="field"></label>
+                            <label class="block"><span class="label">Name<span class="req" aria-hidden="true">*</span></span><input name="name" value="{{ old('name', auth()->user()?->name) }}" class="field">@error('name')<span class="error-text">{{ $message }}</span>@enderror</label>
+                            <label class="block"><span class="label">Email (not published)</span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="field">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
                         </div>
-                        <label class="block"><span class="label">Title</span><input name="title" value="{{ old('title') }}" placeholder="Sum it up in a few words" class="field"></label>
+                        <label class="block"><span class="label">Title</span><input name="title" value="{{ old('title') }}" placeholder="Sum it up in a few words" class="field">@error('title')<span class="error-text">{{ $message }}</span>@enderror</label>
                         </div>
                         <div class="flex flex-col">
-                        <label class="flex flex-1 flex-col"><span class="label">Review</span><textarea name="body" required rows="4" placeholder="How did you cook with it? What did you like?" class="field flex-1 lg:min-h-[12rem]">{{ old('body') }}</textarea></label>
+                        <label class="flex flex-1 flex-col"><span class="label">Review<span class="req" aria-hidden="true">*</span></span><textarea name="body" rows="4" placeholder="How did you cook with it? What did you like?" class="field flex-1 lg:min-h-[12rem]">{{ old('body') }}</textarea>@error('body')<span class="error-text">{{ $message }}</span>@enderror</label>
                         @if($errors->any())<p class="error-text">{{ $errors->first() }}</p>@endif
                         </div>
                         </div>

@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Storefront\CheckoutRequest;
+use App\Http\Requests\Storefront\CodeRequest;
+use App\Http\Requests\Storefront\NewsletterRequest;
+use App\Http\Requests\Storefront\PincodeRequest;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\Product;
@@ -79,9 +83,9 @@ class CartController extends Controller
         return response()->json($this->cart->toArray());
     }
 
-    public function coupon(Request $request): JsonResponse
+    public function coupon(CodeRequest $request): JsonResponse
     {
-        $data = $request->validate(['code' => ['required', 'string', 'max:40']]);
+        $data = $request->validated();
         $coupon = $this->cart->applyCoupon($data['code']);
         if (! $coupon) {
             return response()->json(['message' => 'That code is not valid or has expired.'], 422);
@@ -102,20 +106,29 @@ class CartController extends Controller
         return response()->json($this->cart->toArray());
     }
 
-    public function shipping(Request $request): JsonResponse
+    public function shipping(CodeRequest $request): JsonResponse
     {
-        $data = $request->validate(['code' => ['required', 'string', 'max:40']]);
+        $data = $request->validated();
         $this->cart->setShippingMethod($data['code']);
 
         return response()->json($this->cart->toArray());
     }
 
-    public function subscribe(Request $request): JsonResponse
+    public function subscribe(NewsletterRequest $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email', 'max:190'], 'source' => ['nullable', 'string', 'max:60']]);
-        Subscriber::firstOrCreate(['email' => strtolower($data['email'])], ['source' => $data['source'] ?? 'site', 'template' => template()->id()]);
+        $data = $request->validated();
+        $subscriber = Subscriber::withTrashed()->firstOrCreate(['email' => strtolower($data['email'])], ['source' => $data['source'] ?? 'site', 'template' => template()->id()]);
+        if ($subscriber->trashed()) {
+            $subscriber->restore(); // re-subscribing after being removed brings the same row back
+        }
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Checks the delivery PIN code a shopper enters in the location sheet. */
+    public function pincode(PincodeRequest $request): JsonResponse
+    {
+        return response()->json(['pincode' => $request->validated('pincode')]);
     }
 
     // ---- Checkout ----------------------------------------------------------
@@ -144,29 +157,14 @@ class CartController extends Controller
         ]);
     }
 
-    public function placeOrder(Request $request): RedirectResponse
+    public function placeOrder(CheckoutRequest $request): RedirectResponse
     {
         $cart = $this->cart->toArray();
         if (empty($cart['items'])) {
             return redirect()->route('cart');
         }
 
-        $enabled = (array) setting('checkout.payment_methods', array_keys(Order::PAYMENT_METHODS));
-        $data = $request->validate([
-            'email' => ['required', 'email', 'max:190'],
-            'phone' => ['required', 'string', 'max:30'],
-            'shipping_name' => ['required', 'string', 'max:120'],
-            'shipping_line1' => ['required', 'string', 'max:190'],
-            'shipping_line2' => ['nullable', 'string', 'max:190'],
-            'shipping_city' => ['required', 'string', 'max:80'],
-            'shipping_state' => ['required', 'string', 'max:80'],
-            'shipping_postal_code' => ['required', 'string', 'max:20'],
-            'shipping_country' => ['required', 'string', 'max:80'],
-            'shipping_method' => ['required', 'string'],
-            'payment_method' => ['required', 'string', 'in:'.implode(',', $enabled)],
-            'notes' => ['nullable', 'string', 'max:500'],
-            'save_address' => ['nullable', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         $this->cart->setShippingMethod($data['shipping_method']);
         $cart = $this->cart->toArray();

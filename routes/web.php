@@ -47,6 +47,7 @@ Route::match(['get', 'post'], '/track-order', [CatalogController::class, 'track'
 
 // Forms
 Route::post('/newsletter', [CartController::class, 'subscribe'])->name('newsletter');
+Route::post('/delivery-pincode', [CartController::class, 'pincode'])->middleware('throttle:30,1')->name('delivery.pincode');
 Route::post('/contact', [CatalogController::class, 'contactStore'])->middleware('throttle:5,1')->name('contact.store');
 
 // Customer accounts
@@ -92,8 +93,8 @@ Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 // /store/<store> for a store a client runs) redirects to that client's subdomain; a store with
 // no client yet is shown as a demo on the main domain.
 Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
-Route::get('/store/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('slug', '[a-z0-9-]+')->name('store.enter');
-Route::get('/c/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('slug', '[a-z0-9-]+');
+Route::get('/store/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
+Route::get('/c/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';

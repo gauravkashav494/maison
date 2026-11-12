@@ -45,14 +45,35 @@ class ClientUserPolicy
             return false; // never delete the account you are signed in with
         }
 
-        // A client must keep at least one active Client Admin.
-        return ! ($record->isClientAdmin() && ClientUser::where('client_id', $record->client_id)
-            ->where('role', ClientUser::ROLE_CLIENT_ADMIN)->where('is_active', true)->count() <= 1);
+        // A client must keep at least one active Client Admin besides this one (archived accounts are not counted).
+        return ! ($record->isClientAdmin() && ! ClientUser::where('client_id', $record->client_id)->whereKeyNot($record->getKey())
+            ->where('role', ClientUser::ROLE_CLIENT_ADMIN)->where('is_active', true)->exists());
     }
 
     public function deleteAny(AdminIdentity $user): bool
     {
         return $user->isSuperAdmin() || $this->isClientAdmin($user);
+    }
+
+    public function restore(AdminIdentity $user, ClientUser $record): bool
+    {
+        return $this->mayManage($user, $record);
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
+    /** Same guards as deleting: never your own account, never a client's last active Client Admin. */
+    public function forceDelete(AdminIdentity $user, ClientUser $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
     }
 
     private function isClientAdmin(AdminIdentity $user): bool

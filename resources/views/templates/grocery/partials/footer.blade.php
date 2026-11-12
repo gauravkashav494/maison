@@ -17,8 +17,8 @@
                 <h2 class="text-xl font-extrabold lg:text-2xl">{{ $h['newsletter_heading'] ?? 'Get deals in your inbox' }}</h2>
                 <p class="mt-1 text-sm text-slate">{{ $h['newsletter_text'] ?? 'Weekly offers and new arrivals. No spam.' }}</p>
             </div>
-            <form @submit.prevent="submit()" class="flex w-full max-w-md flex-col gap-2 sm:flex-row" x-show="!done">
-                <input x-model="email" type="email" required placeholder="Your email address" class="field h-12 flex-1" aria-label="Email address">
+            <form @submit.prevent="submit()" class="flex w-full max-w-md flex-col gap-2 sm:flex-row" x-show="!done" novalidate>
+                <input x-model="email" type="email" placeholder="Your email address" class="field h-12 flex-1" aria-label="Email address">
                 <button type="submit" :disabled="busy" class="btn btn-primary h-12">Subscribe</button>
             </form>
             <p x-show="done" x-cloak class="flex items-center gap-2 text-sm font-bold text-leaf-dark"><x-ico name="check" :size="18" /> You’re in! Watch your inbox for offers.</p>

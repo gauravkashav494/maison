@@ -5,11 +5,11 @@
 <x-page-head title="My bookings" text="Check the status of a booking or quote request." :breadcrumbs="['My bookings' => null]" />
 <section class="ps-container grid gap-6 py-5 lg:grid-cols-12 lg:gap-10 lg:py-10">
     <div class="lg:col-span-5">
-        <form method="post" action="{{ route('bookings') }}" class="card space-y-3 p-4 sm:p-6">
+        <form method="post" action="{{ route('bookings') }}" class="card space-y-3 p-4 sm:p-6" novalidate>
             @csrf
             <p class="font-display text-base font-extrabold">Find a request</p>
-            <div><label class="label" for="reference">Reference number</label><input id="reference" name="reference" required value="{{ old('reference') }}" placeholder="PS-260922-AB12" class="field font-mono uppercase @error('reference') field-error @enderror">@error('reference')<p class="error">{{ $message }}</p>@enderror</div>
-            <div><label class="label" for="phone">Mobile number used</label><input id="phone" name="phone" type="tel" inputmode="tel" required value="{{ old('phone') }}" class="field @error('phone') field-error @enderror">@error('phone')<p class="error">{{ $message }}</p>@enderror</div>
+            <div><label class="label" for="reference">Reference number<span class="req" aria-hidden="true">*</span></label><input id="reference" name="reference" value="{{ old('reference') }}" placeholder="PS-260922-AB12" class="field font-mono uppercase @error('reference') field-error @enderror">@error('reference')<p class="error">{{ $message }}</p>@enderror</div>
+            <div><label class="label" for="phone">Mobile number used<span class="req" aria-hidden="true">*</span></label><input id="phone" name="phone" type="tel" inputmode="tel" value="{{ old('phone') }}" class="field @error('phone') field-error @enderror">@error('phone')<p class="error">{{ $message }}</p>@enderror</div>
             @if(session('lookup_error'))<p class="error">{{ session('lookup_error') }}</p>@endif
             <button type="submit" class="btn btn-primary btn-block">Check status</button>
             @guest<p class="text-center text-xs text-slate"><a href="{{ route('login') }}" class="font-semibold text-primary">Log in</a> to see all your bookings in one place.</p>@endguest

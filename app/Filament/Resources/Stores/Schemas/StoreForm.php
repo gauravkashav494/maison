@@ -15,7 +15,7 @@ class StoreForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
-            Section::make('Boutique')->columns(2)->schema([
+            Section::make('Location')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120),
                 Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
                 TextInput::make('address')->required()->columnSpanFull(),
@@ -31,7 +31,7 @@ class StoreForm
                 TextInput::make('lat')->label('Latitude')->numeric(),
                 TextInput::make('lng')->label('Longitude')->numeric(),
                 TextInput::make('maps_url')->label('Google Maps link')->url(),
-                Fields::image('image', 'Boutique photo (landscape)', 'stores')->columnSpanFull(),
+                Fields::image('image', 'Store photo (landscape)', 'stores')->columnSpanFull(),
             ]),
             Grid::make(3)->schema([TextInput::make('sort_order')->numeric()->default(0)]),
         ]);

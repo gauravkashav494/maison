@@ -16,7 +16,7 @@
                 <a href="{{ $url }}" class="flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold {{ request()->is($pattern) ? 'bg-cream text-maroon' : 'text-muted hover:bg-cream hover:text-ink' }}"><x-ico :name="$icon" :size="18" /> {{ $label }}</a>
             @endforeach
             @auth
-                <form method="post" action="{{ route('logout') }}" class="shrink-0 lg:mt-2 lg:border-t lg:border-line lg:pt-2">@csrf<button type="submit" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted hover:bg-cream hover:text-red"><x-ico name="logout" :size="18" /> Log out</button></form>
+                <form method="post" action="{{ route('logout') }}" class="shrink-0 lg:mt-2 lg:border-t lg:border-line lg:pt-2" novalidate>@csrf<button type="submit" class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-muted hover:bg-cream hover:text-red"><x-ico name="logout" :size="18" /> Log out</button></form>
             @endauth
         </nav>
     </aside>

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPlatformConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Address extends Model
 {
-    use \App\Models\Concerns\UsesPlatformConnection;
+    use UsesPlatformConnection;
 
     protected $guarded = [];
 
@@ -16,7 +17,7 @@ class Address extends Model
     /** The storefront account that placed this, or null for a guest. */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     /** Legacy link to the pre-split users table; kept so historic rows stay readable. */

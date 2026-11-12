@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Menus\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Templates\TemplateManager;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -19,6 +20,6 @@ class MenusTable
                 TextColumn::make('all_items_count')->counts('allItems')->label('Items')->alignRight(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->recordActions([EditAction::make()->label('Manage items')]);
+            ->recordActions([RowActions::group([EditAction::make()->label('Manage items')])]);
     }
 }

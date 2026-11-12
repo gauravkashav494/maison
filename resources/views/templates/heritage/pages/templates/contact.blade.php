@@ -8,16 +8,16 @@
         <div class="card p-5 sm:p-6">
             @if(session('contact_status'))<p class="mb-4 flex items-center gap-2 rounded-xl bg-cream px-4 py-3 text-sm font-semibold text-maroon"><x-ico name="check" :size="16" /> {{ session('contact_status') }}</p>@endif
             <p class="text-lg font-semibold">Send us a message</p>
-            <form method="post" action="{{ route('contact.store') }}" class="mt-4 space-y-4">
+            <form method="post" action="{{ route('contact.store') }}" class="mt-4 space-y-4" novalidate>
                 @csrf
                 <div class="hidden" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <label><span class="label">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="field @error('name') field-error @enderror">@error('name')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Email</span><input name="email" type="email" required value="{{ old('email', auth()->user()?->email) }}" class="field @error('email') field-error @enderror">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Phone (optional)</span><input name="phone" type="tel" value="{{ old('phone') }}" class="field"></label>
-                    <label><span class="label">Topic</span><select name="subject" class="field">@foreach($subjects as $s)<option @selected(old('subject') === $s)>{{ $s }}</option>@endforeach</select></label>
+                    <label><span class="label">Name<span class="req" aria-hidden="true">*</span></span><input name="name" value="{{ old('name', auth()->user()?->name) }}" class="field @error('name') field-error @enderror">@error('name')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="field @error('email') field-error @enderror">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label><span class="label">Phone (optional)</span><input name="phone" type="tel" value="{{ old('phone') }}" class="field">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label><span class="label">Topic</span><select name="subject" class="field">@foreach($subjects as $s)<option @selected(old('subject') === $s)>{{ $s }}</option>@endforeach</select>@error('subject')<span class="error-text">{{ $message }}</span>@enderror</label>
                 </div>
-                <label class="block"><span class="label">Message</span><textarea name="message" rows="5" required class="field @error('message') field-error @enderror" placeholder="Include your order number if it’s about an order.">{{ old('message') }}</textarea>@error('message')<span class="error-text">{{ $message }}</span>@enderror</label>
+                <label class="block"><span class="label">Message<span class="req" aria-hidden="true">*</span></span><textarea name="message" rows="5" class="field @error('message') field-error @enderror" placeholder="Include your order number if it’s about an order.">{{ old('message') }}</textarea>@error('message')<span class="error-text">{{ $message }}</span>@enderror</label>
                 <button type="submit" class="btn btn-primary btn-lg">Send message</button>
             </form>
         </div>

@@ -54,8 +54,8 @@ class ClientPermissionsTest extends TestCase
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
 
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
 
         $this->operator = User::create([
             'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
@@ -101,7 +101,7 @@ class ClientPermissionsTest extends TestCase
     {
         $this->actingAs($this->operator, 'admin');
 
-        foreach (['', '/clients', '/client-users', '/client-totals', '/storefronts', '/plans', '/stores', '/users', '/platform-activities', '/appearance/templates', '/site-settings'] as $path) {
+        foreach (['', '/clients', '/client-users', '/client-totals', '/storefronts', '/plans', '/users', '/platform-activities', '/appearance/templates', '/platform-settings'] as $path) {
             $this->get($path === '' ? '/' : $path)->assertSuccessful();
         }
     }
@@ -113,7 +113,7 @@ class ClientPermissionsTest extends TestCase
         foreach ([
             'orders', 'customers', 'products', 'categories', 'collections', 'reviews', 'coupons', 'pages', 'posts',
             'faqs', 'menus', 'contact-messages', 'subscribers', 'services', 'service-areas', 'service-requests',
-            'projects', 'testimonials', 'client-roles', 'homepage-settings', 'grocery-settings',
+            'projects', 'testimonials', 'stores', 'client-roles', 'homepage-settings', 'grocery-settings',
         ] as $path) {
             $this->assertNotSame(200, $this->get('/'.$path)->getStatusCode(), $path);
         }

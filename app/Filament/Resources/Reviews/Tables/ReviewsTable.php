@@ -2,15 +2,17 @@
 
 namespace App\Filament\Resources\Reviews\Tables;
 
+use App\Clients\ClientAccess;
+use App\Filament\Support\RowActions;
 use App\Models\Review;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -30,20 +32,22 @@ class ReviewsTable
             ])
             ->filters([
                 TernaryFilter::make('is_approved')->label('Approved'),
+                TrashedFilter::make(),
             ])
-            ->recordActions([
+            ->recordActions([RowActions::group([
                 Action::make('approve')->icon('heroicon-o-check')->color('success')
-                    ->authorize(fn () => \App\Clients\ClientAccess::current('reviews', 'update'))
+                    ->authorize(fn () => ClientAccess::current('reviews', 'update'))
                     ->visible(fn (Review $r) => ! $r->is_approved)
                     ->action(fn (Review $r) => $r->update(['is_approved' => true])),
                 EditAction::make(),
-            ])
+                ...RowActions::trash(),
+            ])])
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('approveSelected')->label('Approve selected')->icon('heroicon-o-check')
-                        ->authorize(fn () => \App\Clients\ClientAccess::current('reviews', 'update'))
+                        ->authorize(fn () => ClientAccess::current('reviews', 'update'))
                         ->action(fn (Collection $records) => $records->each->update(['is_approved' => true]))->deselectRecordsAfterCompletion(),
-                    DeleteBulkAction::make(),
+                    ...RowActions::trashBulk(),
                 ]),
             ]);
     }

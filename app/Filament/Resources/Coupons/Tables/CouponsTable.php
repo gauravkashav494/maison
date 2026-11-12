@@ -2,12 +2,13 @@
 
 namespace App\Filament\Resources\Coupons\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Coupon;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class CouponsTable
@@ -25,7 +26,8 @@ class CouponsTable
                 TextColumn::make('ends_at')->label('Expires')->date('d M Y')->placeholder('Never'),
                 ToggleColumn::make('is_active')->label('Active'),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
     }
 }

@@ -3,21 +3,21 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
-use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /** Customer review of a service (not tied to a product like Review is). */
 class Testimonial extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
-
     use BelongsToTemplate;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     protected $guarded = [];
 

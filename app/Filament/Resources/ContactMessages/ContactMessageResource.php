@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ContactMessages;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\ContactMessages\Pages\EditContactMessage;
 use App\Filament\Resources\ContactMessages\Pages\ListContactMessages;
 use App\Filament\Resources\ContactMessages\Schemas\ContactMessageForm;
@@ -15,6 +16,8 @@ use Filament\Tables\Table;
 
 class ContactMessageResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = ContactMessage::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInbox;

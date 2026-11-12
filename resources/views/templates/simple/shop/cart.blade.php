@@ -62,7 +62,7 @@
                     </p>
                 </template>
                 <template x-if="!$store.cart.coupon">
-                    <form @submit.prevent="$store.cart.applyCoupon(code)" style="display:flex;gap:.5rem;max-width:22rem">
+                    <form @submit.prevent="$store.cart.applyCoupon(code)" style="display:flex;gap:.5rem;max-width:22rem" novalidate>
                         <span class="ol-search" style="flex:1 1 auto"><input x-model="code" placeholder="Enter code" aria-label="Promo code"></span>
                         <button type="submit" class="ol-add is-secondary" :disabled="$store.cart.couponBusy">Apply</button>
                     </form>

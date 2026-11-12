@@ -23,11 +23,8 @@
         <p><a href="{{ route('cart') }}">Back to your order</a></p>
     </div>
 
-    @if($errors->any())
-        <p class="ol-note" style="color:var(--ol-out)">Please check the highlighted fields below.</p>
-    @endif
 
-    <form method="post" action="{{ route('checkout.place') }}" class="ol-form" @submit="submitting = true">
+    <form method="post" action="{{ route('checkout.place') }}" class="ol-form" @submit="submitting = true" novalidate>
         @csrf
 
         <div class="ol-steps">
@@ -38,12 +35,12 @@
                         <a href="{{ route('login') }}?redirect=checkout">Sign in</a> for a faster checkout.</p>
                 @endguest
                 <div class="ol-grid">
-                    <label class="ol-field">Email
-                        <input name="email" type="email" required autocomplete="email" value="{{ old('email', $user?->email) }}">
+                    <label class="ol-field">Email<span class="req" aria-hidden="true">*</span>
+                        <input name="email" type="email" autocomplete="email" value="{{ old('email', $user?->email) }}">
                         @error('email')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">Phone
-                        <input name="phone" type="tel" required autocomplete="tel" value="{{ old('phone', $user?->phone ?? $address?->phone) }}">
+                    <label class="ol-field">Phone<span class="req" aria-hidden="true">*</span>
+                        <input name="phone" type="tel" autocomplete="tel" value="{{ old('phone', $user?->phone ?? $address?->phone) }}">
                         @error('phone')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
                 </div>
@@ -52,31 +49,31 @@
             <fieldset class="ol-fieldset">
                 <legend>2 · Delivery address</legend>
                 <div class="ol-grid">
-                    <label class="ol-field is-wide">Full name
-                        <input name="shipping_name" required autocomplete="name" value="{{ old('shipping_name', $address?->name ?? $user?->name) }}">
+                    <label class="ol-field is-wide">Full name<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_name" autocomplete="name" value="{{ old('shipping_name', $address?->name ?? $user?->name) }}">
                         @error('shipping_name')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field is-wide">Address
-                        <input name="shipping_line1" required autocomplete="address-line1" placeholder="House / flat, street" value="{{ old('shipping_line1', $address?->line1) }}">
+                    <label class="ol-field is-wide">Address<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_line1" autocomplete="address-line1" placeholder="House / flat, street" value="{{ old('shipping_line1', $address?->line1) }}">
                         @error('shipping_line1')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
                     <label class="ol-field is-wide">Apartment, landmark (optional)
-                        <input name="shipping_line2" autocomplete="address-line2" value="{{ old('shipping_line2', $address?->line2) }}">
+                        <input name="shipping_line2" autocomplete="address-line2" value="{{ old('shipping_line2', $address?->line2) }}">@error('shipping_line2')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">City
-                        <input name="shipping_city" required autocomplete="address-level2" value="{{ old('shipping_city', $address?->city) }}">
+                    <label class="ol-field">City<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_city" autocomplete="address-level2" value="{{ old('shipping_city', $address?->city) }}">
                         @error('shipping_city')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">State
-                        <input name="shipping_state" required autocomplete="address-level1" value="{{ old('shipping_state', $address?->state) }}">
+                    <label class="ol-field">State<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_state" autocomplete="address-level1" value="{{ old('shipping_state', $address?->state) }}">
                         @error('shipping_state')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">Postal code
-                        <input name="shipping_postal_code" required autocomplete="postal-code" inputmode="numeric" value="{{ old('shipping_postal_code', $address?->postal_code) }}">
+                    <label class="ol-field">Postal code<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_postal_code" autocomplete="postal-code" inputmode="numeric" value="{{ old('shipping_postal_code', $address?->postal_code) }}">
                         @error('shipping_postal_code')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
-                    <label class="ol-field">Country
-                        <input name="shipping_country" required autocomplete="country-name" value="{{ old('shipping_country', $address?->country ?? 'India') }}">
+                    <label class="ol-field">Country<span class="req" aria-hidden="true">*</span>
+                        <input name="shipping_country" autocomplete="country-name" value="{{ old('shipping_country', $address?->country ?? 'India') }}">@error('shipping_country')<span class="ol-error">{{ $message }}</span>@enderror
                     </label>
                 </div>
                 @auth
@@ -87,7 +84,8 @@
             </fieldset>
 
             <fieldset class="ol-fieldset">
-                <legend>3 · Delivery method</legend>
+                <legend>3 · Delivery method<span class="req" aria-hidden="true">*</span></legend>
+                @error('shipping_method')<span class="ol-error">{{ $message }}</span>@enderror
                 <div class="ol-options">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
@@ -104,7 +102,7 @@
             </fieldset>
 
             <fieldset class="ol-fieldset">
-                <legend>4 · Payment</legend>
+                <legend>4 · Payment<span class="req" aria-hidden="true">*</span></legend>
                 <div class="ol-options">
                     @foreach($paymentMethods as $code => $name)
                         <label class="ol-option" :class="payment === @js($code) && 'is-on'">
@@ -122,7 +120,7 @@
             </fieldset>
 
             <label class="ol-field">Order notes (optional)
-                <textarea name="notes" rows="2" placeholder="Delivery instructions, purchase order number…">{{ old('notes') }}</textarea>
+                <textarea name="notes" rows="2" placeholder="Delivery instructions, purchase order number…">{{ old('notes') }}</textarea>@error('notes')<span class="ol-error">{{ $message }}</span>@enderror
             </label>
         </div>
 

@@ -11,12 +11,11 @@ export default function registerExtras(Alpine, api) {
         couponBusy: false,
         async applyCoupon(code) {
             this.couponError = null;
-            if (!code?.trim()) return;
             this.couponBusy = true;
             try {
                 this.apply(await api('/cart/coupon', { method: 'POST', body: { code } }));
             } catch (e) {
-                this.couponError = e.payload?.message || 'That code is not valid.';
+                this.couponError = e.payload?.errors?.code?.[0] || e.payload?.message || 'That code is not valid.';
             } finally {
                 this.couponBusy = false;
             }

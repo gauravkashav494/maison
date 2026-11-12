@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Faqs\Pages;
 
 use App\Filament\Resources\Faqs\FaqResource;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditFaq extends EditRecord
@@ -13,7 +15,7 @@ class EditFaq extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make(), RestoreAction::make(), ForceDeleteAction::make()->label('Delete permanently'),
         ];
     }
 }

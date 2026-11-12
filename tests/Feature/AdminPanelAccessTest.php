@@ -32,8 +32,8 @@ class AdminPanelAccessTest extends TestCase
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
 
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
 
         $this->operator = User::create([
             'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
@@ -43,7 +43,7 @@ class AdminPanelAccessTest extends TestCase
         foreach ([$this->alpha, $this->beta] as $client) {
             Product::withoutGlobalScopes()->create([
                 'client_id' => $client->id, 'template' => 'fashion',
-                'name' => $client->name.' Coat', 'slug' => $client->slug.'-coat', 'price' => 1000, 'is_active' => true,
+                'name' => $client->name.' Coat', 'slug' => $client->subdomain.'-coat', 'price' => 1000, 'is_active' => true,
             ]);
         }
     }

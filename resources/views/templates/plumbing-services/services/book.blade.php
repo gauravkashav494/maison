@@ -58,7 +58,7 @@
                     </button>
                 </div>
                 <div x-show="f.other" x-collapse class="mt-3">
-                    <label class="label" for="service_name">Tell us what you need</label>
+                    <label class="label" for="service_name">Tell us what you need<span class="req" aria-hidden="true">*</span></label>
                     <input id="service_name" type="text" x-model="f.service_name" placeholder="e.g. Water is dripping from the ceiling" class="field" :class="errors.service_name && 'field-error'">
                     <p class="error" x-show="errors.service_name" x-text="errors.service_name"></p>
                     <button type="button" @click="next()" class="btn btn-primary mt-3">Continue</button>
@@ -71,6 +71,7 @@
                 <p class="text-sm text-slate">Selected: <strong class="text-ink" x-text="serviceLabel"></strong> · <button type="button" @click="goto(1)" class="font-semibold text-primary">change</button></p>
                 <label class="label mt-4" for="problem">What is happening? <span class="font-normal text-slate">(optional but helpful)</span></label>
                 <textarea id="problem" name="problem" x-model="f.problem" rows="4" class="field" placeholder="e.g. The bathroom tap has been dripping for a week and the wall below is damp."></textarea>
+                <p class="error" x-show="errors.problem" x-text="errors.problem"></p>
                 <div class="mt-2 flex flex-wrap gap-1.5">@foreach(['Leaking', 'Blocked', 'No water', 'Low pressure', 'Broken', 'New installation'] as $hint)<button type="button" @click="f.problem = f.problem ? f.problem + ', ' + @js(strtolower($hint)) : @js($hint)" class="chip !h-8 text-xs">{{ $hint }}</button>@endforeach</div>
                 <div class="mt-5 flex justify-between"><button type="button" @click="back()" class="btn btn-ghost">Back</button><button type="button" @click="next()" class="btn btn-primary">Continue</button></div>
             </div>
@@ -81,7 +82,7 @@
                 <input id="area" name="area" list="areas" x-model="f.area" class="field" placeholder="Start typing your city" autocomplete="off" :class="errors.area && 'field-error'">
                 <datalist id="areas">@foreach($areas as $a)<option value="{{ $a->name }}">@endforeach</datalist>
                 <div class="mt-2 flex flex-wrap gap-1.5">@foreach($areas->take(6) as $a)<button type="button" @click="f.area = @js($a->name)" class="chip !h-8 text-xs" :class="f.area === @js($a->name) && 'chip-active'">{{ $a->name }}</button>@endforeach</div>
-                <label class="label mt-4" for="address">Full address</label>
+                <label class="label mt-4" for="address">Full address<span class="req" aria-hidden="true">*</span></label>
                 <textarea id="address" name="address" x-model="f.address" rows="3" class="field" placeholder="House / flat, building, street, landmark" :class="errors.address && 'field-error'"></textarea>
                 <p class="error" x-show="errors.address" x-text="errors.address"></p>
                 @auth
@@ -96,7 +97,7 @@
 
             {{-- Step 4: when --}}
             <div x-show="step === 4" x-cloak x-transition.opacity.duration.200ms>
-                <p class="label">Which day?</p>
+                <p class="label">Which day?<span class="req" aria-hidden="true">*</span></p>
                 <div class="grid grid-cols-3 gap-2">
                     <button type="button" @click="pickWhen('today')" class="option justify-center text-sm font-bold" :class="f.when === 'today' && 'option-active'">Today</button>
                     <button type="button" @click="pickWhen('tomorrow')" class="option justify-center text-sm font-bold" :class="f.when === 'tomorrow' && 'option-active'">Tomorrow</button>
@@ -104,7 +105,7 @@
                 </div>
                 <div x-show="f.when === 'date'" x-collapse class="mt-3"><input type="date" x-model="f.preferred_date" :min="today" class="field" aria-label="Preferred date"></div>
                 <p class="error" x-show="errors.preferred_date" x-text="errors.preferred_date"></p>
-                <p class="label mt-5">Preferred time</p>
+                <p class="label mt-5">Preferred time<span class="req" aria-hidden="true">*</span></p>
                 <div class="grid gap-2 sm:grid-cols-2">
                     @foreach(\App\Models\ServiceRequest::SLOTS as $key => $label)
                         <button type="button" @click="f.time_slot = @js($key)" class="option text-sm font-bold" :class="f.time_slot === @js($key) && 'option-active'"><span class="svc-ico h-8 w-8 rounded-lg {{ $key === 'asap' ? 'svc-ico-danger' : '' }}"><x-ico :name="$key === 'asap' ? 'bolt' : 'clock'" :size="16" /></span> {{ $label }}</button>
@@ -117,8 +118,8 @@
             {{-- Step 5: contact --}}
             <div x-show="step === 5" x-cloak x-transition.opacity.duration.200ms>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <div><label class="label" for="name">Your name</label><input id="name" name="name" x-model="f.name" class="field" autocomplete="name" :class="errors.name && 'field-error'"><p class="error" x-show="errors.name" x-text="errors.name"></p></div>
-                    <div><label class="label" for="phone">Mobile number</label><input id="phone" name="phone" type="tel" inputmode="tel" x-model="f.phone" class="field" placeholder="98765 43210" autocomplete="tel" :class="errors.phone && 'field-error'"><p class="error" x-show="errors.phone" x-text="errors.phone"></p></div>
+                    <div><label class="label" for="name">Your name<span class="req" aria-hidden="true">*</span></label><input id="name" name="name" x-model="f.name" class="field" autocomplete="name" :class="errors.name && 'field-error'"><p class="error" x-show="errors.name" x-text="errors.name"></p></div>
+                    <div><label class="label" for="phone">Mobile number<span class="req" aria-hidden="true">*</span></label><input id="phone" name="phone" type="tel" inputmode="tel" x-model="f.phone" class="field" placeholder="98765 43210" autocomplete="tel" :class="errors.phone && 'field-error'"><p class="error" x-show="errors.phone" x-text="errors.phone"></p></div>
                     <div class="sm:col-span-2"><label class="label" for="email">Email <span class="font-normal text-slate">(optional)</span></label><input id="email" name="email" type="email" x-model="f.email" class="field" autocomplete="email" :class="errors.email && 'field-error'"><p class="error" x-show="errors.email" x-text="errors.email"></p></div>
                 </div>
                 <p class="mt-3 text-xs text-slate">We call this number to confirm the slot. No spam, no marketing calls.</p>

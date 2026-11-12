@@ -97,7 +97,7 @@ class Templates extends Page
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments) => 'Theme preview of '.$this->template($arguments)->name())
             ->modalDescription(fn (array $arguments) => 'A public sample store at '
-                .\App\Models\Client::themeSlug($this->template($arguments)->id()).'.'.\App\Models\Client::baseDomain()
+                .\App\Models\Client::themeSubdomain($this->template($arguments)->id()).'.'.\App\Models\Client::baseDomain()
                 .', with its own sample content. Visitors can browse it but cannot order, book, sign in or send forms. '
                 .'Setting it up takes about half a minute; updating it only adds what is missing.')
             ->modalSubmitActionLabel('Go ahead')

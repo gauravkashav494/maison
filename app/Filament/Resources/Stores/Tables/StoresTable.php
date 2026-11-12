@@ -2,14 +2,15 @@
 
 namespace App\Filament\Resources\Stores\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Store;
 use App\Support\Media;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class StoresTable
@@ -26,7 +27,8 @@ class StoresTable
                 TextColumn::make('phone')->color('gray'),
                 ToggleColumn::make('is_active')->label('Visible'),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
     }
 }

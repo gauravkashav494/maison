@@ -5,6 +5,7 @@ namespace App\Clients;
 use App\Admin\StoreContext;
 use App\Contracts\AdminIdentity;
 use App\Models\ClientUser;
+use App\Models\Menu;
 use App\Models\MenuItem;
 use Illuminate\Database\Eloquent\Model;
 
@@ -48,7 +49,7 @@ class ClientAccess
             return true;
         }
 
-        $model = $record instanceof MenuItem ? \App\Models\Menu::class : ($record ? $record::class : null);
+        $model = $record instanceof MenuItem ? Menu::class : ($record ? $record::class : null);
         $module = $model ? ClientModules::forModel($model) : null;
 
         return $module !== null && self::current($module, 'update');

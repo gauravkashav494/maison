@@ -2,14 +2,16 @@
 
 namespace App\Filament\Resources\ServiceRequests\Tables;
 
+use App\Clients\ClientAccess;
+use App\Filament\Support\RowActions;
 use App\Models\ServiceRequest;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -22,7 +24,9 @@ class ServiceRequestsTable
             ->columns([
                 TextColumn::make('reference')->searchable()->weight('bold')->description(fn (ServiceRequest $r) => $r->created_at->format('d M Y, g:i a')),
                 TextColumn::make('type')->badge()->formatStateUsing(fn (string $state) => ServiceRequest::TYPES[$state] ?? $state)
-                    ->color(fn (string $state) => match ($state) { 'emergency' => 'danger', 'quote' => 'warning', default => 'info' }),
+                    ->color(fn (string $state) => match ($state) {
+                        'emergency' => 'danger', 'quote' => 'warning', default => 'info'
+                    }),
                 TextColumn::make('service_name')->label('Service')->searchable()->description(fn (ServiceRequest $r) => str($r->problem)->limit(50)),
                 TextColumn::make('name')->label('Customer')->searchable()->description(fn (ServiceRequest $r) => $r->phone),
                 TextColumn::make('area')->label('Area')->searchable()->toggleable(),
@@ -32,11 +36,12 @@ class ServiceRequestsTable
             ->filters([
                 SelectFilter::make('type')->options(ServiceRequest::TYPES),
                 SelectFilter::make('status')->options(ServiceRequest::STATUSES),
+                TrashedFilter::make(),
             ])
-            ->recordActions([EditAction::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make([
-                BulkAction::make('contacted')->label('Mark contacted')->icon('heroicon-o-phone')->authorize(fn () => \App\Clients\ClientAccess::current('service_requests', 'update'))->action(fn (Collection $records) => $records->each->update(['status' => 'contacted']))->deselectRecordsAfterCompletion(),
-                DeleteBulkAction::make(),
+                BulkAction::make('contacted')->label('Mark contacted')->icon('heroicon-o-phone')->authorize(fn () => ClientAccess::current('service_requests', 'update'))->action(fn (Collection $records) => $records->each->update(['status' => 'contacted']))->deselectRecordsAfterCompletion(),
+                ...RowActions::trashBulk(),
             ])]);
     }
 }

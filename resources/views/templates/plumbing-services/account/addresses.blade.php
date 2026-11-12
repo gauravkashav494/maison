@@ -14,10 +14,10 @@
                         <div class="mt-2 text-sm leading-relaxed text-slate">@foreach($a->lines() as $l)<p>{{ $l }}</p>@endforeach</div>
                         <div class="mt-3 flex gap-2">
                             <button type="button" @click="editing = {{ $a->id }}" class="btn btn-ghost btn-sm"><x-ico name="edit" :size="14" /> Edit</button>
-                            <form method="post" action="{{ route('account.addresses.destroy', $a) }}" onsubmit="return confirm('Remove this address?')">@csrf @method('DELETE')<button type="submit" class="btn btn-ghost btn-sm text-danger"><x-ico name="trash" :size="14" /> Remove</button></form>
+                            <form method="post" action="{{ route('account.addresses.destroy', $a) }}" onsubmit="return confirm('Remove this address?')" novalidate>@csrf @method('DELETE')<button type="submit" class="btn btn-ghost btn-sm text-danger"><x-ico name="trash" :size="14" /> Remove</button></form>
                         </div>
                     </div>
-                    <form x-show="editing === {{ $a->id }}" x-cloak method="post" action="{{ route('account.addresses.update', $a) }}" class="space-y-3">
+                    <form x-show="editing === {{ $a->id }}" x-cloak method="post" action="{{ route('account.addresses.update', $a) }}" class="space-y-3" novalidate>
                         @csrf @method('PUT') <input type="hidden" name="_editing" value="{{ $a->id }}">
                         @include('account.partials.address-fields', ['a' => $a])
                         <div class="flex gap-2"><button type="submit" class="btn btn-primary btn-sm">Save</button><button type="button" @click="editing = null" class="btn btn-ghost btn-sm">Cancel</button></div>
@@ -26,7 +26,7 @@
             @endforeach
             <div class="card border-2 border-dashed border-line shadow-none p-4">
                 <button type="button" x-show="!adding" @click="adding = true" class="flex h-full w-full flex-col items-center justify-center gap-2 py-6 text-sm font-semibold text-slate hover:text-primary"><span class="grid h-10 w-10 place-items-center rounded-full bg-sky text-primary"><x-ico name="plus" :size="20" /></span> Add a new address</button>
-                <form x-show="adding" x-cloak method="post" action="{{ route('account.addresses.store') }}" class="space-y-3">
+                <form x-show="adding" x-cloak method="post" action="{{ route('account.addresses.store') }}" class="space-y-3" novalidate>
                     @csrf
                     <p class="font-display text-sm font-extrabold">New address</p>
                     @include('account.partials.address-fields', ['a' => null])

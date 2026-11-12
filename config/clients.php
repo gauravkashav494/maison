@@ -30,7 +30,7 @@ return [
     // Connection whose credentials the per-client connections are cloned from.
     'connection' => env('CLIENT_CONNECTION') ?: env('DB_CONNECTION', 'mysql'),
 
-    // Naming of the per-client database / schema, suffixed with the client slug.
+    // Naming of the per-client database / schema, suffixed with the client subdomain.
     'prefix' => env('CLIENT_DB_PREFIX', 'client_'),
 
     // Product images allowed per client when neither the client nor its plan says otherwise.
@@ -43,7 +43,7 @@ return [
         'products', 'categories', 'collections', 'collection_product', 'coupons',
         'orders', 'order_items', 'reviews', 'pages', 'posts', 'faqs', 'menus', 'menu_items',
         'contact_messages', 'subscribers',
-        'services', 'service_areas', 'testimonials', 'projects', 'service_requests',
+        'services', 'service_areas', 'testimonials', 'projects', 'service_requests', 'stores',
     ],
 
     // Foreign keys that would point at the main database once a client is separated.

@@ -70,7 +70,7 @@
             <div class="space-y-4 lg:sticky lg:top-[7.5rem]">
                 <div class="card p-4">
                     <p class="text-sm font-extrabold">Have a promo code?</p>
-                    <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-2 flex gap-2" x-show="!$store.cart.coupon">
+                    <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-2 flex gap-2" x-show="!$store.cart.coupon" novalidate>
                         <input x-model="code" placeholder="Enter code" class="field h-10 flex-1 uppercase" aria-label="Promo code">
                         <button type="submit" :disabled="$store.cart.couponBusy" class="btn btn-outline h-10">Apply</button>
                     </form>

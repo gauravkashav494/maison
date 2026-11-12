@@ -64,6 +64,32 @@ abstract class Template
         return [];
     }
 
+    /**
+     * The store team's sign-in page (/client/login) for stores on this template. A client can
+     * override any of it in Site settings → Sign-in page. ":name" becomes the client's name.
+     *
+     * @return array{style: string, image: ?string, kicker: string, heading: string, subtitle: string, quote: string, quote_sub: string, help: string}
+     */
+    public function teamLogin(): array
+    {
+        return static::defaultTeamLogin();
+    }
+
+    /** The plain sign-in page, for a template that sets none of its own. */
+    public static function defaultTeamLogin(): array
+    {
+        return [
+            'style' => 'classic',
+            'image' => null,
+            'kicker' => 'Team sign-in',
+            'heading' => 'Welcome back',
+            'subtitle' => 'Sign in to manage :name.',
+            'quote' => 'Your store, all in one place.',
+            'quote_sub' => 'Orders, products, customers and content — managed from one calm dashboard.',
+            'help' => 'Trouble signing in? Ask your store admin to reset your access.',
+        ];
+    }
+
     /** Filament page classes that configure this template. */
     public function adminPages(): array
     {

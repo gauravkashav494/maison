@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPlatformConnection;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -22,9 +24,9 @@ use Illuminate\Support\Str;
  */
 class Client extends Model
 {
-    use \App\Models\Concerns\UsesPlatformConnection;
-
     use Concerns\LogsPlatformActivity;
+    use SoftDeletes;
+    use UsesPlatformConnection;
 
     public const COOKIE = 'client';
 
@@ -55,13 +57,19 @@ class Client extends Model
 
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(Plan::class);
+        return $this->belongsTo(Plan::class)->withTrashed();
     }
 
     /** Client Admin and Admin Staff accounts for this client. */
     public function users(): HasMany
     {
         return $this->hasMany(ClientUser::class)->orderBy('name');
+    }
+
+    /** Only its Client Admin accounts (edited on the client's own form). */
+    public function clientAdmins(): HasMany
+    {
+        return $this->hasMany(ClientUser::class)->where('role', ClientUser::ROLE_CLIENT_ADMIN)->orderBy('id');
     }
 
     public function roles(): HasMany
@@ -117,7 +125,7 @@ class Client extends Model
     /** Slug in a form that is safe inside an identifier or a connection name. */
     public function key(): string
     {
-        return str_replace('-', '_', (string) $this->slug);
+        return str_replace('-', '_', (string) $this->subdomain);
     }
 
     // ---- Limits ------------------------------------------------------------
@@ -169,14 +177,14 @@ class Client extends Model
         return Storefront::baseDomain();
     }
 
-    /** Host → client id for every active client (custom domain and <slug>.<base> forms). */
+    /** Host → client id for every active client (custom domain and <subdomain>.<base> forms). */
     public static function hostMap(): array
     {
         return Cache::remember('clients.hosts', 60, function () {
             $base = static::baseDomain();
             $map = [];
             foreach (static::withThemes()->active()->get() as $client) {
-                $map[strtolower($client->slug.'.'.$base)] = $client->id;
+                $map[strtolower($client->subdomain.'.'.$base)] = $client->id;
                 if ($client->domain) {
                     $map[strtolower($client->domain)] = $client->id;
                 }
@@ -194,18 +202,18 @@ class Client extends Model
         return static::hostMap()[$host] ?? null;
     }
 
-    /** Active client with this slug, if any. */
-    public static function idForSlug(?string $slug): ?int
+    /** Active client with this subdomain, if any. */
+    public static function idForSubdomain(?string $subdomain): ?int
     {
-        if (! $slug) {
+        if (! $subdomain) {
             return null;
         }
 
-        return static::active()->where('slug', strtolower($slug))->value('id');
+        return static::active()->where('subdomain', strtolower($subdomain))->value('id');
     }
 
     /**
-     * Public address of this client's storefront: its custom domain, else <slug>.<base domain>.
+     * Public address of this client's storefront: its custom domain, else <subdomain>.<base domain>.
      * A client is always reached on its own host, never through a path on the main domain.
      */
     public function publicUrl(): string
@@ -220,7 +228,7 @@ class Client extends Model
         $portNo = $request?->getPort() ?? ($app['port'] ?? null);
         $port = $portNo && ! in_array((int) $portNo, [80, 443], true) ? ':'.$portNo : '';
 
-        return $scheme.'://'.$this->slug.'.'.static::baseDomain().$port;
+        return $scheme.'://'.$this->subdomain.'.'.static::baseDomain().$port;
     }
 
     /** Sign-in page of the client panel, on the same host as the store. */
@@ -238,7 +246,7 @@ class Client extends Model
     }
 
     /** theme-<template>: the address word is config('templates.theme_prefix'). */
-    public static function themeSlug(string $templateId): string
+    public static function themeSubdomain(string $templateId): string
     {
         return config('templates.theme_prefix', 'theme-').$templateId;
     }
@@ -247,23 +255,23 @@ class Client extends Model
     public static function themeFor(?string $templateId): ?self
     {
         return $templateId
-            ? static::withThemes()->where('is_theme', true)->where('slug', static::themeSlug($templateId))->first()
+            ? static::withThemes()->where('is_theme', true)->where('subdomain', static::themeSubdomain($templateId))->first()
             : null;
     }
 
-    /** Suggests a unique slug for a new client. */
-    public static function uniqueSlug(string $name): string
+    /** Suggests a unique subdomain for a new client. */
+    public static function uniqueSubdomain(string $name): string
     {
         $base = Str::slug($name) ?: 'client';
         // The theme- prefix is kept for theme previews.
         if (str_starts_with($base, config('templates.theme_prefix', 'theme-'))) {
             $base = 'store-'.$base;
         }
-        $slug = $base;
-        for ($i = 2; static::withThemes()->where('slug', $slug)->exists(); $i++) {
-            $slug = $base.'-'.$i;
+        $subdomain = $base;
+        for ($i = 2; static::withThemes()->where('subdomain', $subdomain)->exists(); $i++) {
+            $subdomain = $base.'-'.$i;
         }
 
-        return $slug;
+        return $subdomain;
     }
 }

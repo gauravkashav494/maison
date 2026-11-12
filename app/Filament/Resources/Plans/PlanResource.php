@@ -2,22 +2,21 @@
 
 namespace App\Filament\Resources\Plans;
 
+use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Support\RowActions;
 use App\Models\Plan;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Pages\CreateRecord;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 /**
@@ -26,6 +25,8 @@ use Filament\Tables\Table;
  */
 class PlanResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = Plan::class;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -70,8 +71,9 @@ class PlanResource extends Resource
                 TextColumn::make('clients_count')->counts('clients')->label('Clients')->alignRight(),
                 IconColumn::make('is_default')->label('Default')->boolean(),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
     }
 
     public static function getPages(): array

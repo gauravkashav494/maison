@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Storefronts\Pages;
 
 use App\Filament\Resources\Storefronts\StorefrontResource;
 use App\Models\Storefront;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListStorefronts extends ListRecords
@@ -17,8 +16,8 @@ class ListStorefronts extends ListRecords
         parent::mount();
     }
 
-    protected function getHeaderActions(): array
+    public function getSubheading(): ?string
     {
-        return [CreateAction::make()];
+        return 'One store per template, created automatically when a template is added.';
     }
 }

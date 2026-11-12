@@ -9,11 +9,8 @@
 <x-page-hero eyebrow="Secure checkout" title="Checkout" :breadcrumbs="['Shopping Bag' => route('cart'), 'Checkout' => null]" />
 
 <section class="container-luxe py-12 lg:py-16" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
-    @if($errors->any())
-        <div class="mb-8 border border-rouge/30 bg-rouge/5 px-5 py-4 text-sm text-rouge">Please check the highlighted fields below.</div>
-    @endif
 
-    <form method="post" action="{{ route('checkout.place') }}" class="grid gap-12 lg:grid-cols-12 lg:gap-16" @submit="submitting = true">
+    <form method="post" action="{{ route('checkout.place') }}" class="grid gap-12 lg:grid-cols-12 lg:gap-16" @submit="submitting = true" novalidate>
         @csrf
         <div class="space-y-12 lg:col-span-7">
             {{-- Contact --}}
@@ -21,8 +18,8 @@
                 <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">01</span><span class="font-serif text-2xl">Contact information</span></legend>
                 @guest<p class="mt-2 text-sm text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a> for a faster checkout.</p>@endguest
                 <div class="mt-6 grid gap-6 sm:grid-cols-2">
-                    <label><span class="{{ $label }}">Email</span><input name="email" type="email" required value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Phone</span><input name="phone" type="tel" required value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                 </div>
             </fieldset>
 
@@ -30,20 +27,21 @@
             <fieldset>
                 <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">02</span><span class="font-serif text-2xl">Shipping address</span></legend>
                 <div class="mt-6 grid gap-6 sm:grid-cols-2">
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Full name</span><input name="shipping_name" required value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Address</span><input name="shipping_line1" required value="{{ $old('shipping_line1', $address?->line1) }}" class="{{ $field }}" autocomplete="address-line1" placeholder="House / flat, street">@error('shipping_line1')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Apartment, landmark (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="{{ $field }}" autocomplete="address-line2"></label>
-                    <label><span class="{{ $label }}">City</span><input name="shipping_city" required value="{{ $old('shipping_city', $address?->city) }}" class="{{ $field }}" autocomplete="address-level2">@error('shipping_city')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">State</span><input name="shipping_state" required value="{{ $old('shipping_state', $address?->state) }}" class="{{ $field }}" autocomplete="address-level1">@error('shipping_state')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Postal code</span><input name="shipping_postal_code" required value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="{{ $field }}" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Country</span><input name="shipping_country" required value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="{{ $field }}" autocomplete="country-name"></label>
+                    <label class="sm:col-span-2"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-2"><span class="{{ $label }}">Address<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="{{ $field }}" autocomplete="address-line1" placeholder="House / flat, street">@error('shipping_line1')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-2"><span class="{{ $label }}">Apartment, landmark (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="{{ $field }}" autocomplete="address-line2">@error('shipping_line2')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="{{ $field }}" autocomplete="address-level2">@error('shipping_city')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="{{ $field }}" autocomplete="address-level1">@error('shipping_state')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">Postal code<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="{{ $field }}" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label><span class="{{ $label }}">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="{{ $field }}" autocomplete="country-name">@error('shipping_country')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                 </div>
                 @auth<label class="mt-5 flex items-center gap-3 text-sm"><input type="checkbox" name="save_address" value="1" class="accent-ink" checked> Save this address to my account</label>@endauth
             </fieldset>
 
             {{-- Shipping method --}}
             <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">03</span><span class="font-serif text-2xl">Delivery method</span></legend>
+                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">03</span><span class="font-serif text-2xl">Delivery method<span class="req" aria-hidden="true">*</span></span></legend>
+                @error('shipping_method')<p class="mt-2 text-xs text-rouge">{{ $message }}</p>@enderror
                 <div class="mt-6 divide-y divide-ink/10 border border-ink/15">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
@@ -60,7 +58,7 @@
 
             {{-- Payment --}}
             <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">04</span><span class="font-serif text-2xl">Payment</span></legend>
+                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">04</span><span class="font-serif text-2xl">Payment<span class="req" aria-hidden="true">*</span></span></legend>
                 <p class="mt-2 flex items-center gap-2 text-xs text-smoke"><x-ico name="lock" :size="12" /> All transactions are encrypted. We never store card details.</p>
                 <div class="mt-6 divide-y divide-ink/10 border border-ink/15">
                     @foreach($paymentMethods as $code => $name)
@@ -108,7 +106,7 @@
                 @error('payment_method')<p class="mt-2 text-xs text-rouge">{{ $message }}</p>@enderror
             </fieldset>
 
-            <label class="block"><span class="{{ $label }}">Order notes (optional)</span><textarea name="notes" rows="2" class="{{ $field }}" placeholder="Gift message, delivery instructions…">{{ $old('notes') }}</textarea></label>
+            <label class="block"><span class="{{ $label }}">Order notes (optional)</span><textarea name="notes" rows="2" class="{{ $field }}" placeholder="Gift message, delivery instructions…">{{ $old('notes') }}</textarea>@error('notes')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
         </div>
 
         {{-- Summary --}}

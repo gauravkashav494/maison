@@ -109,4 +109,14 @@ class SimpleTemplate extends Template
             ],
         ];
     }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => null,
+            'kicker' => 'Team sign-in',
+            'quote' => 'Orders, line by line.',
+            'quote_sub' => 'Products, stock and orders in one simple list.',
+        ]);
+    }
 }

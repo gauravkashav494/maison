@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Reviews;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Reviews\Pages\CreateReview;
 use App\Filament\Resources\Reviews\Pages\EditReview;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class ReviewResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = Review::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedStar;

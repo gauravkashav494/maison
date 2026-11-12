@@ -31,7 +31,7 @@ class OrderFulfilmentTest extends TestCase
 
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
-        $this->client = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->client = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
         $this->staff = ClientUser::create([
             'client_id' => $this->client->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test',
             'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
@@ -185,7 +185,7 @@ class OrderFulfilmentTest extends TestCase
     public function test_an_order_of_another_client_cannot_be_fulfilled(): void
     {
         $otherStore = Storefront::create(['name' => 'Grocery Store', 'slug' => 'grocery', 'template' => 'grocery', 'is_active' => true]);
-        $other = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $otherStore->id, 'is_active' => true]);
+        $other = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $otherStore->id, 'is_active' => true]);
         $theirOrder = Order::withoutGlobalScopes()->create([
             'client_id' => $other->id, 'template' => 'grocery', 'number' => 'ME-OTHER-1',
             'email' => 'shopper@beta.test', 'status' => 'confirmed',

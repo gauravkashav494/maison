@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Pages;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Pages\Pages\CreatePage;
 use App\Filament\Resources\Pages\Pages\EditPage;
 use App\Filament\Resources\Pages\Pages\ListPages;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class PageResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = Page::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;

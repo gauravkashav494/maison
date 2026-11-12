@@ -136,7 +136,8 @@ Alpine.data('heroCarousel', (count = 1, interval = 6000) => ({
 /* Before/after image comparison (range input drives a CSS variable). */
 Alpine.data('beforeAfter', () => ({ pos: 50 }));
 
-/* Booking wizard: six short steps with validation per step, summary at the end. */
+/* Booking wizard: six short steps and a summary. Nothing is checked in the browser: the server
+   validates every field and its errors are mapped back to the step that holds the field. */
 Alpine.data('booking', (cfg) => ({
     step: 1,
     total: 6,
@@ -183,27 +184,14 @@ Alpine.data('booking', (cfg) => ({
     stepFor(field) { return ({ service_id: 1, service_name: 1, problem: 2, address: 3, area: 3, preferred_date: 4, time_slot: 4, name: 5, phone: 5, email: 5 })[field] || 1; },
     pickService(s) { this.f.service_id = s ? s.id : ''; this.f.service_name = s ? s.name : ''; this.f.other = !s; this.f.type = s?.is_emergency ? 'emergency' : 'booking'; if (s) this.next(); },
     pickWhen(when) { this.f.when = when; if (when === 'today') this.f.preferred_date = this.today; else if (when === 'tomorrow') this.f.preferred_date = this.tomorrow; else if (when === 'asap') { this.f.preferred_date = this.today; this.f.time_slot = 'asap'; } else this.f.preferred_date = ''; },
-    validate() {
-        const e = {};
-        if (this.step === 1 && !this.f.service_id && !this.f.service_name.trim()) e.service_name = 'Pick a service or tell us what you need.';
-        if (this.step === 3 && !this.f.address.trim()) e.address = 'Enter the address where the plumber should come.';
-        if (this.step === 4) { if (!this.f.preferred_date) e.preferred_date = 'Choose a day.'; if (!this.f.time_slot) e.time_slot = 'Choose a time.'; }
-        if (this.step === 5) {
-            if (!this.f.name.trim()) e.name = 'Enter your name.';
-            if (!/^[0-9+\s-]{10,15}$/.test(this.f.phone.trim())) e.phone = 'Enter a valid 10-digit mobile number.';
-            if (this.f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.f.email)) e.email = 'That email does not look right.';
-        }
-        this.errors = e;
-        return Object.keys(e).length === 0;
-    },
-    next() { if (!this.validate()) return; if (this.step < this.total) { this.step++; this.scrollTop(); } },
+    next() { if (this.step < this.total) { this.step++; this.scrollTop(); } },
     back() { if (this.step > 1) { this.step--; this.errors = {}; this.scrollTop(); } },
     goto(n) { if (n < this.step) { this.step = n; this.errors = {}; this.scrollTop(); } },
     scrollTop() { this.$nextTick(() => { this.$root.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); },
-    submit() { if (!this.validate()) return; this.submitting = true; this.$refs.form.submit(); },
+    submit() { this.submitting = true; this.$refs.form.submit(); },
 }));
 
-/* Plain forms (quote, contact): client-side hint before the server validates. */
+/* Plain forms (quote, contact): the server validates; this only guards against double submits. */
 Alpine.data('leadForm', () => ({
     submitting: false,
     submit() { this.submitting = true; this.$el.submit(); },

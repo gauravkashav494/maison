@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Storefront\ContactRequest;
+use App\Http\Requests\Storefront\ReviewRequest;
+use App\Http\Requests\Storefront\TrackOrderRequest;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\ContactMessage;
@@ -102,16 +105,10 @@ class CatalogController extends Controller
         ]);
     }
 
-    public function storeReview(Request $request, string $slug): RedirectResponse
+    public function storeReview(ReviewRequest $request, string $slug): RedirectResponse
     {
         $product = Product::active()->where('slug', $slug)->firstOrFail();
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:80'],
-            'email' => ['nullable', 'email', 'max:190'],
-            'rating' => ['required', 'integer', 'min:1', 'max:5'],
-            'title' => ['nullable', 'string', 'max:120'],
-            'body' => ['required', 'string', 'max:2000'],
-        ]);
+        $data = $request->validated();
         $product->reviews()->create($data + ['customer_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
 
         return back()->with('review_status', 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
@@ -213,16 +210,9 @@ class CatalogController extends Controller
         return view("pages.templates.{$template}", ['page' => $page, 'seo' => Seo::forModel($page, $page->url, 'article')] + $extra);
     }
 
-    public function contactStore(Request $request): RedirectResponse
+    public function contactStore(ContactRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:80'],
-            'email' => ['required', 'email', 'max:190'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'subject' => ['nullable', 'string', 'max:120'],
-            'message' => ['required', 'string', 'max:3000'],
-            'website' => ['prohibited'], // honeypot
-        ]);
+        $data = $request->validated();
         unset($data['website']);
         ContactMessage::create($data + ['template' => template()->id()]);
 
@@ -256,10 +246,11 @@ class CatalogController extends Controller
     {
         $order = null;
         $error = null;
-        if ($request->filled('number')) {
-            $request->validate(['number' => ['required', 'string', 'max:40'], 'email' => ['required', 'email']]);
-            $order = Order::with('items')->where('number', strtoupper(trim($request->number)))
-                ->whereRaw('lower(email) = ?', [strtolower(trim($request->email))])->first();
+        // The form was submitted (even empty): every field is checked on the server.
+        if ($request->hasAny(['number', 'email'])) {
+            $data = app(TrackOrderRequest::class)->validated();
+            $order = Order::with('items')->where('number', strtoupper($data['number']))
+                ->whereRaw('lower(email) = ?', [$data['email']])->first();
             $error = $order ? null : 'We could not find an order with that number and email.';
         }
 

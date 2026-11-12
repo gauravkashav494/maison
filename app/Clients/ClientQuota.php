@@ -50,7 +50,8 @@ class ClientQuota
 
     private function products()
     {
-        $query = Product::withoutGlobalScopes();
+        // Every scope off except "not deleted": archived products do not count towards the plan.
+        $query = Product::withoutGlobalScopes()->whereNull('deleted_at');
 
         // In a shared database the client column is what separates the clients.
         return app(ClientDatabase::class)->isolated() ? $query : $query->where('client_id', $this->client->id);
@@ -147,9 +148,9 @@ class ClientQuota
      * to the count. Only growth past the limit is refused, so the allowance never locks an
      * account out of its own catalogue.
      *
-     * @param  array<string>  $paths      images the save keeps, as stored paths
+     * @param  array<string>  $paths  images the save keeps, as stored paths
      * @param  array<string>  $replacing  images the record holds today; they free their slot
-     * @param  int  $added                files being uploaded now, not yet named
+     * @param  int  $added  files being uploaded now, not yet named
      */
     public function wouldExceedImages(array $paths, array $replacing = [], int $added = 0): bool
     {
@@ -188,7 +189,7 @@ class ClientQuota
     public function directories(): array
     {
         return array_values(array_unique(array_filter([
-            'clients/'.$this->client->slug,
+            'clients/'.$this->client->subdomain,
             'stores/'.($this->client->storefront?->slug ?? ''),
             (string) $this->client->templateId(),
         ])));

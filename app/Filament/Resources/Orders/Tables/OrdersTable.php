@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Order;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -10,8 +11,8 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -19,6 +20,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 
 /**
  * Order list and the manual fulfilment actions: Dispatch, Delivered and Cancel.
@@ -65,7 +67,7 @@ class OrdersTable
                     // The date logic itself lives on the model, so it is one definition and testable.
                     ->query(fn (Builder $query, array $data) => $query->placedOn($data['date'] ?? null))
                     ->indicateUsing(fn (array $data) => filled($data['date'] ?? null)
-                        ? 'Placed on '.\Illuminate\Support\Carbon::parse($data['date'])->format('d M Y')
+                        ? 'Placed on '.Carbon::parse($data['date'])->format('d M Y')
                         : null),
 
                 // Or a range; either end may be left open.
@@ -77,8 +79,8 @@ class OrdersTable
                     ->query(fn (Builder $query, array $data) => $query->placedBetween($data['from'] ?? null, $data['until'] ?? null))
                     ->indicateUsing(function (array $data) {
                         $parts = [];
-                        filled($data['from'] ?? null) and $parts[] = 'from '.\Illuminate\Support\Carbon::parse($data['from'])->format('d M Y');
-                        filled($data['until'] ?? null) and $parts[] = 'until '.\Illuminate\Support\Carbon::parse($data['until'])->format('d M Y');
+                        filled($data['from'] ?? null) and $parts[] = 'from '.Carbon::parse($data['from'])->format('d M Y');
+                        filled($data['until'] ?? null) and $parts[] = 'until '.Carbon::parse($data['until'])->format('d M Y');
 
                         return $parts ? 'Placed '.implode(' ', $parts) : null;
                     }),
@@ -86,7 +88,7 @@ class OrdersTable
             ->filtersFormColumns(2)
             // Every applied filter shows as a removable chip, and "Reset filters" clears them all.
             ->deferFilters(false)
-            ->recordActions([
+            ->recordActions([RowActions::group([
                 Action::make('dispatch')
                     ->label('Dispatch')
                     ->icon('heroicon-o-truck')
@@ -148,7 +150,7 @@ class OrdersTable
 
                 ViewAction::make(),
                 EditAction::make(),
-            ])
+            ])])
             ->toolbarActions([
                 BulkActionGroup::make([
                     self::bulkMove('dispatchSelected', 'Mark as dispatched', Order::STATUS_DISPATCHED, 'heroicon-o-truck', 'primary'),

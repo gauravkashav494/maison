@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Stores\Pages;
 
 use App\Filament\Resources\Stores\StoreResource;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditStore extends EditRecord
@@ -13,7 +15,7 @@ class EditStore extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make(), RestoreAction::make(), ForceDeleteAction::make()->label('Delete permanently'),
         ];
     }
 }

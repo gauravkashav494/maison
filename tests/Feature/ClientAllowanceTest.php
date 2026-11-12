@@ -36,7 +36,7 @@ class ClientAllowanceTest extends TestCase
 
         $this->plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
-        $this->client = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $this->plan->id, 'is_active' => true]);
+        $this->client = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $this->plan->id, 'is_active' => true]);
     }
 
     private function product(array $images, string $slug = 'p1'): Product
@@ -70,7 +70,7 @@ class ClientAllowanceTest extends TestCase
         $this->assertSame(500, $this->client->fresh()->imageLimit());
 
         // A client with no plan and no value of its own falls back to the platform default.
-        $other = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $this->client->storefront_id, 'is_active' => true]);
+        $other = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $this->client->storefront_id, 'is_active' => true]);
         $this->assertSame(50, $other->imageLimit());
     }
 
@@ -86,7 +86,7 @@ class ClientAllowanceTest extends TestCase
         $this->assertSame(4, $quota->imageCount(), 'a, b, c and d — each counted once.');
 
         // Another client's images are not counted against this one.
-        $other = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $this->client->storefront_id, 'is_active' => true]);
+        $other = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $this->client->storefront_id, 'is_active' => true]);
         Product::withoutGlobalScopes()->create([
             'client_id' => $other->id, 'template' => 'fashion', 'name' => 'Theirs', 'slug' => 'theirs',
             'price' => 1, 'stock' => 1, 'images' => ['x.jpg', 'y.jpg', 'z.jpg'],
