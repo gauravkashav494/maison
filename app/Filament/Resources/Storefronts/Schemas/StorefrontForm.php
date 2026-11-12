@@ -39,7 +39,8 @@ class StorefrontForm
             ]),
             Section::make('Public address')
                 ->description(fn (?Storefront $record) => $record
-                    ? 'Each client running this store has its own address (Platform → Clients). '.$record->publicUrl().' is the store\'s own demo address.'
+                    ? 'Each client running this store has its own address (Platform → Clients). The theme preview is '
+                        .($record->theme()?->publicUrl() ?? 'not set up yet (Appearance → Templates → Set up theme)').'.'
                     : 'The store gets an address on this domain as soon as it is saved.')
                 ->columns(2)
                 ->schema([

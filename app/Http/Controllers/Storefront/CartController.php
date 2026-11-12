@@ -172,7 +172,10 @@ class CartController extends Controller
         $cart = $this->cart->toArray();
         $codFee = $data['payment_method'] === 'cod' ? (int) setting('checkout.cod_fee', 0) : 0;
 
-        $order = DB::transaction(function () use ($data, $cart, $codFee, $request) {
+        // Orders, items and stock live on the client connection; addresses and coupons may live on
+        // the central one. Wrap both so a late failure doesn't leave a half-placed order behind.
+        $clientConnection = DB::connection((new Order)->getConnectionName());
+        $order = $clientConnection->transaction(fn () => DB::transaction(function () use ($data, $cart, $codFee, $request) {
             $order = Order::create([
                 'number' => Order::generateNumber(),
                 'template' => template()->id(),
@@ -238,7 +241,7 @@ class CartController extends Controller
             }
 
             return $order;
-        });
+        }));
 
         $this->cart->clear();
         session(['last_order_number' => $order->number]);

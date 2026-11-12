@@ -50,7 +50,10 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('admin')
+            // The root of the main domain (ecomvision.test/, /login, /clients ...). Main domain
+            // only: client subdomains have their store and the client panel, never this one.
+            ->path('')
+            ->domain(\App\Models\Storefront::baseDomain())
             ->authGuard('admin')
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')

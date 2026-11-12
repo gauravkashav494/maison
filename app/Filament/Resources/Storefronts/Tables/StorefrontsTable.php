@@ -24,8 +24,8 @@ class StorefrontsTable
                 TextColumn::make('clients_count')->label('Clients')->counts('clients')->alignRight()
                     ->description(fn (Storefront $r) => Client::where('storefront_id', $r->id)->where('is_active', true)->count().' active')
                     ->tooltip('Each client has its own database, staff and customers'),
-                TextColumn::make('public_url')->label('Demo address')->state(fn (Storefront $r) => $r->publicUrl())->url(fn (Storefront $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square')
-                    ->description(fn (Storefront $r) => $r->publicUrl() === $r->entryUrl() ? null : 'or '.$r->entryUrl()),
+                TextColumn::make('theme_url')->label('Theme preview')->state(fn (Storefront $r) => $r->theme()?->publicUrl())->placeholder('Not set up')
+                    ->url(fn (Storefront $r) => $r->theme()?->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square'),
                 TextColumn::make('product_limit')->label('Default limits')->placeholder('Unlimited')
                     ->formatStateUsing(fn (?int $state) => $state === null ? 'Unlimited products' : number_format($state).' products')
                     ->description(fn (Storefront $r) => $r->storage_limit_mb === null ? 'Unlimited storage' : number_format($r->storage_limit_mb).' MB storage'),

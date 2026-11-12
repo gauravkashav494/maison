@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Plan extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use Concerns\LogsPlatformActivity;
 
     protected $guarded = [];

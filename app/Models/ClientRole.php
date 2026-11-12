@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class ClientRole extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use LogsPlatformActivity;
 
     protected $fillable = ['client_id', 'name', 'description', 'permissions'];

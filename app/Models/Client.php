@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
  */
 class Client extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use Concerns\LogsPlatformActivity;
 
     public const COOKIE = 'client';
@@ -31,10 +33,14 @@ class Client extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'modules' => 'array'];
+    protected $casts = ['is_active' => 'boolean', 'is_theme' => 'boolean', 'modules' => 'array'];
+
+    /** Global scope that keeps theme previews out of every client list, count and total. */
+    public const HIDE_THEMES = 'hide_themes';
 
     protected static function booted(): void
     {
+        static::addGlobalScope(self::HIDE_THEMES, fn (Builder $query) => $query->where($query->qualifyColumn('is_theme'), false));
         static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
         static::saved(fn () => Cache::forget('clients.hosts'));
         static::deleted(fn () => Cache::forget('clients.hosts'));
@@ -169,7 +175,7 @@ class Client extends Model
         return Cache::remember('clients.hosts', 60, function () {
             $base = static::baseDomain();
             $map = [];
-            foreach (static::active()->get() as $client) {
+            foreach (static::withThemes()->active()->get() as $client) {
                 $map[strtolower($client->slug.'.'.$base)] = $client->id;
                 if ($client->domain) {
                     $map[strtolower($client->domain)] = $client->id;
@@ -188,7 +194,7 @@ class Client extends Model
         return static::hostMap()[$host] ?? null;
     }
 
-    /** Client pinned by the entry-link cookie (/client-site/<slug>), if it is still active. */
+    /** Active client with this slug, if any. */
     public static function idForSlug(?string $slug): ?int
     {
         if (! $slug) {
@@ -198,20 +204,14 @@ class Client extends Model
         return static::active()->where('slug', strtolower($slug))->value('id');
     }
 
-    /** Entry link on the main domain; works without any DNS setup. */
-    public function entryUrl(): string
-    {
-        return rtrim(config('app.url'), '/').'/store/'.$this->slug;
-    }
-
-    /** Public address of this client's storefront, in the configured style. */
+    /**
+     * Public address of this client's storefront: its custom domain, else <slug>.<base domain>.
+     * A client is always reached on its own host, never through a path on the main domain.
+     */
     public function publicUrl(): string
     {
         if ($this->domain) {
             return 'https://'.$this->domain;
-        }
-        if (config('templates.store_urls') === 'path') {
-            return $this->entryUrl();
         }
         // Scheme and port follow the current request (dev servers run on :8000), else APP_URL.
         $request = app()->bound('request') ? request() : null;
@@ -223,12 +223,44 @@ class Client extends Model
         return $scheme.'://'.$this->slug.'.'.static::baseDomain().$port;
     }
 
+    /** Sign-in page of the client panel, on the same host as the store. */
+    public function loginUrl(): string
+    {
+        return $this->publicUrl().'/client/login';
+    }
+
+    // ---- Theme previews ----------------------------------------------------
+
+    /** Clients including the theme previews, for code that must reach them. */
+    public static function withThemes(): Builder
+    {
+        return static::withoutGlobalScope(self::HIDE_THEMES);
+    }
+
+    /** theme-<template>: the address word is config('templates.theme_prefix'). */
+    public static function themeSlug(string $templateId): string
+    {
+        return config('templates.theme_prefix', 'theme-').$templateId;
+    }
+
+    /** The theme preview of a template, if it has been built. */
+    public static function themeFor(?string $templateId): ?self
+    {
+        return $templateId
+            ? static::withThemes()->where('is_theme', true)->where('slug', static::themeSlug($templateId))->first()
+            : null;
+    }
+
     /** Suggests a unique slug for a new client. */
     public static function uniqueSlug(string $name): string
     {
         $base = Str::slug($name) ?: 'client';
+        // The theme- prefix is kept for theme previews.
+        if (str_starts_with($base, config('templates.theme_prefix', 'theme-'))) {
+            $base = 'store-'.$base;
+        }
         $slug = $base;
-        for ($i = 2; static::where('slug', $slug)->exists(); $i++) {
+        for ($i = 2; static::withThemes()->where('slug', $slug)->exists(); $i++) {
             $slug = $base.'-'.$i;
         }
 

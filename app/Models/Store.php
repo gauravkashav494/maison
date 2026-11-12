@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Store extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     protected $guarded = [];
 
     protected $casts = ['is_active' => 'boolean'];

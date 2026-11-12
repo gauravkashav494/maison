@@ -101,8 +101,8 @@ class ClientPermissionsTest extends TestCase
     {
         $this->actingAs($this->operator, 'admin');
 
-        foreach (['', '/clients', '/client-users', '/client-totals', '/storefronts', '/plans', '/stores', '/users', '/platform-activities', '/templates', '/site-settings'] as $path) {
-            $this->get('/admin'.$path)->assertSuccessful();
+        foreach (['', '/clients', '/client-users', '/client-totals', '/storefronts', '/plans', '/stores', '/users', '/platform-activities', '/appearance/templates', '/site-settings'] as $path) {
+            $this->get($path === '' ? '/' : $path)->assertSuccessful();
         }
     }
 
@@ -115,7 +115,7 @@ class ClientPermissionsTest extends TestCase
             'faqs', 'menus', 'contact-messages', 'subscribers', 'services', 'service-areas', 'service-requests',
             'projects', 'testimonials', 'client-roles', 'homepage-settings', 'grocery-settings',
         ] as $path) {
-            $this->get('/admin/'.$path)->assertNotFound();
+            $this->assertNotSame(200, $this->get('/'.$path)->getStatusCode(), $path);
         }
     }
 
@@ -132,7 +132,7 @@ class ClientPermissionsTest extends TestCase
     {
         $this->actingAs($this->operator, 'admin');
 
-        $this->get('/admin?switch_client='.$this->alpha->id)->assertSuccessful();
+        $this->get('/?switch_client='.$this->alpha->id)->assertSuccessful();
         $this->assertNull(session(ClientContext::SESSION_KEY));
         $this->assertNull(app(ClientContext::class)->client());
     }
@@ -149,7 +149,7 @@ class ClientPermissionsTest extends TestCase
         ]);
         $this->actingAs($this->operator, 'admin');
 
-        foreach (['/admin', '/admin/client-totals'] as $path) {
+        foreach (['/', '/client-totals'] as $path) {
             $this->get($path)->assertSuccessful()
                 ->assertDontSee('asha@shopper.test')
                 ->assertDontSee('Asha Shopper')
@@ -157,7 +157,7 @@ class ClientPermissionsTest extends TestCase
                 ->assertDontSee('Alpha Coat');
         }
 
-        $this->get('/admin/client-totals')->assertSee('Alpha')->assertSee(money(700));
+        $this->get('/client-totals')->assertSee('Alpha')->assertSee(money(700));
     }
 
     public function test_the_operator_sees_client_admins_but_not_the_rest_of_their_team(): void
@@ -165,18 +165,18 @@ class ClientPermissionsTest extends TestCase
         $staff = $this->staff(['products.view']);
         $this->actingAs($this->operator, 'admin');
 
-        $this->get('/admin/client-users')->assertSuccessful()
+        $this->get('/client-users')->assertSuccessful()
             ->assertSee('admin@alpha.test')
             ->assertDontSee($staff->email);
-        $this->get('/admin/client-users/'.$staff->id.'/edit')->assertNotFound();
+        $this->get('/client-users/'.$staff->id.'/edit')->assertNotFound();
     }
 
     public function test_a_client_account_never_reaches_the_platform_panel(): void
     {
         $this->actingAs($this->alphaAdmin, 'client');
 
-        $this->get('/admin')->assertRedirect('/admin/login');
-        $this->get('/admin/client-totals')->assertRedirect('/admin/login');
+        $this->get('/')->assertRedirect('/login');
+        $this->get('/client-totals')->assertRedirect('/login');
     }
 
     // ---- Staff roles ------------------------------------------------------------------------
@@ -411,7 +411,7 @@ class ClientPermissionsTest extends TestCase
     {
         $this->actingAs($this->operator, 'admin');
 
-        foreach (['/admin', '/admin/clients', '/admin/client-totals'] as $path) {
+        foreach (['/', '/clients', '/client-totals'] as $path) {
             $this->get($path)->assertSuccessful()->assertDontSee('switch_client');
         }
     }

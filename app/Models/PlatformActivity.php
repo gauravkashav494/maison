@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** One line of the platform activity log, written by the LogsPlatformActivity trait. */
 class PlatformActivity extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     public const UPDATED_AT = null;
 
     protected $guarded = [];

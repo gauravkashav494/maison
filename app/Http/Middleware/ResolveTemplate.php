@@ -36,8 +36,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Selects the client and the template for a storefront request.
  *
- * The client comes from the host (<slug>.<base domain> or a custom domain), or from the
- * entry-link cookie set by /store/<slug> when there is no DNS for subdomains. That client
+ * The client comes from the host (<slug>.<base domain> or a custom domain). The main domain is
+ * the Super Admin panel, so a storefront path there redirects to the panel. That client
  * decides three things: which database the content models read, the `client_id` scope on
  * every query, and the template whose views are used. A signed-in shopper belonging to a
  * different client is signed out rather than shown this client's pages — a session cannot
@@ -47,6 +47,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveTemplate
 {
+    public const THEME_NOTICE = 'This is a theme preview: ordering, booking, sign-in and forms are switched off.';
+
     /** Route names that only make sense with a product catalogue. */
     public const CATALOGUE_ROUTES = ['shop.*', 'collections.*', 'products.*', 'search', 'cart', 'cart.*', 'checkout', 'checkout.*', 'orders.*', 'track', 'api.search', 'api.products', 'api.product', 'account.orders', 'account.order', 'account.wishlist'];
 
@@ -64,7 +66,7 @@ class ResolveTemplate
     {
         // Admin panels, Livewire (update/upload endpoints use a hashed prefix) and health checks
         // are not storefront requests.
-        if ($request->is('admin', 'admin/*', 'client', 'client/*', 'livewire*', 'up') || $request->hasHeader('X-Livewire')) {
+        if ($request->is('client', 'client/*', 'livewire*', 'up') || $request->hasHeader('X-Livewire')) {
             return $next($request);
         }
 
@@ -75,11 +77,35 @@ class ResolveTemplate
             return $this->previewTemplate($request, $manager);
         }
 
-        // Each client is public on its own host (<slug>.<base domain> or a custom domain); the
-        // main domain serves the template activated under Appearance → Templates.
+        // Each client is public on its own host (<slug>.<base domain> or a custom domain).
         $client = $this->clientForRequest($request);
+        $hostTemplate = $client ? null : Storefront::templateForHost($request->getHost());
+
+        // The old entry links (/store/<slug>, /c/<slug>, /bulkorder) redirect on their own.
+        $isEntryLink = $request->is('store/*', 'c/*', 'bulkorder');
+
+        if (! $client && ! $isEntryLink) {
+            // The main domain is the Super Admin panel, never a store.
+            if (! $hostTemplate) {
+                return redirect()->to(\Filament\Facades\Filament::getPanel('admin')->getUrl());
+            }
+            // A store's own subdomain (<store>.<base>) shows its template's theme preview.
+            $theme = Client::themeFor($hostTemplate);
+            abort_unless($theme?->is_active, 404);
+
+            return redirect()->away(rtrim($theme->publicUrl(), '/').$request->getRequestUri(), 301);
+        }
+
+        // A theme preview can be browsed, and its cart used, but nothing is placed, booked, sent
+        // or signed into.
+        if ($client?->is_theme && ! $request->isMethodSafe() && ! $request->routeIs('cart.*')) {
+            return $request->expectsJson()
+                ? response()->json(['message' => self::THEME_NOTICE], 403)
+                : redirect()->back()->with('theme_notice', true);
+        }
+
         $publicId = $client?->templateId()
-            ?? Storefront::templateForHost($request->getHost())
+            ?? $hostTemplate
             ?? Storefront::templateForCookie($request->cookie(Storefront::COOKIE))
             ?? $manager->activeId();
         if ($publicId !== $manager->activeId() && ! $manager->previewId()) {
@@ -125,19 +151,25 @@ class ResolveTemplate
             $this->injectPreviewBar($response, $template->name(), $manager->get($publicId)->name(), ! $this->adminIdentity($request)?->isSuperAdmin());
         }
 
+        if ($client?->is_theme) {
+            // Theme previews are samples: kept out of search results so they never compete
+            // with the real stores built on them.
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+            $this->injectThemeBar($response, $template->name(), (bool) $request->session()->get('theme_notice'));
+        }
+
         return $response;
     }
 
     /** The client this host (or entry-link cookie) belongs to. Never taken from a parameter. */
     private function clientForRequest(Request $request): ?Client
     {
-        // Host first (a subdomain or a custom domain), then the entry link, which is kept in
-        // the session as well as a cookie so it survives a browser that drops cookies.
+        // The host (a subdomain or a custom domain). The session key is set only by tests,
+        // which run on a single host; the old entry-link cookie is no longer honoured.
         $id = Client::idForHost($request->getHost())
-            ?? Client::idForSlug($request->cookie(Client::COOKIE))
             ?? Client::idForSlug($request->hasSession() ? $request->session()->get(Client::SESSION_KEY) : null);
 
-        return $id ? Client::active()->find($id) : null;
+        return $id ? Client::withThemes()->active()->find($id) : null;
     }
 
     /** First client running a template — what the main domain shows. */
@@ -222,6 +254,22 @@ class ResolveTemplate
         }
     }
 
+    /** The "this is a theme preview" bar on every theme page. */
+    private function injectThemeBar(Response $response, string $template, bool $blocked): void
+    {
+        $content = $response->getContent();
+        if (! is_string($content) || ! str_contains($content, '</body>') || ! str_contains((string) $response->headers->get('Content-Type'), 'text/html')) {
+            return;
+        }
+        $bar = '<div role="status" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483647;padding:.6rem 1rem;background:#111;color:#fff;'
+            .'font:500 13px/1.4 system-ui,sans-serif;text-align:center;box-shadow:0 -2px 10px rgb(0 0 0 / .2)">'
+            .($blocked ? '<strong>That action is switched off here.</strong> ' : '')
+            .'Theme preview of the <strong>'.e($template).'</strong> template, with sample content. '
+            .'Browse freely; ordering, booking, sign-in and forms are switched off.'
+            .'</div>';
+        $response->setContent(str_replace('</body>', $bar.'</body>', $content));
+    }
+
     private function injectPreviewBar(Response $response, string $previewing, string $active, bool $locked = false): void
     {
         $content = $response->getContent();
@@ -234,7 +282,7 @@ class ResolveTemplate
                 ? '<span>You are viewing your store, <strong>'.e($previewing).'</strong> — visitors here see <strong>'.e($active).'</strong>. Share your own store link from the admin dashboard.</span>'
                 : '<span>Previewing the <strong>'.e($previewing).'</strong> template — visitors still see <strong>'.e($active).'</strong>.</span>'
                     .'<a href="'.$exit.'" style="color:#fff;text-decoration:underline">Exit preview</a>')
-            .'<a href="'.e(url($locked ? '/client' : '/admin/templates')).'" style="color:#fff;text-decoration:underline">'.($locked ? 'Back to admin' : 'Manage templates').'</a>'
+            .'<a href="'.e($locked ? url('/client') : \App\Filament\Pages\Templates::getUrl(panel: 'admin')).'" style="color:#fff;text-decoration:underline">'.($locked ? 'Back to admin' : 'Manage templates').'</a>'
             .'</div>';
         $response->setContent(str_replace('</body>', $bar.'</body>', $content));
     }

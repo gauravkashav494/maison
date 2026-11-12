@@ -7,7 +7,6 @@
                 @if(! $store->is_active) This store is inactive — the address is not answering until it is activated.
                 @elseif($onMainDomain) Also served on the main domain {{ $mainUrl }}.
                 @else Share this address with your customers; the main domain shows another store by default. @endif
-                @if($url !== $store->entryUrl()) <br>Entry link (works without DNS): <a href="{{ $store->entryUrl() }}" target="_blank" rel="noopener" style="text-decoration:underline">{{ $store->entryUrl() }}</a> @endif
             </p>
         </div>
         <div class="fi-store-link-actions">

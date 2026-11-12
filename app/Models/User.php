@@ -19,6 +19,8 @@ use Illuminate\Notifications\Notifiable;
  */
 class User extends Authenticatable implements AdminIdentity, FilamentUser
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use Concerns\LogsPlatformActivity, HasFactory, Notifiable;
 
     public const ROLE_SUPER_ADMIN = 'super_admin';

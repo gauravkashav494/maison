@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     protected $primaryKey = 'key';
 
     public $incrementing = false;

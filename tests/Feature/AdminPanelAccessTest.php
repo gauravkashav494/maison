@@ -52,12 +52,12 @@ class AdminPanelAccessTest extends TestCase
     {
         $this->actingAs($this->operator, 'admin');
 
-        $this->get('/admin')->assertSuccessful();
-        $this->get('/admin/clients')->assertSuccessful();
-        $this->get('/admin/plans')->assertSuccessful();
-        $this->get('/admin/storefronts')->assertSuccessful();
-        $this->get('/admin/users')->assertSuccessful();
-        $this->get('/admin/client-users')->assertSuccessful();
+        $this->get('/')->assertSuccessful();
+        $this->get('/clients')->assertSuccessful();
+        $this->get('/plans')->assertSuccessful();
+        $this->get('/storefronts')->assertSuccessful();
+        $this->get('/users')->assertSuccessful();
+        $this->get('/client-users')->assertSuccessful();
     }
 
     public function test_a_client_staff_account_cannot_switch_client_through_the_url(): void
@@ -100,7 +100,7 @@ class AdminPanelAccessTest extends TestCase
         $this->actingAs($this->operator->fresh(), 'admin');
 
         // Filament refuses the panel itself (canAccessPanel), so the session is of no use.
-        $this->get('/admin')->assertForbidden();
-        $this->get('/admin/clients')->assertForbidden();
+        $this->get('/')->assertForbidden();
+        $this->get('/clients')->assertForbidden();
     }
 }

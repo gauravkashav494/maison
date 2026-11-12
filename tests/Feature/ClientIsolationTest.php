@@ -188,8 +188,8 @@ class ClientIsolationTest extends TestCase
         $this->actingAs($this->alphaAdmin, 'client');
 
         // The admin panel uses its own guard, so this session is simply not signed in there.
-        $this->get('/admin')->assertRedirect('/admin/login');
-        $this->get('/admin/clients')->assertRedirect('/admin/login');
+        $this->get('/')->assertRedirect('/login');
+        $this->get('/clients')->assertRedirect('/login');
     }
 
     public function test_a_customer_cannot_open_either_admin_panel(): void
@@ -198,7 +198,7 @@ class ClientIsolationTest extends TestCase
 
         $this->actingAs($customer, 'web');
 
-        $this->get('/admin')->assertRedirect('/admin/login');
+        $this->get('/')->assertRedirect('/login');
         $this->get('/client')->assertRedirect('/client/login');
     }
 
@@ -245,7 +245,7 @@ class ClientIsolationTest extends TestCase
         $this->actingAs($customer, 'web');
 
         // Browsing Beta's storefront in the same browser ends the Alpha session.
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'beta'])->get('/')->assertSuccessful();
+        $this->get($this->beta->publicUrl().'/')->assertSuccessful();
 
         $this->assertGuest('web');
     }

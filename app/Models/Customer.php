@@ -17,6 +17,8 @@ use Illuminate\Notifications\Notifiable;
  */
 class Customer extends Authenticatable
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use HasFactory, Notifiable;
 
     protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'is_active'];

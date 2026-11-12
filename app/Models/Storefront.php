@@ -17,6 +17,8 @@ use Illuminate\Support\Str;
  */
 class Storefront extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     use Concerns\LogsPlatformActivity;
 
     protected $guarded = [];
@@ -62,7 +64,7 @@ class Storefront extends Model
 
     public const COOKIE = 'storefront';
 
-    /** Template pinned by the entry-link cookie (/store/<slug>), if it names an active store. */
+    /** Template pinned by the old entry-link cookie, if it names an active store (admin previews only). */
     public static function templateForCookie(?string $slug): ?string
     {
         if (! $slug) {
@@ -77,20 +79,17 @@ class Storefront extends Model
         return null;
     }
 
-    /** Entry link on the main domain; works without any DNS setup. */
-    public function entryUrl(): string
+    /** The public theme preview of this store's template, if it has been built. */
+    public function theme(): ?Client
     {
-        return rtrim(config('app.url'), '/').'/store/'.$this->slug;
+        return Client::themeFor($this->template);
     }
 
-    /** Public address of this store (shared with customers), in the configured style. */
+    /** Demo address of this store: its custom domain, else <slug>.<base domain>. */
     public function publicUrl(): string
     {
         if ($this->domain) {
             return 'https://'.$this->domain;
-        }
-        if (config('templates.store_urls') === 'path') {
-            return $this->entryUrl();
         }
         // Scheme and port follow the current request (dev servers run on :8000), else APP_URL.
         $req = app()->bound('request') ? request() : null;

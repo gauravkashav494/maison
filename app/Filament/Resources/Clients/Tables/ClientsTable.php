@@ -27,8 +27,9 @@ class ClientsTable
                 TextColumn::make('plan.name')->label('Plan')->placeholder('No plan')
                     ->description(fn (Client $r) => $r->plan?->price_label),
                 TextColumn::make('public_url')->label('Address')->state(fn (Client $r) => $r->publicUrl())
-                    ->url(fn (Client $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square')
-                    ->description(fn (Client $r) => $r->publicUrl() === $r->entryUrl() ? null : 'or '.$r->entryUrl()),
+                    ->url(fn (Client $r) => $r->publicUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-top-right-on-square'),
+                TextColumn::make('login_url')->label('Client login')->state(fn (Client $r) => $r->loginUrl())
+                    ->url(fn (Client $r) => $r->loginUrl(), shouldOpenInNewTab: true)->color('info')->copyable()->icon('heroicon-o-arrow-right-end-on-rectangle'),
                 TextColumn::make('usage')->label('Usage')->state(fn (Client $r) => ClientQuota::for($r)->productLabel().' products')
                     ->description(fn (Client $r) => ClientQuota::for($r)->imageLabel().' images')
                     ->color(fn (Client $r) => ClientQuota::for($r)->atProductLimit() || ClientQuota::for($r)->atImageLimit() ? 'danger' : 'gray'),

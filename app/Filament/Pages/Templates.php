@@ -28,7 +28,9 @@ class Templates extends Page
 
     protected static ?string $title = 'Templates';
 
-    protected static ?string $slug = 'templates';
+    // Not /templates: public/templates holds the stores' app icons, and the web server would
+    // answer that folder (403) before the app.
+    protected static ?string $slug = 'appearance/templates';
 
     /** @return Collection<string, Template> */
     /** Activating a template changes the public website: super admin only. */
@@ -79,8 +81,32 @@ class Templates extends Page
             ->label('Preview')
             ->icon('heroicon-m-eye')
             ->color('gray')
-            ->url(fn (array $arguments) => url('/?preview_template='.$this->template($arguments)->id()))
+            // The public theme preview, theme-<template>.<base domain>.
+            ->url(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id())?->publicUrl())
+            ->visible(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id()) !== null)
             ->openUrlInNewTab();
+    }
+
+    /** Builds the public theme preview with sample content, or adds what is missing to it. */
+    public function themeAction(): Action
+    {
+        return Action::make('theme')
+            ->label(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id()) ? 'Update theme' : 'Set up theme')
+            ->icon('heroicon-m-sparkles')
+            ->color('gray')
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments) => 'Theme preview of '.$this->template($arguments)->name())
+            ->modalDescription(fn (array $arguments) => 'A public sample store at '
+                .\App\Models\Client::themeSlug($this->template($arguments)->id()).'.'.\App\Models\Client::baseDomain()
+                .', with its own sample content. Visitors can browse it but cannot order, book, sign in or send forms. '
+                .'Setting it up takes about half a minute; updating it only adds what is missing.')
+            ->modalSubmitActionLabel('Go ahead')
+            ->action(function (array $arguments) {
+                $result = app(\App\Clients\ThemeBuilder::class)->build($this->template($arguments)->id());
+                $result['ok']
+                    ? Notification::make()->success()->title('Theme preview ready')->body($result['client']->publicUrl())->send()
+                    : Notification::make()->danger()->persistent()->title('The theme preview could not be set up')->body($result['message'])->send();
+            });
     }
 
     public function installAction(): Action

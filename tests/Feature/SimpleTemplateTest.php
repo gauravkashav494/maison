@@ -40,10 +40,14 @@ class SimpleTemplateTest extends TestCase
         $store->templateObject()->install();
     }
 
-    /** Browse as a visitor who followed this client's entry link. */
+    /** Browse this client's storefront on its own subdomain. */
     private function visit(string $path)
     {
-        return $this->withSession([Client::SESSION_KEY => 'orderlist'])->get($path);
+        // A redirect Location is absolute; keep only its path and query.
+        $url = parse_url($path);
+        $path = ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : '');
+
+        return $this->get(Client::where('slug', 'orderlist')->firstOrFail()->publicUrl().$path);
     }
 
     private function order(array $payload)

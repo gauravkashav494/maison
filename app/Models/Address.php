@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Address extends Model
 {
+    use \App\Models\Concerns\UsesPlatformConnection;
+
     protected $guarded = [];
 
     protected $casts = ['is_default' => 'boolean'];

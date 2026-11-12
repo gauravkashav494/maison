@@ -208,7 +208,7 @@ class ClientDatabaseIsolationTest extends TestCase
 
         $this->actingAs($operator, 'admin');
 
-        $this->get('/admin/client-totals')->assertSuccessful()->assertDontSee('Alpha Coat');
+        $this->get('/client-totals')->assertSuccessful()->assertDontSee('Alpha Coat');
 
         $totals = \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug);
         $this->assertSame(1, $totals['alpha-db']['products']);
@@ -235,8 +235,8 @@ class ClientDatabaseIsolationTest extends TestCase
 
         // The pages that offer the retry have to open for that client.
         $this->actingAs($this->operator(), 'admin');
-        $this->get('/admin/clients')->assertSuccessful()->assertSee('Gamma');
-        $this->get('/admin/clients/'.$client->getRouteKey().'/edit')->assertSuccessful();
+        $this->get('/clients')->assertSuccessful()->assertSee('Gamma');
+        $this->get('/clients/'.$client->getRouteKey().'/edit')->assertSuccessful();
     }
 
     public function test_a_client_with_an_empty_database_reads_as_empty(): void

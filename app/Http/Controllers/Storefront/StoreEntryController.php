@@ -10,40 +10,35 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Entry links for hosts without wildcard DNS.
+ * Old entry links on the main domain. A client is only ever reached on its own subdomain (or
+ * custom domain), so every link that names a client redirects there:
  *
- *   /store/<client-slug>  pins a client's storefront in a cookie and opens it on this domain
- *   /store/<store-slug>   the older store-level link, used when no client has that slug
- *   /c/<client-slug>      the previous address of the client link, redirects to it
+ *   /store/<client-slug>  redirects to <client-slug>.<base domain>
+ *   /c/<client-slug>      the older form of the same link, redirects the same way
+ *   /store/<store-slug>   redirects to the store's theme preview (theme-<template>.<base domain>)
  *
- * The cookie only chooses which public storefront is shown; it grants nothing. Any shopper
- * session is ended as the client changes, so one client's account never follows the visitor
- * into another client's site (ResolveTemplate checks this on every request as well).
+ * Each redirect also drops the old client cookie, so the main domain stops showing that client.
  */
 class StoreEntryController extends Controller
 {
     public function redirectOldClientLink(Request $request, string $slug): RedirectResponse
     {
-        return redirect()->route('store.enter', ['slug' => $slug] + $request->query());
+        return $this->toClient($request, Client::active()->where('slug', $slug)->firstOrFail());
     }
 
-    private function enterClient(Request $request, string $slug): RedirectResponse
+    /** Sends the visitor to the client's own address, keeping a same-site `to` path. */
+    private function toClient(Request $request, Client $client, ?string $path = null): RedirectResponse
     {
-        $client = Client::active()->where('slug', $slug)->firstOrFail();
-        $this->endShopperSession($request);
-        $request->session()->put(Client::SESSION_KEY, $client->slug);
+        $request->session()->forget(Client::SESSION_KEY);
 
-        return redirect()->to($this->safePath($request))
-            ->withCookie(cookie(Client::COOKIE, $client->slug, 60 * 24 * 365))
+        return redirect()->away(rtrim($client->publicUrl(), '/').($path ?? $this->safePath($request)), 301)
+            ->withCookie(cookie()->forget(Client::COOKIE))
             ->withCookie(cookie()->forget(Storefront::COOKIE));
     }
 
     /**
-     * A standing link straight to the Simple List template's bulk order page. It pins the
-     * cookie exactly as /store/<client-slug> does — so the cart, checkout and order confirmation that
-     * follow all resolve to the same client — but looks the client up by template instead of
-     * a fixed slug, and always overrides whatever store the cookie previously pointed to, so
-     * opening this link never requires visiting /store/exit first.
+     * A standing link to the Simple List template's bulk order page: it opens /shop on the
+     * subdomain of the first client running that template.
      */
     public function bulkOrder(Request $request): RedirectResponse
     {
@@ -51,35 +46,21 @@ class StoreEntryController extends Controller
             ->whereHas('storefront', fn ($query) => $query->where('template', 'simple'))
             ->orderBy('id')
             ->firstOrFail();
-        $this->endShopperSession($request);
-        $request->session()->put(Client::SESSION_KEY, $client->slug);
 
-        return redirect()->to('/shop')
-            ->withCookie(cookie(Client::COOKIE, $client->slug, 60 * 24 * 365))
-            ->withCookie(cookie()->forget(Storefront::COOKIE));
+        return $this->toClient($request, $client, '/shop');
     }
 
     public function enter(Request $request, string $slug): RedirectResponse
     {
-        if (Client::active()->where('slug', $slug)->exists()) {
-            return $this->enterClient($request, $slug);
+        if ($client = Client::active()->where('slug', $slug)->first()) {
+            return $this->toClient($request, $client);
         }
 
         $store = Storefront::active()->where('slug', $slug)->firstOrFail();
-        $this->endShopperSession($request);
+        $theme = $store->theme();
+        abort_unless($theme?->is_active, 404);
 
-        // Prefer the client running this store, so the visitor lands on real client data.
-        $client = Client::active()->where('storefront_id', $store->id)->orderBy('id')->first();
-        $client
-            ? $request->session()->put(Client::SESSION_KEY, $client->slug)
-            : $request->session()->forget(Client::SESSION_KEY);
-
-        $redirect = redirect()->to($this->safePath($request))
-            ->withCookie(cookie(Storefront::COOKIE, $store->slug, 60 * 24 * 365));
-
-        return $client
-            ? $redirect->withCookie(cookie(Client::COOKIE, $client->slug, 60 * 24 * 365))
-            : $redirect->withCookie(cookie()->forget(Client::COOKIE));
+        return $this->toClient($request, $theme);
     }
 
     public function exit(Request $request): RedirectResponse

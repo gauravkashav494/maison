@@ -26,6 +26,8 @@ class ClientForm
                     ->afterStateUpdated(fn ($set, $get, $state) => blank($get('slug')) ? $set('slug', Str::slug((string) $state)) : null),
                 TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true)
                     ->notIn(['exit']) // /store/exit is the "leave this store" link
+                    ->rule('not_regex:/^'.preg_quote(config('templates.theme_prefix', 'theme-'), '/').'/')
+                    ->validationMessages(['not_regex' => 'Names starting with "'.config('templates.theme_prefix', 'theme-').'" are kept for theme previews.'])
                     ->disabled(fn (?Client $record) => $record !== null)
                     ->dehydrated()
                     ->helperText(fn (?Client $record) => $record
@@ -46,8 +48,8 @@ class ClientForm
             ]),
             Section::make('Public address')
                 ->description(fn (?Client $record) => $record
-                    ? 'Customers reach this client at '.$record->publicUrl().'. The entry link '.$record->entryUrl().' always works; the subdomain needs a wildcard DNS record and certificate, a custom domain needs its DNS pointed here.'
-                    : 'The client gets its own subdomain and an entry link as soon as it is saved.')
+                    ? 'Customers reach this client at '.$record->publicUrl().' and its team signs in at '.$record->loginUrl().'. The subdomain needs a wildcard DNS record and certificate, a custom domain needs its DNS pointed here.'
+                    : 'The client gets its own subdomain, used for both the store and the client login, as soon as it is saved.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)

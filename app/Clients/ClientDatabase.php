@@ -181,9 +181,9 @@ class ClientDatabase
         return $name;
     }
 
-    /** Every client that should have its own database. */
+    /** Every client that should have its own database, theme previews included. */
     public function clients(): Collection
     {
-        return Client::orderBy('name')->get();
+        return Client::withThemes()->orderBy('name')->get();
     }
 }
