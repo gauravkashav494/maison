@@ -70,6 +70,9 @@ if [[ "$SKIP_ASSETS" != "1" ]]; then
     command -v npm >/dev/null  || fail "npm not found (or set SKIP_ASSETS=1)."
 fi
 
+# storage/ and bootstrap/cache/ get chmod'ed for the web server; that is not a code change.
+git config core.fileMode false
+
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     git status --short --untracked-files=no
     fail "Tracked files were edited on the server. Commit or discard them before deploying."

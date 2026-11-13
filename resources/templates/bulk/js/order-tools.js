@@ -6,8 +6,8 @@
  * lines themselves are built on the server (App\Templates\Bulk\OrderLines), so prices, codes,
  * stock and per-line limits here are the server's, never worked out in the browser.
  *
- * This module must be imported before the base bundle: that bundle starts Alpine as soon as
- * it runs, and a component registered after the start is never picked up.
+ * Alpine must not be started until this module has run: a component registered after the start
+ * is never picked up. The template's app.js calls startStorefront() last for that reason.
  */
 import Alpine from 'alpinejs';
 
