@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
+use App\Models\Category;
 use App\Models\Client;
 use App\Models\Customer;
 use App\Models\Order;
@@ -238,6 +239,123 @@ class SyncApiTest extends TestCase
         $this->assertSame(120, $product->variants[0]['price']);
         $this->assertSame(4, $product->variants[1]['stock']);
         $this->assertSame(9, (int) $product->stock);
+    }
+
+    public function test_a_new_product_can_bring_its_category_and_variants(): void
+    {
+        $this->api('POST', 'products', ['items' => [[
+            'external_id' => 'L1', 'sku' => 'TEE', 'name' => 'Tee', 'price' => 499, 'category' => 'T-Shirts',
+            'variants' => [
+                ['sku' => 'TEE-BLK-M', 'options' => ['Color' => 'Black', 'Size' => 'M']],
+                ['sku' => 'TEE-BLK-L', 'options' => ['Color' => 'Black', 'Size' => 'L'], 'price' => 549],
+            ],
+        ]]])->assertJsonPath('results.0.result', 'created');
+
+        $product = Product::where('sku', 'TEE')->first();
+        $category = Category::find($product->category_id);
+        $this->assertSame('T-Shirts', $category->name);
+        $this->assertSame($this->alpha->id, (int) $category->client_id);
+        $this->assertFalse($category->show_in_menu);
+        $this->assertTrue($product->sellsVariants());
+        $this->assertSame(['Color', 'Size'], $product->variantAttributeNames());
+        $this->assertSame([499, 549], array_column($product->variantList(), 'price'));
+        $this->assertSame('TEE-BLK-L', $product->findVariant(['Color' => 'Black', 'Size' => 'L'])['sku']);
+        $this->api('GET', 'changes/products')->assertJsonCount(0, 'data');
+
+        // Variant stock then arrives by variant SKU, and a second product in the same group reuses the category.
+        $this->api('POST', 'stock', ['items' => [['sku' => 'TEE-BLK-M', 'on_hand' => 3], ['sku' => 'TEE-BLK-L', 'on_hand' => 2]]]);
+        $this->assertSame(5, (int) $product->fresh()->stock);
+
+        $this->api('POST', 'products', ['items' => [['external_id' => 'L2', 'name' => 'Polo', 'price' => 10, 'category' => 't-shirts']]]);
+        $this->assertSame($category->id, (int) Product::where('external_id', 'L2')->value('category_id'));
+        $this->assertSame(1, Category::where('client_id', $this->alpha->id)->count());
+    }
+
+    public function test_resent_variants_update_by_sku_and_keep_what_ecomvision_owns(): void
+    {
+        $chosen = Category::create(['client_id' => $this->alpha->id, 'name' => 'Picked on web', 'slug' => 'picked']);
+        $product = $this->product($this->alpha, 'P', [
+            'external_id' => 'L1', 'category_id' => $chosen->id, 'has_variants' => true,
+            'variant_attributes' => [['name' => 'Size', 'values' => ['M'], 'swatches' => []]],
+            'variants' => [['options' => ['Size' => 'M'], 'sku' => 'P-M', 'price' => 100, 'stock' => 4, 'is_active' => false, 'images' => ['m.jpg']]],
+        ]);
+        $this->api('POST', 'changes/products/ack', ['items' => [['id' => $product->id, 'version' => 1]]]);
+
+        $item = ['external_id' => 'L1', 'sku' => 'P', 'name' => 'Item P', 'price' => 1000, 'category' => 'From local', 'variants' => [
+            ['sku' => 'P-M', 'options' => ['size' => 'm'], 'price' => 150],
+            ['sku' => 'P-L', 'options' => ['size' => 'L']],
+        ]];
+        $this->api('POST', 'products', ['items' => [$item]])->assertJsonPath('results.0.result', 'updated');
+        $this->api('POST', 'products', ['items' => [$item]])->assertJsonPath('results.0.result', 'unchanged');
+
+        $product->refresh();
+        $this->assertSame($chosen->id, (int) $product->category_id);
+        $this->assertSame(['M', 'L'], $product->variantAttributes()[0]['values']);
+        $this->assertSame(['Size' => 'M'], $product->variants[0]['options']);
+        $this->assertSame(150, $product->variants[0]['price']);
+        $this->assertSame(4, $product->variants[0]['stock']);
+        $this->assertFalse($product->variants[0]['is_active']);
+        $this->assertSame(['m.jpg'], $product->variants[0]['images']);
+        $this->assertSame(['sku' => 'P-L', 'options' => ['Size' => 'L'], 'price' => null, 'stock' => 0, 'is_active' => true], $product->variants[1]);
+        $this->assertFalse(Category::where('name', 'From local')->exists());
+        $this->api('GET', 'changes/products')->assertJsonCount(0, 'data');
+    }
+
+    public function test_a_variant_sku_another_product_uses_is_rejected(): void
+    {
+        $this->product($this->alpha, 'TAKEN');
+        $this->product($this->alpha, 'Q', ['has_variants' => true, 'variants' => [['options' => ['Size' => 'S'], 'sku' => 'Q-S']]]);
+
+        $response = $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'L1', 'name' => 'One', 'price' => 10, 'variants' => [['sku' => 'TAKEN', 'options' => ['Size' => 'S']]]],
+            ['external_id' => 'L2', 'name' => 'Two', 'price' => 10, 'variants' => [['sku' => 'Q-S', 'options' => ['Size' => 'S']]]],
+            ['external_id' => 'L3', 'name' => 'Three', 'price' => 10, 'variants' => [['sku' => 'NEW-S', 'options' => ['Size' => 'S']]]],
+            ['external_id' => 'L4', 'name' => 'Four', 'price' => 10, 'variants' => [['sku' => 'NEW-S', 'options' => ['Size' => 'S']]]],
+            ['external_id' => 'L5', 'name' => 'Five', 'price' => 10, 'variants' => [['sku' => 'X', 'options' => []]]],
+        ]]);
+
+        $this->assertSame(['rejected', 'rejected', 'rejected', 'created', 'rejected'], array_column($response->json('results'), 'result'));
+        $this->assertSame(['L5', 'L1', 'L2', 'L3', 'L4'], array_column($response->json('results'), 'key'));
+    }
+
+    public function test_a_variant_added_on_the_web_resends_the_product_but_stock_changes_do_not(): void
+    {
+        $product = $this->product($this->alpha, 'P', ['has_variants' => true, 'variants' => [
+            ['options' => ['Size' => 'S'], 'sku' => 'P-S', 'price' => 100, 'stock' => 4, 'is_active' => true],
+        ]]);
+        $this->api('POST', 'changes/products/ack', ['items' => [['id' => $product->id, 'version' => 1]]]);
+
+        // A sale or a stock push only moves stock: nothing to tell the billing software.
+        $this->api('POST', 'stock', ['items' => [['sku' => 'P-S', 'on_hand' => 9]]])->assertJsonPath('results.0.result', 'updated');
+        $variants = $product->fresh()->variants;
+        $variants[0]['stock'] = 8;
+        $variants[0]['images'] = ['s.jpg'];
+        $product->fresh()->update(['variants' => $variants]);
+        $this->api('GET', 'changes/products')->assertJsonCount(0, 'data');
+
+        // A new size added on the web has to reach it.
+        $variants[] = ['options' => ['Size' => 'M'], 'sku' => 'P-M', 'stock' => 0, 'is_active' => true];
+        $product->fresh()->update(['variants' => $variants]);
+        $this->api('GET', 'changes/products')
+            ->assertJsonPath('data.0.version', 2)
+            ->assertJsonPath('data.0.variants.1.sku', 'P-M');
+    }
+
+    public function test_a_product_made_on_the_web_is_offered_with_its_category_and_linked_on_ack(): void
+    {
+        $category = Category::create(['client_id' => $this->alpha->id, 'name' => 'Mugs', 'slug' => 'mugs']);
+        $product = $this->product($this->alpha, 'MUG-02', ['category_id' => $category->id, 'compare_at_price' => 599]);
+
+        $this->api('GET', 'changes/products')
+            ->assertJsonPath('data.0.sku', 'MUG-02')
+            ->assertJsonPath('data.0.category', 'Mugs')
+            ->assertJsonPath('data.0.compare_at_price', 599)
+            ->assertJsonPath('data.0.external_id', null);
+
+        $this->api('POST', 'changes/products/ack', ['items' => [['id' => $product->id, 'version' => 1, 'external_id' => 'ITM-145']]]);
+
+        $this->assertSame('ITM-145', $product->fresh()->external_id);
+        $this->api('GET', 'changes/products')->assertJsonCount(0, 'data');
     }
 
     public function test_a_local_customer_is_added_but_an_existing_profile_is_kept(): void

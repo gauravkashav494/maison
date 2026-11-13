@@ -19,6 +19,8 @@ class SyncController extends Controller
 {
     private const MAX_BATCH = 500;
 
+    private const MAX_VARIANTS = 200;
+
     private const EXTERNAL_ID = ['required', 'string', 'max:191'];
 
     private function client(): Client
@@ -62,6 +64,12 @@ class SyncController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'integer', 'min:0'],
             'compare_at_price' => ['nullable', 'integer', 'min:0'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'variants' => ['nullable', 'array', 'max:'.self::MAX_VARIANTS],
+            'variants.*.sku' => ['required', 'string', 'max:191', 'distinct'],
+            'variants.*.options' => ['required', 'array', 'min:1', 'max:5'],
+            'variants.*.options.*' => ['required', 'string', 'max:100'],
+            'variants.*.price' => ['nullable', 'integer', 'min:0'],
         ], 'external_id', fn (array $item) => $inbound->product($item));
     }
 

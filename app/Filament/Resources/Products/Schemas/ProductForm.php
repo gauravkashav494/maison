@@ -23,6 +23,18 @@ use Filament\Schemas\Schema;
 
 class ProductForm
 {
+    /**
+     * A shop with an active sync token exchanges products with its billing software by SKU, so
+     * the product and each variant need their own SKU there.
+     */
+    public static function syncsWithBillingSoftware(): bool
+    {
+        $clientId = app(\App\Clients\ClientContext::class)->id();
+
+        return $clientId !== null
+            && \App\Models\SyncToken::active()->where('client_id', $clientId)->exists();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -43,6 +55,8 @@ class ProductForm
                                         ->preload()
                                         ->required(),
                                     TextInput::make('sku')->label('SKU')->maxLength(64)
+                                        ->required(fn () => self::syncsWithBillingSoftware())
+                                        ->helperText(fn () => self::syncsWithBillingSoftware() ? 'Required: this shop syncs with its billing software, which identifies items by SKU.' : null)
                                         ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(\App\Clients\ClientContext::class)->id())),
                                     TextInput::make('brand')->maxLength(80)->datalist(fn () => \App\Models\Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())->helperText('Used by the shop Brand filter.'),
                                     TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => \App\Models\Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
@@ -136,7 +150,9 @@ class ProductForm
                                                     ->required()
                                                     ->columnSpanFull()
                                                     ->helperText('Use the attribute names and values defined above, e.g. Size → M.'),
-                                                TextInput::make('sku')->label('SKU')->maxLength(64)->placeholder('Same as the product'),
+                                                TextInput::make('sku')->label('SKU')->maxLength(64)
+                                                    ->required(fn () => self::syncsWithBillingSoftware())
+                                                    ->placeholder(fn () => self::syncsWithBillingSoftware() ? null : 'Same as the product'),
                                                 TextInput::make('price')->label('Price')->numeric()->prefix('₹')->minValue(0)->placeholder('Same as the product'),
                                                 TextInput::make('stock')->label('Stock')->numeric()->minValue(0)->placeholder('Same as the product'),
                                                 Toggle::make('is_active')->label('Available')->default(true)->inline(false),

@@ -16,12 +16,18 @@ trait TracksSyncVersion
     public static function bootTracksSyncVersion(): void
     {
         static::updated(function ($model) {
-            if (static::$syncTrackingPaused || ! array_intersect(array_keys($model->getChanges()), static::SYNC_TRACKED)) {
+            if (static::$syncTrackingPaused || ! $model->hasSyncRelevantChanges()) {
                 return;
             }
 
             $model->newQueryWithoutScopes()->whereKey($model->getKey())->toBase()->increment('sync_version');
         });
+    }
+
+    /** Whether the save just made changed anything the local system is told about. */
+    protected function hasSyncRelevantChanges(): bool
+    {
+        return (bool) array_intersect(array_keys($this->getChanges()), static::SYNC_TRACKED);
     }
 
     /** Apply a change that came from the local system, so it is not sent straight back. */

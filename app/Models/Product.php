@@ -30,6 +30,28 @@ class Product extends Model
 
     protected $guarded = [];
 
+    /**
+     * Also resends the product when a variant is added, removed or renamed (its SKU or options),
+     * but not when only variant stock, price, images or availability change: stock moves on
+     * every sale and every stock push, and the local system owns price.
+     */
+    protected function hasSyncRelevantChanges(): bool
+    {
+        if (array_intersect(array_keys($this->getChanges()), self::SYNC_TRACKED)) {
+            return true;
+        }
+        if (! array_key_exists('variants', $this->getChanges())) {
+            return false;
+        }
+
+        $shape = fn ($variants) => array_map(
+            fn ($variant) => [(string) ($variant['sku'] ?? ''), (array) ($variant['options'] ?? [])],
+            array_values((array) $variants),
+        );
+
+        return $shape($this->getOriginal('variants')) != $shape($this->variants);
+    }
+
     protected $casts = [
         'images' => 'array',
         'colors' => 'array',

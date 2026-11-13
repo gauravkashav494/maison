@@ -3,6 +3,7 @@
 namespace App\Sync;
 
 use App\Clients\ClientQuota;
+use App\Models\Category;
 use App\Models\Client;
 use App\Models\Customer;
 use App\Models\Order;
@@ -14,8 +15,10 @@ use Illuminate\Support\Str;
 /**
  * Applies what the local system sends. Field ownership lives here:
  *
- *   local system  product sku, name, price, compare-at price and stock; order fulfilment
- *   EcomVision        everything else on a product (slug, text, images, category, visibility),
+ *   local system  product sku, name, price, compare-at price and stock; each variant's sku,
+ *                 options and price; a product's category while it has none; order fulfilment
+ *   EcomVision    everything else on a product (slug, text, images, category once set,
+ *                 collections, visibility, variant images and on-sale flags),
  *                 orders as placed, and the profile of an existing customer
  */
 class SyncInbound
@@ -36,6 +39,11 @@ class SyncInbound
             }
         }
 
+        $variants = $item['variants'] ?? [];
+        if ($variants && ($taken = $this->variantSkuTaken($variants, $product, $item['sku'] ?? null))) {
+            return SyncResult::rejected($key, "The variant SKU {$taken} is already used by another product.");
+        }
+
         $owned = [
             'external_id' => $key,
             'sku' => $item['sku'] ?? null,
@@ -47,10 +55,19 @@ class SyncInbound
         try {
             if ($product) {
                 $product->fill($owned);
+                // The category is only filled in while blank; after that it is EcomVision's.
+                if (blank($product->category_id) && filled($item['category'] ?? null)) {
+                    $product->category_id = $this->categoryId($item['category']);
+                }
+                if ($variants) {
+                    $this->mergeVariants($product, $variants);
+                }
                 if (! $product->isDirty()) {
                     return SyncResult::of($key, SyncResult::UNCHANGED);
                 }
-                $product->save();
+                // Came from the local system, so it is not sent straight back to it.
+                Product::withoutSyncTracking(fn () => $product->save());
+                $this->rememberSkus($product);
 
                 return SyncResult::of($key, SyncResult::UPDATED, ['id' => $product->id]);
             }
@@ -60,7 +77,7 @@ class SyncInbound
             }
 
             // Hidden until someone adds its images and text on EcomVision.
-            $product = Product::create($owned + [
+            $product = new Product($owned + [
                 'client_id' => $this->client->id,
                 'template' => $this->client->templateId(),
                 'slug' => $this->uniqueSlug($item['name']),
@@ -68,11 +85,162 @@ class SyncInbound
                 'is_active' => false,
                 'sync_acked_version' => 1,
             ]);
+            if (filled($item['category'] ?? null)) {
+                $product->category_id = $this->categoryId($item['category']);
+            }
+            if ($variants) {
+                $this->mergeVariants($product, $variants);
+            }
+            $product->save();
+            $this->rememberSkus($product);
 
             return SyncResult::of($key, SyncResult::CREATED, ['id' => $product->id]);
         } catch (UniqueConstraintViolationException) {
             return SyncResult::rejected($key, 'The SKU is already used by another product.');
         }
+    }
+
+    /** @var array<string, array<int, int>>|null SKU => ids of the products that use it */
+    private ?array $skuOwners = null;
+
+    /** The first variant SKU that another product already uses as its own or a variant's SKU. */
+    private function variantSkuTaken(array $variants, ?Product $product, ?string $sku): ?string
+    {
+        if ($this->skuOwners === null) {
+            $this->skuOwners = [];
+            Product::query()->where('client_id', $this->client->id)->get(['id', 'sku', 'variants'])
+                ->each(fn (Product $existing) => $this->rememberSkus($existing));
+        }
+
+        foreach ($variants as $variant) {
+            $owners = array_diff($this->skuOwners[$variant['sku']] ?? [], [$product?->id]);
+            if ($owners) {
+                return $variant['sku'];
+            }
+        }
+
+        return null;
+    }
+
+    private function rememberSkus(Product $product): void
+    {
+        if ($this->skuOwners === null) {
+            return;
+        }
+
+        foreach ($this->skuOwners as $sku => $ids) {
+            $this->skuOwners[$sku] = array_values(array_diff($ids, [$product->id]));
+        }
+        $skus = array_filter([$product->sku, ...array_map(fn ($v) => $v['sku'] ?? null, (array) $product->variants)], 'filled');
+        foreach (array_unique(array_map('strval', $skus)) as $sku) {
+            $this->skuOwners[$sku][] = $product->id;
+        }
+    }
+
+    /**
+     * Adds or updates variants by SKU. The local system owns each variant's SKU, options and
+     * price; stock arrives through the stock push, and images, the on-sale flag and any
+     * variant the local system no longer sends stay as EcomVision has them.
+     *
+     * @param  array<int, array{sku:string, options:array<string,string>, price?:int|null}>  $incoming
+     */
+    private function mergeVariants(Product $product, array $incoming): void
+    {
+        $attributes = $product->variantAttributes();
+        $variants = array_values((array) $product->variants);
+
+        $bySku = [];
+        foreach ($variants as $index => $variant) {
+            if (filled($variant['sku'] ?? null)) {
+                $bySku[(string) $variant['sku']] = $index;
+            }
+        }
+
+        foreach ($incoming as $variant) {
+            $options = [];
+            foreach ($variant['options'] as $name => $value) {
+                [$name, $value] = $this->attributeValue($attributes, trim((string) $name), trim((string) $value));
+                if ($name !== '' && $value !== '') {
+                    $options[$name] = $value;
+                }
+            }
+            if (! $options) {
+                continue;
+            }
+
+            $owned = ['sku' => $variant['sku'], 'options' => $options, 'price' => $variant['price'] ?? null];
+            if (isset($bySku[$variant['sku']])) {
+                $variants[$bySku[$variant['sku']]] = array_merge($variants[$bySku[$variant['sku']]], $owned);
+            } else {
+                $bySku[$variant['sku']] = count($variants);
+                $variants[] = $owned + ['stock' => 0, 'is_active' => true];
+            }
+        }
+
+        $product->variant_attributes = $attributes;
+        $product->variants = $variants;
+        $product->has_variants = true;
+    }
+
+    /**
+     * The attribute name and value as the product already spells them, adding either when new,
+     * so "size: m" from the local system finds the existing "Size: M".
+     *
+     * @return array{0:string, 1:string}
+     */
+    private function attributeValue(array &$attributes, string $name, string $value): array
+    {
+        if ($name === '' || $value === '') {
+            return ['', ''];
+        }
+
+        foreach ($attributes as &$attribute) {
+            if (strcasecmp($attribute['name'], $name) !== 0) {
+                continue;
+            }
+            foreach ($attribute['values'] as $known) {
+                if (strcasecmp($known, $value) === 0) {
+                    return [$attribute['name'], $known];
+                }
+            }
+            $attribute['values'][] = $value;
+
+            return [$attribute['name'], $value];
+        }
+        unset($attribute);
+
+        $attributes[] = ['name' => $name, 'values' => [$value], 'swatches' => []];
+
+        return [$name, $value];
+    }
+
+    /** The client's category with this name, created (and kept out of the menu) when missing. */
+    private function categoryId(string $name): int
+    {
+        $name = trim($name);
+        $template = $this->client->templateId();
+        $categories = Category::query()->where('client_id', $this->client->id)
+            ->where(fn ($query) => $query->whereNull('template')->when($template, fn ($q) => $q->orWhere('template', $template)));
+
+        $found = (clone $categories)->whereRaw('lower(name) = ?', [Str::lower($name)])->value('id');
+        if ($found) {
+            return (int) $found;
+        }
+
+        $base = Str::slug($name) ?: 'category';
+        $slug = $base;
+        for ($n = 2; Category::withTrashed()->where('client_id', $this->client->id)->where('slug', $slug)->exists(); $n++) {
+            $slug = $base.'-'.$n;
+        }
+
+        return (int) Category::create([
+            'client_id' => $this->client->id,
+            'template' => $template,
+            'name' => $name,
+            'slug' => $slug,
+            'is_active' => true,
+            'show_in_menu' => false,
+        ])->id;
     }
 
     private function uniqueSlug(string $name): string
