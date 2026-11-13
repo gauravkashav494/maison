@@ -130,7 +130,8 @@ return [
         'client_users' => [
             'provider' => 'client_users',
             'table' => 'client_user_password_reset_tokens',
-            'expire' => 60,
+            // Also used for invitations ("set your password"), so a day rather than an hour.
+            'expire' => 1440,
             'throttle' => 60,
         ],
 

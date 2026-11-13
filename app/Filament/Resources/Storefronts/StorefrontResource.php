@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Storefronts;
 
-use App\Filament\Resources\Storefronts\Pages\CreateStorefront;
 use App\Filament\Resources\Storefronts\Pages\EditStorefront;
 use App\Filament\Resources\Storefronts\Pages\ListStorefronts;
 use App\Filament\Resources\Storefronts\Schemas\StorefrontForm;
@@ -41,11 +40,16 @@ class StorefrontResource extends Resource
         return StorefrontsTable::configure($table);
     }
 
+    /** Stores are never created by hand: each template gets exactly one, made automatically (Storefront::syncWithTemplates). */
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListStorefronts::route('/'),
-            'create' => CreateStorefront::route('/create'),
             'edit' => EditStorefront::route('/{record}/edit'),
         ];
     }

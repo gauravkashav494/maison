@@ -2,6 +2,7 @@
 
 namespace App\Templates\PlumbingServices;
 
+use App\Clients\ClientDatabase;
 use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Models\Service;
@@ -138,9 +139,9 @@ class PlumbingServicesTemplate extends Template
     {
         return [
             'biz' => $this->contact(),
-            'navServices' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('plumbing_services.nav_services'), 600, fn () => Service::active()
+            'navServices' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_services'), 600, fn () => Service::active()
                 ->get(['id', 'name', 'slug', 'icon', 'excerpt', 'is_emergency', 'is_popular'])),
-            'navAreas' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
+            'navAreas' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
                 ->get(['id', 'name', 'slug', 'state', 'response_time'])),
         ];
     }
@@ -291,5 +292,15 @@ class PlumbingServicesTemplate extends Template
                 'cta_image' => $u('1673870861507-d72aa6855d89', 1200, 800),
             ],
         ];
+    }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => Media::unsplash('1676210134188-4c05dd172f89', 1600, '&h=1200'),
+            'kicker' => 'Service team',
+            'quote' => 'Every job, on time.',
+            'quote_sub' => 'Bookings, quotes, service areas and reviews — plan the team\'s day from one place.',
+        ]);
     }
 }

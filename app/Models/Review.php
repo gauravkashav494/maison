@@ -3,19 +3,19 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
-use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\UsesClientConnection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Review extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
-
     use BelongsToTemplate;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     protected $guarded = [];
 
@@ -29,7 +29,7 @@ class Review extends Model
     /** The storefront account that wrote this, or null for a guest review. */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     public function scopeApproved(Builder $q): Builder
@@ -52,5 +52,6 @@ class Review extends Model
     {
         static::saved(fn (self $r) => static::syncProduct($r->product_id));
         static::deleted(fn (self $r) => static::syncProduct($r->product_id));
+        static::restored(fn (self $r) => static::syncProduct($r->product_id));
     }
 }

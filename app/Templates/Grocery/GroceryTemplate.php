@@ -2,6 +2,7 @@
 
 namespace App\Templates\Grocery;
 
+use App\Clients\ClientDatabase;
 use App\Filament\Pages\GroceryHomepageSettings;
 use App\Filament\Pages\GrocerySettings;
 use App\Models\Category;
@@ -12,6 +13,7 @@ use Database\Seeders\GroceryCatalogSeeder;
 use Database\Seeders\GroceryContentSeeder;
 use Database\Seeders\GroceryMenuSeeder;
 use Database\Seeders\GrocerySettingsSeeder;
+use Database\Seeders\StoreLocationsSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
@@ -89,6 +91,7 @@ class GroceryTemplate extends Template
         app(GroceryMenuSeeder::class)->run();
         app(GroceryCatalogSeeder::class)->run();
         app(GroceryContentSeeder::class)->run();
+        app(StoreLocationsSeeder::class)->run('grocery');
         Cache::flush();
     }
 
@@ -101,7 +104,7 @@ class GroceryTemplate extends Template
     public function viewData(): array
     {
         return [
-            'navCategories' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('grocery.nav_categories'), 600, fn () => Category::active()
+            'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('grocery.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
                 ->with(['children' => fn ($q) => $q->where('is_active', true)])
                 ->get()),
@@ -213,5 +216,15 @@ class GroceryTemplate extends Template
                 'newsletter_text' => 'Sign up for weekly deals and new arrivals. No spam, only savings.',
             ],
         ];
+    }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => Media::unsplash('1540420773420-3366772f4999', 1600, '&h=1200'),
+            'kicker' => 'Store team',
+            'quote' => 'Fresh stock, fast orders.',
+            'quote_sub' => 'Products, deals, deliveries and customers — run the whole store from one place.',
+        ]);
     }
 }

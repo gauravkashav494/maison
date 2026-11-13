@@ -4,8 +4,11 @@ namespace App\Filament\Resources\ClientRoles;
 
 use App\Clients\ClientContext;
 use App\Clients\ClientModules;
+use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Support\RowActions;
 use App\Models\ClientRole;
 use BackedEnum;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
@@ -14,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,6 +27,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class ClientRoleResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = ClientRole::class;
 
     protected static ?string $recordTitleAttribute = 'name';
@@ -110,7 +116,9 @@ class ClientRoleResource extends Resource
                     ->state(fn (ClientRole $r) => count($r->permissions ?? []))->alignRight(),
                 TextColumn::make('users_count')->counts('users')->label('Staff')->alignRight(),
             ])
-            ->recordActions([EditAction::make()]);
+            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())])
+            ->filters([TrashedFilter::make()])
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])]);
     }
 
     public static function getPages(): array

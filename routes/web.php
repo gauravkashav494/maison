@@ -9,6 +9,9 @@ use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\ShopController;
 use Illuminate\Support\Facades\Route;
 
+// On the main domain the Super Admin panel owns /, /login and its screens (AdminPanelProvider);
+// its routes are registered before these, so the storefront routes below answer on client and
+// store subdomains, and anywhere else on the main domain they redirect to the panel.
 Route::get('/', HomeController::class)->name('home');
 
 // Catalogue
@@ -20,10 +23,8 @@ Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('prod
 Route::post('/product/{slug}/reviews', [CatalogController::class, 'storeReview'])->middleware('throttle:5,1')->name('products.reviews.store');
 Route::get('/search', [CatalogController::class, 'search'])->name('search');
 
-// A standing link to the Simple List template's bulk order page. It pins the entry-link
-// cookie to that client (see StoreEntryController::bulkOrder) and lands on /shop, so
-// browsing, the cart and checkout all keep working — unlike a page pinned only for itself,
-// which would leave the "Add" button posting against whatever client was active before.
+// A standing link to the Simple List template's bulk order page: it redirects to /shop on the
+// subdomain of the client running that template (see StoreEntryController::bulkOrder).
 Route::get('/bulkorder', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'bulkOrder'])->name('bulkorder');
 
 // Editorial
@@ -46,6 +47,7 @@ Route::match(['get', 'post'], '/track-order', [CatalogController::class, 'track'
 
 // Forms
 Route::post('/newsletter', [CartController::class, 'subscribe'])->name('newsletter');
+Route::post('/delivery-pincode', [CartController::class, 'pincode'])->middleware('throttle:30,1')->name('delivery.pincode');
 Route::post('/contact', [CatalogController::class, 'contactStore'])->middleware('throttle:5,1')->name('contact.store');
 
 // Customer accounts
@@ -87,12 +89,12 @@ Route::get('/offline', [PwaController::class, 'offline'])->name('pwa.offline');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 
-// Entry links for visitors on the main domain: /store/<client> opens that client's storefront
-// (cookie), and /store/<store> keeps working for the older store-level links. /c/<client> is the
-// previous address of the client link and redirects, so links already shared keep working.
+// Old entry links on the main domain. Anything naming a client (/store/<client>, /c/<client>, or
+// /store/<store> for a store a client runs) redirects to that client's subdomain; a store with
+// no client yet is shown as a demo on the main domain.
 Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
-Route::get('/store/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('slug', '[a-z0-9-]+')->name('store.enter');
-Route::get('/c/{slug}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('slug', '[a-z0-9-]+');
+Route::get('/store/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
+Route::get('/c/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';

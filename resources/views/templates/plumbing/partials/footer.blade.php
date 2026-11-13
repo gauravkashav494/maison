@@ -21,8 +21,8 @@
                     <p class="text-sm text-white/70">{{ $p['newsletter_text'] ?? '' }}</p>
                 </div>
             </div>
-            <form @submit.prevent="submit()" class="flex w-full max-w-md gap-2" x-show="!done">
-                <input x-model="email" type="email" required placeholder="Your email address" class="h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-4 text-white placeholder:text-white/50 focus:border-accent focus:outline-none" aria-label="Email address">
+            <form @submit.prevent="submit()" class="flex w-full max-w-md gap-2" x-show="!done" novalidate>
+                <input x-model="email" type="email" placeholder="Your email address" class="h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-4 text-white placeholder:text-white/50 focus:border-accent focus:outline-none" aria-label="Email address">
                 <button type="submit" :disabled="busy" class="btn btn-accent h-12">Subscribe</button>
             </form>
             <p x-show="done" x-cloak class="flex items-center gap-2 text-sm font-semibold text-accent"><x-ico name="check" :size="18" /> You’re on the list.</p>

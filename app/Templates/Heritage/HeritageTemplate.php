@@ -2,6 +2,7 @@
 
 namespace App\Templates\Heritage;
 
+use App\Clients\ClientDatabase;
 use App\Filament\Pages\HeritageHomepageSettings;
 use App\Filament\Pages\HeritageSettings;
 use App\Models\Category;
@@ -12,6 +13,7 @@ use Database\Seeders\HeritageCatalogSeeder;
 use Database\Seeders\HeritageContentSeeder;
 use Database\Seeders\HeritageMenuSeeder;
 use Database\Seeders\HeritageSettingsSeeder;
+use Database\Seeders\StoreLocationsSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
@@ -88,6 +90,7 @@ class HeritageTemplate extends Template
         app(HeritageMenuSeeder::class)->run();
         app(HeritageCatalogSeeder::class)->run();
         app(HeritageContentSeeder::class)->run();
+        app(StoreLocationsSeeder::class)->run('heritage');
         Cache::flush();
     }
 
@@ -99,7 +102,7 @@ class HeritageTemplate extends Template
     public function viewData(): array
     {
         return [
-            'navCategories' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('heritage.nav_categories'), 600, fn () => Category::active()
+            'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('heritage.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
                 ->with(['children' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')])
                 ->get()),
@@ -218,5 +221,15 @@ class HeritageTemplate extends Template
                 'newsletter_text' => 'Recipes, harvest news and ₹100 off your first order.',
             ],
         ];
+    }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => Media::unsplash('1532336414038-cf19250c5757', 1600, '&h=1200'),
+            'kicker' => 'Pantry team',
+            'quote' => 'Pure ingredients, carefully kept.',
+            'quote_sub' => 'Your catalogue, orders, gifting and stories — in one calm place.',
+        ]);
     }
 }

@@ -4,21 +4,21 @@ namespace App\Models;
 
 use App\Clients\ClientDatabase;
 use App\Models\Concerns\BelongsToClient;
-use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\UsesClientConnection;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Cache;
 
 class Menu extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
-
     use BelongsToTemplate;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     protected $guarded = [];
 
@@ -87,5 +87,6 @@ class Menu extends Model
             Cache::forget(static::cacheKey((string) $menu->location));
         });
         static::deleted(fn () => static::flush());
+        static::restored(fn () => static::flush());
     }
 }

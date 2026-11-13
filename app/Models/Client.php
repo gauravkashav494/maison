@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPlatformConnection;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -23,6 +25,8 @@ use Illuminate\Support\Str;
 class Client extends Model
 {
     use Concerns\LogsPlatformActivity;
+    use SoftDeletes;
+    use UsesPlatformConnection;
 
     public const COOKIE = 'client';
 
@@ -31,10 +35,14 @@ class Client extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'modules' => 'array'];
+    protected $casts = ['is_active' => 'boolean', 'is_theme' => 'boolean', 'modules' => 'array'];
+
+    /** Global scope that keeps theme previews out of every client list, count and total. */
+    public const HIDE_THEMES = 'hide_themes';
 
     protected static function booted(): void
     {
+        static::addGlobalScope(self::HIDE_THEMES, fn (Builder $query) => $query->where($query->qualifyColumn('is_theme'), false));
         static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
         static::saved(fn () => Cache::forget('clients.hosts'));
         static::deleted(fn () => Cache::forget('clients.hosts'));
@@ -49,13 +57,19 @@ class Client extends Model
 
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(Plan::class);
+        return $this->belongsTo(Plan::class)->withTrashed();
     }
 
     /** Client Admin and Admin Staff accounts for this client. */
     public function users(): HasMany
     {
         return $this->hasMany(ClientUser::class)->orderBy('name');
+    }
+
+    /** Only its Client Admin accounts (edited on the client's own form). */
+    public function clientAdmins(): HasMany
+    {
+        return $this->hasMany(ClientUser::class)->where('role', ClientUser::ROLE_CLIENT_ADMIN)->orderBy('id');
     }
 
     public function roles(): HasMany
@@ -111,7 +125,7 @@ class Client extends Model
     /** Slug in a form that is safe inside an identifier or a connection name. */
     public function key(): string
     {
-        return str_replace('-', '_', (string) $this->slug);
+        return str_replace('-', '_', (string) $this->subdomain);
     }
 
     // ---- Limits ------------------------------------------------------------
@@ -163,14 +177,14 @@ class Client extends Model
         return Storefront::baseDomain();
     }
 
-    /** Host → client id for every active client (custom domain and <slug>.<base> forms). */
+    /** Host → client id for every active client (custom domain and <subdomain>.<base> forms). */
     public static function hostMap(): array
     {
         return Cache::remember('clients.hosts', 60, function () {
             $base = static::baseDomain();
             $map = [];
-            foreach (static::active()->get() as $client) {
-                $map[strtolower($client->slug.'.'.$base)] = $client->id;
+            foreach (static::withThemes()->active()->get() as $client) {
+                $map[strtolower($client->subdomain.'.'.$base)] = $client->id;
                 if ($client->domain) {
                     $map[strtolower($client->domain)] = $client->id;
                 }
@@ -188,30 +202,24 @@ class Client extends Model
         return static::hostMap()[$host] ?? null;
     }
 
-    /** Client pinned by the entry-link cookie (/client-site/<slug>), if it is still active. */
-    public static function idForSlug(?string $slug): ?int
+    /** Active client with this subdomain, if any. */
+    public static function idForSubdomain(?string $subdomain): ?int
     {
-        if (! $slug) {
+        if (! $subdomain) {
             return null;
         }
 
-        return static::active()->where('slug', strtolower($slug))->value('id');
+        return static::active()->where('subdomain', strtolower($subdomain))->value('id');
     }
 
-    /** Entry link on the main domain; works without any DNS setup. */
-    public function entryUrl(): string
-    {
-        return rtrim(config('app.url'), '/').'/store/'.$this->slug;
-    }
-
-    /** Public address of this client's storefront, in the configured style. */
+    /**
+     * Public address of this client's storefront: its custom domain, else <subdomain>.<base domain>.
+     * A client is always reached on its own host, never through a path on the main domain.
+     */
     public function publicUrl(): string
     {
         if ($this->domain) {
             return 'https://'.$this->domain;
-        }
-        if (config('templates.store_urls') === 'path') {
-            return $this->entryUrl();
         }
         // Scheme and port follow the current request (dev servers run on :8000), else APP_URL.
         $request = app()->bound('request') ? request() : null;
@@ -220,18 +228,50 @@ class Client extends Model
         $portNo = $request?->getPort() ?? ($app['port'] ?? null);
         $port = $portNo && ! in_array((int) $portNo, [80, 443], true) ? ':'.$portNo : '';
 
-        return $scheme.'://'.$this->slug.'.'.static::baseDomain().$port;
+        return $scheme.'://'.$this->subdomain.'.'.static::baseDomain().$port;
     }
 
-    /** Suggests a unique slug for a new client. */
-    public static function uniqueSlug(string $name): string
+    /** Sign-in page of the client panel, on the same host as the store. */
+    public function loginUrl(): string
+    {
+        return $this->publicUrl().'/client/login';
+    }
+
+    // ---- Theme previews ----------------------------------------------------
+
+    /** Clients including the theme previews, for code that must reach them. */
+    public static function withThemes(): Builder
+    {
+        return static::withoutGlobalScope(self::HIDE_THEMES);
+    }
+
+    /** theme-<template>: the address word is config('templates.theme_prefix'). */
+    public static function themeSubdomain(string $templateId): string
+    {
+        return config('templates.theme_prefix', 'theme-').$templateId;
+    }
+
+    /** The theme preview of a template, if it has been built. */
+    public static function themeFor(?string $templateId): ?self
+    {
+        return $templateId
+            ? static::withThemes()->where('is_theme', true)->where('subdomain', static::themeSubdomain($templateId))->first()
+            : null;
+    }
+
+    /** Suggests a unique subdomain for a new client. */
+    public static function uniqueSubdomain(string $name): string
     {
         $base = Str::slug($name) ?: 'client';
-        $slug = $base;
-        for ($i = 2; static::where('slug', $slug)->exists(); $i++) {
-            $slug = $base.'-'.$i;
+        // The theme- prefix is kept for theme previews.
+        if (str_starts_with($base, config('templates.theme_prefix', 'theme-'))) {
+            $base = 'store-'.$base;
+        }
+        $subdomain = $base;
+        for ($i = 2; static::withThemes()->where('subdomain', $subdomain)->exists(); $i++) {
+            $subdomain = $base.'-'.$i;
         }
 
-        return $slug;
+        return $subdomain;
     }
 }

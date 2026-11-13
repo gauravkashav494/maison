@@ -2,11 +2,14 @@
 
 namespace App\Filament\Support;
 
-use Filament\Forms\Components\BaseFileUpload;
+use App\Admin\StoreContext;
+use App\Clients\ClientContext;
+use App\Clients\ClientQuota;
+use App\Rules\WithinClientStorage;
 use App\Templates\TemplateManager;
+use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -14,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
 
@@ -26,15 +30,15 @@ class Fields
      */
     public static function image(string $name, ?string $label = null, string $directory = 'uploads', bool $multiple = false): FileUpload
     {
-        // A client's media lives under clients/<slug>/… so its storage can be measured and capped.
-        $client = app(\App\Clients\ClientContext::class)->client();
+        // A client's media lives under clients/<subdomain>/… so its storage can be measured and capped.
+        $client = app(ClientContext::class)->client();
 
         $field = FileUpload::make($name)
             ->label($label ?? Str::headline($name))
             ->disk('public')
-            ->directory($client ? 'clients/'.$client->slug.'/'.$directory : $directory)
-            ->rules([new \App\Rules\WithinClientStorage])
-            ->helperText(fn () => ($q = \App\Clients\ClientQuota::current())?->storageLimit() === null ? null : 'Media storage: '.$q->storageLabel().' used.')
+            ->directory($client ? 'clients/'.$client->subdomain.'/'.$directory : $directory)
+            ->rules([new WithinClientStorage])
+            ->helperText(fn () => ($q = ClientQuota::current())?->storageLimit() === null ? null : 'Media storage: '.$q->storageLabel().' used.')
             ->visibility('public')
             ->image()
             ->imageEditor()
@@ -83,7 +87,7 @@ class Fields
                 // Slugs are unique inside a client, not across the platform: two clients may
                 // each have a "shirts" category.
                 ->unique(ignoreRecord: true, modifyRuleUsing: function (Unique $rule, Get $get) use ($scopeColumn) {
-                    $rule = $rule->where('client_id', app(\App\Clients\ClientContext::class)->id());
+                    $rule = $rule->where('client_id', app(ClientContext::class)->id());
 
                     return $scopeColumn ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule;
                 })
@@ -94,7 +98,7 @@ class Fields
     /** "Visible in" template selector for catalogue records (null = every template). */
     public static function templateVisibility(string $column = 'template'): Select
     {
-        $context = app(\App\Admin\StoreContext::class);
+        $context = app(StoreContext::class);
 
         return Select::make($column)
             ->default(fn () => $context->template() ?? (app(TemplateManager::class)->has((string) request()->query('template')) ? request()->query('template') : null))

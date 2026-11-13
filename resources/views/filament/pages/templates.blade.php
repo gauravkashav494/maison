@@ -77,9 +77,8 @@
                         @else
                             {{ ($this->installAction)(['template' => $template->id()]) }}
                         @endif
-                        @if($installed)
-                            {{ ($this->previewAction)(['template' => $template->id()]) }}
-                        @endif
+                        {{ ($this->previewAction)(['template' => $template->id()]) }}
+                        {{ ($this->themeAction)(['template' => $template->id()]) }}
                         <div class="tpl-links">
                             @foreach($template->adminPages() as $page)
                                 {{-- Template settings belong to each client; only pages on this panel can be linked. --}}

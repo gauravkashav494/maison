@@ -19,24 +19,28 @@ class ClientTotals
     /** @return Collection<int, array> one row per client */
     public static function all(): Collection
     {
+        return Client::with(['storefront', 'plan'])->orderBy('name')->get()
+            ->map(fn (Client $client) => self::for($client) + ['client' => $client]);
+    }
+
+    /** @return array{products: int, services: int, orders: int, revenue: int, customers: int, staff: int} */
+    public static function for(Client $client): array
+    {
         $databases = app(ClientDatabase::class);
 
-        return Client::with(['storefront', 'plan'])->orderBy('name')->get()->map(function (Client $client) use ($databases) {
-            $read = fn () => [
-                'products' => Product::withoutGlobalScopes()->where('client_id', $client->id)->count(),
-                'services' => Service::withoutGlobalScopes()->where('client_id', $client->id)->count(),
-                'orders' => Order::withoutGlobalScopes()->where('client_id', $client->id)->count(),
-                'revenue' => (int) Order::withoutGlobalScopes()->where('client_id', $client->id)->where('status', '!=', 'cancelled')->sum('total'),
-            ];
-            $counts = $databases->isolated()
-                ? $databases->forClientOr($client, $read, ['products' => 0, 'services' => 0, 'orders' => 0, 'revenue' => 0])
-                : $read();
+        $read = fn () => [
+            'products' => Product::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
+            'services' => Service::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
+            'orders' => Order::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
+            'revenue' => (int) Order::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->where('status', '!=', 'cancelled')->sum('total'),
+        ];
+        $counts = $databases->isolated()
+            ? $databases->forClientOr($client, $read, ['products' => 0, 'services' => 0, 'orders' => 0, 'revenue' => 0])
+            : $read();
 
-            return $counts + [
-                'client' => $client,
-                'customers' => Customer::where('client_id', $client->id)->count(),
-                'staff' => ClientUser::where('client_id', $client->id)->count(),
-            ];
-        });
+        return $counts + [
+            'customers' => Customer::where('client_id', $client->id)->count(),
+            'staff' => ClientUser::where('client_id', $client->id)->count(),
+        ];
     }
 }

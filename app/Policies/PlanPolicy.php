@@ -37,4 +37,25 @@ class PlanPolicy
     {
         return $user->isSuperAdmin();
     }
+
+    public function restore(AdminIdentity $user, Plan $record): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
+    /** Deleting permanently follows the same rules as deleting. */
+    public function forceDelete(AdminIdentity $user, Plan $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
 }

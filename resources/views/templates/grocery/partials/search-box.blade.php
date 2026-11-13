@@ -1,7 +1,7 @@
 {{-- Desktop inline search with live results dropdown --}}
 @php $g = tsetting('site'); @endphp
 <div x-data="search(@js($g['search_suggestions'] ?? []))" class="relative" @click.outside="open = false" @keydown.escape="open = false">
-    <form @submit.prevent="submit()" role="search" class="relative">
+    <form @submit.prevent="submit()" role="search" class="relative" novalidate>
         <x-ico name="search" :size="18" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate" />
         <input x-ref="input" x-model="q" @focus="open = true" type="search" :placeholder="placeholder" autocomplete="off" aria-label="Search products"
                class="field h-11 bg-paper pl-11 pr-24 focus:bg-white">

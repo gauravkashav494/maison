@@ -19,7 +19,7 @@
         <p>{{ setting('site.intro', setting('site.tagline', '')) }}</p>
     </div>
 
-    <form class="ol-controls" method="get" action="{{ route('search') }}" role="search">
+    <form class="ol-controls" method="get" action="{{ route('search') }}" role="search" novalidate>
         <div class="ol-search">
             <label class="sr-only" for="ol-q">Search products</label>
             <input id="ol-q" type="search" name="q"

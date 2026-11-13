@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Storefront\BookingLookupRequest;
+use App\Http\Requests\Storefront\BookingRequest;
+use App\Http\Requests\Storefront\QuoteRequest;
+use App\Http\Requests\Storefront\ServicesContactRequest;
 use App\Models\ContactMessage;
 use App\Models\Faq;
 use App\Models\Project;
@@ -15,7 +19,6 @@ use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -166,23 +169,9 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(BookingRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'service_id' => ['nullable', 'integer', Rule::exists('services', 'id')],
-            'service_name' => ['required_without:service_id', 'nullable', 'string', 'max:120'],
-            'problem' => ['nullable', 'string', 'max:2000'],
-            'address' => ['required', 'string', 'max:300'],
-            'area' => ['nullable', 'string', 'max:120'],
-            'service_area_id' => ['nullable', 'integer', Rule::exists('service_areas', 'id')],
-            'preferred_date' => ['nullable', 'date', 'after_or_equal:today'],
-            'time_slot' => ['required', Rule::in(array_keys(ServiceRequest::SLOTS))],
-            'name' => ['required', 'string', 'max:80'],
-            'phone' => ['required', 'string', 'regex:/^[0-9+\s-]{10,15}$/'],
-            'email' => ['nullable', 'email', 'max:190'],
-            'type' => ['nullable', Rule::in(['booking', 'emergency'])],
-            'website' => ['prohibited'], // honeypot
-        ]);
+        $data = $request->validated();
         unset($data['website']);
 
         $service = ! empty($data['service_id']) ? Service::find($data['service_id']) : null;
@@ -225,18 +214,9 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function storeQuote(Request $request): RedirectResponse
+    public function storeQuote(QuoteRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'service_id' => ['nullable', 'integer', Rule::exists('services', 'id')],
-            'problem' => ['required', 'string', 'max:3000'],
-            'address' => ['nullable', 'string', 'max:300'],
-            'area' => ['nullable', 'string', 'max:120'],
-            'name' => ['required', 'string', 'max:80'],
-            'phone' => ['required', 'string', 'regex:/^[0-9+\s-]{10,15}$/'],
-            'email' => ['nullable', 'email', 'max:190'],
-            'website' => ['prohibited'],
-        ]);
+        $data = $request->validated();
         unset($data['website']);
 
         $data['service_name'] = ! empty($data['service_id']) ? Service::find($data['service_id'])?->name : 'General requirement';
@@ -264,10 +244,7 @@ class ServicesController extends Controller
         }
 
         if ($request->isMethod('post')) {
-            $data = $request->validate([
-                'reference' => ['required', 'string', 'max:20'],
-                'phone' => ['required', 'string', 'max:30'],
-            ]);
+            $data = app(BookingLookupRequest::class)->validated();
             $digits = fn ($v) => substr(preg_replace('/\D+/', '', $v), -10);
             $found = ServiceRequest::with('service')->where('reference', strtoupper(trim($data['reference'])))->first();
             if (! $found || $digits($found->phone) !== $digits($data['phone'])) {
@@ -295,17 +272,9 @@ class ServicesController extends Controller
 
     // ---- Contact (phone-first variant of the shared form) -----------------
 
-    public function contact(Request $request): RedirectResponse
+    public function contact(ServicesContactRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:80'],
-            'phone' => ['required', 'string', 'regex:/^[0-9+\s-]{10,15}$/'],
-            'email' => ['nullable', 'email', 'max:190'],
-            'service' => ['nullable', 'string', 'max:120'],
-            'location' => ['nullable', 'string', 'max:120'],
-            'message' => ['required', 'string', 'max:3000'],
-            'website' => ['prohibited'],
-        ]);
+        $data = $request->validated();
         unset($data['website']);
         $data['subject'] = $data['service'] ?: 'Enquiry';
         ContactMessage::create($data + ['template' => template()->id()]);

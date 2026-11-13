@@ -16,6 +16,7 @@ use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
+use App\Models\Store;
 use App\Models\Subscriber;
 use App\Models\Testimonial;
 
@@ -50,6 +51,7 @@ return [
         'posts' => ['label' => 'Journal', 'group' => 'Content', 'model' => Post::class],
         'faqs' => ['label' => 'FAQs', 'group' => 'Content', 'model' => Faq::class],
         'menus' => ['label' => 'Navigation', 'group' => 'Content', 'model' => Menu::class],
+        'stores' => ['label' => 'Store locations', 'group' => 'Content', 'model' => Store::class],
 
         'coupons' => ['label' => 'Promo codes', 'group' => 'Marketing', 'model' => Coupon::class],
         'subscribers' => ['label' => 'Subscribers', 'group' => 'Marketing', 'model' => Subscriber::class],
@@ -84,9 +86,9 @@ return [
             ],
         ],
         'Content editor' => [
-            'description' => 'Edits pages, the journal, navigation and store settings.',
+            'description' => 'Edits pages, the journal, navigation, store locations and store settings.',
             'permissions' => [
-                'pages' => '*', 'posts' => '*', 'faqs' => '*', 'menus' => '*', 'testimonials' => '*',
+                'pages' => '*', 'posts' => '*', 'faqs' => '*', 'menus' => '*', 'testimonials' => '*', 'stores' => '*',
                 'appearance' => '*',
             ],
         ],

@@ -46,6 +46,26 @@ class CustomerPolicy
         return ClientAccess::allows($user, 'customers', 'delete');
     }
 
+    public function restore(AdminIdentity $user, Customer $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
+    public function forceDelete(AdminIdentity $user, Customer $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
     private function owns(AdminIdentity $user, Customer $record): bool
     {
         return $user->clientId() === (int) $record->client_id && $this->clients->owns($record->client_id);

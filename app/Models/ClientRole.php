@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Clients\ClientModules;
 use App\Models\Concerns\LogsPlatformActivity;
+use App\Models\Concerns\UsesPlatformConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A named set of permissions inside one client, built by its Client Admin and given to Admin
@@ -15,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ClientRole extends Model
 {
     use LogsPlatformActivity;
+    use SoftDeletes;
+    use UsesPlatformConnection;
 
     protected $fillable = ['client_id', 'name', 'description', 'permissions'];
 

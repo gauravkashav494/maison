@@ -5,7 +5,7 @@
 <x-page-head :title="$q ? 'Results for “'.$q.'”' : 'Search'" :text="$q ? $products->total().' '.Str::plural('product', $products->total()).' found' : 'Type what you need — atta, milk, snacks…'" :breadcrumbs="['Search' => null]" />
 
 <section class="g-container py-6">
-    <form action="{{ route('search') }}" method="get" role="search" class="relative mx-auto max-w-2xl">
+    <form action="{{ route('search') }}" method="get" role="search" class="relative mx-auto max-w-2xl" novalidate>
         <x-ico name="search" :size="18" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate" />
         <input type="search" name="q" value="{{ $q }}" placeholder="{{ $gs['search_placeholder'] ?? 'Search products…' }}" class="field h-12 pl-11 pr-28" autofocus>
         <button type="submit" class="btn btn-primary absolute right-1.5 top-1/2 -translate-y-1/2">Search</button>

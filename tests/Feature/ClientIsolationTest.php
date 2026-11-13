@@ -46,8 +46,8 @@ class ClientIsolationTest extends TestCase
         // One store, two clients on it — the exact situation that used to leak.
         $this->store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
 
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $this->store->id, 'plan_id' => $plan->id, 'is_active' => true]);
 
         $this->alphaAdmin = ClientUser::create(['client_id' => $this->alpha->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test', 'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
         $this->betaAdmin = ClientUser::create(['client_id' => $this->beta->id, 'name' => 'Beta Admin', 'email' => 'admin@beta.test', 'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
@@ -188,8 +188,8 @@ class ClientIsolationTest extends TestCase
         $this->actingAs($this->alphaAdmin, 'client');
 
         // The admin panel uses its own guard, so this session is simply not signed in there.
-        $this->get('/admin')->assertRedirect('/admin/login');
-        $this->get('/admin/clients')->assertRedirect('/admin/login');
+        $this->get('/')->assertRedirect('/login');
+        $this->get('/clients')->assertRedirect('/login');
     }
 
     public function test_a_customer_cannot_open_either_admin_panel(): void
@@ -198,7 +198,7 @@ class ClientIsolationTest extends TestCase
 
         $this->actingAs($customer, 'web');
 
-        $this->get('/admin')->assertRedirect('/admin/login');
+        $this->get('/')->assertRedirect('/login');
         $this->get('/client')->assertRedirect('/client/login');
     }
 
@@ -245,7 +245,7 @@ class ClientIsolationTest extends TestCase
         $this->actingAs($customer, 'web');
 
         // Browsing Beta's storefront in the same browser ends the Alpha session.
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'beta'])->get('/')->assertSuccessful();
+        $this->get($this->beta->publicUrl().'/')->assertSuccessful();
 
         $this->assertGuest('web');
     }

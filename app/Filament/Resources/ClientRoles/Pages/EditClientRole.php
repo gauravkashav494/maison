@@ -4,6 +4,8 @@ namespace App\Filament\Resources\ClientRoles\Pages;
 
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditClientRole extends EditRecord
@@ -12,7 +14,7 @@ class EditClientRole extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [DeleteAction::make()];
+        return [DeleteAction::make(), RestoreAction::make(), ForceDeleteAction::make()->label('Delete permanently')];
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

@@ -13,16 +13,16 @@
                     <p class="mt-2 text-sm text-emerald-800">{{ session('contact_status') }}</p>
                 </div>
             @else
-                <form method="post" action="{{ route('contact.store') }}" class="space-y-6">
+                <form method="post" action="{{ route('contact.store') }}" class="space-y-6" novalidate>
                     @csrf
                     <div class="hidden" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
                     <div class="grid gap-6 sm:grid-cols-2">
-                        <label><span class="{{ $label }}">Name</span><input name="name" required value="{{ old('name', auth()->user()?->name) }}" class="input-luxe">@error('name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                        <label><span class="{{ $label }}">Email</span><input name="email" type="email" required value="{{ old('email', auth()->user()?->email) }}" class="input-luxe">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                        <label><span class="{{ $label }}">Phone (optional)</span><input name="phone" type="tel" value="{{ old('phone') }}" class="input-luxe"></label>
-                        <label><span class="{{ $label }}">Subject</span><select name="subject" class="input-luxe">@foreach($subjects as $s)<option @selected(old('subject') === $s)>{{ $s }}</option>@endforeach</select></label>
+                        <label><span class="{{ $label }}">Name<span class="req" aria-hidden="true">*</span></span><input name="name" value="{{ old('name', auth()->user()?->name) }}" class="input-luxe">@error('name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                        <label><span class="{{ $label }}">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ old('email', auth()->user()?->email) }}" class="input-luxe">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                        <label><span class="{{ $label }}">Phone (optional)</span><input name="phone" type="tel" value="{{ old('phone') }}" class="input-luxe">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                        <label><span class="{{ $label }}">Subject</span><select name="subject" class="input-luxe">@foreach($subjects as $s)<option @selected(old('subject') === $s)>{{ $s }}</option>@endforeach</select>@error('subject')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     </div>
-                    <label class="block"><span class="{{ $label }}">Message</span><textarea name="message" rows="6" required class="input-luxe">{{ old('message') }}</textarea>@error('message')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="block"><span class="{{ $label }}">Message<span class="req" aria-hidden="true">*</span></span><textarea name="message" rows="6" class="input-luxe">{{ old('message') }}</textarea>@error('message')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <button type="submit" class="btn btn-primary btn-lg">Send message <x-ico name="arrow-right" :size="14" class="btn-arrow" /></button>
                 </form>
             @endif

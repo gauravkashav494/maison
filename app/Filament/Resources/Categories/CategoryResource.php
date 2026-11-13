@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categories;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Categories\Pages\CreateCategory;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Categories\Pages\ListCategories;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class CategoryResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = Category::class;
 
     protected static ?string $recordTitleAttribute = 'name';

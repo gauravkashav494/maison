@@ -2,6 +2,21 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\Login;
+use App\Filament\Pages\ClientTotalsReport;
+use App\Filament\Pages\PlatformSettings;
+use App\Filament\Pages\Templates;
+use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\ClientUsers\ClientUserResource;
+use App\Filament\Resources\Plans\PlanResource;
+use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
+use App\Filament\Resources\Storefronts\StorefrontResource;
+use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\PlatformStats;
+use App\Filament\Widgets\RecentClients;
+use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\DiscourageSearchEngines;
+use App\Models\Storefront;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -29,20 +44,19 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 class AdminPanelProvider extends PanelProvider
 {
     public const RESOURCES = [
-        \App\Filament\Resources\Clients\ClientResource::class,
-        \App\Filament\Resources\ClientUsers\ClientUserResource::class,
-        \App\Filament\Resources\Storefronts\StorefrontResource::class,
-        \App\Filament\Resources\Plans\PlanResource::class,
-        \App\Filament\Resources\Stores\StoreResource::class,
-        \App\Filament\Resources\Users\UserResource::class,
-        \App\Filament\Resources\PlatformActivities\PlatformActivityResource::class,
+        ClientResource::class,
+        ClientUserResource::class,
+        StorefrontResource::class,
+        PlanResource::class,
+        UserResource::class,
+        PlatformActivityResource::class,
     ];
 
     public const PAGES = [
         Dashboard::class,
-        \App\Filament\Pages\ClientTotalsReport::class,
-        \App\Filament\Pages\Templates::class,
-        \App\Filament\Pages\SiteSettings::class,
+        ClientTotalsReport::class,
+        Templates::class,
+        PlatformSettings::class,
     ];
 
     public function panel(Panel $panel): Panel
@@ -50,19 +64,22 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('admin')
+            // The root of the main domain (ecomvision.test/, /login, /clients ...). Main domain
+            // only: client subdomains have their store and the client panel, never this one.
+            ->path('')
+            ->domain(Storefront::baseDomain())
             ->authGuard('admin')
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
-            ->login(\App\Filament\Auth\Login::class)
+            ->login(Login::class)
             ->maxContentWidth(Width::Full)
-            ->brandName(fn () => config('app.name'))
+            ->brandName(fn () => setting('platform.name', config('app.name')))
             ->brandLogo(fn () => view('filament.partials.brand'))
             ->favicon(null)
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: \App\Filament\Auth\Login::class)
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Clients', 'Platform', 'Settings'])
@@ -74,8 +91,8 @@ class AdminPanelProvider extends PanelProvider
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
-                \App\Filament\Widgets\PlatformStats::class,
-                \App\Filament\Widgets\RecentClients::class,
+                PlatformStats::class,
+                RecentClients::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -87,14 +104,14 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\DiscourageSearchEngines::class,
+                DiscourageSearchEngines::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
-                \App\Http\Middleware\ApplyAdminScope::class,
+                ApplyAdminScope::class,
             ])
             ->persistentMiddleware([
-                \App\Http\Middleware\ApplyAdminScope::class,
+                ApplyAdminScope::class,
             ]);
     }
 }

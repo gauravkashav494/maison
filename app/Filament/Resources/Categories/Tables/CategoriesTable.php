@@ -2,15 +2,16 @@
 
 namespace App\Filament\Resources\Categories\Tables;
 
+use App\Filament\Support\RowActions;
 use App\Models\Category;
 use App\Support\Media;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class CategoriesTable
@@ -29,12 +30,13 @@ class CategoriesTable
                 ToggleColumn::make('show_in_menu')->label('Homepage'),
             ])
             ->filters([
+                TrashedFilter::make(),
                 TernaryFilter::make('parent_id')->label('Level')->nullable()->trueLabel('Sub-categories')->falseLabel('Top level')->queries(
                     true: fn ($q) => $q->whereNotNull('parent_id'),
                     false: fn ($q) => $q->whereNull('parent_id'),
                 ),
             ])
-            ->recordActions([EditAction::make()])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 }

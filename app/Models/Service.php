@@ -3,23 +3,23 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
-use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
+use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /** A bookable plumbing service (Plumbing Services template). */
 class Service extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
-
     use BelongsToTemplate;
     use HasSeo;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     protected $guarded = [];
 

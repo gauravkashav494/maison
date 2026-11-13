@@ -2,7 +2,7 @@
 
 @section('content')
     <x-page-hero eyebrow="Search" :title="$q ? 'Results for “' . $q . '”' : 'Search'" :description="$q ? $products->total() . ' pieces found.' : 'Search products, categories and collections.'" :breadcrumbs="['Search' => null]">
-        <form method="get" action="{{ route('search') }}" class="mt-8 flex max-w-lg items-center gap-4 border-b border-ink pb-3">
+        <form method="get" action="{{ route('search') }}" class="mt-8 flex max-w-lg items-center gap-4 border-b border-ink pb-3" novalidate>
             <x-ico name="search" :size="20" />
             <input type="search" name="q" value="{{ $q }}" placeholder="Search…" class="w-full bg-transparent font-serif text-2xl outline-none placeholder:text-taupe" aria-label="Search">
         </form>

@@ -2,6 +2,7 @@
 
 namespace App\Templates\Plumbing;
 
+use App\Clients\ClientDatabase;
 use App\Filament\Pages\PlumbingHomepageSettings;
 use App\Filament\Pages\PlumbingSettings;
 use App\Models\Category;
@@ -12,6 +13,7 @@ use Database\Seeders\PlumbingCatalogSeeder;
 use Database\Seeders\PlumbingContentSeeder;
 use Database\Seeders\PlumbingMenuSeeder;
 use Database\Seeders\PlumbingSettingsSeeder;
+use Database\Seeders\StoreLocationsSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
@@ -89,6 +91,7 @@ class PlumbingTemplate extends Template
         app(PlumbingMenuSeeder::class)->run();
         app(PlumbingCatalogSeeder::class)->run();
         app(PlumbingContentSeeder::class)->run();
+        app(StoreLocationsSeeder::class)->run('plumbing');
         Cache::flush();
     }
 
@@ -101,7 +104,7 @@ class PlumbingTemplate extends Template
     public function viewData(): array
     {
         return [
-            'navCategories' => Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('plumbing.nav_categories'), 600, fn () => Category::active()
+            'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
                 ->with(['children' => fn ($q) => $q->where('is_active', true)])
                 ->get()),
@@ -208,5 +211,15 @@ class PlumbingTemplate extends Template
                 'faq_heading' => 'Frequently asked questions',
             ],
         ];
+    }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => Media::unsplash('1749532125405-70950966b0e5', 1600, '&h=1200'),
+            'kicker' => 'Store team',
+            'quote' => 'Every fitting, in stock.',
+            'quote_sub' => 'Catalogue, bulk quotes, orders and projects — all in one place.',
+        ]);
     }
 }

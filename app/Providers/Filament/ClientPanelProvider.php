@@ -2,6 +2,46 @@
 
 namespace App\Providers\Filament;
 
+use App\Clients\ClientContext;
+use App\Filament\Auth\Login;
+use App\Filament\Pages\GroceryHomepageSettings;
+use App\Filament\Pages\GrocerySettings;
+use App\Filament\Pages\HeritageHomepageSettings;
+use App\Filament\Pages\HeritageSettings;
+use App\Filament\Pages\HomepageSettings;
+use App\Filament\Pages\PlumbingHomepageSettings;
+use App\Filament\Pages\PlumbingServicesHomepageSettings;
+use App\Filament\Pages\PlumbingServicesSettings;
+use App\Filament\Pages\PlumbingSettings;
+use App\Filament\Pages\SiteSettings;
+use App\Filament\Resources\Categories\CategoryResource;
+use App\Filament\Resources\ClientRoles\ClientRoleResource;
+use App\Filament\Resources\ClientUsers\ClientUserResource;
+use App\Filament\Resources\Collections\CollectionResource;
+use App\Filament\Resources\ContactMessages\ContactMessageResource;
+use App\Filament\Resources\Coupons\CouponResource;
+use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\Faqs\FaqResource;
+use App\Filament\Resources\Stores\StoreResource;
+use App\Filament\Resources\Menus\MenuResource;
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Pages\PageResource;
+use App\Filament\Resources\Posts\PostResource;
+use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\Reviews\ReviewResource;
+use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
+use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
+use App\Filament\Resources\Services\ServiceResource;
+use App\Filament\Resources\Subscribers\SubscriberResource;
+use App\Filament\Resources\Testimonials\TestimonialResource;
+use App\Filament\Widgets\ClientUsage;
+use App\Filament\Widgets\RecentOrders;
+use App\Filament\Widgets\ServiceStats;
+use App\Filament\Widgets\StoreLink;
+use App\Filament\Widgets\StoreStats;
+use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\DiscourageSearchEngines;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -32,41 +72,42 @@ class ClientPanelProvider extends PanelProvider
 {
     /** Content a client manages for its own store. */
     public const RESOURCES = [
-        \App\Filament\Resources\Products\ProductResource::class,
-        \App\Filament\Resources\Categories\CategoryResource::class,
-        \App\Filament\Resources\Collections\CollectionResource::class,
-        \App\Filament\Resources\Coupons\CouponResource::class,
-        \App\Filament\Resources\Orders\OrderResource::class,
-        \App\Filament\Resources\Reviews\ReviewResource::class,
-        \App\Filament\Resources\Services\ServiceResource::class,
-        \App\Filament\Resources\ServiceAreas\ServiceAreaResource::class,
-        \App\Filament\Resources\ServiceRequests\ServiceRequestResource::class,
-        \App\Filament\Resources\Projects\ProjectResource::class,
-        \App\Filament\Resources\Testimonials\TestimonialResource::class,
-        \App\Filament\Resources\Pages\PageResource::class,
-        \App\Filament\Resources\Posts\PostResource::class,
-        \App\Filament\Resources\Faqs\FaqResource::class,
-        \App\Filament\Resources\Menus\MenuResource::class,
-        \App\Filament\Resources\ContactMessages\ContactMessageResource::class,
-        \App\Filament\Resources\Subscribers\SubscriberResource::class,
-        \App\Filament\Resources\Customers\CustomerResource::class,
-        \App\Filament\Resources\ClientUsers\ClientUserResource::class,
-        \App\Filament\Resources\ClientRoles\ClientRoleResource::class,
+        ProductResource::class,
+        CategoryResource::class,
+        CollectionResource::class,
+        CouponResource::class,
+        OrderResource::class,
+        ReviewResource::class,
+        ServiceResource::class,
+        ServiceAreaResource::class,
+        ServiceRequestResource::class,
+        ProjectResource::class,
+        TestimonialResource::class,
+        PageResource::class,
+        PostResource::class,
+        FaqResource::class,
+        MenuResource::class,
+        StoreResource::class,
+        ContactMessageResource::class,
+        SubscriberResource::class,
+        CustomerResource::class,
+        ClientUserResource::class,
+        ClientRoleResource::class,
     ];
 
     /** Appearance and content settings for the templates; each page checks its own access. */
     public const PAGES = [
         Dashboard::class,
-        \App\Filament\Pages\SiteSettings::class,
-        \App\Filament\Pages\HomepageSettings::class,
-        \App\Filament\Pages\GrocerySettings::class,
-        \App\Filament\Pages\GroceryHomepageSettings::class,
-        \App\Filament\Pages\HeritageSettings::class,
-        \App\Filament\Pages\HeritageHomepageSettings::class,
-        \App\Filament\Pages\PlumbingSettings::class,
-        \App\Filament\Pages\PlumbingHomepageSettings::class,
-        \App\Filament\Pages\PlumbingServicesSettings::class,
-        \App\Filament\Pages\PlumbingServicesHomepageSettings::class,
+        SiteSettings::class,
+        HomepageSettings::class,
+        GrocerySettings::class,
+        GroceryHomepageSettings::class,
+        HeritageSettings::class,
+        HeritageHomepageSettings::class,
+        PlumbingSettings::class,
+        PlumbingHomepageSettings::class,
+        PlumbingServicesSettings::class,
+        PlumbingServicesHomepageSettings::class,
     ];
 
     public function panel(Panel $panel): Panel
@@ -77,15 +118,15 @@ class ClientPanelProvider extends PanelProvider
             ->authGuard('client')
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
-            ->login(\App\Filament\Auth\Login::class)
+            ->login(Login::class)
             ->maxContentWidth(Width::Full)
-            ->brandName(fn () => app(\App\Clients\ClientContext::class)->client()?->name ?? config('app.name'))
+            ->brandName(fn () => app(ClientContext::class)->client()?->name ?? config('app.name'))
             ->brandLogo(fn () => view('filament.partials.brand'))
             ->favicon(null)
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: \App\Filament\Auth\Login::class)
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-badge'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
@@ -97,11 +138,11 @@ class ClientPanelProvider extends PanelProvider
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
-                \App\Filament\Widgets\StoreLink::class,
-                \App\Filament\Widgets\ClientUsage::class,
-                \App\Filament\Widgets\StoreStats::class,
-                \App\Filament\Widgets\ServiceStats::class,
-                \App\Filament\Widgets\RecentOrders::class,
+                StoreLink::class,
+                ClientUsage::class,
+                StoreStats::class,
+                ServiceStats::class,
+                RecentOrders::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -113,14 +154,14 @@ class ClientPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\DiscourageSearchEngines::class,
+                DiscourageSearchEngines::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
-                \App\Http\Middleware\ApplyAdminScope::class,
+                ApplyAdminScope::class,
             ])
             ->persistentMiddleware([
-                \App\Http\Middleware\ApplyAdminScope::class,
+                ApplyAdminScope::class,
             ]);
     }
 }

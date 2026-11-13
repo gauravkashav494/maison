@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\TracksSyncVersion;
+use App\Models\Concerns\UsesPlatformConnection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -18,7 +20,10 @@ use Illuminate\Notifications\Notifiable;
  */
 class Customer extends Authenticatable
 {
-    use HasFactory, Notifiable, TracksSyncVersion;
+    use HasFactory, Notifiable;
+    use SoftDeletes;
+    use TracksSyncVersion;
+    use UsesPlatformConnection;
 
     /** The profile fields the local system is told about. */
     public const SYNC_TRACKED = ['name', 'email', 'phone', 'is_active'];

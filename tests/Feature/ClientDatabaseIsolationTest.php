@@ -47,8 +47,8 @@ class ClientDatabaseIsolationTest extends TestCase
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
 
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha-db', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta-db', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha-db', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta-db', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
 
         $this->alphaAdmin = ClientUser::create([
             'client_id' => $this->alpha->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha-db.test',
@@ -58,7 +58,7 @@ class ClientDatabaseIsolationTest extends TestCase
         // The real provisioning path, without the store's seed data: a database per client
         // with the content schema in it.
         foreach ([$this->alpha, $this->beta] as $client) {
-            $this->artisan('clients:provision', ['slug' => $client->slug, '--no-seed' => true])->assertSuccessful();
+            $this->artisan('clients:provision', ['subdomain' => $client->subdomain, '--no-seed' => true])->assertSuccessful();
         }
 
         $this->write($this->alpha, 'Alpha Coat');
@@ -208,9 +208,9 @@ class ClientDatabaseIsolationTest extends TestCase
 
         $this->actingAs($operator, 'admin');
 
-        $this->get('/admin/client-totals')->assertSuccessful()->assertDontSee('Alpha Coat');
+        $this->get('/client-totals')->assertSuccessful()->assertDontSee('Alpha Coat');
 
-        $totals = \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug);
+        $totals = \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->subdomain);
         $this->assertSame(1, $totals['alpha-db']['products']);
         $this->assertSame(1, $totals['beta-db']['products']);
     }
@@ -225,18 +225,18 @@ class ClientDatabaseIsolationTest extends TestCase
 
     public function test_a_client_without_a_database_reads_as_empty(): void
     {
-        $client = Client::create(['name' => 'Gamma', 'slug' => 'gamma-db', 'storefront_id' => $this->alpha->storefront_id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
+        $client = Client::create(['name' => 'Gamma', 'subdomain' => 'gamma-db', 'storefront_id' => $this->alpha->storefront_id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
 
         $quota = \App\Clients\ClientQuota::for($client);
         $this->assertSame(0, $quota->productCount());
         $this->assertSame(0, $quota->imageCount());
         $this->assertSame([], $quota->imagePaths());
-        $this->assertSame(0, \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->slug)['gamma-db']['products']);
+        $this->assertSame(0, \App\Clients\ClientTotals::all()->keyBy(fn (array $row) => $row['client']->subdomain)['gamma-db']['products']);
 
         // The pages that offer the retry have to open for that client.
         $this->actingAs($this->operator(), 'admin');
-        $this->get('/admin/clients')->assertSuccessful()->assertSee('Gamma');
-        $this->get('/admin/clients/'.$client->getRouteKey().'/edit')->assertSuccessful();
+        $this->get('/clients')->assertSuccessful()->assertSee('Gamma');
+        $this->get('/clients/'.$client->getRouteKey().'/edit')->assertSuccessful();
     }
 
     public function test_a_client_with_an_empty_database_reads_as_empty(): void
@@ -266,11 +266,15 @@ class ClientDatabaseIsolationTest extends TestCase
         \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
 
         \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
-            ->fillForm(['name' => 'Delta', 'slug' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id])
+            ->fillForm([
+                'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id,
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass'],
+            ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $this->assertDatabaseHas('clients', ['slug' => 'delta-db']);
+        $this->assertDatabaseHas('clients', ['subdomain' => 'delta-db']);
+        $this->assertDatabaseHas('client_users', ['email' => 'owner@delta.test', 'role' => \App\Models\ClientUser::ROLE_CLIENT_ADMIN]);
     }
 
     public static function stores(): array
@@ -282,10 +286,10 @@ class ClientDatabaseIsolationTest extends TestCase
     public function test_a_store_without_samples_has_no_products_and_still_renders(string $template): void
     {
         $store = Storefront::firstOrCreate(['template' => $template], ['name' => $template, 'slug' => $template, 'is_active' => true]);
-        $client = Client::create(['name' => 'Gamma', 'slug' => 'gamma-db', 'storefront_id' => $store->id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
+        $client = Client::create(['name' => 'Gamma', 'subdomain' => 'gamma-db', 'storefront_id' => $store->id, 'plan_id' => $this->alpha->plan_id, 'is_active' => true]);
         $this->extraClients[] = $client;
 
-        $this->artisan('clients:provision', ['slug' => $client->slug, '--no-samples' => true])->assertSuccessful();
+        $this->artisan('clients:provision', ['subdomain' => $client->subdomain, '--no-samples' => true])->assertSuccessful();
 
         $database = DB::connection(app(ClientDatabase::class)->connectionNameFor($client));
         $this->assertSame(0, $database->table('products')->count());
@@ -299,13 +303,13 @@ class ClientDatabaseIsolationTest extends TestCase
 
         foreach (['/', '/shop', '/collections'] as $path) {
             $this->flushSession();
-            $this->assertLessThan(500, $this->withSession([Client::SESSION_KEY => $client->slug])->get($path)->getStatusCode(), $path);
+            $this->assertLessThan(500, $this->withSession([Client::SESSION_KEY => $client->subdomain])->get($path)->getStatusCode(), $path);
         }
 
         // No menu may be left pointing at sample content that was removed, or at a broken page.
         foreach ($database->table('menu_items')->where('url', 'like', '/%')->pluck('url')->unique() as $url) {
             $this->flushSession();
-            $status = $this->withSession([Client::SESSION_KEY => $client->slug])->get($url)->getStatusCode();
+            $status = $this->withSession([Client::SESSION_KEY => $client->subdomain])->get($url)->getStatusCode();
             $this->assertLessThan(500, $status, $url);
             if (preg_match('#^/(shop|collections|services|service-areas)/#', $url)) {
                 $this->assertNotSame(404, $status, $url);
@@ -314,9 +318,9 @@ class ClientDatabaseIsolationTest extends TestCase
 
         if ($template === 'plumbing-services') {
             $this->flushSession();
-            $this->withSession([Client::SESSION_KEY => $client->slug])->get('/services/no-such-service')->assertRedirect(route('services.index'));
+            $this->withSession([Client::SESSION_KEY => $client->subdomain])->get('/services/no-such-service')->assertRedirect(route('services.index'));
             $this->flushSession();
-            $this->withSession([Client::SESSION_KEY => $client->slug])->get('/service-areas/no-such-area')->assertRedirect(route('areas.index'));
+            $this->withSession([Client::SESSION_KEY => $client->subdomain])->get('/service-areas/no-such-area')->assertRedirect(route('areas.index'));
         }
     }
 
@@ -329,14 +333,14 @@ class ClientDatabaseIsolationTest extends TestCase
         ]));
         $databases->forClient($this->alpha, fn () => DB::connection($databases->connection())->table('products')->delete());
 
-        $this->artisan('clients:provision', ['slug' => $this->alpha->slug, '--no-samples' => true])->assertSuccessful();
+        $this->artisan('clients:provision', ['subdomain' => $this->alpha->subdomain, '--no-samples' => true])->assertSuccessful();
 
         $this->assertTrue(DB::connection($databases->connectionNameFor($this->alpha))->table('categories')->where('slug', 'real-category')->exists());
     }
 
     public function test_removing_samples_never_touches_a_catalogue_that_already_has_products(): void
     {
-        $this->artisan('clients:provision', ['slug' => $this->alpha->slug, '--no-samples' => true])->assertSuccessful();
+        $this->artisan('clients:provision', ['subdomain' => $this->alpha->subdomain, '--no-samples' => true])->assertSuccessful();
 
         $names = app(ClientDatabase::class)->forClient($this->alpha, fn () => Product::withoutGlobalScopes()->pluck('name')->all());
         $this->assertContains('Alpha Coat', $names);
@@ -355,11 +359,14 @@ class ClientDatabaseIsolationTest extends TestCase
         \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
 
         \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
-            ->fillForm(['name' => 'Delta', 'slug' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id, 'sample_products' => $choice])
+            ->fillForm([
+                'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id, 'sample_products' => $choice,
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass'],
+            ])
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $this->assertDatabaseHas('clients', ['slug' => 'delta-db']);
+        $this->assertDatabaseHas('clients', ['subdomain' => 'delta-db']);
     }
 
     public function test_the_retry_offers_the_sample_products_choice_when_there_is_no_database(): void
@@ -367,15 +374,56 @@ class ClientDatabaseIsolationTest extends TestCase
         $this->mock(\App\Clients\ClientProvisioner::class, function ($mock) {
             $mock->shouldReceive('isNeeded')->andReturnTrue();
             $mock->shouldReceive('databaseExists')->andReturnFalse();
+            $mock->shouldReceive('repairReason')->andReturn('missing');
             $mock->shouldReceive('provision')->once()->withArgs(fn ($client, $samples) => $samples === true)->andReturn(['ok' => true, 'message' => 'ready']);
         });
 
         $this->actingAs($this->operator(), 'admin');
         \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
 
-        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\EditClient::class, ['record' => $this->alpha->getRouteKey()])
-            ->callAction('provision', ['sample_products' => true])
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->assertActionVisible('repairDatabase')
+            ->callAction('repairDatabase', ['sample_products' => true])
             ->assertHasNoActionErrors();
+    }
+
+    public function test_repair_is_offered_only_when_the_database_needs_it(): void
+    {
+        $this->artisan('clients:provision', ['subdomain' => $this->alpha->subdomain, '--no-seed' => true])->assertSuccessful();
+        $provisioner = app(\App\Clients\ClientProvisioner::class);
+        $this->assertNull($provisioner->repairReason($this->alpha), 'A fully built database needs no repair');
+
+        $this->actingAs($this->operator(), 'admin');
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->assertActionHidden('repairDatabase');
+
+        // A client migration added after the database was built makes it "outdated".
+        $databases = app(ClientDatabase::class);
+        $databases->forClient($this->alpha, fn () => DB::connection($databases->connection())->table('migrations')->where('migration', '0001_01_01_000003_add_soft_deletes')->delete());
+        $this->assertSame('outdated', $provisioner->repairReason($this->alpha));
+    }
+
+    public function test_the_client_page_lists_its_team_in_a_filterable_table(): void
+    {
+        $owner = \App\Models\ClientUser::create(['client_id' => $this->alpha->id, 'name' => 'Alpha Owner', 'email' => 'owner@alpha.test', 'password' => 'password123', 'role' => \App\Models\ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
+        $away = \App\Models\ClientUser::create(['client_id' => $this->alpha->id, 'name' => 'Alpha Away', 'email' => 'away@alpha.test', 'password' => 'password123', 'role' => \App\Models\ClientUser::ROLE_ADMIN_STAFF, 'is_active' => false]);
+
+        $this->actingAs($this->operator(), 'admin');
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+        $this->get('/clients/'.$this->alpha->getRouteKey())->assertSuccessful()->assertSee('Team');
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Clients\RelationManagers\TeamRelationManager::class, [
+            'ownerRecord' => $this->alpha,
+            'pageClass' => \App\Filament\Resources\Clients\Pages\ViewClient::class,
+        ])
+            ->assertCanSeeTableRecords([$owner, $away])
+            ->assertSee($this->alpha->users()->count().' staff account(s), '.$this->alpha->customers()->count().' customer(s).')
+            ->filterTable('is_active', true)->assertCanSeeTableRecords([$owner])->assertCanNotSeeTableRecords([$away])
+            ->resetTableFilters()
+            ->filterTable('role', \App\Models\ClientUser::ROLE_ADMIN_STAFF)->assertCanSeeTableRecords([$away])->assertCanNotSeeTableRecords([$owner])
+            ->resetTableFilters()
+            ->searchTable('owner@')->assertCanSeeTableRecords([$owner])->assertCanNotSeeTableRecords([$away]);
     }
 
     public function test_a_missing_category_or_collection_redirects_instead_of_a_404(): void
@@ -386,7 +434,7 @@ class ClientDatabaseIsolationTest extends TestCase
             'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
         ]));
 
-        $session = [Client::SESSION_KEY => $this->alpha->slug];
+        $session = [Client::SESSION_KEY => $this->alpha->subdomain];
 
         $this->withSession($session)->get('/shop/no-such-category')->assertRedirect(route('shop.index'));
         $this->withSession($session)->get('/collections/no-such-collection')->assertRedirect(route('collections.index'));
@@ -428,7 +476,7 @@ class ClientDatabaseIsolationTest extends TestCase
 
     public function test_the_storefront_serves_the_clients_own_catalogue(): void
     {
-        $this->withSession([Client::SESSION_KEY => $this->alpha->slug])
+        $this->withSession([Client::SESSION_KEY => $this->alpha->subdomain])
             ->get('/shop')
             ->assertSuccessful()
             ->assertSee('Alpha Coat')
@@ -436,7 +484,7 @@ class ClientDatabaseIsolationTest extends TestCase
 
         $this->flushSession();
 
-        $this->withSession([Client::SESSION_KEY => $this->beta->slug])
+        $this->withSession([Client::SESSION_KEY => $this->beta->subdomain])
             ->get('/shop')
             ->assertSuccessful()
             ->assertSee('Beta Coat')

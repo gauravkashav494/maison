@@ -179,7 +179,7 @@ This installation already runs this way — `CLIENT_ISOLATION=database` in `.env
 per client — so the checks below describe the live setup rather than a change to make:
 
 ```bash
-php artisan clients:provision                 # creates client_<slug> for every client
+php artisan clients:provision                 # creates client_<subdomain> for every client
 php artisan clients:provision acme --copy     # move an existing client's rows into its database
 ```
 
@@ -196,7 +196,7 @@ php artisan clients:provision acme --copy     # move an existing client's rows i
 
 ## 7. The Simple List storefront (no images)
 
-Assign a client to the **Simple List** store, then open its address (or `/c/<slug>`).
+Assign a client to the **Simple List** store, then open its address (or `/c/<subdomain>`).
 
 1. The home page *is* the list: a row per product with name, code, price, stock, a quantity
    box and **Add**.

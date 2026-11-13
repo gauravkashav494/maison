@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ServiceAreas;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\ServiceAreas\Pages\CreateServiceArea;
 use App\Filament\Resources\ServiceAreas\Pages\EditServiceArea;
 use App\Filament\Resources\ServiceAreas\Pages\ListServiceAreas;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class ServiceAreaResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = ServiceArea::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;

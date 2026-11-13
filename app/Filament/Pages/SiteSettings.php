@@ -2,8 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\ClientContext;
+use App\Filament\Auth\Login;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
+use App\Models\Order;
+use App\Templates\Template;
 use BackedEnum;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
@@ -36,7 +40,7 @@ class SiteSettings extends Page
 
     protected function settingGroups(): array
     {
-        return ['site', 'seo', 'checkout'];
+        return ['site', 'seo', 'checkout', 'login'];
     }
 
     public function form(Schema $schema): Schema
@@ -56,7 +60,6 @@ class SiteSettings extends Page
                         Textarea::make('site.footer_blurb')->label('Footer blurb')->rows(2),
                         TextInput::make('site.footer_newsletter_heading')->label('Footer newsletter heading'),
                         Fields::image('site.page_header_image', 'Page header background (landscape, used on shop, policies, account and info pages)', 'site'),
-                        Select::make('site.admin_login_style')->label('Admin sign-in page style')->options(\App\Filament\Auth\Login::STYLES)->default('classic')->native(false)->helperText('Look of the /admin/login page. Styles with an image use the page header background above.'),
                     ]),
                     Tab::make('Announcement bar')->icon('heroicon-o-megaphone')->schema([
                         TextInput::make('site.announcement_text')->label('Message'),
@@ -93,12 +96,28 @@ class SiteSettings extends Page
                             ])->columns(5)->reorderable()->itemLabel(fn (array $state) => $state['name'] ?? null),
                         ]),
                         Section::make('Payments & tax')->columns(2)->schema([
-                            CheckboxList::make('checkout.payment_methods')->label('Enabled payment methods')->options(\App\Models\Order::PAYMENT_METHODS)->columns(2)->columnSpanFull(),
+                            CheckboxList::make('checkout.payment_methods')->label('Enabled payment methods')->options(Order::PAYMENT_METHODS)->columns(2)->columnSpanFull(),
                             TextInput::make('checkout.cod_fee')->label('Cash on delivery fee')->numeric()->prefix('₹')->default(0),
                             TextInput::make('checkout.tax_rate')->label('Tax rate added at checkout')->numeric()->suffix('%')->default(0)->helperText('Leave at 0 if prices already include tax.'),
                             TextInput::make('checkout.tax_label')->label('Tax label')->default('GST'),
                             TagsInput::make('checkout.gift_card_amounts')->label('Gift card values')->helperText('Whole rupees, e.g. 2500'),
                         ]),
+                    ]),
+                    Tab::make('Sign-in page')->icon('heroicon-o-lock-closed')->schema([
+                        Section::make('Your team\'s sign-in page')
+                            ->description(fn () => 'How '.$this->loginUrl().' looks. Leave a field empty to use your store\'s default, shown in grey.')
+                            ->columns(2)
+                            ->schema([
+                                Select::make('login.style')->label('Style')->options(Login::STYLES)->native(false)
+                                    ->placeholder(fn () => 'Store default — '.(Login::STYLES[$this->loginDefault('style')] ?? 'Classic')),
+                                Fields::image('login.image', 'Image (leave empty for the store\'s default image)', 'login'),
+                                TextInput::make('login.kicker')->label('Small heading')->maxLength(40)->placeholder(fn () => $this->loginDefault('kicker')),
+                                TextInput::make('login.heading')->label('Heading')->maxLength(60)->placeholder(fn () => $this->loginDefault('heading')),
+                                TextInput::make('login.subtitle')->label('Line under the heading')->maxLength(120)->placeholder(fn () => $this->loginDefault('subtitle'))->columnSpanFull(),
+                                TextInput::make('login.quote')->label('Image headline')->maxLength(80)->placeholder(fn () => $this->loginDefault('quote')),
+                                TextInput::make('login.quote_sub')->label('Image text')->maxLength(200)->placeholder(fn () => $this->loginDefault('quote_sub')),
+                                TextInput::make('login.help')->label('Help line under the form')->maxLength(160)->placeholder(fn () => $this->loginDefault('help'))->columnSpanFull(),
+                            ]),
                     ]),
                     Tab::make('SEO defaults')->icon('heroicon-o-magnifying-glass')->schema([
                         Section::make('Search engine visibility')->schema([
@@ -120,5 +139,22 @@ class SiteSettings extends Page
                     ]),
                 ]),
             ]);
+    }
+
+    /** The store's own default for a sign-in page field (its template's), with the client's name filled in. */
+    protected function loginDefault(string $key): ?string
+    {
+        $client = app(ClientContext::class)->client();
+        $defaults = $client?->templateObject()?->teamLogin() ?? Template::defaultTeamLogin();
+        $value = $defaults[$key] ?? null;
+
+        return is_string($value) ? str_replace(':name', (string) ($client?->name ?? ''), $value) : null;
+    }
+
+    protected function loginUrl(): string
+    {
+        $client = app(ClientContext::class)->client();
+
+        return $client ? $client->loginUrl() : '/client/login';
     }
 }

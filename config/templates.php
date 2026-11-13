@@ -16,14 +16,15 @@ return [
     // Used when nothing has been activated yet (settings "appearance.active_template").
     'default' => 'fashion',
 
-    // Every store is public on <slug>.<base_domain> (or its own custom domain). The base domain
-    // itself serves the template activated under Appearance → Templates. Defaults to APP_URL's host.
+    // Every client and every store demo is on <slug>.<base_domain> (or its own custom domain); this
+    // needs a wildcard DNS record and certificate. The base domain itself is the platform's address
+    // (Super Admin at /login). Defaults to APP_URL's host.
     'base_domain' => env('STORE_BASE_DOMAIN'),
 
-    // How store links are built: 'subdomain' (<slug>.<base_domain>, needs wildcard DNS + SSL) or
-    // 'path' (<APP_URL>/store/<slug> — works on any host: the link remembers the store in a cookie).
-    // Both entry methods are always accepted; this only decides which address is shown to share.
-    'store_urls' => env('STORE_URL_MODE', env('STORE_BASE_DOMAIN') ? 'subdomain' : 'path'),
+    // Public theme previews live at <prefix><template>.<base_domain>, e.g. theme-fashion; client
+    // names may not start with it. Built with `php artisan themes:build` or Appearance → Templates.
+    'theme_prefix' => 'theme-',
+
 
     'templates' => [
         App\Templates\Fashion\FashionTemplate::class,

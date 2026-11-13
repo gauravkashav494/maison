@@ -12,7 +12,7 @@
          x-transition:leave="transition duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="-translate-y-4 opacity-0"
          class="absolute inset-x-0 top-0 max-h-[100dvh] overflow-y-auto bg-ivory text-ink" role="dialog" aria-modal="true" aria-label="Search">
         <div class="container-luxe py-6 lg:py-10">
-            <form @submit.prevent="submit()" class="flex items-center gap-4 border-b border-ink pb-3">
+            <form @submit.prevent="submit()" class="flex items-center gap-4 border-b border-ink pb-3" novalidate>
                 <x-ico name="search" :size="22" />
                 <input x-ref="input" x-model="q" type="search" placeholder="Search products, categories, collections…" aria-label="Search" autocomplete="off"
                        class="w-full bg-transparent font-serif text-2xl outline-none placeholder:text-taupe lg:text-4xl">

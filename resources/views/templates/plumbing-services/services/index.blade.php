@@ -3,7 +3,7 @@
 @section('content')
 @php $problems = collect(tsetting('home.problems', []))->filter(fn ($p) => ! empty($p['label'])); $biz = template()->contact(); @endphp
 <x-page-head :title="$q !== '' ? 'Results for “'.$q.'”' : 'Plumbing services'" :text="$q !== '' ? $services->count().' matching '.Str::plural('service', $services->count()) : 'Every job we handle — from a dripping tap to a full pipe replacement. Book online, call or WhatsApp.'" :breadcrumbs="['Services' => null]">
-    <form action="{{ route('services.index') }}" method="get" role="search" class="flex max-w-xl gap-2">
+    <form action="{{ route('services.index') }}" method="get" role="search" class="flex max-w-xl gap-2" novalidate>
         <label class="flex h-12 flex-1 items-center gap-2 rounded-full bg-white px-4 ring-1 ring-line focus-within:ring-2 focus-within:ring-bright"><x-ico name="search" :size="18" class="text-primary" /><input type="search" name="q" value="{{ $q }}" placeholder="{{ tsetting('site.search_placeholder', 'Search plumbing services') }}" class="min-w-0 flex-1 bg-transparent text-sm focus:outline-none" aria-label="Search services"></label>
         <button type="submit" class="btn btn-primary">Search</button>
     </form>

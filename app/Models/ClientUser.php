@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Contracts\AdminIdentity;
+use App\Models\Concerns\UsesPlatformConnection;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -20,6 +22,8 @@ use Illuminate\Notifications\Notifiable;
 class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
 {
     use Concerns\LogsPlatformActivity, HasFactory, Notifiable;
+    use SoftDeletes;
+    use UsesPlatformConnection;
 
     public const ROLE_CLIENT_ADMIN = 'client_admin';
 

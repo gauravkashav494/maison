@@ -32,13 +32,34 @@ class ClientPolicy
         return $user->isSuperAdmin();
     }
 
+    /** Deleting moves the client to the trash (soft delete): staff, customers and its database are kept, and it can be restored. */
     public function delete(AdminIdentity $user, Client $record): bool
     {
-        // Deleting a client removes its staff and customers with it; deactivate instead.
-        return false;
+        return $user->isSuperAdmin();
     }
 
     public function deleteAny(AdminIdentity $user): bool
+    {
+        return false; // one client at a time
+    }
+
+    public function restore(AdminIdentity $user, Client $record): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return false;
+    }
+
+    /** Never: a client row is what names its database, so removing it would orphan that database. */
+    public function forceDelete(AdminIdentity $user, Client $record): bool
+    {
+        return false;
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
     {
         return false;
     }

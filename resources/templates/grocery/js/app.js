@@ -109,10 +109,9 @@ Alpine.store('cart', {
     },
     async applyCoupon(code) {
         this.couponError = null;
-        if (!code?.trim()) return;
         this.couponBusy = true;
         try { this.apply(await api('/cart/coupon', { method: 'POST', body: { code } })); Alpine.store('ui').notify('Coupon applied'); }
-        catch (e) { this.couponError = e.payload?.message || 'That code is not valid.'; }
+        catch (e) { this.couponError = e.payload?.errors?.code?.[0] || e.payload?.message || 'That code is not valid.'; }
         finally { this.couponBusy = false; }
     },
     async removeCoupon() { this.apply(await api('/cart/coupon', { method: 'DELETE' })); },
@@ -371,10 +370,9 @@ Alpine.data('checkout', (init) => ({
 Alpine.data('newsletter', (source = 'grocery') => ({
     email: '', done: false, error: null, busy: false,
     async submit() {
-        if (!this.email.includes('@')) return;
         this.busy = true; this.error = null;
         try { await api('/newsletter', { method: 'POST', body: { email: this.email, source } }); this.done = true; }
-        catch { this.error = 'Something went wrong. Please try again.'; }
+        catch (e) { this.error = e.payload?.errors?.email?.[0] || 'Something went wrong. Please try again.'; }
         finally { this.busy = false; }
     },
 }));
@@ -385,10 +383,16 @@ Alpine.data('locationPicker', () => ({
     pincode: '',
     error: null,
     areas: ['Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad'],
-    check() {
-        if (!/^\d{6}$/.test(this.pincode)) { this.error = 'Enter a valid 6-digit pincode'; return; }
-        this.error = null;
-        Alpine.store('location').set(`PIN ${this.pincode}`, this.pincode);
+    busy: false,
+    // The PIN code is checked on the server; the sheet only shows what it answers.
+    async check() {
+        this.error = null; this.busy = true;
+        try {
+            const { pincode } = await api('/delivery-pincode', { method: 'POST', body: { pincode: this.pincode } });
+            Alpine.store('location').set(`PIN ${pincode}`, pincode);
+        } catch (e) {
+            this.error = e.payload?.errors?.pincode?.[0] || 'Could not check that PIN code. Please try again.';
+        } finally { this.busy = false; }
     },
 }));
 

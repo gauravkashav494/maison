@@ -13,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
@@ -20,17 +21,60 @@ class ClientForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->columns(1)->components([
-            Section::make('Client')->columns(2)->schema([
+        return $schema->columns(1)->components(array_values(static::sections()));
+    }
+
+    /** The wizard steps shared by the create and edit pages (create adds a "Client admin" step). */
+    public static function steps(): array
+    {
+        $sections = static::sections();
+
+        return [
+            Step::make('Client & store')->icon('heroicon-o-building-storefront')
+                ->description('Who they are and which store they run')
+                ->schema([$sections['client']]),
+            Step::make('Plan & limits')->icon('heroicon-o-credit-card')
+                ->description('Allowances for products, images and storage')
+                ->schema([$sections['plan']]),
+            Step::make('Modules')->icon('heroicon-o-squares-2x2')
+                ->description('What their team can use')
+                ->schema([$sections['modules']]),
+            Step::make('Address & database')->icon('heroicon-o-globe-alt')
+                ->description('Where the store lives and how it starts')
+                ->schema([$sections['address'], $sections['database']]),
+        ];
+    }
+
+    /**
+     * The form's sections by key, arranged into wizard steps by steps() for both the create and
+     * edit pages, so they always use the same fields and rules.
+     *
+     * @return array{client: Section, address: Section, modules: Section, plan: Section, database: Section}
+     */
+    public static function sections(): array
+    {
+        return [
+            'client' => Section::make('Client')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120)->live(onBlur: true)
-                    ->afterStateUpdated(fn ($set, $get, $state) => blank($get('slug')) ? $set('slug', Str::slug((string) $state)) : null),
-                TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true)
+                    ->afterStateUpdated(fn ($set, $get, $state) => blank($get('subdomain')) ? $set('subdomain', Str::slug((string) $state)) : null),
+                TextInput::make('subdomain')->label('Subdomain')
+                    ->suffix(fn () => '.'.Client::baseDomain())
+                    ->placeholder('acme')
+                    ->required()->maxLength(63)->unique(ignoreRecord: true)
+                    // A valid host label: lowercase letters, digits and hyphens, not starting or ending with a hyphen.
+                    ->regex('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/')
                     ->notIn(['exit']) // /store/exit is the "leave this store" link
+                    ->rule('not_regex:/^'.preg_quote(config('templates.theme_prefix', 'theme-'), '/').'/')
+                    ->validationMessages([
+                        'regex' => 'Use lowercase letters, numbers and hyphens only, without a hyphen at the start or end.',
+                        'not_regex' => 'Subdomains starting with "'.config('templates.theme_prefix', 'theme-').'" are kept for theme previews.',
+                        'unique' => 'Another client already uses this subdomain.',
+                    ])
                     ->disabled(fn (?Client $record) => $record !== null)
                     ->dehydrated()
                     ->helperText(fn (?Client $record) => $record
-                        ? 'Fixed: the database and the public address are named after it.'
-                        : 'Used for the subdomain and the database name, and cannot be changed later.'),
+                        ? 'Fixed: the store\'s address and its database are named after it.'
+                        : 'The store\'s web address. It also names the database, so it cannot be changed later.'),
                 Select::make('storefront_id')
                     ->label('Store')
                     ->options(fn () => Storefront::orderBy('name')->pluck('name', 'id'))
@@ -44,16 +88,16 @@ class ClientForm
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('Inactive clients cannot sign in and their storefront stops answering.'),
             ]),
-            Section::make('Public address')
+            'address' => Section::make('Public address')
                 ->description(fn (?Client $record) => $record
-                    ? 'Customers reach this client at '.$record->publicUrl().'. The entry link '.$record->entryUrl().' always works; the subdomain needs a wildcard DNS record and certificate, a custom domain needs its DNS pointed here.'
-                    : 'The client gets its own subdomain and an entry link as soon as it is saved.')
+                    ? 'Customers reach this client at '.$record->publicUrl().' and its team signs in at '.$record->loginUrl().'. The subdomain needs a wildcard DNS record and certificate, a custom domain needs its DNS pointed here.'
+                    : 'The client gets its own subdomain, used for both the store and the client login, as soon as it is saved.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
                         ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://.'),
                 ]),
-            Section::make('Modules')
+            'modules' => Section::make('Modules')
                 ->description('What this client can use. A module switched off disappears from their panel, for every member of their team.')
                 ->schema([
                     CheckboxList::make('modules')
@@ -69,7 +113,7 @@ class ClientForm
                         ->columns(3)
                         ->bulkToggleable(),
                 ]),
-            Section::make('Plan & limits')
+            'plan' => Section::make('Plan & limits')
                 ->description('The plan sets the defaults; a value entered here overrides it for this client only. Blank means "use the plan", and 0 means unlimited.')
                 ->columns(2)
                 ->schema([
@@ -87,20 +131,20 @@ class ClientForm
                     TextInput::make('storage_limit_mb')->label('Storage allowance (MB)')->numeric()->minValue(0)->maxValue(1048576)->placeholder('Plan default')
                         ->helperText(fn (?Client $record) => $record ? 'Currently using '.ClientQuota::formatBytes(ClientQuota::for($record)->storageUsed()).' of uploaded media.' : null),
                 ]),
-            Section::make('Database')
+            'database' => Section::make('Database')
                 ->description(fn (?Client $record) => app(ClientDatabase::class)->isolated()
-                    ? 'This installation gives every client its own database. It is created and filled with its store\'s content automatically when the client is saved; use "Provision database" above to retry.'
+                    ? 'This installation gives every client its own database. It is created and filled with its store\'s content automatically when the client is saved; if that ever fails, the client\'s page offers "Repair database".'
                     : 'This installation keeps all clients in one database (CLIENT_ISOLATION=shared); rows are separated by client.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('database')->label('Database name')->maxLength(64)
-                        ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<slug>')
+                        ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<subdomain>')
                         ->helperText('Leave blank to use the generated name. Only change it when the database already exists under another name.'),
                     Toggle::make('sample_products')->label('Add sample products and services')->default(false)->inline(false)
                         ->dehydrated(false)
                         ->visible(fn (?Client $record) => $record === null && app(ClientDatabase::class)->isolated())
                         ->helperText('Fills the store with its demo products, categories and collections, or services, areas and projects, which the client can edit or delete later. Menus and pages are added either way.'),
                 ]),
-        ]);
+        ];
     }
 }

@@ -3,8 +3,18 @@
 namespace App\Templates\Fashion;
 
 use App\Filament\Pages\HomepageSettings;
+use App\Models\Category;
 use App\Models\Menu;
+use App\Models\Product;
+use App\Support\Media;
 use App\Templates\Template;
+use Database\Seeders\CatalogSeeder;
+use Database\Seeders\ContentSeeder;
+use Database\Seeders\MenuSeeder;
+use Database\Seeders\PagesSeeder;
+use Database\Seeders\SettingsSeeder;
+use Database\Seeders\StoreLocationsSeeder;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * The original Maison Élan editorial fashion storefront. Its views live in the
@@ -69,18 +79,29 @@ class FashionTemplate extends Template
 
     public function isInstalled(): bool
     {
-        return \App\Models\Category::where('template', $this->id())->exists()
-            || \App\Models\Product::where('template', $this->id())->exists();
+        return Category::where('template', $this->id())->exists()
+            || Product::where('template', $this->id())->exists();
     }
 
     /** Demo content for this store: catalogue, navigation, pages, journal and settings. */
     public function install(): void
     {
-        app(\Database\Seeders\CatalogSeeder::class)->run();
-        app(\Database\Seeders\MenuSeeder::class)->run();
-        app(\Database\Seeders\ContentSeeder::class)->run();
-        app(\Database\Seeders\PagesSeeder::class)->run();
-        app(\Database\Seeders\SettingsSeeder::class)->run();
-        \Illuminate\Support\Facades\Cache::flush();
+        app(CatalogSeeder::class)->run();
+        app(MenuSeeder::class)->run();
+        app(ContentSeeder::class)->run();
+        app(PagesSeeder::class)->run();
+        app(SettingsSeeder::class)->run();
+        app(StoreLocationsSeeder::class)->run('fashion');
+        Cache::flush();
+    }
+
+    public function teamLogin(): array
+    {
+        return array_replace(parent::teamLogin(), [
+            'image' => Media::unsplash('1571513722275-4b41940f54b8', 1600, '&h=1200'),
+            'kicker' => 'Atelier',
+            'quote' => 'Dress the season.',
+            'quote_sub' => 'Collections, campaigns, orders and clients — your boutique, behind the scenes.',
+        ]);
     }
 }

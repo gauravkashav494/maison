@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
 class ClientsProvision extends Command
 {
     protected $signature = 'clients:provision
-        {slug? : Only this client}
+        {subdomain? : Only this client}
         {--fresh : Drop the content tables first and rebuild them}
         {--no-seed : Create the schema without any content}
         {--no-samples : Seed the store (menus, pages, settings) but leave out its sample products, categories, collections and services}
@@ -48,7 +48,7 @@ class ClientsProvision extends Command
         }
 
         $clients = $databases->clients()
-            ->when($this->argument('slug'), fn ($all) => $all->where('slug', $this->argument('slug')));
+            ->when($this->argument('subdomain'), fn ($all) => $all->where('subdomain', $this->argument('subdomain')));
 
         if ($clients->isEmpty()) {
             $this->error('No matching client.');

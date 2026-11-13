@@ -72,6 +72,16 @@ abstract class StoreScopedPolicy
         return $this->allows($user, 'delete') && $this->owns($record);
     }
 
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->allows($user, 'delete');
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->allows($user, 'delete');
+    }
+
     public function reorder(AdminIdentity $user): bool
     {
         return $this->allows($user, 'update');

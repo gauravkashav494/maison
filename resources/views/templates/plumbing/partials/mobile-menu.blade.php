@@ -54,7 +54,7 @@
 
         <div class="border-t border-line p-3 safe-bottom">
             @auth
-                <form method="post" action="{{ route('logout') }}">@csrf<button type="submit" class="btn btn-ghost btn-block"><x-ico name="logout" :size="16" /> Log out</button></form>
+                <form method="post" action="{{ route('logout') }}" novalidate>@csrf<button type="submit" class="btn btn-ghost btn-block"><x-ico name="logout" :size="16" /> Log out</button></form>
             @else
                 <a href="{{ route('login') }}" class="btn btn-primary btn-block">Login / Sign up</a>
             @endauth

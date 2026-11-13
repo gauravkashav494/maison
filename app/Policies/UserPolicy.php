@@ -45,4 +45,25 @@ class UserPolicy
     {
         return $user->isSuperAdmin();
     }
+
+    public function restore(AdminIdentity $user, User $record): bool
+    {
+        return $user->isSuperAdmin() && ! ($user instanceof User && $record->is($user));
+    }
+
+    public function restoreAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
+
+    /** Deleting permanently follows the same rules as deleting. */
+    public function forceDelete(AdminIdentity $user, User $record): bool
+    {
+        return $this->delete($user, $record);
+    }
+
+    public function forceDeleteAny(AdminIdentity $user): bool
+    {
+        return $this->deleteAny($user);
+    }
 }

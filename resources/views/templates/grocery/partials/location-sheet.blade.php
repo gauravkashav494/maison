@@ -9,8 +9,8 @@
             <button type="button" @click="$store.ui.closeAll()" class="grid h-9 w-9 place-items-center rounded-lg hover:bg-paper" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
         <div class="space-y-5 px-5 pb-6 pt-4">
-            <form @submit.prevent="check()" class="flex gap-2">
-                <input x-model="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" class="field flex-1" aria-label="Pincode">
+            <form @submit.prevent="check()" class="flex gap-2" novalidate>
+                <input x-model="pincode" inputmode="numeric" placeholder="Enter 6-digit pincode" class="field flex-1" aria-label="Pincode">
                 <button type="submit" class="btn btn-primary">Check</button>
             </form>
             <p x-show="error" x-cloak class="-mt-3 text-xs text-nonveg" x-text="error"></p>

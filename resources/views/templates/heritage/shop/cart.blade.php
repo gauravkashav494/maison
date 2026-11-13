@@ -78,7 +78,7 @@
             <div class="space-y-4 lg:sticky lg:top-[8.5rem]">
                 <div class="card p-5">
                     <p class="font-serif text-lg">Have a coupon?</p>
-                    <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-3 flex gap-2" x-show="!$store.cart.coupon"><input x-model="code" placeholder="Enter code" class="field h-11 flex-1 uppercase" aria-label="Coupon code"><button type="submit" :disabled="$store.cart.couponBusy" class="btn btn-outline h-11">Apply</button></form>
+                    <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-3 flex gap-2" x-show="!$store.cart.coupon" novalidate><input x-model="code" placeholder="Enter code" class="field h-11 flex-1 uppercase" aria-label="Coupon code"><button type="submit" :disabled="$store.cart.couponBusy" class="btn btn-outline h-11">Apply</button></form>
                     <p x-show="$store.cart.couponError" x-cloak class="error-text" x-text="$store.cart.couponError"></p>
                     <div x-show="$store.cart.coupon" x-cloak class="mt-2 flex items-center justify-between rounded-lg bg-cream px-3 py-2 text-sm"><span class="font-semibold text-maroon"><span x-text="$store.cart.coupon?.code"></span> applied <span class="font-normal text-muted" x-text="'· ' + ($store.cart.coupon?.label || '')"></span></span><button type="button" @click="$store.cart.removeCoupon()" class="text-xs text-muted hover:text-red">Remove</button></div>
                 </div>

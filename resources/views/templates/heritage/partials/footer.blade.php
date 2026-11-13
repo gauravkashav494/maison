@@ -11,8 +11,8 @@
     {{-- Newsletter row --}}
     <div class="h-container mt-2.5 flex flex-col gap-4 pb-[26px] lg:flex-row lg:items-center lg:gap-10 lg:px-[60px]" x-data="newsletter('heritage-footer')">
         <h2 class="shrink-0 font-serif text-[27px] font-medium leading-[35px] text-gold-light lg:w-[380px]">{{ $g['newsletter_heading'] ?? 'Sign Up To Get Updates' }}</h2>
-        <form @submit.prevent="submit()" class="flex flex-1 flex-col gap-2 sm:flex-row" x-show="!done">
-            <input x-model="email" type="email" required placeholder="Enter Your Email Address..." class="h-[54px] flex-1 rounded-full border border-transparent bg-red-dark px-[15px] text-base text-cream placeholder:text-cream/60 focus:border-gold focus:outline-none" aria-label="Email address">
+        <form @submit.prevent="submit()" class="flex flex-1 flex-col gap-2 sm:flex-row" x-show="!done" novalidate>
+            <input x-model="email" type="email" placeholder="Enter Your Email Address..." class="h-[54px] flex-1 rounded-full border border-transparent bg-red-dark px-[15px] text-base text-cream placeholder:text-cream/60 focus:border-gold focus:outline-none" aria-label="Email address">
             <button type="submit" :disabled="busy" class="btn btn-gold h-[54px] rounded-full px-8 text-base">Subscribe</button>
         </form>
         <p x-show="done" x-cloak class="flex items-center gap-2 font-medium text-gold-light"><x-ico name="check" :size="18" /> Welcome — your first recipe is on its way.</p>

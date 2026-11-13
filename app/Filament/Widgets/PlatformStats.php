@@ -36,7 +36,7 @@ class PlatformStats extends Widget
 
         return ['stats' => [
             ['label' => 'Clients', 'value' => $clients, 'description' => $active.' active · '.($clients - $active).' suspended', 'icon' => 'briefcase', 'color' => 'is-blue', 'url' => ClientResource::getUrl('index')],
-            ['label' => 'New this month', 'value' => $new, 'description' => 'Clients added since the 1st', 'icon' => 'user-plus', 'color' => 'is-green', 'url' => ClientResource::getUrl('index')],
+            ['label' => 'New this month', 'value' => $new, 'description' => 'Clients added since the 1st', 'icon' => 'user-plus', 'color' => 'is-green', 'url' => ClientResource::getUrl('index', ['filters' => ['created_at' => ['created_from' => now()->startOfMonth()->toDateString()]]])],
             ['label' => 'Stores', 'value' => Storefront::count(), 'description' => Client::whereNotNull('storefront_id')->distinct()->count('storefront_id').' in use', 'icon' => 'building-storefront', 'color' => 'is-purple', 'url' => StorefrontResource::getUrl('index')],
             ['label' => 'Revenue, all clients', 'value' => money($totals->sum('revenue')), 'description' => number_format($totals->sum('orders')).' orders in total', 'icon' => 'banknotes', 'color' => 'is-orange', 'url' => ClientTotalsReport::getUrl()],
         ]];

@@ -8,7 +8,6 @@ use App\Models\Faq;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Setting;
-use App\Models\Store;
 use App\Support\Media;
 use Illuminate\Database\Seeder;
 
@@ -111,12 +110,6 @@ class CommerceSeeder extends Seeder
             Faq::create(['category' => $cat, 'question' => $q, 'answer' => $a, 'sort_order' => $i, 'template' => 'fashion']);
         }
 
-        foreach ([
-            ['name' => 'Bengaluru Flagship', 'address' => '12 Lavelle Road, Ashok Nagar', 'city' => 'Bengaluru', 'state' => 'Karnataka', 'postal_code' => '560001', 'phone' => '+91 80 4500 1200', 'email' => 'bengaluru@maisonelan.com', 'hours' => "Mon–Sat 10:30–20:00\nSun 11:00–18:00", 'lat' => 12.9716, 'lng' => 77.5946, 'image' => Media::unsplash('1445205170230-053b83016050', 1200, '&h=900'), 'maps_url' => 'https://maps.google.com/?q=Lavelle+Road+Bengaluru'],
-            ['name' => 'Mumbai Boutique', 'address' => 'Kala Ghoda, Fort', 'city' => 'Mumbai', 'state' => 'Maharashtra', 'postal_code' => '400001', 'phone' => '+91 22 4500 1300', 'email' => 'mumbai@maisonelan.com', 'hours' => "Mon–Sat 11:00–20:00\nSun 12:00–18:00", 'lat' => 18.9282, 'lng' => 72.8318, 'image' => Media::unsplash('1551232864-3f0890e580d9', 1200, '&h=900'), 'maps_url' => 'https://maps.google.com/?q=Kala+Ghoda+Mumbai'],
-            ['name' => 'New Delhi Boutique', 'address' => 'The Chanakya, Chanakyapuri', 'city' => 'New Delhi', 'state' => 'Delhi', 'postal_code' => '110021', 'phone' => '+91 11 4500 1400', 'email' => 'delhi@maisonelan.com', 'hours' => "Mon–Sun 11:00–21:00", 'lat' => 28.5985, 'lng' => 77.1866, 'image' => Media::unsplash('1558769132-cb1aea458c5e', 1200, '&h=900'), 'maps_url' => 'https://maps.google.com/?q=The+Chanakya+New+Delhi'],
-        ] as $i => $store) {
-            Store::updateOrCreate(['name' => $store['name']], $store + ['sort_order' => $i]);
-        }
+        app(StoreLocationsSeeder::class)->run('fashion');
     }
 }

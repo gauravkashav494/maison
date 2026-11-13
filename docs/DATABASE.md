@@ -70,7 +70,7 @@ customers. That is enforced in four places at once, so no single mistake exposes
    which is validated against the `clients` table before it is used. A client id in a request
    is never trusted.
 
-Set up under **Platform → Clients**: name, slug (fixed — the database and address are named
+Set up under **Platform → Clients**: name, subdomain (fixed — the database and address are named
 after it), store, plan, limits, custom domain.
 
 ### Public address
@@ -81,10 +81,21 @@ Every client is reachable on its own address as soon as it is created:
 |---|---|---|
 | Subdomain | `https://acme.yourdomain.com` | a wildcard DNS record and certificate |
 | Custom domain | `https://shop.acme.com` | the client's DNS pointed at this server |
-| Entry link | `https://yourdomain.com/store/acme` | nothing — it remembers the client for that visitor |
+| Client login | `https://acme.yourdomain.com/client/login` | same host as the store |
 
-`STORE_URL_MODE=subdomain|path` decides which form the admin shows for sharing; all of them
-keep working. A shopper's session is dropped when the visitor moves to another client's
+Old entry links (`https://yourdomain.com/store/acme` and `/c/acme`) redirect to the client's
+subdomain; the main domain never shows a client's site.
+
+The main domain is the platform's own address, not a store:
+
+| Address | What it is |
+|---|---|
+| `https://yourdomain.com/` | Super Admin panel (dashboard); signed-out visitors go to `/login` |
+| `https://yourdomain.com/login` | Super Admin sign-in |
+| `https://yourdomain.com/clients` ... | the panel's screens |
+| `https://fashion.yourdomain.com` | a store's demo; if a client runs that store, it redirects to the client |
+
+A shopper's session is dropped when the visitor moves to another client's
 storefront, so a session never follows them across clients.
 
 ---
@@ -203,7 +214,7 @@ Edit**). Blank inherits the plan, `0` means unlimited.
 * Replacing images frees their slots in the same check, so swapping pictures never trips the
   limit.
 * Storage is measured from the disk, so deleting media frees it immediately. Uploads land in
-  `storage/app/public/clients/<slug>/…`.
+  `storage/app/public/clients/<subdomain>/…`.
 * All three are shown on the client's dashboard (the usage widget) and on the product list.
 
 ---

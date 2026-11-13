@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ServiceRequests;
 
+use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Resources\ServiceRequests\Pages\EditServiceRequest;
 use App\Filament\Resources\ServiceRequests\Pages\ListServiceRequests;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class ServiceRequestResource extends Resource
 {
+    use OpensTrashedRecords;
+
     protected static ?string $model = ServiceRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;

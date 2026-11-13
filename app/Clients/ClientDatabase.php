@@ -98,11 +98,16 @@ class ClientDatabase
 
     /**
      * forClient() for reads that describe a client rather than serve it: a client whose database
-     * is not built yet (just created, or provisioning failed) gets $default instead of an error,
+     * is not built yet (just created, still being set up, or provisioning failed) gets $default instead of an error,
      * so the admin pages that list it, and offer the retry, keep working.
      */
     public function forClientOr(Client $client, callable $callback, mixed $default): mixed
     {
+        // Being built right now (ClientSetup): its tables are half-migrated, so do not read them yet.
+        if (! ClientSetup::isBuildingHere($client) && (ClientSetup::status($client)['state'] ?? null) === ClientSetup::RUNNING) {
+            return $default;
+        }
+
         try {
             return $this->forClient($client, $callback);
         } catch (QueryException $e) {
@@ -181,9 +186,9 @@ class ClientDatabase
         return $name;
     }
 
-    /** Every client that should have its own database. */
+    /** Every client that should have its own database, theme previews included. */
     public function clients(): Collection
     {
-        return Client::orderBy('name')->get();
+        return Client::withThemes()->orderBy('name')->get();
     }
 }

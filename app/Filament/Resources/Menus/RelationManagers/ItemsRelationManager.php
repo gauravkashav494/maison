@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Menus\RelationManagers;
 
 use App\Filament\Support\Fields;
+use App\Filament\Support\RowActions;
 use App\Models\MenuItem;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -112,10 +113,11 @@ class ItemsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make(),
             ])
-            ->recordActions([
+            ->recordAction(null) // no click-to-edit on the row; Edit is in the ⋮ menu
+            ->recordActions([RowActions::group([
                 EditAction::make(),
                 DeleteAction::make(),
-            ])
+            ])])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

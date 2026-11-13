@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPlatformConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A plan carries the default limits its clients inherit. Billing is not implemented:
@@ -12,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Plan extends Model
 {
     use Concerns\LogsPlatformActivity;
+    use SoftDeletes;
+    use UsesPlatformConnection;
 
     protected $guarded = [];
 

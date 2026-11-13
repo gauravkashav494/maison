@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Subscribers\Pages;
 
 use App\Filament\Resources\Subscribers\SubscriberResource;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditSubscriber extends EditRecord
@@ -13,7 +15,7 @@ class EditSubscriber extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make(), RestoreAction::make(), ForceDeleteAction::make()->label('Delete permanently'),
         ];
     }
 }

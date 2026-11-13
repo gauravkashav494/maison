@@ -3,21 +3,21 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
-use App\Models\Concerns\UsesClientConnection;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\TracksSyncVersion;
+use App\Models\Concerns\UsesClientConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    use UsesClientConnection;
-
     use BelongsToClient;
-
     use BelongsToTemplate;
+    use SoftDeletes;
+    use UsesClientConnection;
 
     use TracksSyncVersion;
 
@@ -72,18 +72,18 @@ class Order extends Model
     /** The storefront account that placed this, or null for a guest. */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     public function items(): HasMany
     {
-        return $this->hasMany(OrderItem::class);
+        return $this->hasMany(OrderItem::class)->withTrashed();
     }
 
     public static function generateNumber(): string

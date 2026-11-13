@@ -234,13 +234,12 @@ Alpine.data('carousel', () => ({
 Alpine.data('newsletter', (source = 'homepage') => ({
     email: '', done: false, error: null, busy: false,
     async submit() {
-        if (!this.email.includes('@')) return;
         this.busy = true; this.error = null;
         try {
             await api('/newsletter', { method: 'POST', body: { email: this.email, source } });
             this.done = true;
         } catch (e) {
-            this.error = 'Something went wrong. Please try again.';
+            this.error = e.payload?.errors?.email?.[0] || 'Something went wrong. Please try again.';
         } finally { this.busy = false; }
     },
 }));
