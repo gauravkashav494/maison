@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Order extends Model
@@ -103,15 +104,15 @@ class Order extends Model
     /** Orders placed on one calendar day. */
     public function scopePlacedOn($query, $date)
     {
-        return $query->when(filled($date), fn ($q) => $q->whereDate('created_at', $date));
+        return $query->when(filled($date), fn ($q) => $q->whereDate('created_at', Carbon::parse($date)));
     }
 
     /** Orders placed within a range; either end may be left open. */
     public function scopePlacedBetween($query, $from = null, $until = null)
     {
         return $query
-            ->when(filled($from), fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when(filled($until), fn ($q) => $q->whereDate('created_at', '<=', $until));
+            ->when(filled($from), fn ($q) => $q->whereDate('created_at', '>=', Carbon::parse($from)))
+            ->when(filled($until), fn ($q) => $q->whereDate('created_at', '<=', Carbon::parse($until)));
     }
 
     public function scopeWithStatus($query, $status = null)

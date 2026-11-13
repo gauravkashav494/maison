@@ -37,7 +37,11 @@ class StoreStats extends Widget
 
         if (ClientAccess::current('orders', 'view')) {
             $monthStart = now()->startOfMonth();
-            $open = Order::whereIn('status', ['confirmed', 'processing'])->count();
+            $toFulfil = ['confirmed', 'processing'];
+            $open = Order::whereIn('status', $toFulfil)->count();
+
+            // Each card opens the orders list already filtered to the figure it shows.
+            $thisMonth = ['placed_between' => ['from' => $monthStart->toDateString(), 'until' => null]];
 
             $stats[] = [
                 'label' => 'Orders this month',
@@ -45,7 +49,7 @@ class StoreStats extends Widget
                 'description' => Order::count().' all time',
                 'icon' => 'shopping-cart',
                 'color' => 'is-blue',
-                'url' => OrderResource::getUrl('index'),
+                'url' => OrderResource::getUrl('index', ['filters' => $thisMonth]),
             ];
             $stats[] = [
                 'label' => 'Revenue this month',
@@ -53,7 +57,8 @@ class StoreStats extends Widget
                 'description' => 'Excluding cancelled orders',
                 'icon' => 'banknotes',
                 'color' => 'is-green',
-                'url' => OrderResource::getUrl('index'),
+                // Revenue leaves out cancelled orders, so the list selects every other status.
+                'url' => OrderResource::getUrl('index', ['filters' => $thisMonth + ['status' => ['values' => array_keys(Order::STATUSES)]]]),
             ];
             $stats[] = [
                 'label' => 'Orders to fulfil',
@@ -61,7 +66,7 @@ class StoreStats extends Widget
                 'description' => 'Confirmed or processing',
                 'icon' => 'truck',
                 'color' => 'is-orange',
-                'url' => OrderResource::getUrl('index'),
+                'url' => OrderResource::getUrl('index', ['filters' => ['status' => ['values' => $toFulfil]]]),
             ];
         }
 

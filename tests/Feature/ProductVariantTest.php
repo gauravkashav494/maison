@@ -2,13 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
+use App\Clients\ClientContext;
+use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Models\Category;
 use App\Models\Client;
+use App\Models\ClientUser;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Storefront;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -237,5 +244,82 @@ class ProductVariantTest extends TestCase
         // The variant's own stock is reduced, not just the product total.
         $variant = $product->fresh()->findVariant(['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen']);
         $this->assertSame(1, $variant['stock']);
+    }
+
+    // ---- Admin form --------------------------------------------------------
+
+    private function actAsClientAdmin(): void
+    {
+        $admin = ClientUser::create([
+            'client_id' => $this->client->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test',
+            'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+        ]);
+        $this->actingAs($admin, 'client');
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($admin);
+        app(StoreContext::class)->resolve($admin);
+    }
+
+    public function test_a_combination_picks_each_attribute_from_a_dropdown_of_its_values(): void
+    {
+        $product = $this->variantProduct();
+        $this->actAsClientAdmin();
+
+        $html = $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()->getContent();
+
+        $this->assertStringNotContainsString('Chosen values', $html, 'The free-text key/value box is gone.');
+        foreach (['options.Size', 'options.Colour', 'options.Material'] as $path) {
+            $this->assertStringContainsString($path, $html, "A dropdown is bound to {$path}.");
+        }
+        foreach (['Camel', 'Ink', 'Linen', 'Silk'] as $value) {
+            $this->assertStringContainsString($value, $html);
+        }
+    }
+
+    public function test_saving_the_form_keeps_each_combinations_chosen_values(): void
+    {
+        $product = $this->variantProduct();
+        // The fields the form requires besides the variants.
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Shirts', 'slug' => 'shirts', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/shirt.jpg']]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $variants = $page->get('data.variants');
+        $first = array_key_first($variants);
+        $this->assertSame(['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'], $variants[$first]['options']);
+
+        $page->set("data.variants.{$first}.options.Size", 'S')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame(['Size' => 'S', 'Colour' => 'Camel', 'Material' => 'Linen'], $saved->variants[0]['options']);
+        $this->assertSame(['Size' => 'S', 'Colour' => 'Ink', 'Material' => 'Silk'], $saved->variants[1]['options']);
+    }
+
+    public function test_a_colour_attribute_gets_a_colour_picker_for_each_value(): void
+    {
+        $product = $this->variantProduct();
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Shirts', 'slug' => 'shirts', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/shirt.jpg']]);
+        $this->actAsClientAdmin();
+
+        $html = $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()->getContent();
+        $this->assertStringContainsString('swatches.Camel', $html);
+        $this->assertStringContainsString('swatches.Ink', $html);
+        $this->assertStringNotContainsString('swatches.Linen', $html, 'Only the colour attribute has swatches.');
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $attributes = $page->get('data.variant_attributes');
+        $colour = collect($attributes)->search(fn ($a) => $a['name'] === 'Colour');
+        $this->assertSame('#B8916A', $attributes[$colour]['swatches']['Camel']);
+
+        $page->set("data.variant_attributes.{$colour}.swatches.Ink", '#1F2A44')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $swatches = collect(Product::withoutGlobalScopes()->findOrFail($product->id)->variantAttributes())->firstWhere('name', 'Colour')['swatches'];
+        $this->assertSame(['Camel' => '#B8916A', 'Ink' => '#1F2A44'], $swatches);
     }
 }

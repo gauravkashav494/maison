@@ -2,6 +2,7 @@
 
 namespace App\Templates;
 
+use App\Models\Page;
 use App\Models\Setting;
 use Illuminate\Support\Arr;
 
@@ -104,6 +105,44 @@ abstract class Template
 
     /** Seed demo content for the template. Must be idempotent. */
     public function install(): void {}
+
+    /**
+     * The page layouts (Page::TEMPLATES keys) this template has its own view for. A layout it
+     * lacks would fall back to the base (Fashion) design inside this store, so the page form
+     * only offers these. Read from the template's view folder, so a new layout view is offered
+     * as soon as it exists.
+     *
+     * @return array<int, string>
+     */
+    public function pageLayouts(): array
+    {
+        $folder = resource_path('views/'.trim(($this->viewPath() ?? ''), '/').'/pages/templates');
+
+        return array_values(array_filter(
+            array_keys(Page::TEMPLATES),
+            fn (string $layout) => is_file($folder.'/'.$layout.'.blade.php'),
+        ));
+    }
+
+    /** Product field groups the product form can show; see productFields(). */
+    public const PRODUCT_FIELDS_GROCERY = 'grocery';          // veg mark, shelf life, origin, ingredients, storage
+
+    public const PRODUCT_FIELDS_NUTRITION = 'nutrition';      // dietary tags, benefits, how to use, nutrition table
+
+    public const PRODUCT_FIELDS_SPECIFICATIONS = 'specifications'; // spec table, applications, installation notes
+
+    public const PRODUCT_FIELDS_ORDER_LIMIT = 'order_limit';  // maximum quantity per order
+
+    /**
+     * The extra product field groups this template's storefront actually shows. The product form
+     * offers only these, so a store is never asked for details its pages will not display.
+     *
+     * @return array<int,string>
+     */
+    public function productFields(): array
+    {
+        return [];
+    }
 
     /** Whether this template renders service pages (booking, service areas) instead of the catalogue. */
     public function supportsServices(): bool

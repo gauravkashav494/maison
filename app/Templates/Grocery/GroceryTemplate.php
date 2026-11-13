@@ -49,6 +49,11 @@ class GroceryTemplate extends Template
         return ['name' => $this->setting('site.logo_primary', 'Maison').$this->setting('site.logo_accent', 'Fresh'), 'theme_color' => '#ffffff', 'background_color' => '#f6f8f4'];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_GROCERY, self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/grocery';

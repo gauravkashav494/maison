@@ -49,6 +49,11 @@ class PlumbingTemplate extends Template
         return ['name' => $this->setting('site.logo_primary', 'Plumb').$this->setting('site.logo_accent', 'Kart'), 'theme_color' => '#063B73', 'background_color' => '#F7F9FC'];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_SPECIFICATIONS, self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/plumbing';

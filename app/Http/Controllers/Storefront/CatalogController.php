@@ -16,6 +16,7 @@ use App\Models\Post;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Store;
+use App\Support\ReviewModeration;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -109,9 +110,13 @@ class CatalogController extends Controller
     {
         $product = Product::active()->where('slug', $slug)->firstOrFail();
         $data = $request->validated();
-        $product->reviews()->create($data + ['customer_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
+        $customer = $request->user();
+        $verdict = app(ReviewModeration::class)->assess($product, $customer, $data);
+        $product->reviews()->create($data + $verdict + ['customer_id' => $customer?->id, 'template' => $product->template ?? template()->id()]);
 
-        return back()->with('review_status', 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
+        return back()->with('review_status', $verdict['is_approved']
+            ? 'Thank you — your review is now live.'
+            : 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
     }
 
     public function productJson(string $slug): JsonResponse

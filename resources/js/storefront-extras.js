@@ -158,14 +158,16 @@ export default function registerExtras(Alpine, api) {
 
 
     /* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
+    // Templates render Size and Colour with their own pickers, which set the page's `size` and
+    // `color` rather than `options`, so those are read as the Size and Colour attributes here
+    // (the same way the cart reads them on the server).
     Alpine.data('variantPricing', (variants) => ({
         get current() {
-            const chosen = this.options || {};
-            const picked = Object.keys(chosen).filter((k) => chosen[k]);
-            return variants.find((v) => {
-                const names = Object.keys(v.options);
-                return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
-            }) || null;
+            const chosen = { ...(this.options || {}) };
+            if (this.size && !chosen.Size) chosen.Size = this.size;
+            if (this.color && !chosen.Colour) chosen.Colour = this.color;
+            // A variant matches when every attribute it is defined by has been chosen with its value.
+            return variants.find((v) => Object.keys(v.options).every((n) => chosen[n] === v.options[n])) || null;
         },
     }));
 

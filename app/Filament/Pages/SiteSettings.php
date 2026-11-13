@@ -17,12 +17,14 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\HtmlString;
 
 class SiteSettings extends Page
 {
@@ -40,7 +42,7 @@ class SiteSettings extends Page
 
     protected function settingGroups(): array
     {
-        return ['site', 'seo', 'checkout', 'login'];
+        return ['site', 'seo', 'checkout', 'login', 'reviews'];
     }
 
     public function form(Schema $schema): Schema
@@ -103,6 +105,27 @@ class SiteSettings extends Page
                             TagsInput::make('checkout.gift_card_amounts')->label('Gift card values')->helperText('Whole rupees, e.g. 2500'),
                         ]),
                     ]),
+                    Tab::make('Reviews')->icon('heroicon-o-star')
+                        // Service stores have no product reviews.
+                        ->visible(fn () => ! app(ClientContext::class)->client()?->templateObject()?->supportsServices())
+                        ->schema([
+                            Section::make('Publishing reviews')
+                                ->description('Reviews shoppers write on product pages.')
+                                ->schema([
+                                    Toggle::make('reviews.auto_publish_verified')
+                                        ->label('Publish verified buyers\' reviews automatically')
+                                        ->default(true)
+                                        ->helperText('A shopper who is signed in and has received the product gets a "Verified purchase" badge, and their review goes live at once. Turn off to approve every review yourself.'),
+                                    Callout::make('What waits for approval')
+                                        ->icon('heroicon-o-shield-check')
+                                        ->color('info')
+                                        ->description(new HtmlString(
+                                            'Always, even from a verified buyer: a review containing a link, an email address or a phone number.<br>'
+                                            .'While the setting is on: reviews from guests and from shoppers who have not received the product.<br>'
+                                            .'The star rating never decides: a 1★ review is published exactly like a 5★ one.'
+                                        )),
+                                ]),
+                        ]),
                     Tab::make('Sign-in page')->icon('heroicon-o-lock-closed')->schema([
                         Section::make('Your team\'s sign-in page')
                             ->description(fn () => 'How '.$this->loginUrl().' looks. Leave a field empty to use your store\'s default, shown in grey.')

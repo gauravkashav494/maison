@@ -25,18 +25,27 @@ use App\Policies\StorefrontPolicy;
 use App\Policies\UserPolicy;
 use App\Support\DatabaseMacros;
 use App\Templates\TemplateManager;
+use Filament\Actions\Action;
 use Filament\Schemas\Components\Form;
 use Filament\Support\Facades\FilamentIcon;
+use Filament\Support\Enums\Width;
+use Filament\Support\Facades\FilamentView;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Table;
+use Filament\Tables\View\TablesRenderHook;
 use Filament\View\PanelsIconAlias;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View as ViewInstance;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPanelIcons();
+        $this->registerTableFilterIndicators();
+        $this->registerTableFilterLayout();
 
         // Picking a module in the sidebar collapses it to icons (desktop too, not only on phones), so
         // the page gets the room; the ☰ button opens it again. Group headers do not count as a pick.
@@ -79,6 +90,14 @@ class AppServiceProvider extends ServiceProvider
         // Clicking a table row does nothing: records open from the ⋮ menu (View / Edit) only.
         // Setting the URL here also stops resource list pages adding their default row link.
         Table::configureUsing(fn (Table $table) => $table->recordUrl(null));
+
+        // "Apply" in the filters dropdown also closes it, so the filtered rows are not hidden
+        // behind the panel; the applied filters stay visible as chips in the toolbar. close()
+        // keeps the normal apply request and adds Alpine's close. Only for the dropdown layout:
+        // the modal layout already closes, and the other layouts have nothing to close.
+        Table::configureUsing(fn (Table $table) => $table->filtersApplyAction(
+            fn (Action $action) => $table->getFiltersLayout() === FiltersLayout::Dropdown ? $action->close() : $action,
+        ));
 
         // Validation is the server's job: no browser "Please fill out this field" pop-ups, every
         // form is checked by its Laravel rules and the messages show under each field.
@@ -136,6 +155,82 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /** Sidebar toggle: the classic hamburger (☰) for both opening and collapsing, instead of chevrons. */
+    /**
+     * Every table shows its active filter chips in the toolbar, beside the search field, rather
+     * than in a separate row under it. The chips stay removable, with the same "remove all".
+     *
+     * The toolbar is drawn before Filament's own indicator row, so the row is hidden only for a
+     * table whose chips were already drawn up top. A table without a search field, filter
+     * button or column manager has no such spot and keeps the default row.
+     */
+    /**
+     * Every table's filter panel lays itself out by how many filters it has, so no table sets
+     * this by hand (a table that called filtersFormColumns() or filtersFormWidth() itself would
+     * override the rule; don't):
+     *
+     *   1–3 filters   one per row, the default narrow panel
+     *   4 filters     2 across, medium panel
+     *   5+ filters    3 across, wide panel
+     *
+     * Columns drop to 2 on a tablet and 1 on a phone. Counted when the panel renders, so
+     * filters that are hidden for this user (or this store) do not count.
+     */
+    private function registerTableFilterLayout(): void
+    {
+        Table::configureUsing(function (Table $table) {
+            $count = fn () => count($table->getFilters());
+
+            $table
+                ->filtersFormColumns(fn () => match (true) {
+                    $count() >= 5 => ['default' => 1, 'sm' => 2, 'lg' => 3],
+                    $count() === 4 => ['default' => 1, 'sm' => 2],
+                    default => 1,
+                })
+                ->filtersFormWidth(fn () => match (true) {
+                    $count() >= 5 => Width::FourExtraLarge,
+                    $count() === 4 => Width::TwoExtraLarge,
+                    default => null, // Filament's default narrow panel
+                });
+        });
+    }
+
+    private function registerTableFilterIndicators(): void
+    {
+        $drawn = [];
+
+        FilamentView::registerRenderHook(TablesRenderHook::TOOLBAR_SEARCH_BEFORE, function () use (&$drawn) {
+            $component = Livewire::current();
+            if (! $component instanceof HasTable) {
+                return '';
+            }
+
+            $table = $component->getTable();
+            $indicators = $table->getFilterIndicators();
+            if (! $indicators) {
+                return '';
+            }
+            $drawn[$component->getId()] = true;
+
+            return view('filament.partials.table-filter-indicators', [
+                'indicators' => $indicators,
+                'removeAll' => collect($indicators)->contains(fn (Indicator $indicator) => $indicator->isRemovable())
+                    ? $table->getFiltersRemoveAllAction()
+                    : null,
+            ]);
+        });
+
+        // A non-blank result replaces the default row; a blank one lets Filament draw it.
+        FilamentView::registerRenderHook(TablesRenderHook::FILTER_INDICATORS, function () use (&$drawn) {
+            $id = Livewire::current()?->getId();
+            if (! $id || ! isset($drawn[$id])) {
+                return '';
+            }
+            unset($drawn[$id]);
+
+            return new HtmlString('<span hidden></span>');
+        });
+    }
+
     private function registerPanelIcons(): void
     {
         $menu = Heroicon::Bars3;

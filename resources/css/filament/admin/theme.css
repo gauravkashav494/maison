@@ -377,3 +377,10 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login[data-style="minimal"] .fi-login-help { text-align: center; }
 .fi-login[data-style="minimal"] .fi-login-foot { position: absolute; bottom: 1.5rem; color: var(--ink-faint); }
 .fi-login[data-style="minimal"] .fi-login-foot a { color: var(--ink-soft); border-color: var(--card-line); }
+/* ---- Table toolbar: active filter chips beside the search field --------------
+   Drawn by AppServiceProvider::registerTableFilterIndicators(). They wrap onto
+   more lines when there are many, and never squeeze the search field. */
+.fi-ta-toolbar-filter-indicators { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.375rem; min-width: 0; flex: 1 1 auto; }
+.fi-ta-header-toolbar > div:has(> .fi-ta-toolbar-filter-indicators) { flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
+.fi-ta-header-toolbar .fi-ta-search-field { flex: 0 0 auto; }
+@media (max-width: 640px) { .fi-ta-toolbar-filter-indicators { justify-content: flex-start; flex-basis: 100%; } }

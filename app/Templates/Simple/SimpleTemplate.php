@@ -49,6 +49,11 @@ class SimpleTemplate extends Template
         ];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/simple';

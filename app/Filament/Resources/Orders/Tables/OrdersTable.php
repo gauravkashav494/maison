@@ -58,7 +58,8 @@ class OrdersTable
                     }),
             ])
             ->filters([
-                SelectFilter::make('status')->options(Order::statusOptions())->native(false),
+                // Several statuses at once, so "confirmed + processing" (still to fulfil) is one view.
+                SelectFilter::make('status')->options(Order::statusOptions())->multiple()->native(false),
                 SelectFilter::make('payment_method')->options(Order::PAYMENT_METHODS)->native(false),
 
                 // One exact day, for "what came in on the 14th".
@@ -85,9 +86,8 @@ class OrdersTable
                         return $parts ? 'Placed '.implode(' ', $parts) : null;
                     }),
             ])
-            ->filtersFormColumns(2)
-            // Every applied filter shows as a removable chip, and "Reset filters" clears them all.
-            ->deferFilters(false)
+            // Filters apply with the "Apply" button and lay out by how many there are, like every
+            // table (AppServiceProvider::registerTableFilterLayout()).
             ->recordActions([RowActions::group([
                 Action::make('dispatch')
                     ->label('Dispatch')

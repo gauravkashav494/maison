@@ -4,12 +4,15 @@ namespace App\Filament\Resources\Customers;
 
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
+use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -83,6 +86,16 @@ class CustomerResource extends Resource
         ]);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return CustomerInfolist::configure($schema);
+    }
+
+    public static function getRelations(): array
+    {
+        return [OrdersRelationManager::class];
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -96,7 +109,7 @@ class CustomerResource extends Resource
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
             ->filters([TrashedFilter::make()])
-            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 
@@ -111,6 +124,7 @@ class CustomerResource extends Resource
             'index' => Pages\ListCustomers::route('/'),
             'create' => Pages\CreateCustomer::route('/create'),
             'edit' => Pages\EditCustomer::route('/{record}/edit'),
+            'view' => Pages\ViewCustomer::route('/{record}'),
         ];
     }
 }

@@ -4,8 +4,11 @@ namespace App\Filament\Resources\Collections;
 
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Collections\Pages\CreateCollection;
+use App\Filament\RelationManagers\ProductsRelationManager;
 use App\Filament\Resources\Collections\Pages\EditCollection;
+use App\Filament\Resources\Collections\Pages\ViewCollection;
 use App\Filament\Resources\Collections\Pages\ListCollections;
+use App\Filament\Resources\Collections\Schemas\CollectionInfolist;
 use App\Filament\Resources\Collections\Schemas\CollectionForm;
 use App\Filament\Resources\Collections\Tables\CollectionsTable;
 use App\Models\Collection;
@@ -21,6 +24,8 @@ class CollectionResource extends Resource
 
     protected static ?string $model = Collection::class;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSparkles;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Catalogue';
@@ -32,6 +37,11 @@ class CollectionResource extends Resource
         return CollectionForm::configure($schema);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return CollectionInfolist::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return CollectionsTable::configure($table);
@@ -40,7 +50,7 @@ class CollectionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ProductsRelationManager::class,
         ];
     }
 
@@ -50,6 +60,7 @@ class CollectionResource extends Resource
             'index' => ListCollections::route('/'),
             'create' => CreateCollection::route('/create'),
             'edit' => EditCollection::route('/{record}/edit'),
+            'view' => ViewCollection::route('/{record}'),
         ];
     }
 }

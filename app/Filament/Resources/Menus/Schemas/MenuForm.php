@@ -2,7 +2,8 @@
 
 namespace App\Filament\Resources\Menus\Schemas;
 
-use App\Templates\TemplateManager;
+use App\Filament\Resources\Menus\MenuResource;
+use App\Models\Menu;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -14,10 +15,11 @@ class MenuForm
         return $schema->components([
             TextInput::make('name')->required()->maxLength(80),
             Select::make('location')
-                ->options(fn () => app(TemplateManager::class)->allMenuLocations())
+                // Only this store's template's locations that have no menu yet (plus this menu's own when editing).
+                ->options(fn (?Menu $record) => MenuResource::availableLocations($record))
                 ->required()
                 ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(\App\Clients\ClientContext::class)->id()))
-                ->helperText('Where on the storefront this menu is rendered. Each template has its own locations.'),
+                ->helperText('Where on your storefront this menu appears. Each location holds one menu.'),
         ]);
     }
 }

@@ -14,9 +14,7 @@
     $extras = collect($product->variantAttributes())
         ->reject(fn (array $attribute) => in_array(strtolower($attribute['name']), $skip, true))
         ->values();
-    $variants = $product->sellsVariants()
-        ? array_map(fn (array $variant) => $variant + ['price_formatted' => money($variant['price'])], $product->variantList())
-        : [];
+    $variants = $product->pricingVariants();
 @endphp
 
 @if($extras->isNotEmpty())

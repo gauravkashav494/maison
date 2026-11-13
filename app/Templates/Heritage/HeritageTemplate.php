@@ -48,6 +48,11 @@ class HeritageTemplate extends Template
         return ['name' => trim($this->setting('site.logo_primary', 'Annapurna').' '.$this->setting('site.logo_accent', '')), 'theme_color' => '#FFFCF5', 'background_color' => '#FFFCF5'];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_GROCERY, self::PRODUCT_FIELDS_NUTRITION, self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/heritage';

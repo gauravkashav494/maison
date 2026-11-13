@@ -114,6 +114,18 @@ class TemplateManager
         return $out;
     }
 
+    /**
+     * Menu locations to offer in the admin: only the given template's own (as "Header quick
+     * links", not "Indian Grocery — Header quick links"), or every template's when no template
+     * is given (a super admin working across all stores).
+     */
+    public function menuLocationsFor(?string $templateId): array
+    {
+        return $templateId !== null && $this->has($templateId)
+            ? $this->get($templateId)->locationLabels()
+            : $this->allMenuLocations();
+    }
+
     /** Which template owns a menu location (null when unknown). */
     public function templateForLocation(string $location): ?Template
     {

@@ -64,8 +64,16 @@ class Fields
         return $field;
     }
 
-    /** Name + auto-generated slug pair. */
-    /** @param  string|null  $scopeColumn  make the slug unique per value of this column (e.g. per storefront template) */
+    /**
+     * Name + auto-generated slug pair.
+     *
+     * @param  string|null  $scopeColumn  outside a store (a super admin working across all of
+     *                                    them), the slug only has to be unique per value of this
+     *                                    column, e.g. per storefront template. Inside a store it
+     *                                    is unique across all of the store's records: a shared
+     *                                    record and the store's own one with the same slug would
+     *                                    compete for one URL, and only one of them is ever shown.
+     */
     public static function nameAndSlug(string $nameField = 'name', string $label = 'Name', ?string $scopeColumn = null): array
     {
         return [
@@ -87,9 +95,10 @@ class Fields
                 // Slugs are unique inside a client, not across the platform: two clients may
                 // each have a "shirts" category.
                 ->unique(ignoreRecord: true, modifyRuleUsing: function (Unique $rule, Get $get) use ($scopeColumn) {
-                    $rule = $rule->where('client_id', app(ClientContext::class)->id());
+                    $clientId = app(ClientContext::class)->id();
+                    $rule = $rule->where('client_id', $clientId);
 
-                    return $scopeColumn ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule;
+                    return $scopeColumn && ! $clientId ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule;
                 })
                 ->helperText('Used in the page URL. Lowercase letters, numbers and dashes only.'),
         ];

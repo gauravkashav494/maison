@@ -59,4 +59,9 @@ return [
         'tax_label' => 'GST',
         'gift_card_amounts' => [500, 1000, 2500, 5000],
     ],
+
+    'reviews' => [
+        // A verified buyer's review goes live at once unless it contains a link, email or phone number.
+        'auto_publish_verified' => true,
+    ],
 ];

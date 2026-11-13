@@ -65,7 +65,13 @@
                     @if($product->sku)<span class="text-[0.6875rem] text-taupe">Ref. {{ $product->sku }}</span>@endif
                 </div>
                 <div class="mt-5 flex items-baseline gap-3 text-xl tabular-nums">
-                    <span class="{{ $product->is_on_sale ? 'text-rouge' : '' }}">{{ money($product->price) }}</span>
+                    @if($product->sellsVariants())
+                        {{-- Follows the chosen size/options; the lowest variant price until one is chosen. --}}
+                        <span x-data="variantPricing(@js($product->pricingVariants()))" class="{{ $product->is_on_sale ? 'text-rouge' : '' }}"
+                              x-text="current ? current.price_formatted : @js(money($product->price))">{{ money($product->price) }}</span>
+                    @else
+                        <span class="{{ $product->is_on_sale ? 'text-rouge' : '' }}">{{ money($product->price) }}</span>
+                    @endif
                     @if($product->compare_at_price)<span class="text-sm text-smoke line-through">{{ money($product->compare_at_price) }}</span><span class="text-[0.625rem] uppercase tracking-[0.2em] text-rouge">−{{ $product->discount_percent }}%</span>@endif
                 </div>
                 <p class="mt-6 text-[0.9375rem] leading-relaxed text-smoke">{{ $product->description }}</p>
@@ -209,7 +215,7 @@
                     </div>
                     @if($review->title)<h3 class="mt-3 font-serif text-2xl">{{ $review->title }}</h3>@endif
                     <p class="mt-2 text-[0.9375rem] leading-relaxed text-smoke">{{ $review->body }}</p>
-                    <p class="mt-3 text-[0.6875rem] uppercase tracking-[0.15em]">{{ $review->name }} <span class="ml-2 text-emerald-700">✓ Verified</span></p>
+                    <p class="mt-3 text-[0.6875rem] uppercase tracking-[0.15em]">{{ $review->name }}@if($review->is_verified_purchase) <span class="ml-2 text-emerald-700">✓ Verified purchase</span>@endif</p>
                 </article>
             @empty
                 <div class="border border-dashed border-ink/15 p-10 text-center text-sm text-smoke">Reviews appear here once approved.</div>

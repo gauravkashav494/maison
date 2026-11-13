@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Pages\Schemas;
 
+use App\Filament\Resources\Pages\PageResource;
 use App\Filament\Support\Fields;
 use App\Models\Page;
 use Filament\Forms\Components\Repeater;
@@ -35,8 +36,10 @@ class PageForm
                                 ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'storefront_template'),
                                 Fields::templateVisibility('storefront_template')->live(),
                                 Select::make('template')
-                                    ->options(Page::TEMPLATES)
-                                    ->default('default')
+                                    ->label('Layout')
+                                    // Only layouts this store's design can show (Simple has just Contact).
+                                    ->options(fn (Get $get, ?Page $record) => PageResource::layoutOptions($get('storefront_template'), $record?->template))
+                                    ->default(fn (Get $get) => array_key_first(PageResource::layoutOptions($get('storefront_template'))))
                                     ->required()
                                     ->live()
                                     ->native(false)

@@ -7,6 +7,7 @@ use App\Models\Collection;
 use App\Support\Media;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -28,7 +29,7 @@ class CollectionsTable
                 ToggleColumn::make('is_active')->label('Visible'),
             ])
             ->filters([TrashedFilter::make()])
-            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 }

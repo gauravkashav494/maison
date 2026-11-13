@@ -204,7 +204,7 @@
                         @foreach($reviews as $r)
                             <li class="py-4 first:pt-0">
                                 <div class="flex items-center justify-between gap-3">
-                                    <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-leaf-light text-xs font-extrabold text-leaf-dark">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span><span class="badge badge-soft">Verified</span></div>
+                                    <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-leaf-light text-xs font-extrabold text-leaf-dark">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span>@if($r->is_verified_purchase)<span class="badge badge-soft">Verified purchase</span>@endif</div>
                                     <span class="text-xs text-mist">{{ $r->created_at->format('d M Y') }}</span>
                                 </div>
                                 <div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div>

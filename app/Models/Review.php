@@ -19,7 +19,10 @@ class Review extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_approved' => 'boolean'];
+    protected $casts = ['is_approved' => 'boolean', 'is_verified_purchase' => 'boolean'];
+
+    /** Star options for the admin filters, best first. */
+    public const RATING_OPTIONS = ['5' => '★★★★★ 5 stars', '4' => '★★★★☆ 4 stars', '3' => '★★★☆☆ 3 stars', '2' => '★★☆☆☆ 2 stars', '1' => '★☆☆☆☆ 1 star'];
 
     public function product(): BelongsTo
     {

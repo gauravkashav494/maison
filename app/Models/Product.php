@@ -143,7 +143,12 @@ class Product extends Model
             if ($name === '' || ! $values) {
                 continue;
             }
-            $attributes[] = ['name' => $name, 'values' => $values, 'swatches' => (array) ($attribute['swatches'] ?? [])];
+            // Only swatches for values still offered, and only ones with a colour set.
+            $swatches = array_filter(
+                array_intersect_key((array) ($attribute['swatches'] ?? []), array_flip($values)),
+                fn ($hex) => filled($hex),
+            );
+            $attributes[] = ['name' => $name, 'values' => $values, 'swatches' => $swatches];
         }
 
         if ($attributes) {
@@ -216,6 +221,19 @@ class Product extends Model
         }
 
         return $variants;
+    }
+
+    /**
+     * The variants for the storefront's live price display (the `variantPricing` Alpine
+     * component), each with its price already formatted. Empty when not sold by variant.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function pricingVariants(): array
+    {
+        return $this->sellsVariants()
+            ? array_map(fn (array $variant) => $variant + ['price_formatted' => money($variant['price'])], $this->variantList())
+            : [];
     }
 
     /** The variant matching exactly these options, if it is on sale. */
