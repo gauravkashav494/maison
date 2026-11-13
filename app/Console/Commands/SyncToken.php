@@ -13,15 +13,15 @@ use Illuminate\Console\Command;
  */
 class SyncToken extends Command
 {
-    protected $signature = 'sync:token {client : The client slug} {--name=local-agent : A label for this token} {--revoke : Revoke the client\'s tokens}';
+    protected $signature = 'sync:token {client : The client subdomain} {--name=local-agent : A label for this token} {--revoke : Revoke the client\'s tokens}';
 
     protected $description = 'Issue or revoke the token a client\'s local sync agent uses';
 
     public function handle(): int
     {
-        $client = Client::where('slug', $this->argument('client'))->first();
+        $client = Client::where('subdomain', $this->argument('client'))->first();
         if (! $client) {
-            $this->components->error('No client has that slug.');
+            $this->components->error('No client has that subdomain.');
 
             return self::FAILURE;
         }

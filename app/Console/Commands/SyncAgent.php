@@ -18,15 +18,15 @@ class SyncAgent extends Command
 {
     private const SECTIONS = ['products', 'stock', 'customers', 'order_status', 'orders_in', 'order_items_in', 'stock_on_import', 'customers_in', 'products_in'];
 
-    protected $signature = 'sync:agent {client : The client slug} {--setup-code : Create a code for installing the agent} {--url= : Public base URL, if not APP_URL} {--schema : Show the local tables} {--map= : JSON mapping file to apply}';
+    protected $signature = 'sync:agent {client : The client subdomain} {--setup-code : Create a code for installing the agent} {--url= : Public base URL, if not APP_URL} {--schema : Show the local tables} {--map= : JSON mapping file to apply}';
 
     protected $description = 'Manage a client\'s local sync agent';
 
     public function handle(AgentPackage $package): int
     {
-        $client = Client::where('slug', $this->argument('client'))->first();
+        $client = Client::where('subdomain', $this->argument('client'))->first();
         if (! $client) {
-            $this->components->error('No client has that slug.');
+            $this->components->error('No client has that subdomain.');
 
             return self::FAILURE;
         }

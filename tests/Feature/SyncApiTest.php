@@ -37,8 +37,8 @@ class SyncApiTest extends TestCase
 
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
-        $this->alpha = Client::create(['name' => 'Alpha', 'slug' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
-        $this->beta = Client::create(['name' => 'Beta', 'slug' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->alpha = Client::create(['name' => 'Alpha', 'subdomain' => 'alpha', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
+        $this->beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $store->id, 'plan_id' => $plan->id, 'is_active' => true]);
         [, $this->token] = SyncToken::issue($this->alpha, 'test');
     }
 
@@ -290,7 +290,7 @@ class SyncApiTest extends TestCase
         $databases = app(ClientDatabase::class);
 
         try {
-            $this->artisan('clients:provision', ['slug' => 'alpha', '--no-seed' => true])->assertSuccessful();
+            $this->artisan('clients:provision', ['subdomain' => 'alpha', '--no-seed' => true])->assertSuccessful();
 
             $this->api('POST', 'products', ['items' => [['external_id' => 'L1', 'sku' => 'S1', 'name' => 'Own DB', 'price' => 5]]])
                 ->assertJsonPath('results.0.result', 'created');

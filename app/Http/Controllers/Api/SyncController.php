@@ -28,7 +28,7 @@ class SyncController extends Controller
 
     public function ping(): JsonResponse
     {
-        return response()->json(['client' => $this->client()->slug, 'server_time' => now()->toIso8601String()]);
+        return response()->json(['client' => $this->client()->subdomain, 'server_time' => now()->toIso8601String()]);
     }
 
     public function changes(Request $request, string $resource): JsonResponse
