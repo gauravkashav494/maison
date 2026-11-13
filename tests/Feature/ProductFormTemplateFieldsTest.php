@@ -34,6 +34,7 @@ class ProductFormTemplateFieldsTest extends TestCase
             'heritage' => ['heritage', ['grocery tab', 'grocery attributes', 'nutrition', 'max quantity']],
             'plumbing' => ['plumbing', ['plumbing tab', 'max quantity']],
             'simple' => ['simple', ['max quantity']],
+            'bulk' => ['bulk', ['max quantity']],
         ];
     }
 

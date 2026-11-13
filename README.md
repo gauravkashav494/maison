@@ -54,6 +54,7 @@ The backend (catalogue, pages, orders, customers, cart, checkout, SEO, admin) is
 | **Fashion** (Maison Élan editorial) | `fashion` | `resources/views/` (base views, also the fallback) | `resources/css/app.css`, `resources/js/app.js` |
 | **Indian Grocery** (quick-commerce style) | `grocery` | `resources/views/templates/grocery/` | `resources/templates/grocery/{css,js}/app.js` |
 | **Heritage Grocery** (premium Indian pantry — red / gold / cream, editorial serif, deep mega-menu, rich category pages, nutrition tabs, quick view, save-for-later) | `heritage` | `resources/views/templates/heritage/` | `resources/templates/heritage/{css,js}/app.js` |
+| **Bulk Order** (trade-supplies store — brand colour per store, category bar, banner, category tiles, product cards with size picker + qty stepper, per-size table on product pages; Bulk order on the home page: invoice-style item rows searched by name or code, plus paste-a-list/CSV and reload-a-past-order; shared cart and checkout, max 20 per line) | `bulk` | `resources/views/templates/bulk/` | `resources/templates/bulk/{css,js}/app.js` |
 
 **Switching:** Admin → *Appearance → Templates* — preview a template for your own session, or *Activate* it for visitors (confirmation required). Every URL stays the same; nothing is deleted when you switch. CLI equivalents: `php artisan template:list`, `template:install grocery|heritage`, `template:activate grocery|heritage`.
 
@@ -103,5 +104,6 @@ The original Next.js prototype is kept at `D:\ecommerce-next` for reference.
 
 - **Payments** — card / UPI / wallet / net-banking options are designed and validated, and orders are created with `payment_status = paid`, but no gateway is connected yet. Wire Razorpay/Stripe into `CartController::placeOrder()` before launch. Cash on delivery works as-is.
 - **Email** — order confirmations and password-reset mails use Laravel's mailer; set `MAIL_*` in `.env` (dev uses the `log` driver, so reset links appear in `storage/logs/laravel.log`).
-- **Uploads** — admin uploads go to `storage/app/public`; keep `php artisan storage:link` in your deploy script.
+- **Uploads** — admin uploads go to `storage/app/public`; `deploy.sh` runs `php artisan storage:link`.
+- **Deploying** — on the server, run `./deploy.sh` from the app directory (`BRANCH=…`, `SKIP_ASSETS=1`, `PHP=php8.3`, `PHP_FPM_SERVICE=php8.3-fpm` are optional). It checks `.env` (`APP_ENV=production`, `APP_DEBUG=false`), goes into maintenance mode, pulls, runs `composer install --no-dev`, builds assets, migrates (never seeds), rebuilds caches, restarts queue workers and brings the site back up. You need a queue worker (`php artisan queue:work`) running under Supervisor/systemd, because `QUEUE_CONNECTION=database`.
 - Demo promo codes: `WELCOME10`, `ELAN2000`, `FREESHIP`.

@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
  * Each template's install() runs it for its id, so a new client starts with locations that
  * fit its store; the client then edits or replaces them under Content → Store locations.
  *
- * Templates without a stores page (Plumbing Services, Simple List) have none.
+ * Templates without a stores page (Plumbing Services, Simple List, Bulk Order) have none.
  */
 class StoreLocationsSeeder extends Seeder
 {

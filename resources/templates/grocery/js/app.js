@@ -9,6 +9,8 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import '../../../js/password-reveal';
+import '../../../js/phone-input';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);

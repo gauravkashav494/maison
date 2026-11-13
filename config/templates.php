@@ -33,5 +33,6 @@ return [
         App\Templates\Plumbing\PlumbingTemplate::class,
         App\Templates\PlumbingServices\PlumbingServicesTemplate::class,
         App\Templates\Simple\SimpleTemplate::class,
+        App\Templates\Bulk\BulkTemplate::class,
     ],
 ];

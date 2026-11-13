@@ -5,6 +5,8 @@ import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerExtras from './storefront-extras';
 import registerAppShell from './app-shell';
+import './password-reveal';
+import './phone-input';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);

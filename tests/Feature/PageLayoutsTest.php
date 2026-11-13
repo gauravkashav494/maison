@@ -63,6 +63,7 @@ class PageLayoutsTest extends TestCase
             'fashion has every layout' => ['fashion', ['Editorial page', 'Size guide (tables)', 'Store locator', 'Gift cards'], []],
             'plumbing services has six' => ['plumbing-services', ['Editorial page', 'Careers (open roles)', 'Contact (form + details)'], ['Size guide (tables)', 'Care guide (by material)', 'Gift cards', 'Store locator']],
             'simple has only contact' => ['simple', ['Contact (form + details)'], ['Editorial page', 'Legal / policy document', 'Size guide (tables)']],
+            'bulk order has contact, editorial and policy' => ['bulk', ['Contact (form + details)', 'Editorial page', 'policy document'], ['Size guide (tables)', 'Gift cards', 'About (brand story sections)']],
         ];
     }
 

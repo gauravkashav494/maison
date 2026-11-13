@@ -19,10 +19,12 @@
 @source not '../../../views/templates/heritage/**';
 @source not '../../../views/templates/plumbing/**';
 @source not '../../../views/templates/plumbing-services/**';
+@source not '../../../views/templates/bulk/**';
 @source not '../../../templates/grocery/**';
 @source not '../../../templates/heritage/**';
 @source not '../../../templates/plumbing/**';
 @source not '../../../templates/plumbing-services/**';
+@source not '../../../templates/bulk/**';
 @source '../../../../app/View/**/*.php';
 @source inline("{lg:,}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
 @source inline("lg:grid-cols-{3,4,5,6}");

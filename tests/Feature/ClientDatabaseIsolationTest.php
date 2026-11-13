@@ -279,7 +279,7 @@ class ClientDatabaseIsolationTest extends TestCase
 
     public static function stores(): array
     {
-        return array_combine($ids = ['fashion', 'grocery', 'heritage', 'plumbing', 'plumbing-services', 'simple'], array_map(fn ($id) => [$id], $ids));
+        return array_combine($ids = ['fashion', 'grocery', 'heritage', 'plumbing', 'plumbing-services', 'simple', 'bulk'], array_map(fn ($id) => [$id], $ids));
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('stores')]

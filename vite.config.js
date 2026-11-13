@@ -23,6 +23,9 @@ export default defineConfig({
                 // Simple List template (image-free order list)
                 'resources/templates/simple/css/app.css',
                 'resources/templates/simple/js/app.js',
+                // Bulk Order template (order sheet + quick-order pad)
+                'resources/templates/bulk/css/app.css',
+                'resources/templates/bulk/js/app.js',
                 'resources/css/filament/admin/theme.css',
             ],
             refresh: true,

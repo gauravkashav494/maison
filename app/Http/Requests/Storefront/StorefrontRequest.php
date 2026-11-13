@@ -31,7 +31,35 @@ abstract class StorefrontRequest extends FormRequest
                 $merge[$key] = mb_strtolower(trim($this->input($key)));
             }
         }
+        if (is_string($this->input('phone')) && ($phone = static::normalisePhone($this->input('phone'))) !== null) {
+            $merge['phone'] = $phone;
+        }
         $merge && $this->merge($merge);
+    }
+
+    /**
+     * A phone number as its 10 digits: spaces, hyphens, dots and brackets are dropped, and so is
+     * a +91 / 91 country code or a leading 0 — "+91 98765-43210" and "098765 43210" both become
+     * "9876543210". Anything else (letters, too few or too many digits) is returned as typed, so
+     * the rule rejects it instead of it being quietly changed. Null for an empty value.
+     */
+    public static function normalisePhone(string $value): ?string
+    {
+        $clean = preg_replace('/[\s\-().]/', '', trim($value));
+        if ($clean === '') {
+            return null;
+        }
+        if (! preg_match('/^\+?\d+$/', $clean)) {
+            return trim($value);
+        }
+        $digits = ltrim($clean, '+');
+        if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+            $digits = substr($digits, 2);
+        } elseif (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+
+        return strlen($digits) === 10 ? $digits : trim($value);
     }
 
     // ---- Shared field rules ------------------------------------------------
@@ -47,15 +75,10 @@ abstract class StorefrontRequest extends FormRequest
         return [$required ? 'required' : 'nullable', 'string', 'email:rfc,filter', 'max:190'];
     }
 
-    /** 10–15 digits, optionally with a leading + and spaces or hyphens between groups. */
+    /** Exactly 10 digits (after normalisePhone() has removed spacing and any +91 or leading 0). */
     protected function phone(bool $required = true): array
     {
-        return [$required ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-]{8,18}[0-9]$/', function (string $attribute, mixed $value, \Closure $fail) {
-            $digits = strlen(preg_replace('/\D/', '', (string) $value));
-            if ($digits < 10 || $digits > 15) {
-                $fail('The :attribute must contain 10 to 15 digits.');
-            }
-        }];
+        return [$required ? 'required' : 'nullable', 'string', 'regex:/^\d{10}$/'];
     }
 
     /** Address lines: anything printable, but at least a few characters. */
@@ -106,7 +129,7 @@ abstract class StorefrontRequest extends FormRequest
             'prohibited' => 'Your submission could not be accepted.',
             'name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
             'shipping_name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
-            'phone.regex' => 'Please enter a valid :attribute (10 to 15 digits, e.g. 98765 43210).',
+            'phone.regex' => 'Please enter a 10-digit :attribute, e.g. 9876543210.',
             'postal_code.regex' => $this->postalMessage('country'),
             'shipping_postal_code.regex' => $this->postalMessage('shipping_country'),
             'city.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
