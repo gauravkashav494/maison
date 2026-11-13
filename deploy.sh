@@ -30,7 +30,12 @@ MAINTENANCE=0
 MIGRATED=0
 
 log()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
-fail() { printf '\n\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
+fail() {
+    printf '\n\033[1;31mERROR:\033[0m %s\n' "$*" >&2
+    trap - ERR
+    on_error "${BASH_LINENO[0]}"
+    exit 1
+}
 
 on_error() {
     local line=$1
@@ -101,6 +106,30 @@ fi
 log "Running migrations"
 MIGRATED=1
 "$PHP" artisan migrate --force
+
+CLIENT_ISOLATION="$(env_value CLIENT_ISOLATION)"
+if [[ "$CLIENT_ISOLATION" == "database" || "$CLIENT_ISOLATION" == "schema" ]]; then
+    # Applies new database/migrations/client migrations to every client database.
+    # --no-seed: existing client content is never re-seeded or overwritten.
+    log "Migrating client databases"
+    PROVISION_OUT="$(mktemp)"
+    if ! "$PHP" artisan clients:provision --no-seed --no-interaction 2>&1 | tee "$PROVISION_OUT"; then
+        if grep -q "No matching client" "$PROVISION_OUT"; then
+            echo "No clients yet — nothing to migrate."
+        else
+            rm -f "$PROVISION_OUT"
+            fail "clients:provision failed (see output above)."
+        fi
+    fi
+    rm -f "$PROVISION_OUT"
+
+    # Creates or updates each template's theme-<template> preview. It only seeds a
+    # preview database the first time it is created, so existing previews keep their content.
+    log "Building theme previews"
+    "$PHP" artisan themes:build --no-interaction
+else
+    log "Skipping clients:provision and themes:build (CLIENT_ISOLATION='${CLIENT_ISOLATION:-shared}')"
+fi
 
 log "Linking storage"
 [[ -e public/storage ]] || "$PHP" artisan storage:link
