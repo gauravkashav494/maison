@@ -77,6 +77,61 @@ class TemplateSettingsPagesTest extends TestCase
         $this->assertSame('Made in Jaipur', Setting::get('site.footer_blurb'));
     }
 
+    public function test_the_tax_rate_and_tax_name_are_validated(): void
+    {
+        $this->signInOwnerOf('fashion', 'atelier');
+        // Name first, as on the form: changing the name resets a rate that name does not offer.
+        $save = fn (mixed $rate, mixed $label) => Livewire::test(SiteSettings::class)
+            ->set('data.checkout.tax_label', $label)
+            ->set('data.checkout.tax_rate', $rate)
+            ->call('save');
+
+        // A rate saved earlier as a number opens on its slab rather than an empty select.
+        Setting::set('checkout', ['tax_rate' => 18, 'tax_label' => 'GST'] + config('client_defaults.checkout'));
+        Livewire::test(SiteSettings::class)->assertSet('data.checkout.tax_rate', '18');
+        Setting::set('checkout', ['tax_rate' => 0.25, 'tax_label' => 'GST'] + config('client_defaults.checkout'));
+        Livewire::test(SiteSettings::class)->assertSet('data.checkout.tax_rate', '0.25');
+
+        // The rate is chosen from the GST slabs: any other number is refused.
+        foreach ([null, '', 'abc', -1, 101, '18.555', 17, '12.5'] as $rate) {
+            $save($rate, 'GST')->assertHasErrors(['data.checkout.tax_rate'], 'rate '.var_export($rate, true));
+        }
+        // The name is chosen from a list: anything typed in instead is refused.
+        foreach ([null, '', 'Service charge', 'gst', 'GST<script>'] as $label) {
+            $save(18, $label)->assertHasErrors(['data.checkout.tax_label'], 'name '.var_export($label, true));
+        }
+
+        // Each name offers its own rates: 20% is a VAT rate, not a GST slab.
+        foreach ([[20, 'GST'], [20, 'IGST'], [18, 'VAT'], [0.25, 'VAT']] as [$rate, $label]) {
+            $save($rate, $label)->assertHasErrors(['data.checkout.tax_rate'], "$rate% with $label");
+        }
+
+        foreach ([[0, 'GST'], ['0.25', 'GST'], [18, 'CGST + SGST'], [12, 'IGST'], [28, 'GST'], [40, 'IGST'], [20, 'VAT'], ['12.5', 'VAT'], [20, 'Tax'], [18, 'Tax']] as [$rate, $label]) {
+            $save($rate, $label)->assertHasNoErrors();
+            $this->assertEquals($rate, Setting::get('checkout.tax_rate'));
+            $this->assertSame($label, Setting::get('checkout.tax_label'));
+        }
+
+        // The rate list on the page follows the name: every VAT rate is rendered as an option, not just the selected one.
+        $rateOptions = fn ($page) => (string) str($page->html())->after('data.checkout.tax_rate')->before('</select>');
+        $page = Livewire::test(SiteSettings::class)->set('data.checkout.tax_label', 'VAT');
+        foreach (['0', '5', '12.5', '20'] as $value) {
+            $this->assertStringContainsString('value="'.$value.'"', $rateOptions($page), "VAT offers $value%");
+        }
+        $this->assertStringNotContainsString('value="18"', $rateOptions($page));
+        $page->set('data.checkout.tax_label', 'Tax');
+        foreach (['0.25', '12.5', '18', '20', '40'] as $value) {
+            $this->assertStringContainsString('value="'.$value.'"', $rateOptions($page), "Tax offers $value%");
+        }
+
+        // Switching the name keeps a rate the new name also has, and resets one it does not.
+        Livewire::test(SiteSettings::class)
+            ->set('data.checkout.tax_label', 'VAT')->set('data.checkout.tax_rate', '5')
+            ->set('data.checkout.tax_label', 'GST')->assertSet('data.checkout.tax_rate', '5')
+            ->set('data.checkout.tax_label', 'VAT')->set('data.checkout.tax_rate', '20')
+            ->set('data.checkout.tax_label', 'GST')->assertSet('data.checkout.tax_rate', '0');
+    }
+
     public function test_clear_empties_only_the_open_tab_and_nothing_is_stored_until_save(): void
     {
         $this->signInOwnerOf('fashion', 'atelier');

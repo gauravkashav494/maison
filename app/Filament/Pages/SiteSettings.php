@@ -41,6 +41,51 @@ class SiteSettings extends Page
 
     protected static ?string $title = 'Site settings';
 
+    /** Tax names a store can show customers: the value is what is printed, so keys and labels match. */
+    public const TAX_NAMES = [
+        'GST' => 'GST',
+        'IGST' => 'IGST',
+        'CGST + SGST' => 'CGST + SGST',
+        'VAT' => 'VAT',
+        'Tax' => 'Tax',
+    ];
+
+    /** GST slabs (stored as the number; 0 means no tax). */
+    public const GST_RATES = [
+        '0' => '0% — no tax',
+        '0.25' => '0.25%',
+        '3' => '3%',
+        '5' => '5%',
+        '12' => '12%',
+        '18' => '18%',
+        '28' => '28%',
+        '40' => '40%',
+    ];
+
+    /** VAT rates. */
+    public const VAT_RATES = [
+        '0' => '0% — no tax',
+        '5' => '5%',
+        '12.5' => '12.5%',
+        '20' => '20%',
+    ];
+
+    /**
+     * Rates offered for a tax name: GST names get the GST slabs, VAT its own rates, and the
+     * generic "Tax" both, so a GST store cannot pick 20% by mistake.
+     */
+    public static function taxRatesFor(?string $name): array
+    {
+        $rates = match ($name) {
+            'VAT' => self::VAT_RATES,
+            'Tax' => self::GST_RATES + self::VAT_RATES,
+            default => self::GST_RATES,
+        };
+        uksort($rates, fn ($a, $b) => (float) $a <=> (float) $b);
+
+        return $rates;
+    }
+
     protected function settingGroups(): array
     {
         return ['site', 'seo', 'checkout', 'login', 'reviews'];
@@ -139,12 +184,37 @@ class SiteSettings extends Page
                                         'inclusive' => 'Usual for retail shoppers. A ₹1,000.00 item costs ₹1,000.00, of which ₹152.54 is GST.',
                                     ])
                                     ->default('exclusive')->live()->columnSpanFull(),
-                                TextInput::make('checkout.tax_rate')->label('Tax rate')->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
+                                // A fixed list, not free text: the name is printed on every cart, order and invoice.
+                                Select::make('checkout.tax_label')->label('Tax name')
+                                    ->options(self::TAX_NAMES)
+                                    ->default('GST')->required()->selectablePlaceholder(false)->native(false)
+                                    // The rates offered depend on the name; a rate the new name does not have goes back to 0%.
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set, ?string $state) {
+                                        if (! array_key_exists((string) $get('checkout.tax_rate'), self::taxRatesFor($state))) {
+                                            $set('checkout.tax_rate', '0');
+                                        }
+                                    })
+                                    ->validationMessages([
+                                        'required' => 'Choose the tax name customers see.',
+                                        'in' => 'Choose one of the listed tax names.',
+                                    ])
+                                    ->helperText('Shown to customers on the cart, checkout and invoices.'),
+                                // Chosen from the rates for the tax name above, not typed: a mistyped rate would be charged on every order.
+                                Select::make('checkout.tax_rate')->label('Tax rate')
+                                    ->options(fn ($get) => self::taxRatesFor($get('checkout.tax_label')))
+                                    // Rates saved earlier are numbers (18, 18.0); the options are keyed "18", and the select compares strictly.
+                                    ->formatStateUsing(fn ($state) => is_numeric($state) ? (string) (float) $state : $state)
+                                    // A plain <select>: its options are rendered on the server and redrawn when the
+                                    // tax name changes. The searchable dropdown kept showing only the selected rate.
+                                    ->default('0')->required()->selectablePlaceholder(false)->native()
+                                    ->validationMessages([
+                                        'required' => 'Choose the tax rate, or 0% if you do not charge tax.',
+                                        'in' => 'Choose one of the listed tax rates.',
+                                    ])
                                     ->helperText(fn ($get) => $get('checkout.tax_mode') === 'inclusive'
-                                        ? 'Used to show how much of each order is tax. 0 hides the tax line.'
-                                        : 'Added on top of every order at checkout. At 0, no tax is charged (checkout shows ₹0.00).'),
-                                TextInput::make('checkout.tax_label')->label('Tax name')->default('GST')
-                                    ->helperText('Shown to customers, e.g. GST or VAT.'),
+                                        ? 'Used to show how much of each order is tax. At 0, the tax line is hidden.'
+                                        : 'Added on top of every order at checkout. At 0, no tax is charged and the tax line is hidden.'),
                             ]),
                         Section::make('Gift cards')
                             ->description('Values customers can choose when buying a gift card.')
