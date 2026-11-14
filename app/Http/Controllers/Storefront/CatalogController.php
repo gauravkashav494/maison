@@ -172,28 +172,9 @@ class CatalogController extends Controller
         ]);
     }
 
-    /**
-     * Every word of the query must match one of the product fields, so technical searches
-     * such as "1 inch PVC pipe" or "brass ball valve" work across name, brand, SKU,
-     * material, sizes and category.
-     */
     private function searchQuery(string $q)
     {
-        $words = array_values(array_filter(preg_split('/\s+/', trim($q))));
-
-        return Product::with('category')->active()
-            ->where(function ($outer) use ($words) {
-                foreach ($words as $word) {
-                    $outer->where(fn ($w) => $w->whereLike('name', $word)
-                        ->orWhereLike('description', $word)
-                        ->orWhereLike('brand', $word)
-                        ->orWhereLike('sku', $word)
-                        ->orWhereLike('material', $word)
-                        ->orWhereLike('sizes', $word)
-                        ->orWhereHas('category', fn ($c) => $c->whereLike('name', $word)));
-                }
-            })
-            ->orderBy('sort_order');
+        return Product::with('category')->active()->search($q)->orderBy('sort_order');
     }
 
     // ---- CMS pages (template-driven) --------------------------------------

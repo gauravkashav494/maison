@@ -1,7 +1,7 @@
 {{--
     Store header: announcement, brand bar (logo, product search, trade desk, account, cart) and
-    the category bar with the Bulk order link at its head. $navCategories comes from
-    BulkTemplate::viewData(). A bare x-data gives Alpine a scope for the cart count.
+    the menu bar with the Bulk order link at its head. A bare x-data gives Alpine a scope for
+    the cart count.
 --}}
 @php
     $storeName = setting('site.name', config('app.name'));
@@ -19,10 +19,10 @@
     @endif
 
     <div class="bk-top">
-        <div class="bk-wrap flex flex-wrap items-center gap-x-4 gap-y-3 py-3 lg:flex-nowrap lg:py-4">
-            <a href="{{ url('/') }}" class="bk-logo order-1">
+        <div class="bk-wrap flex flex-wrap items-center gap-x-3 gap-y-3 py-3 sm:gap-x-4 lg:flex-nowrap lg:py-4">
+            <a href="{{ url('/') }}" class="bk-logo order-1 min-w-0 flex-1 basis-0 lg:flex-none lg:basis-auto">
                 <span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span>
-                <span>{{ $storeName }}<small>Trade supplies</small></span>
+                <span class="min-w-0 truncate">{{ $storeName }}<small class="truncate">Trade supplies</small></span>
             </a>
 
             <form method="get" action="{{ route('search') }}" role="search" class="bk-search order-3 w-full lg:order-2 lg:mx-4 lg:w-auto">
@@ -32,11 +32,14 @@
                 <button type="submit" aria-label="Search"><x-heroicon-o-magnifying-glass /></button>
             </form>
 
-            <div class="order-2 ml-auto flex items-center gap-1 lg:order-3 lg:ml-0">
+            <div class="order-2 ml-auto flex flex-none items-center gap-0.5 sm:gap-1 lg:order-3 lg:ml-0">
                 @if($phone)
-                    <a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="bk-top-action hidden xl:inline-flex">
+                    {{-- Just the icon until there is room for the number; it still calls the desk.
+                         (A display utility on .bk-top-action itself would lose to its own display rule,
+                         so only the text is hidden.) --}}
+                    <a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="bk-top-action" aria-label="Call the trade desk on {{ $phone }}">
                         <x-heroicon-o-phone aria-hidden="true" />
-                        <span><span class="opacity-75">Trade desk</span><strong>{{ $phone }}</strong></span>
+                        <span class="hidden xl:block" aria-hidden="true"><span class="opacity-75">Trade desk</span><strong>{{ $phone }}</strong></span>
                     </a>
                 @endif
                 <a href="{{ auth()->check() ? route('account.orders') : route('login') }}" class="bk-top-action">
@@ -59,39 +62,17 @@
     </div>
 
     {{--
-        Category bar. On desktop, catBar (resources/templates/bulk/js/nav.js) measures the room
-        and shows as many categories as fit; the rest go under "More". Phones scroll the whole
-        row instead. Without JavaScript every category is shown inline.
+        Menu bar: Bulk order and All products, then the header menu links on the right. It is
+        the same on every page. Categories are not repeated here: All products lists them down
+        the side (chips on phones), and the footer links them too.
     --}}
-    @php
-        $navCategories = collect($navCategories ?? []);
-        $activeCategory = $navCategories->search(fn ($c) => request()->is('shop/'.$c->slug));
-    @endphp
-    <nav class="bk-catbar" aria-label="Categories">
-        <div class="bk-wrap bk-catbar-row" x-data="catBar" x-ref="row">
-            <div class="bk-catbar-main" x-ref="main">
-                <a href="{{ url('/#bulk-order') }}" class="is-cta" data-fixed><x-heroicon-o-clipboard-document-list aria-hidden="true" />Bulk order</a>
-                <a href="{{ route('shop.index') }}" @class(['is-on' => request()->routeIs('shop.index')]) data-fixed>All products</a>
-                @foreach($navCategories as $cat)
-                    <a href="{{ $cat->url }}" @class(['is-on' => $activeCategory === $loop->index]) data-cat
-                       x-show="{{ $loop->index }} < fit">{{ $cat->name }}</a>
-                @endforeach
+    <nav class="bk-catbar" aria-label="Main">
+        <div class="bk-wrap bk-catbar-row">
+            <div class="bk-catbar-main">
+                <a href="{{ url('/#bulk-order') }}" class="is-cta"><x-heroicon-o-clipboard-document-list aria-hidden="true" />Bulk order</a>
+                <a href="{{ route('shop.index') }}" @class(['is-on' => request()->routeIs('shop.index', 'shop.category')])>All products</a>
             </div>
-            @if($navCategories->isNotEmpty())
-                <div class="bk-catmore hidden lg:block" x-show="fit < {{ $navCategories->count() }}" x-cloak
-                     x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
-                    <button type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="true"
-                            :class="{{ $activeCategory === false ? 'false' : $activeCategory.' >= fit' }} && 'is-on'">
-                        More <x-heroicon-m-chevron-down aria-hidden="true" />
-                    </button>
-                    <div class="bk-catmore-menu" x-show="open" x-cloak x-transition.opacity.duration.150ms>
-                        @foreach($navCategories as $cat)
-                            <a href="{{ $cat->url }}" @class(['is-on' => $activeCategory === $loop->index]) x-show="{{ $loop->index }} >= fit">{{ $cat->name }}</a>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-            <div class="bk-catbar-side" x-ref="side">
+            <div class="bk-catbar-side">
                 @foreach($menus['header'] ?? [] as $item)
                     {{-- A link is current when its path is the page's path (or a page under it), on this host. --}}
                     @php

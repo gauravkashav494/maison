@@ -91,6 +91,36 @@ class Order extends Model
         return $number;
     }
 
+    /** Payment status as shoppers see it on the storefront: "Pay on delivery" for COD. */
+    public function paymentStatusLabel(): string
+    {
+        return $this->payment_status === 'cod' ? 'Pay on delivery' : ucfirst((string) $this->payment_status);
+    }
+
+    /** Filament colour for the payment status badge. */
+    public function paymentStatusColor(): string
+    {
+        return match ($this->payment_status) {
+            'paid' => 'success',
+            'cod' => 'warning',
+            'refunded' => 'gray',
+            default => 'danger',
+        };
+    }
+
+    /** Filament colour for the order status badge. */
+    public function statusColor(): string
+    {
+        return match ($this->status) {
+            'confirmed' => 'info',
+            'processing' => 'warning',
+            self::STATUS_DISPATCHED, 'out_for_delivery' => 'primary',
+            self::STATUS_DELIVERED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+            default => 'gray',
+        };
+    }
+
     public function statusLabel(): string
     {
         return $this->status === 'cancelled' ? 'Cancelled' : (self::STATUSES[$this->status] ?? ucfirst($this->status));

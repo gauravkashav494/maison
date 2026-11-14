@@ -126,10 +126,46 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-search input:focus { outline: 3px solid var(--bk-accent); outline-offset: 0; }
 .bk-search button { position: absolute; right: .3rem; top: .3rem; bottom: .3rem; width: 2.6rem; border-radius: .45rem; background: var(--bk-accent); color: #1d1300; display: grid; place-items: center; }
 .bk-search button svg { width: 1.15rem; height: 1.15rem; }
+/* In-page search (shop listing): an input with the magnifier drawn inside it. */
+.bk-find { position: relative; }
+.bk-find svg { position: absolute; left: .7rem; top: 50%; width: 1.05rem; height: 1.05rem; transform: translateY(-50%); color: var(--bk-muted); pointer-events: none; }
+.bk-find .bk-input { padding-block: .5rem; padding-left: 2.25rem; padding-right: 2.25rem; }
+.bk-find .bk-input::-webkit-search-cancel-button { display: none; } /* our own × works in every browser */
+.bk-find .bk-find-clear { position: absolute; right: .35rem; top: 50%; transform: translateY(-50%); width: 1.75rem; height: 1.75rem;
+  display: grid; place-items: center; border-radius: .4rem; color: var(--bk-muted); }
+.bk-find .bk-find-clear:hover { background: var(--bk-page); color: var(--bk-ink); }
+.bk-find .bk-find-clear svg { position: static; transform: none; width: 1rem; height: 1rem; color: currentColor; }
+/* Sort: label and menu side by side; on phones an icon button with the menu laid over it. */
+.bk-sort { display: flex; align-items: center; gap: .5rem; flex: none; }
+.bk-sort-icon { display: none; }
+@media (max-width: 639px) {
+  .bk-sort { position: relative; width: 2.6rem; height: 2.6rem; }
+  .bk-sort-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .bk-sort-icon { display: grid; place-items: center; width: 100%; height: 100%; border: 1px solid var(--bk-line); border-radius: .55rem; background: #fff; color: var(--bk-ink); }
+  .bk-sort-icon svg { width: 1.15rem; height: 1.15rem; }
+  .bk-sort.is-set .bk-sort-icon { border-color: var(--bk-brand); color: var(--bk-brand); }
+  .bk-sort.is-set::after { content: ""; position: absolute; top: .3rem; right: .3rem; width: .45rem; height: .45rem; border-radius: 999px; background: var(--bk-accent); }
+  .bk-sort select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .bk-sort:focus-within .bk-sort-icon { outline: 2px solid var(--bk-brand); outline-offset: 0; }
+}
+/* Category chips (phones and tablets, where the side list is hidden). */
+.bk-chip { flex: none; display: inline-flex; align-items: center; padding: .35rem .75rem; border: 1px solid var(--bk-line); border-radius: 999px;
+  background: #fff; font-size: .8125rem; font-weight: 600; color: var(--bk-ink); text-decoration: none; white-space: nowrap; }
+.bk-chip:hover { border-color: var(--bk-brand); color: var(--bk-brand); }
+.bk-chip.is-on { background: var(--bk-brand); border-color: var(--bk-brand); color: #fff; }
+#bk-shop-results { transition: opacity .15s; }
+#bk-shop-results.is-loading { opacity: .5; }
 .bk-top-action { display: inline-flex; align-items: center; gap: .5rem; color: #fff; text-decoration: none; font-size: .8125rem; line-height: 1.15; border-radius: .55rem; padding: .4rem .55rem; }
 .bk-top-action:hover { background: rgb(255 255 255 / .1); }
 .bk-top-action svg { width: 1.5rem; height: 1.5rem; flex: none; }
 .bk-top-action strong { display: block; font-size: .875rem; }
+/* Phones: logo and the three icons share one row, so both are a little tighter. */
+@media (max-width: 639px) {
+  .bk-logo { gap: .5rem; font-size: 1rem; }
+  .bk-logo-mark { width: 2rem; height: 2rem; }
+  .bk-logo small { font-size: .625rem; letter-spacing: .06em; }
+  .bk-top-action { padding: .4rem; }
+}
 .bk-cart-pill { position: relative; }
 .bk-cart-count { position: absolute; top: 0; left: 1.35rem; min-width: 1.15rem; height: 1.15rem; padding-inline: .25rem; border-radius: 999px; background: var(--bk-accent); color: #1d1300;
   font-size: .6875rem; font-weight: 800; display: grid; place-items: center; }
@@ -140,21 +176,11 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-catbar a svg { width: 1.1rem; height: 1.1rem; }
 .bk-scroll-x { overflow-x: auto; scrollbar-width: none; }
 .bk-scroll-x::-webkit-scrollbar { display: none; }
-.bk-catmore { position: relative; }
-.bk-catmore > button { display: inline-flex; align-items: center; gap: .3rem; padding: .75rem .85rem; font-size: .875rem; font-weight: 600; color: var(--bk-ink); white-space: nowrap; border-bottom: 2px solid transparent; }
-.bk-catmore > button:hover, .bk-catmore > button.is-on { color: var(--bk-brand); border-bottom-color: var(--bk-brand); }
-.bk-catmore > button svg { width: 1rem; height: 1rem; }
-.bk-catmore-menu { position: absolute; left: 0; top: 100%; z-index: 40; min-width: 14rem; padding: .35rem; background: var(--bk-card); border: 1px solid var(--bk-line); border-radius: .6rem; box-shadow: 0 12px 28px rgb(0 0 0 / .1); }
-.bk-catbar .bk-catmore-menu a { display: flex; padding: .5rem .7rem; border-bottom: 0; border-radius: .4rem; }
-.bk-catbar .bk-catmore-menu a:hover, .bk-catbar .bk-catmore-menu a.is-on { background: var(--bk-brand-soft); }
 .bk-catbar-row { display: flex; overflow-x: auto; scrollbar-width: none; }
 .bk-catbar-row::-webkit-scrollbar { display: none; }
 .bk-catbar-main, .bk-catbar-side { display: flex; flex-shrink: 0; }
-/* Desktop: categories that don't fit fold into "More" (see nav.js), so nothing scrolls and the
-   dropdown can open below the bar; the header links sit at the right. */
+/* Desktop: the header links sit at the right. */
 @media (min-width: 64rem) {
-  .bk-catbar-row { overflow: visible; }
-  .bk-catbar-main { flex: 0 1 auto; min-width: 0; overflow: hidden; }
   .bk-catbar-side { margin-left: auto; }
 }
 
@@ -422,6 +448,9 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 }
 @media (max-width: 24rem) {
   .bk-tabs button { white-space: normal; line-height: 1.15; font-size: .75rem; }
+}
+/* Below tablet width a stacked table draws each row as a block of labelled values. */
+@media (max-width: 767px) {
   .bk-table.is-stack thead { display: none; }
   .bk-table.is-stack, .bk-table.is-stack tbody, .bk-table.is-stack tr, .bk-table.is-stack td { display: block; width: 100%; }
   .bk-table.is-stack tr { padding: .5rem 0; border-bottom: 1px solid var(--bk-line); }
@@ -440,7 +469,18 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
   gap: .75rem; padding: .8rem 1rem; border-radius: var(--bk-radius); background: var(--bk-brand); color: #fff; box-shadow: 0 12px 30px rgb(15 30 25 / .25); }
 .bk-sheetbar p { font-size: .9375rem; }
 @media (max-width: 767px) {
-  .bk-list.is-stack tbody tr { padding: .6rem .75rem; }
+  /* Each row is a small card: the product across the top, code and price under it, then
+     stock and the quantity box — so the box is always on screen, never past the edge. */
+  .bk-list.is-stack tbody tr:not(.bk-group) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+    column-gap: .75rem; row-gap: .35rem; padding: .75rem; }
+  .bk-list.is-stack tbody tr:not(.bk-group) > td { width: auto; padding: 0; }
+  .bk-list.is-stack tbody tr:not(.bk-group) > td:first-child { grid-column: 1 / -1; }
+  .bk-list.is-stack td[data-label]::before { content: none; }
+  .bk-list.is-stack td[data-label="Code"] { font-size: .8125rem; }
+  .bk-list.is-stack td[data-label="Price"] { text-align: right; }
+  .bk-list.is-stack td[data-label="Price"] .bk-was { display: inline; margin-left: .35rem; }
+  .bk-list.is-stack td[data-label="Quantity"] { grid-column: 2; text-align: right; }
+  .bk-list.is-stack td[data-label="Quantity"] .bk-error, .bk-list.is-stack td[data-label="Quantity"] .bk-ok { text-align: right; }
   .bk-list.is-stack tbody tr.is-filled { background: var(--bk-brand-soft); }
 }
 .bk-list .bk-group th { background: var(--bk-brand-soft); color: var(--bk-brand-ink); text-align: left; font-size: .75rem; font-weight: 800;

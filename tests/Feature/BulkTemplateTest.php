@@ -192,29 +192,6 @@ class BulkTemplateTest extends TestCase
             ->assertDontSee('Cookies, briefly.');
     }
 
-    public function test_categories_that_do_not_fit_can_fold_into_more(): void
-    {
-        foreach (['Safety Wear', 'Bar Supplies', 'Laundry'] as $i => $name) {
-            Category::create([
-                'client_id' => $this->client->id, 'template' => 'bulk', 'name' => $name,
-                'slug' => str($name)->slug(), 'sort_order' => 10 + $i, 'is_active' => true, 'show_in_menu' => true,
-            ]);
-        }
-        cache()->flush();
-
-        $html = $this->visit('/')->assertSuccessful()->assertSee('x-data="catBar"', false)->getContent();
-        $bar = (string) str($html)->after('class="bk-catbar"')->before('</nav>');
-        $menu = str($bar)->after('bk-catmore-menu')->before('</div>');
-
-        // Every category is inline (phones, and desktop when it fits) and also in "More", where
-        // catBar shows only the ones that did not fit.
-        foreach (['Cleaning Chemicals', 'Laundry'] as $name) {
-            $this->assertSame(2, substr_count($bar, '>'.$name.'</a>'));
-            $this->assertStringContainsString($name, $menu);
-        }
-        $this->assertStringContainsString('x-show="7 >= fit">Laundry', $menu);
-    }
-
     public function test_the_header_link_for_the_open_page_is_marked_current(): void
     {
         $bar = fn (string $path) => (string) str($this->visit($path)->assertSuccessful()->getContent())
@@ -292,6 +269,50 @@ class BulkTemplateTest extends TestCase
         $this->assertMatchesRegularExpression('#<form method="get" action="[^"]*/shop/cleaning"#', $html);
         $this->assertStringContainsString('name="sort"', $html);
         $this->assertStringNotContainsString('onchange=', $html);
+    }
+
+    public function test_the_shop_search_narrows_the_list_within_the_category(): void
+    {
+        $this->visit('/shop?q=container')
+            ->assertSuccessful()
+            ->assertSee('name="q"', false)
+            ->assertSee('orderSheet(', false)
+            ->assertSee('PK-CT-750')
+            ->assertSee('1 product')
+            ->assertSee('4 sizes')
+            ->assertDontSee('Floor cleaner concentrate');
+
+        // A variant's own code finds its product.
+        $this->visit('/shop?q=GL-NT-XL')->assertSuccessful()->assertSee('Nitrile gloves');
+
+        // Searching inside a category stays inside it, and offers to widen the search.
+        $this->visit('/shop/cleaning?q=container')
+            ->assertSuccessful()
+            ->assertSee('No products match')
+            ->assertSee('Search all products');
+    }
+
+    public function test_the_menu_bar_is_the_same_on_every_page_and_does_not_repeat_categories(): void
+    {
+        // Up to the bar's own </nav>; the breadcrumb that follows names the category being browsed.
+        $bar = fn (string $path) => (string) str($this->visit($path)->assertSuccessful()->getContent())->after('class="bk-catbar"')->before('</nav>');
+
+        // Categories are listed on All products (and in the footer), not in the menu bar.
+        foreach (['/', '/shop', '/shop/cleaning', '/track-order'] as $path) {
+            $this->assertStringContainsString('All products', $bar($path), $path);
+            $this->assertStringNotContainsString('Cleaning Chemicals', $bar($path), $path);
+        }
+        $this->visit('/')->assertSee('Cleaning Chemicals'); // still reachable from the footer
+    }
+
+    public function test_search_results_are_the_order_list_not_cards(): void
+    {
+        $this->visit('/search?q=round food container')
+            ->assertSuccessful()
+            ->assertSee('orderSheet(', false)
+            ->assertDontSee('tradeCard(', false)
+            ->assertSee('PK-CT-250')
+            ->assertSee('PK-CT-1000');
     }
 
     public function test_a_sorted_list_is_not_split_into_repeating_category_headings(): void

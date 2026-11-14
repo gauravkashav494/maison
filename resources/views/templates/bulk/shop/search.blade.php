@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
-{{-- Search results as product cards; the search box itself is in the header. --}}
+{{-- Search results as the same order list as the shop — one row per size, each with its own
+     code, price, stock and quantity box; the search box itself is in the header. --}}
 
 @section('content')
 <div class="bk-wrap mt-6">
@@ -23,10 +24,8 @@
             </p>
         </div>
     @else
-        <div class="bk-grid is-wide mt-5">
-            @foreach($products as $product)
-                <x-trade-card :product="$product" :show-stock="(bool) tsetting('site.show_stock', true)" />
-            @endforeach
+        <div class="mt-5">
+            <x-product-list :products="$products" :show-stock="(bool) tsetting('site.show_stock', true)" />
         </div>
         <div class="bk-pager mt-8">{{ $products->links() }}</div>
     @endif

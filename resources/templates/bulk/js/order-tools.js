@@ -117,6 +117,71 @@ Alpine.data('tradeCard', (lines = [], initial = null) => ({
 }));
 
 /* ---------------------------------------------------------------------------
+   Shop search: results update as the buyer types. The page itself is fetched with the
+   new query and its list and count are swapped in, so the server stays the one place that
+   searches, and focus never leaves the box. The URL follows along, so reload and Back work.
+--------------------------------------------------------------------------- */
+Alpine.data('shopSearch', () => ({
+    busy: false,
+    last: null,
+    request: 0,
+    form: null,
+    filled: false,
+
+    init() {
+        this.form = this.$el; // $el is the element an event fired on, so keep the form itself
+        this.last = this.url().toString();
+        this.filled = this.$refs.q.value !== '';
+        this.$refs.q.addEventListener('input', () => { this.filled = this.$refs.q.value !== ''; });
+    },
+
+    clear() {
+        this.$refs.q.value = '';
+        this.filled = false;
+        this.$refs.q.focus();
+        this.run();
+    },
+
+    url() {
+        const url = new URL(this.form.action, window.location.href);
+        for (const [name, value] of new FormData(this.form)) {
+            if (String(value).trim() !== '') url.searchParams.set(name, String(value).trim());
+        }
+        return url;
+    },
+
+    async run(force = false) {
+        const url = this.url();
+        if (!force && url.toString() === this.last) return;
+        this.last = url.toString();
+
+        const id = ++this.request;
+        const results = document.getElementById('bk-shop-results');
+        this.busy = true;
+        results?.classList.add('is-loading');
+        try {
+            const res = await fetch(url, { headers: { Accept: 'text/html' } });
+            if (!res.ok) throw new Error(res.status);
+            const html = new DOMParser().parseFromString(await res.text(), 'text/html');
+            if (id !== this.request) return; // a newer search has started
+            for (const sel of ['#bk-shop-results', '#bk-shop-count']) {
+                const fresh = html.querySelector(sel);
+                const here = document.querySelector(sel);
+                if (fresh && here) here.replaceWith(fresh);
+            }
+            history.replaceState(history.state, '', url);
+        } catch {
+            window.location.assign(url); // fall back to an ordinary page load
+        } finally {
+            if (id === this.request) {
+                this.busy = false;
+                document.getElementById('bk-shop-results')?.classList.remove('is-loading');
+            }
+        }
+    },
+}));
+
+/* ---------------------------------------------------------------------------
    Product page: every size of one product, each with its own quantity box
 --------------------------------------------------------------------------- */
 Alpine.data('orderSheet', (lines = []) => ({

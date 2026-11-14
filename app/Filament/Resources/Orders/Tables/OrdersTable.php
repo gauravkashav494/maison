@@ -2,17 +2,14 @@
 
 namespace App\Filament\Resources\Orders\Tables;
 
+use App\Filament\Resources\Orders\OrderStatusActions;
 use App\Filament\Support\RowActions;
 use App\Models\Order;
-use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -23,7 +20,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 
 /**
- * Order list and the manual fulfilment actions: Dispatch, Delivered and Cancel.
+ * Order list. Each row offers the fulfilment actions (OrderStatusActions), the same ones as the order page.
  *
  * Fulfilment is done by the client, not by a shipping integration, so each action simply
  * records the new status — but only when the order is allowed to make that move
@@ -47,9 +44,7 @@ class OrdersTable
                 TextColumn::make('status')
                     ->formatStateUsing(fn (Order $r) => $r->statusLabel())
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'confirmed' => 'info', 'processing' => 'warning', 'shipped', 'out_for_delivery' => 'primary', 'delivered' => 'success', 'cancelled' => 'danger', default => 'gray',
-                    })
+                    ->color(fn (Order $r) => $r->statusColor())
                     ->description(fn (Order $r) => match (true) {
                         $r->cancelled_at !== null => 'Cancelled '.$r->cancelled_at->format('d M Y'),
                         $r->delivered_at !== null => 'Delivered '.$r->delivered_at->format('d M Y'),
@@ -89,65 +84,7 @@ class OrdersTable
             // Filters apply with the "Apply" button and lay out by how many there are, like every
             // table (AppServiceProvider::registerTableFilterLayout()).
             ->recordActions([RowActions::group([
-                Action::make('dispatch')
-                    ->label('Dispatch')
-                    ->icon('heroicon-o-truck')
-                    ->color('primary')
-                    ->authorize(fn (Order $record) => self::mayFulfil($record))
-                    ->visible(fn (Order $record) => $record->canTransitionTo(Order::STATUS_DISPATCHED))
-                    ->schema([
-                        TextInput::make('carrier')->label('Carrier (optional)')->default(fn (Order $record) => $record->carrier),
-                        TextInput::make('tracking_number')->label('Tracking number (optional)')->default(fn (Order $record) => $record->tracking_number),
-                        TextInput::make('note')->label('Note')->placeholder('Shown on the customer timeline'),
-                    ])
-                    ->action(fn (Order $record, array $data) => self::move($record, Order::STATUS_DISPATCHED, $data['note'] ?? null, [
-                        'carrier' => $data['carrier'] ?? null,
-                        'tracking_number' => $data['tracking_number'] ?? null,
-                    ])),
-
-                Action::make('deliver')
-                    ->label('Delivered')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->authorize(fn (Order $record) => self::mayFulfil($record))
-                    ->visible(fn (Order $record) => $record->canTransitionTo(Order::STATUS_DELIVERED))
-                    ->requiresConfirmation()
-                    ->modalDescription('Records this order as delivered. This closes the order.')
-                    ->schema([TextInput::make('note')->label('Note')->placeholder('Who received it, for example')])
-                    ->action(fn (Order $record, array $data) => self::move($record, Order::STATUS_DELIVERED, $data['note'] ?? null)),
-
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->authorize(fn (Order $record) => self::mayFulfil($record))
-                    ->visible(fn (Order $record) => $record->canTransitionTo(Order::STATUS_CANCELLED))
-                    ->schema([
-                        Textarea::make('reason')->label('Reason')->required()->rows(2)
-                            ->helperText('Recorded with the order and shown on the timeline.'),
-                    ])
-                    ->action(fn (Order $record, array $data) => self::move($record, Order::STATUS_CANCELLED, $data['reason'])),
-
-                // The full pipeline, for the steps between dispatch and delivery.
-                Action::make('advance')
-                    ->label('Update status')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->authorize(fn (Order $record) => self::mayFulfil($record))
-                    ->visible(fn (Order $record) => $record->allowedTransitions() !== [])
-                    ->schema([
-                        Select::make('status')
-                            ->options(fn (Order $record) => array_intersect_key(Order::statusOptions(), array_flip($record->allowedTransitions())))
-                            ->required()
-                            ->native(false)
-                            ->default(fn (Order $record) => $record->allowedTransitions()[0] ?? null),
-                        TextInput::make('tracking_number')->default(fn (Order $record) => $record->tracking_number),
-                        TextInput::make('note')->placeholder('Optional note shown on the timeline'),
-                    ])
-                    ->action(fn (Order $record, array $data) => self::move($record, $data['status'], $data['note'] ?? null, [
-                        'tracking_number' => $data['tracking_number'] ?? null,
-                    ])),
-
+                ...OrderStatusActions::all(),
                 ViewAction::make(),
                 EditAction::make(),
             ])])
@@ -157,38 +94,6 @@ class OrdersTable
                     self::bulkMove('deliverSelected', 'Mark as delivered', Order::STATUS_DELIVERED, 'heroicon-o-check-badge', 'success'),
                 ]),
             ]);
-    }
-
-    /** Only an account the policy lets edit this order may change its status. */
-    private static function mayFulfil(Order $order): bool
-    {
-        return (bool) filament()->auth()->user()?->can('update', $order);
-    }
-
-    /**
-     * Applies one status change. The transition is checked again here, so an action triggered
-     * from a page that was open while the order moved on is refused rather than applied.
-     */
-    private static function move(Order $order, string $status, ?string $note = null, array $attributes = []): void
-    {
-        $attributes = array_filter($attributes, fn ($value) => filled($value));
-        if ($attributes) {
-            $order->update($attributes);
-        }
-
-        $label = Order::statusOptions()[$status] ?? $status;
-
-        if (! $order->transitionTo($status, $note, filament()->auth()->user())) {
-            Notification::make()
-                ->danger()
-                ->title('That change is not allowed')
-                ->body($order->number.' is '.$order->statusLabel().', so it cannot be marked as '.$label.'.')
-                ->send();
-
-            return;
-        }
-
-        Notification::make()->success()->title($order->number.' is now '.$label)->send();
     }
 
     /** Bulk version: each order is checked on its own and the result is reported together. */
@@ -204,7 +109,7 @@ class OrdersTable
                 $done = 0;
                 $skipped = [];
                 foreach ($records as $order) {
-                    if (! self::mayFulfil($order)) {
+                    if (! OrderStatusActions::mayFulfil($order)) {
                         $skipped[] = $order->number;
 
                         continue;

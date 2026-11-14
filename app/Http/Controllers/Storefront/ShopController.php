@@ -58,6 +58,9 @@ class ShopController extends Controller
         $f = $this->filtersFrom($request);
         $query = (clone $base)->with('category');
 
+        if ($f['q'] !== '') {
+            $query->search($f['q']);
+        }
         if ($f['category']) {
             $query->whereIn('category_id', Category::whereIn('slug', $f['category'])->pluck('id'));
         }
@@ -137,6 +140,7 @@ class ShopController extends Controller
         $list = fn (string $key) => array_values(array_filter(array_map('trim', explode(',', (string) $request->query($key, '')))));
 
         return [
+            'q' => trim((string) $request->query('q', '')),
             'category' => $list('category'),
             'subcategory' => $list('subcategory'),
             'collection' => $list('collection'),

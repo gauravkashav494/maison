@@ -154,6 +154,10 @@ html { font-size: 14px; }
 .fi-badge { font-size: 0.7rem; }
 .fi-btn { border-radius: 0.55rem; }
 .fi-fo-field-label { font-size: 0.8125rem; }
+/* Order page side cards (Customer, Delivery…): bold labels so each value is easy to find. */
+.fi-order-side .fi-in-entry-label { font-weight: 700; color: var(--ink); }
+/* Order page Payment: a rule above the total, like a receipt. */
+.fi-order-total { border-top: 1px solid var(--card-line); padding-top: .75rem; }
 .fi-input, .fi-select-input, .fi-textarea { font-size: 0.875rem; }
 .fi-tabs { border-radius: 0.75rem; }
 

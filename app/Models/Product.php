@@ -79,6 +79,30 @@ class Product extends Model
         return $q->whereNotNull('compare_at_price')->whereColumn('compare_at_price', '>', 'price');
     }
 
+    /**
+     * Every word of the term must match one of the product's fields, so technical searches
+     * such as "1 inch PVC pipe" or "brass ball valve" work across name, brand, code,
+     * material, sizes and category. Variants are searched too, so a variant's own code
+     * (GL-NT-XL) finds its product.
+     */
+    public function scopeSearch(Builder $q, ?string $term): Builder
+    {
+        $words = array_values(array_filter(preg_split('/\s+/', trim((string) $term))));
+
+        return $q->where(function (Builder $outer) use ($words) {
+            foreach ($words as $word) {
+                $outer->where(fn (Builder $w) => $w->whereLike('name', $word)
+                    ->orWhereLike('description', $word)
+                    ->orWhereLike('brand', $word)
+                    ->orWhereLike('sku', $word)
+                    ->orWhereLike('material', $word)
+                    ->orWhereLike('sizes', $word)
+                    ->orWhereLike('variants', $word)
+                    ->orWhereHas('category', fn ($c) => $c->whereLike('name', $word)));
+            }
+        });
+    }
+
     /** Ordered public URLs for all images. */
     public function getImageUrlsAttribute(): array
     {
