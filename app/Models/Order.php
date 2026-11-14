@@ -27,6 +27,8 @@ class Order extends Model
         'subtotal' => 'float',
         'discount' => 'float',
         'tax' => 'float',
+        'tax_rate' => 'float',
+        'prices_include_tax' => 'boolean',
         'total' => 'float',
         'estimated_delivery' => 'date',
         'dispatched_at' => 'datetime',
@@ -254,5 +256,11 @@ class Order extends Model
     public function getUrlAttribute(): string
     {
         return route('orders.confirmation', $this->number);
+    }
+
+    /** Label for this order's tax row, as it applied when the order was placed. */
+    public function taxLine(): string
+    {
+        return tax_line($this->tax_label ?: 'Tax', $this->tax_rate, (bool) $this->prices_include_tax);
     }
 }

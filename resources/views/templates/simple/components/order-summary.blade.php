@@ -40,7 +40,7 @@
         <dt>Delivery{{ $order->shipping_method ? " · {$order->shipping_method}" : '' }}</dt>
         <dd>{{ $order->shipping_cost ? money($order->shipping_cost) : 'Free' }}</dd>
         @if($order->tax)
-            <dt>Tax</dt><dd>{{ money($order->tax) }}</dd>
+            <dt>{{ $order->taxLine() }}</dt><dd>{{ money($order->tax) }}</dd>
         @endif
         <dt><strong>Total</strong></dt><dd><strong>{{ money($order->total) }}</strong></dd>
     </dl>

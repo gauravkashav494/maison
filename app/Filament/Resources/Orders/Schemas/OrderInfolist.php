@@ -48,7 +48,7 @@ class OrderInfolist
     private static function items(): Section
     {
         return Section::make('Items')
-            ->description(fn (Order $r) => $r->items->count().' '.Str::plural('line', $r->items->count()).' · '.$r->items->sum('qty').' '.Str::plural('unit', $r->items->sum('qty')))
+            ->description(fn (Order $r) => $r->items->count().' '.Str::plural('item', $r->items->count()).' · '.$r->items->sum('qty').' '.Str::plural('unit', $r->items->sum('qty')))
             ->icon('heroicon-o-shopping-bag')
             ->schema([
                 RepeatableEntry::make('items')
@@ -89,7 +89,7 @@ class OrderInfolist
                     ->label(fn (Order $r) => $r->shipping_method ? 'Shipping · '.$r->shipping_method : 'Shipping')
                     ->formatStateUsing(fn (float $state) => $state > 0 ? money($state) : 'Free'),
                 $row('tax')
-                    ->label('Tax')
+                    ->label(fn (Order $r) => $r->taxLine())
                     ->formatStateUsing(fn (float $state) => money($state))
                     ->visible(fn (Order $r) => $r->tax > 0),
                 $row('total')

@@ -85,7 +85,7 @@
                         <div class="flex justify-between"><dt class="text-smoke">Subtotal</dt><dd class="tabular-nums" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-smoke">Discount</dt><dd class="tabular-nums text-emerald-700" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-smoke">Shipping <span class="text-[0.625rem]" x-text="'(' + $store.cart.shipping_method.name + ')'"></span></dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-smoke" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted"></dd></div>
+                        <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted"></dd></div>
                         <div class="flex justify-between border-t border-ink/10 pt-3 text-base"><dt>Total</dt><dd class="tabular-nums" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg mt-6 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> Proceed to Checkout</a>

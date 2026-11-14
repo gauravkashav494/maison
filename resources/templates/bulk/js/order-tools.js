@@ -52,34 +52,92 @@ export function phoneError(value, required = true) {
     return '';
 }
 
-Alpine.data('phoneField', (required = true, serverError = '') => ({
+/*
+ * Every checked field registers with its form. The first one to register adds a single
+ * submit check (capture phase, before the form's own handler) that checks *all* of them,
+ * shows each message at once, focuses the first problem and stops the form being sent —
+ * so an invalid form never reaches the server and a checkout button never gets stuck on
+ * "Placing order…".
+ */
+function registerField(field) {
+    const form = field.$refs.input.form;
+    if (!form) return;
+    if (!form._bkFields) {
+        form._bkFields = [];
+        form.addEventListener('submit', (event) => {
+            let first = null;
+            for (const f of form._bkFields) {
+                f.touched = true;
+                f.check();
+                if (f.error && !first) first = f;
+            }
+            if (first) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                first.$refs.input.focus();
+            }
+        }, true);
+    }
+    form._bkFields.push(field);
+}
+
+/** Shared behaviour: a server message shows until they start editing; after that, live checks. */
+const checkedField = (serverError, message) => ({
     error: serverError,
     touched: false,
 
-    init() {
-        // Checked before the form's own submit handler (capture phase), so an invalid number
-        // never reaches the server and a checkout button never gets stuck on "Placing order…".
-        this.$refs.input.form?.addEventListener('submit', (event) => {
-            this.touched = true;
-            this.check();
-            if (this.error) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                this.$refs.input.focus();
-            }
-        }, true);
-    },
+    init() { registerField(this); },
 
-    /** Called on each keystroke (after the shared script has tidied the field). */
+    /** Called on each keystroke. */
     clean() {
         // A message from the server is about the old value: drop it once they start editing.
         if (this.touched) this.check(); else this.error = '';
     },
 
-    check() {
-        this.error = phoneError(this.$refs.input.value, required);
-    },
-}));
+    check() { this.error = message.call(this, this.$refs.input.value); },
+});
+
+Alpine.data('phoneField', (required = true, serverError = '') =>
+    checkedField(serverError, (value) => phoneError(value, required)));
+
+const NAME = /^[\p{L}\p{M}][\p{L}\p{M}\s.'\-]*$/u;
+const PLACE = /^[\p{L}\p{M}][\p{L}\p{M}\s.'&\-]*$/u;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * The message for a field, or '' when it is fine. The same rules and wording as the server
+ * (StorefrontRequest), which still checks everything again.
+ */
+export function fieldError(rule, value, { required = true, label = 'value', country = '' } = {}) {
+    const v = String(value || '').trim();
+    if (!v) return required ? `Please enter your ${label}.` : '';
+    switch (rule) {
+        case 'email':
+            return EMAIL.test(v) && v.length <= 190 ? '' : 'Please enter a valid email address, like name@example.com.';
+        case 'name':
+            if (v.length < 2) return `The ${label} must be at least 2 characters.`;
+            return NAME.test(v) ? '' : `The ${label} may only contain letters, spaces, dots, apostrophes and hyphens.`;
+        case 'place':
+            if (v.length < 2) return `The ${label} must be at least 2 characters.`;
+            return PLACE.test(v) ? '' : `The ${label} may only contain letters, spaces and . ' - &.`;
+        case 'line':
+            return v.length < (required ? 3 : 1) ? `The ${label} must be at least 3 characters.` : '';
+        case 'postal': {
+            const india = ['india', 'in', 'bharat'].includes(String(country).trim().toLowerCase());
+            if (india) return /^[1-9][0-9]{5}$/.test(v) ? '' : 'Please enter a valid 6-digit PIN code.';
+            return /^[A-Za-z0-9][A-Za-z0-9\s\-]{1,8}[A-Za-z0-9]$/.test(v) ? '' : `Please enter a valid ${label}.`;
+        }
+        default:
+            return '';
+    }
+}
+
+/** A text field checked like the phone field: x-data="checkField('email', 'email address', true, '…')". */
+Alpine.data('checkField', (rule, label, required = true, serverError = '') =>
+    checkedField(serverError, function (value) {
+        const country = this.$refs.input.form?.elements.namedItem('shipping_country')?.value || '';
+        return fieldError(rule, value, { required, label, country });
+    }));
 
 /* ---------------------------------------------------------------------------
    Product card: pick a size, set a quantity, add

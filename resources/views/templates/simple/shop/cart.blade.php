@@ -86,7 +86,7 @@
                     <dd x-text="'− ' + $store.cart.discount_formatted"></dd>
                 </template>
                 <dt>Delivery</dt><dd x-text="$store.cart.shipping_formatted"></dd>
-                <dt x-text="'Tax (' + $store.cart.tax_label + ')'"></dt><dd x-text="$store.cart.tax_formatted"></dd>
+                <dt x-text="$store.cart.tax_line"></dt><dd x-text="$store.cart.tax_formatted"></dd>
                 <dt><strong>Total</strong></dt><dd><strong x-text="$store.cart.total_formatted"></strong></dd>
             </dl>
         </div>

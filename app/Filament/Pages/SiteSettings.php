@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Templates\Template;
 use BackedEnum;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -87,23 +88,78 @@ class SiteSettings extends Page
                         TagsInput::make('site.payment_methods')->label('Payment method badges')->reorderable(),
                     ]),
                     Tab::make('Checkout')->icon('heroicon-o-credit-card')->schema([
-                        Section::make('Shipping methods')->description('Offered at checkout in this order. Leave “Free over” blank to always charge.')->schema([
-                            Repeater::make('checkout.shipping_methods')->hiddenLabel()->schema([
-                                TextInput::make('name')->required(),
-                                TextInput::make('code')->required()->alphaDash()->helperText('Internal id, e.g. standard'),
-                                TextInput::make('cost')->numeric()->prefix('₹')->default(0)->required(),
-                                TextInput::make('free_over')->label('Free over')->numeric()->prefix('₹'),
-                                TextInput::make('eta')->label('Delivery estimate')->placeholder('3–5 business days'),
-                                TextInput::make('description')->columnSpanFull(),
-                            ])->columns(5)->reorderable()->itemLabel(fn (array $state) => $state['name'] ?? null),
-                        ]),
-                        Section::make('Payments & tax')->columns(2)->schema([
-                            CheckboxList::make('checkout.payment_methods')->label('Enabled payment methods')->options(Order::PAYMENT_METHODS)->columns(2)->columnSpanFull(),
-                            TextInput::make('checkout.cod_fee')->label('Cash on delivery fee')->numeric()->prefix('₹')->default(0),
-                            TextInput::make('checkout.tax_rate')->label('Tax rate added at checkout')->numeric()->suffix('%')->default(0)->helperText('Leave at 0 if prices already include tax.'),
-                            TextInput::make('checkout.tax_label')->label('Tax label')->default('GST'),
-                            TagsInput::make('checkout.gift_card_amounts')->label('Gift card values')->helperText('Whole rupees, e.g. 2500'),
-                        ]),
+                        Section::make('Shipping methods')
+                            ->description('Shown to customers at checkout in this order. Drag to reorder.')
+                            ->schema([
+                                Repeater::make('checkout.shipping_methods')->hiddenLabel()
+                                    ->schema([
+                                        Grid::make(['default' => 1, 'md' => 3])->schema([
+                                            TextInput::make('name')->label('Name shown to customers')->required()->columnSpan(['md' => 2]),
+                                            TextInput::make('code')->label('Code')->required()->alphaDash()->placeholder('standard')
+                                                ->hintIcon('heroicon-o-information-circle', tooltip: 'Internal id saved on orders. Letters, numbers and dashes only.'),
+                                            TextInput::make('cost')->label('Cost')->numeric()->prefix('₹')->default(0)->required()
+                                                ->helperText('0 = always free'),
+                                            TextInput::make('free_over')->label('Free on orders over')->numeric()->prefix('₹')
+                                                ->helperText('Leave blank to always charge'),
+                                            TextInput::make('eta')->label('Delivery estimate')->placeholder('3–5 business days'),
+                                            TextInput::make('description')->label('Short description')->placeholder('Tracked courier')->columnSpanFull(),
+                                        ]),
+                                    ])
+                                    ->reorderable()->collapsible()->cloneable()
+                                    ->addActionLabel('Add shipping method')
+                                    ->itemLabel(function (array $state): ?string {
+                                        $name = $state['name'] ?? null;
+                                        if (! $name) {
+                                            return 'New shipping method';
+                                        }
+                                        $cost = (float) ($state['cost'] ?? 0);
+                                        $price = $cost > 0 ? '₹'.number_format($cost, 2) : 'Free';
+                                        if ($cost > 0 && filled($state['free_over'] ?? null)) {
+                                            $price .= ' · free over ₹'.number_format((float) $state['free_over'], 2);
+                                        }
+
+                                        return $name.' — '.$price;
+                                    }),
+                            ]),
+                        Section::make('Payment methods')
+                            ->description('Which ways customers can pay.')
+                            ->columns(2)
+                            ->schema([
+                                CheckboxList::make('checkout.payment_methods')->hiddenLabel()
+                                    ->options(Order::PAYMENT_METHODS)->columns(['default' => 1, 'sm' => 2, 'lg' => 3])
+                                    ->live()->columnSpanFull(),
+                                TextInput::make('checkout.cod_fee')->label('Cash on delivery fee')->numeric()->prefix('₹')->default(0)
+                                    ->helperText('Extra charge added when the customer picks cash on delivery. 0 = no fee.')
+                                    ->visible(fn ($get) => in_array('cod', (array) $get('checkout.payment_methods'), true))
+                                    ->dehydratedWhenHidden(),
+                            ]),
+                        Section::make('Tax')
+                            ->description('How tax is worked out and shown on the cart, checkout and invoices.')
+                            ->columns(2)
+                            ->schema([
+                                Radio::make('checkout.tax_mode')->label('Product prices are entered')
+                                    ->options([
+                                        'exclusive' => 'Before tax — tax is added on top at checkout',
+                                        'inclusive' => 'Including tax — the price the customer pays',
+                                    ])
+                                    ->descriptions([
+                                        'exclusive' => 'Usual for trade (B2B) buyers. A ₹1,000.00 item with 18% GST costs ₹1,180.00.',
+                                        'inclusive' => 'Usual for retail shoppers. A ₹1,000.00 item costs ₹1,000.00, of which ₹152.54 is GST.',
+                                    ])
+                                    ->default('exclusive')->live()->columnSpanFull(),
+                                TextInput::make('checkout.tax_rate')->label('Tax rate')->numeric()->minValue(0)->maxValue(100)->suffix('%')->default(0)
+                                    ->helperText(fn ($get) => $get('checkout.tax_mode') === 'inclusive'
+                                        ? 'Used to show how much of each order is tax. 0 hides the tax line.'
+                                        : 'Added on top of every order at checkout. At 0, no tax is charged (checkout shows ₹0.00).'),
+                                TextInput::make('checkout.tax_label')->label('Tax name')->default('GST')
+                                    ->helperText('Shown to customers, e.g. GST or VAT.'),
+                            ]),
+                        Section::make('Gift cards')
+                            ->description('Values customers can choose when buying a gift card.')
+                            ->schema([
+                                TagsInput::make('checkout.gift_card_amounts')->hiddenLabel()->placeholder('Type an amount and press Enter')
+                                    ->helperText('Whole rupees, e.g. 500, 1000, 2500'),
+                            ]),
                     ]),
                     Tab::make('Reviews')->icon('heroicon-o-star')
                         // Service stores have no product reviews.

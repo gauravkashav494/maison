@@ -81,7 +81,7 @@
                     @if($product->compare_at_price)<span class="mrp text-base">MRP {{ money($product->compare_at_price) }}</span><span class="off text-base">{{ $product->discount_percent }}% off</span>@endif
                 </div>
                 @if($product->compare_at_price)<p class="mt-1 text-sm font-semibold text-success">You save {{ money($product->compare_at_price - $product->price) }}</p>@endif
-                <p class="mt-1 text-xs text-slate">{{ $p['gst_note'] ?? 'Inclusive of all taxes.' }}</p>
+                @if(price_tax_note() !== '')<p class="mt-1 text-xs text-slate">{{ prices_include_tax() ? ($p['gst_note'] ?? 'Inclusive of all taxes.') : price_tax_note().'.' }}</p>@endif
 
                 @if(count($product->sizes ?? []) > 1)
                     <div class="mt-4">
@@ -169,7 +169,7 @@
                 <div x-show="tab === 'shipping'" x-cloak class="prose-p max-w-3xl">
                     <h3>Delivery</h3><p>{{ $p['delivery_promise'] ?? 'Dispatch within 24 hours on working days.' }} Fittings, taps and tools typically arrive in 2–4 days; pipes, tanks, pumps and sanitaryware in 4–6 days by surface transport.@if($threshold > 0) Free delivery on orders over {{ money($threshold) }}.@endif</p>
                     <h3>Returns</h3><p>Unused products in original packing can be returned within 7 days of delivery. Cut pipes, opened adhesives and installed sanitaryware are not returnable. Damaged or wrong items are replaced free of cost when reported within 48 hours.</p>
-                    <h3>Payment & GST</h3><p>UPI, cards, net banking, wallets and cash on delivery. {{ $p['gst_note'] ?? 'Prices include GST.' }}</p>
+                    <h3>Payment & GST</h3><p>UPI, cards, net banking, wallets and cash on delivery. {{ prices_include_tax() ? ($p['gst_note'] ?? 'Prices include GST.') : (price_tax_note() !== '' ? 'Prices are before GST, which is added at checkout.' : '') }}</p>
                 </div>
                 <div x-show="tab === 'reviews'" x-cloak id="reviews">
                     <div class="grid gap-8 lg:grid-cols-12">

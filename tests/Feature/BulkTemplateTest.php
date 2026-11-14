@@ -507,6 +507,25 @@ class BulkTemplateTest extends TestCase
         }
     }
 
+    public function test_every_required_checkout_field_is_checked_in_the_browser(): void
+    {
+        $line = collect(OrderLines::for($this->product('PK-CT')))->firstWhere('sku', 'PK-CT-500');
+        $this->order(['product_id' => $line['product_id'], 'options' => $line['options'], 'qty' => 1])->assertSuccessful();
+
+        // Not just the phone: a missing email (or address…) shows its message too, before sending.
+        $page = $this->visit('/checkout')->assertSuccessful();
+        foreach (['email', 'full name', 'address', 'city', 'state', 'postal code', 'country'] as $attribute) {
+            $page->assertSee('checkField(', false)->assertSee("'".$attribute."'", false);
+        }
+        foreach (['email', 'shipping_name', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country'] as $name) {
+            $page->assertSee('name="'.$name.'"', false);
+        }
+
+        // A server message still shows under its field.
+        $this->withSession([Client::SESSION_KEY => 'trade'])->from('/checkout')->post('/checkout', ['phone' => '9876543210'])
+            ->assertSessionHasErrors(['email' => 'Please enter your email address.']);
+    }
+
     public function test_the_cart_checkout_and_contact_pages_render(): void
     {
         $line = collect(OrderLines::for($this->product('PK-CT')))->firstWhere('sku', 'PK-CT-500');

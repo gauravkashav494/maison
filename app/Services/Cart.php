@@ -211,10 +211,20 @@ class Cart
         }
 
         $taxRate = (float) setting('checkout.tax_rate', 0);
+        $taxLabel = setting('checkout.tax_label', 'GST');
+        $inclusive = prices_include_tax();
         $taxable = max(0, $subtotal - $discount);
-        $tax = $taxRate > 0 ? round($taxable * $taxRate / 100, 2) : 0.0;
+        if ($taxRate <= 0) {
+            $tax = 0.0;
+        } elseif ($inclusive) {
+            // Prices already contain the tax: show the part of them that is tax, add nothing.
+            $tax = round($taxable - $taxable / (1 + $taxRate / 100), 2);
+        } else {
+            // Prices are before tax (B2B): the tax is added on top.
+            $tax = round($taxable * $taxRate / 100, 2);
+        }
 
-        $total = round(max(0, $taxable + $shipping + $tax), 2);
+        $total = round(max(0, $taxable + $shipping + ($inclusive ? 0 : $tax)), 2);
 
         $threshold = (float) setting('site.free_shipping_threshold', 0);
         $remaining = max(0, $threshold - $subtotal);
@@ -238,8 +248,11 @@ class Cart
             'shipping_formatted' => $shipping <= 0 ? 'Complimentary' : money($shipping),
             'tax' => $tax,
             'tax_rate' => $taxRate,
-            'tax_label' => setting('checkout.tax_label', 'GST'),
-            'tax_formatted' => $taxRate > 0 ? money($tax) : 'Included',
+            'tax_label' => $taxLabel,
+            'tax_inclusive' => $inclusive,
+            'tax_line' => tax_line($taxLabel, $taxRate, $inclusive),
+            // No rate: prices that include tax say so; prices before tax simply carry no tax.
+            'tax_formatted' => $taxRate > 0 || ! $inclusive ? money($tax) : 'Included',
             'total' => $total,
             'total_formatted' => money($total),
             'free_shipping_threshold' => $threshold,

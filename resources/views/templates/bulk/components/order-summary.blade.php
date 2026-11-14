@@ -37,7 +37,7 @@
             <dt>Discount{{ $order->coupon_code ? " ({$order->coupon_code})" : '' }}</dt><dd>− {{ money($order->discount) }}</dd>
         @endif
         <dt>Delivery{{ $order->shipping_method ? " · {$order->shipping_method}" : '' }}</dt><dd>{{ $order->shipping_cost ? money($order->shipping_cost) : 'Free' }}</dd>
-        @if($order->tax)<dt>GST</dt><dd>{{ money($order->tax) }}</dd>@endif
+        @if($order->tax)<dt>{{ $order->taxLine() }}</dt><dd>{{ money($order->tax) }}</dd>@endif
         <dt class="is-total">Total</dt><dd class="is-total">{{ money($order->total) }}</dd>
     </dl>
 </div>

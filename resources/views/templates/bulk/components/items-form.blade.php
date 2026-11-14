@@ -121,5 +121,5 @@
             <span x-text="busy ? 'Adding…' : 'Add ' + filled.length + (filled.length === 1 ? ' item' : ' items') + ' to order'">Add to order</span>
         </button>
     </div>
-    <p class="bk-muted mt-2 text-xs">At most {{ \App\Templates\Bulk\OrderLines::MAX_PER_LINE }} per item. Delivery and GST are added at checkout.</p>
+    <p class="bk-muted mt-2 text-xs">At most {{ \App\Templates\Bulk\OrderLines::MAX_PER_LINE }} per item. {{ prices_include_tax() ? 'Prices include GST. Delivery is added at checkout.' : 'Delivery and GST are added at checkout.' }}</p>
 </div>

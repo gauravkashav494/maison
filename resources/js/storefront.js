@@ -77,6 +77,8 @@ Alpine.store('cart', {
     shipping_formatted: '',
     tax: 0,
     tax_label: 'GST',
+    tax_line: 'GST',
+    tax_inclusive: false,
     tax_formatted: 'Included',
     total: 0,
     total_formatted: '₹0',

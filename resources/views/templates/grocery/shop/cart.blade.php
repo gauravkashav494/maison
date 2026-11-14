@@ -87,7 +87,7 @@
                         <div class="flex justify-between"><dt class="text-slate">Item total</dt><dd class="tabular" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-slate">Coupon discount</dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-slate">Delivery charge</dt><dd class="tabular" :class="$store.cart.shipping === 0 && 'font-bold text-leaf'" x-text="$store.cart.shipping === 0 ? 'FREE' : $store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-slate" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        <div class="flex justify-between"><dt class="text-slate" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
                         <div class="flex justify-between border-t border-line pt-3 text-base font-extrabold"><dt>To pay</dt><dd class="tabular" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg btn-block mt-4">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>

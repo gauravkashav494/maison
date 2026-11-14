@@ -26,6 +26,48 @@ if (! function_exists('setting')) {
     }
 }
 
+if (! function_exists('prices_include_tax')) {
+    /**
+     * Whether the store's prices already include tax (retail) or tax is added on top at
+     * checkout (B2B, the default). Set under Site settings → Payments & tax.
+     */
+    function prices_include_tax(): bool
+    {
+        return setting('checkout.tax_mode', 'exclusive') === 'inclusive';
+    }
+}
+
+if (! function_exists('tax_line')) {
+    /** Label for the tax row of a cart or order, e.g. "GST (18%)" or "Includes GST (18%)". */
+    function tax_line(?string $label, float|int|string|null $rate, bool $inclusive): string
+    {
+        $label = filled($label) ? $label : 'Tax';
+        $rate = (float) $rate;
+        $percent = $rate > 0 ? ' ('.rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.').'%)' : '';
+
+        return ($inclusive ? 'Includes ' : '').$label.$percent;
+    }
+}
+
+if (! function_exists('price_tax_note')) {
+    /**
+     * Short note for under a price: "Inclusive of all taxes", "+ 18% GST, added at checkout",
+     * or '' when prices are before tax and no tax is charged.
+     */
+    function price_tax_note(): string
+    {
+        $rate = (float) setting('checkout.tax_rate', 0);
+        if (prices_include_tax()) {
+            return 'Inclusive of all taxes';
+        }
+        if ($rate <= 0) {
+            return '';
+        }
+
+        return '+ '.rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.').'% '.setting('checkout.tax_label', 'GST').', added at checkout';
+    }
+}
+
 if (! function_exists('emph')) {
     /**
      * Escape text, then turn *word* into <em>word</em> and newlines into <br>.

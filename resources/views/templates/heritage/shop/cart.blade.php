@@ -88,7 +88,7 @@
                         <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd class="tabular" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-muted">Coupon discount</dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-muted">Delivery <span class="text-xs" x-text="'(' + ($store.cart.shipping_method?.name || 'Standard') + ')'"></span></dt><dd class="tabular" x-text="$store.cart.shipping === 0 ? 'Free' : $store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-muted" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        <div class="flex justify-between"><dt class="text-muted" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
                         <div class="flex justify-between border-t border-line pt-3 font-serif text-xl"><dt>Estimated total</dt><dd class="tabular font-semibold" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg btn-block mt-5">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>

@@ -78,7 +78,7 @@
                 <x-heroicon-o-shopping-cart aria-hidden="true" />
                 <span x-text="busy ? 'Adding…' : 'Add ' + ready.length + (ready.length === 1 ? ' line' : ' lines') + ' to order'"></span>
             </button>
-            <span class="text-sm" x-show="ready.length">About <strong x-text="estimate"></strong> before GST and delivery</span>
+            <span class="text-sm" x-show="ready.length">About <strong x-text="estimate"></strong> {{ prices_include_tax() ? 'including GST, before delivery' : 'before GST and delivery' }}</span>
             <span class="text-sm text-[var(--bk-out)]" x-show="problems" x-text="problems + (problems === 1 ? ' line needs' : ' lines need') + ' attention and will not be added'"></span>
         </div>
     </div>

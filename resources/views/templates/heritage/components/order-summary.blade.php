@@ -14,7 +14,7 @@
         <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd class="tabular">{{ money($order->subtotal) }}</dd></div>
         @if($order->discount > 0)<div class="flex justify-between"><dt class="text-muted">Coupon{{ $order->coupon_code ? ' ('.$order->coupon_code.')' : '' }}</dt><dd class="tabular text-leaf">− {{ money($order->discount) }}</dd></div>@endif
         <div class="flex justify-between"><dt class="text-muted">Delivery{{ $order->shipping_method ? ' · '.$order->shipping_method : '' }}</dt><dd class="tabular">{{ $order->shipping_cost > 0 ? money($order->shipping_cost) : 'Free' }}</dd></div>
-        @if($order->tax > 0)<div class="flex justify-between"><dt class="text-muted">Taxes</dt><dd class="tabular">{{ money($order->tax) }}</dd></div>@endif
+        @if($order->tax > 0)<div class="flex justify-between"><dt class="text-muted">{{ $order->taxLine() }}</dt><dd class="tabular">{{ money($order->tax) }}</dd></div>@endif
         <div class="flex justify-between border-t border-line pt-2 font-serif text-lg"><dt>Total</dt><dd class="tabular font-semibold">{{ money($order->total) }}</dd></div>
     </dl>
 </div>

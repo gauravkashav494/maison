@@ -133,7 +133,7 @@
                     <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-smoke">Discount <span class="text-[0.625rem]" x-text="$store.cart.coupon ? '(' + $store.cart.coupon.code + ')' : ''"></span></dt><dd class="tabular-nums text-emerald-700" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                     <div class="flex justify-between"><dt class="text-smoke">Shipping</dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-smoke">Cash on delivery fee</dt><dd class="tabular-nums" x-text="fmt(codExtra)"></dd></div>
-                    <div class="flex justify-between"><dt class="text-smoke" x-text="'Taxes (' + ($store.cart.tax_label || @js($cart['tax_label'])) + ')'"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
                     <div class="flex justify-between border-t border-ink/10 pt-3 text-lg"><dt>Total</dt><dd class="tabular-nums" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
                 <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg mt-6 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>

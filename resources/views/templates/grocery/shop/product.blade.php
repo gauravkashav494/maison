@@ -94,7 +94,7 @@
                         <span class="badge badge-soft">You save {{ money($product->compare_at_price - $product->price) }}</span>
                     @endif
                 </div>
-                <p class="mt-1 text-xs text-slate">Inclusive of all taxes</p>
+                @if(price_tax_note() !== '')<p class="mt-1 text-xs text-slate">{{ price_tax_note() }}</p>@endif
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
                     @if($product->in_stock)

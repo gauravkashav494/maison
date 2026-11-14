@@ -132,7 +132,11 @@ class ClientPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Sales', 'Catalogue', 'Services', 'Content', 'Marketing', 'Appearance', 'Team', 'Settings'])
             ->colors([
-                'primary' => Color::Blue,
+                // Sidebar navy (--navy in the admin theme) at 600, the shade buttons, toggles and checkboxes use.
+                'primary' => [
+                    50 => '#eef2f8', 100 => '#dbe3ef', 200 => '#b9c7dd', 300 => '#8ca2c3', 400 => '#5c7aa3',
+                    500 => '#34527d', 600 => '#1c3557', 700 => '#172c49', 800 => '#12233a', 900 => '#0e1b2d', 950 => '#08111d',
+                ],
                 'gray' => Color::Slate,
             ])
             ->resources(self::RESOURCES)

@@ -12,7 +12,7 @@ use Filament\Schemas\Schema;
 
 /**
  * Shared plumbing for settings pages: loads the named setting groups into the form,
- * renders the form with a sticky save button, and writes each group back on save.
+ * renders the form with a save button, and writes each group back on save.
  */
 trait HasSettingsForm
 {
@@ -52,7 +52,7 @@ trait HasSettingsForm
                 ->footer([
                     Actions::make([
                         Action::make('save')->label('Save changes')->submit('save')->keyBindings(['mod+s']),
-                    ])->sticky(),
+                    ]),
                 ]),
         ]);
     }

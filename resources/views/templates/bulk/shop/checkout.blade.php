@@ -33,10 +33,7 @@
                     <p class="bk-muted mt-2 text-sm">Ordering regularly? <a href="{{ route('login') }}?redirect=checkout" class="bk-link">Sign in</a> to use your saved address and repeat orders.</p>
                 @endguest
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label class="bk-label">Email<span class="bk-req">*</span>
-                        <input name="email" type="email" autocomplete="email" class="bk-input {{ $field('email') }}" value="{{ old('email', $user?->email) }}">
-                        @error('email')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
+                    <x-checked-field name="email" label="Email" rule="email" attribute="email address" :value="$user?->email" required type="email" autocomplete="email" />
                     <x-phone-field :value="$user?->phone ?? $address?->phone" required />
                 </div>
             </section>
@@ -44,34 +41,13 @@
             <section class="bk-card p-5 sm:p-6">
                 <h2 class="flex items-center gap-3 text-lg font-extrabold"><span class="bk-step-no">2</span>Delivery address</h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label class="bk-label sm:col-span-2">Contact name or business<span class="bk-req">*</span>
-                        <input name="shipping_name" autocomplete="name" class="bk-input {{ $field('shipping_name') }}" value="{{ old('shipping_name', $address?->name ?? $user?->name) }}">
-                        @error('shipping_name')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label sm:col-span-2">Address<span class="bk-req">*</span>
-                        <input name="shipping_line1" autocomplete="address-line1" placeholder="Unit / building, street" class="bk-input {{ $field('shipping_line1') }}" value="{{ old('shipping_line1', $address?->line1) }}">
-                        @error('shipping_line1')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label sm:col-span-2">Area, landmark <span class="bk-muted font-normal">(optional)</span>
-                        <input name="shipping_line2" autocomplete="address-line2" class="bk-input {{ $field('shipping_line2') }}" value="{{ old('shipping_line2', $address?->line2) }}">
-                        @error('shipping_line2')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label">City<span class="bk-req">*</span>
-                        <input name="shipping_city" autocomplete="address-level2" class="bk-input {{ $field('shipping_city') }}" value="{{ old('shipping_city', $address?->city) }}">
-                        @error('shipping_city')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label">State<span class="bk-req">*</span>
-                        <input name="shipping_state" autocomplete="address-level1" class="bk-input {{ $field('shipping_state') }}" value="{{ old('shipping_state', $address?->state) }}">
-                        @error('shipping_state')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label">PIN code<span class="bk-req">*</span>
-                        <input name="shipping_postal_code" autocomplete="postal-code" inputmode="numeric" class="bk-input {{ $field('shipping_postal_code') }}" value="{{ old('shipping_postal_code', $address?->postal_code) }}">
-                        @error('shipping_postal_code')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
-                    <label class="bk-label">Country<span class="bk-req">*</span>
-                        <input name="shipping_country" autocomplete="country-name" class="bk-input {{ $field('shipping_country') }}" value="{{ old('shipping_country', $address?->country ?? 'India') }}">
-                        @error('shipping_country')<span class="bk-error">{{ $message }}</span>@enderror
-                    </label>
+                    <x-checked-field name="shipping_name" label="Contact name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="sm:col-span-2" />
+                    <x-checked-field name="shipping_line1" label="Address" rule="line" attribute="address" :value="$address?->line1" required autocomplete="address-line1" placeholder="Unit / building, street" class="sm:col-span-2" />
+                    <x-checked-field name="shipping_line2" label="Area, landmark" rule="line" attribute="apartment or landmark" :value="$address?->line2" autocomplete="address-line2" class="sm:col-span-2" />
+                    <x-checked-field name="shipping_city" label="City" rule="place" attribute="city" :value="$address?->city" required autocomplete="address-level2" />
+                    <x-checked-field name="shipping_state" label="State" rule="place" attribute="state" :value="$address?->state" required autocomplete="address-level1" />
+                    <x-checked-field name="shipping_postal_code" label="PIN code" rule="postal" attribute="postal code" :value="$address?->postal_code" required autocomplete="postal-code" inputmode="numeric" />
+                    <x-checked-field name="shipping_country" label="Country" rule="place" attribute="country" :value="$address?->country ?? 'India'" required autocomplete="country-name" />
                 </div>
                 @auth
                     <label class="mt-4 flex items-center gap-2 text-sm">
@@ -144,7 +120,7 @@
                 <dt>Delivery</dt><dd x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd>
                 <template x-if="codExtra > 0"><dt>Cash on delivery fee</dt></template>
                 <template x-if="codExtra > 0"><dd x-text="fmt(codExtra)"></dd></template>
-                <dt x-text="$store.cart.tax_label || @js($cart['tax_label'])"></dt>
+                <dt x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt>
                 <dd x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd>
                 <dt class="is-total">Total</dt><dd class="is-total" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd>
             </dl>

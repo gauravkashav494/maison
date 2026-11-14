@@ -160,7 +160,7 @@
                 <template x-if="codExtra > 0"><dt>Cash on delivery fee</dt></template>
                 <template x-if="codExtra > 0"><dd x-text="fmt(codExtra)"></dd></template>
 
-                <dt x-text="'Tax (' + ($store.cart.tax_label || @js($cart['tax_label'])) + ')'"></dt>
+                <dt x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt>
                 <dd x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd>
 
                 <dt><strong>Total</strong></dt>
