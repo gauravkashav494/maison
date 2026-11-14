@@ -57,8 +57,8 @@ class GrocerySettings extends Page
                 Tabs::make('Grocery settings')->persistTabInQueryString()->tabs([
                     Tab::make('Header')->icon('heroicon-o-window')->schema([
                         Section::make('Logo & delivery promise')->columns(2)->schema([
-                            TextInput::make("$g.logo_primary")->label('Logo — first word')->helperText('Rendered in bold green.'),
-                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->helperText('Rendered in saffron.'),
+                            TextInput::make("$g.logo_primary")->label('Logo — first word')->placeholder('Maison')->helperText('The first half of your store name, in bold green. Examples: Fresh, Daily, Green.'),
+                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->placeholder('Fresh')->helperText('The second half, in saffron, joined to the first with no space. Examples: Mart, Basket, Bazaar — "Fresh" + "Basket" reads "FreshBasket".'),
                             TextInput::make("$g.tagline")->label('Tagline'),
                             TextInput::make("$g.delivery_promise")->label('Delivery promise')->helperText('Shown next to the location, e.g. "Delivery in 10–30 min".'),
                             TextInput::make("$g.delivery_area")->label('Default delivery area')->helperText('City or locality shown in the header location picker.'),

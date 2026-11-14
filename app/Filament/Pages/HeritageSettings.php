@@ -52,8 +52,8 @@ class HeritageSettings extends Page
             Tabs::make('Heritage settings')->persistTabInQueryString()->tabs([
                 Tab::make('Brand & header')->icon('heroicon-o-building-storefront')->schema([
                     Section::make('Wordmark')->columns(3)->schema([
-                        TextInput::make("$g.logo_primary")->label('Wordmark — first word')->helperText('Serif, deep red.'),
-                        TextInput::make("$g.logo_accent")->label('Wordmark — accent word')->helperText('Italic, gold.'),
+                        TextInput::make("$g.logo_primary")->label('Wordmark — first word')->placeholder('Annapurna')->helperText('The main word of your store name, in a deep-red serif. Examples: Annapurna, Desi, Gaon.'),
+                        TextInput::make("$g.logo_accent")->label('Wordmark — accent word')->placeholder('Organics')->helperText('A second word in gold italic after the first. Examples: Organics, Roots, Kitchen — together "Annapurna Organics".'),
                         TextInput::make("$g.tagline")->label('Tagline'),
                     ]),
                     Section::make('Search & delivery')->columns(2)->schema([

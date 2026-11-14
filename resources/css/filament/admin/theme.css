@@ -76,6 +76,15 @@ html { font-size: 14px; }
 /* User menu: name + role next to the avatar */
 .fi-topbar .fi-user-menu .fi-dropdown-trigger { display: flex; align-items: center; gap: 0.6rem; color: #fff; }
 .fi-topbar .fi-user-menu .fi-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+/* Initials avatar (no uploaded photo): light chip in light mode, navy in dark mode. */
+.fi-initials-avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0; user-select: none;
+  background: var(--primary-50, #eef2f8); color: var(--primary-700, #172c49);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1;
+}
+.fi-initials-avatar.fi-size-sm { font-size: 0.625rem; }
+.fi-initials-avatar.fi-size-lg { font-size: 0.9375rem; }
+.dark .fi-initials-avatar { background: var(--primary-500, #34527d); color: #fff; }
 .fi-usage-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .fi-usage { padding: .875rem 1rem; border-radius: .75rem; background: #fff; box-shadow: 0 0 0 1px rgb(15 42 77 / .08); }
 .fi-usage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
@@ -162,6 +171,11 @@ html { font-size: 14px; }
 .fi-tabs { border-radius: 0.75rem; }
 /* An "on" toggle uses the same navy as buttons (Filament otherwise picks the lightest passing shade). */
 .fi-toggle.fi-toggle-on.fi-color-primary { background-color: var(--primary-600); }
+/* The active tab is filled with that same navy, so it reads as "on" like the toggle. */
+.fi-tabs-item.fi-active { background-color: var(--primary-600); }
+.fi-tabs-item.fi-active .fi-tabs-item-label,
+.fi-tabs-item.fi-active > .fi-icon { color: #fff; }
+.dark .fi-tabs-item.fi-active { background-color: var(--primary-500); }
 
 
 /* Sections inside a tab panel (settings pages): the panel is a white card too, so each section is a
@@ -406,3 +420,68 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-ta-header-toolbar > div:has(> .fi-ta-toolbar-filter-indicators) { flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
 .fi-ta-header-toolbar .fi-ta-search-field { flex: 0 0 auto; }
 @media (max-width: 640px) { .fi-ta-toolbar-filter-indicators { justify-content: flex-start; flex-basis: 100%; } }
+
+/* ---- My profile page --------------------------------------------------------- */
+/* Header card: navy banner, large initials avatar overlapping it, role / store / status chips. */
+.fi-profile-hero { overflow: hidden; border-radius: 0.85rem; background: var(--card-bg); box-shadow: 0 0 0 1px var(--card-line), 0 2px 6px rgba(16, 24, 40, 0.06); }
+.fi-profile-hero-banner {
+  height: 6.5rem;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.14), transparent 45%),
+    radial-gradient(circle at 10% 120%, rgba(92, 122, 163, 0.55), transparent 55%),
+    linear-gradient(120deg, var(--navy) 0%, var(--primary-500, #34527d) 100%);
+}
+.fi-profile-hero-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.25rem; padding: 0 1.5rem 1.35rem; }
+.fi-profile-avatar {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 5.5rem; height: 5.5rem; margin-top: -2.75rem;
+  border-radius: 9999px; border: 4px solid var(--card-bg);
+  background: linear-gradient(140deg, var(--primary-600, #1c3557), var(--primary-400, #5c7aa3));
+  color: #fff; font-size: 1.75rem; font-weight: 800; letter-spacing: 0.02em;
+  box-shadow: 0 6px 16px -6px rgba(16, 24, 40, 0.45);
+}
+.fi-profile-hero-text { flex: 1 1 16rem; min-width: 0; }
+.fi-profile-hero-name { font-size: 1.35rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); }
+.fi-profile-hero-email { margin-top: 0.15rem; font-size: 0.8125rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.fi-profile-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
+.fi-profile-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; color: var(--ink-muted); background: var(--thead-bg); box-shadow: inset 0 0 0 1px var(--card-line); }
+.fi-profile-chip.is-role { color: var(--primary-700, #172c49); background: var(--primary-50, #eef2f8); box-shadow: inset 0 0 0 1px var(--primary-200, #b9c7dd); }
+.fi-profile-chip.is-active { color: #15803d; background: #f0fdf4; box-shadow: inset 0 0 0 1px #bbf7d0; }
+.fi-profile-chip.is-inactive { color: #b91c1c; background: #fef2f2; box-shadow: inset 0 0 0 1px #fecaca; }
+.fi-profile-chip-icon { width: 0.9rem; height: 0.9rem; }
+.fi-profile-dot { width: 0.45rem; height: 0.45rem; border-radius: 9999px; background: currentColor; }
+.fi-profile-hero-meta { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-bottom: 0.2rem; }
+.fi-profile-meta-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
+.fi-profile-meta-value { margin-top: 0.15rem; font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+@media (max-width: 640px) {
+  .fi-profile-hero-body { flex-direction: column; align-items: flex-start; padding: 0 1.1rem 1.15rem; }
+  .fi-profile-hero-text { flex: none; }
+  .fi-profile-hero-meta { align-items: flex-start; text-align: left; }
+}
+
+/* Form sections: boxed with a navy top edge and a tinted header, like the settings pages. */
+.fi-profile-section { overflow: hidden; border: 1px solid #cfd6e1; border-top: 3px solid var(--primary-600, #1c3557); --tw-ring-color: transparent; box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06); }
+.fi-profile-section > .fi-section-header { background: var(--thead-bg); }
+.fi-profile-section > .fi-section-header .fi-section-header-icon { color: var(--primary-600, #1c3557); }
+.fi-profile-section > .fi-section-content-ctn { border-top-color: #cfd6e1; }
+
+/* Side column: account facts and security tips. */
+.fi-profile-side { display: flex; flex-direction: column; gap: 1.5rem; }
+.fi-profile-card-icon { width: 1.1rem; height: 1.1rem; color: var(--primary-600, #1c3557); }
+.fi-profile-facts { padding: 0.35rem 1.25rem; }
+.fi-profile-facts > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px dashed var(--card-line); font-size: 0.8125rem; }
+.fi-profile-facts > div:last-child { border-bottom: 0; }
+.fi-profile-facts dt { color: var(--ink-soft); }
+.fi-profile-facts dd { font-weight: 600; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.fi-profile-status { display: inline-flex; align-items: center; gap: 0.35rem; color: #b91c1c; }
+.fi-profile-status.is-active { color: #15803d; }
+.fi-profile-tips { display: flex; flex-direction: column; gap: 0.65rem; padding: 1rem 1.25rem 1.15rem; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-muted); }
+.fi-profile-tips li { position: relative; padding-left: 1.4rem; }
+.fi-profile-tips li::before { content: ''; position: absolute; left: 0; top: 0.2rem; width: 0.9rem; height: 0.9rem; border-radius: 9999px; background: var(--primary-50, #eef2f8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%231c3557'%3E%3Cpath fill-rule='evenodd' d='M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z'/%3E%3C/svg%3E") center / 0.6rem no-repeat; }
+
+.dark .fi-profile-section { border-color: rgba(255, 255, 255, 0.14); border-top-color: var(--primary-400, #5c7aa3); }
+.dark .fi-profile-section > .fi-section-content-ctn { border-top-color: rgba(255, 255, 255, 0.1); }
+.dark .fi-profile-chip.is-role { color: #dbe3ef; background: rgba(92, 122, 163, 0.2); box-shadow: inset 0 0 0 1px rgba(92, 122, 163, 0.4); }
+.dark .fi-profile-chip.is-active { color: #86efac; background: rgba(34, 197, 94, 0.12); box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.3); }
+.dark .fi-profile-chip.is-inactive { color: #fca5a5; background: rgba(239, 68, 68, 0.12); box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.3); }
+.dark .fi-profile-status.is-active { color: #86efac; }

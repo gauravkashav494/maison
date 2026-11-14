@@ -145,16 +145,6 @@ abstract class Template
     }
 
     /** Whether this template renders service pages (booking, service areas) instead of the catalogue. */
-    /**
-     * Whether the storefront reads its wordmark, footer text, page header image, announcement
-     * bar and contact hours from Site settings. Templates with their own header and footer
-     * settings under Appearance return false, and Site settings hides those fields.
-     */
-    public function usesSiteBranding(): bool
-    {
-        return false;
-    }
-
     public function supportsServices(): bool
     {
         return false;

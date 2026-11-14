@@ -60,8 +60,8 @@ class PlumbingServicesSettings extends Page
                     Tab::make('Business')->icon('heroicon-o-building-storefront')->schema([
                         Section::make('Name & logo')->columns(2)->schema([
                             TextInput::make("$g.business_name")->label('Business name')->required()->columnSpan(2)->helperText('Used in the PWA name, structured data and the footer.'),
-                            TextInput::make("$g.logo_primary")->label('Logo — first word')->helperText('Rendered in deep blue.'),
-                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->helperText('Rendered in bright blue.'),
+                            TextInput::make("$g.logo_primary")->label('Logo — first word')->placeholder('Pipe')->helperText('The first half of your business name, in deep blue. Examples: Pipe, Quick, Flow.'),
+                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->placeholder('Care')->helperText('The second half, in bright blue, joined to the first with no space. Examples: Care, Fix, Pro — "Pipe" + "Care" reads "PipeCare".'),
                             TextInput::make("$g.tagline")->label('Tagline')->columnSpan(2),
                         ]),
                         Section::make('Contact')->columns(2)->schema([

@@ -3,7 +3,10 @@
 namespace App\Providers\Filament;
 
 use App\Clients\ClientContext;
+use App\Filament\Auth\EditProfile;
 use App\Filament\Auth\Login;
+use App\Filament\Pages\BulkOrderSettings;
+use App\Filament\Pages\FashionSettings;
 use App\Filament\Pages\GroceryHomepageSettings;
 use App\Filament\Pages\GrocerySettings;
 use App\Filament\Pages\HeritageHomepageSettings;
@@ -22,7 +25,6 @@ use App\Filament\Resources\ContactMessages\ContactMessageResource;
 use App\Filament\Resources\Coupons\CouponResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Faqs\FaqResource;
-use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Menus\MenuResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Pages\PageResource;
@@ -33,6 +35,7 @@ use App\Filament\Resources\Reviews\ReviewResource;
 use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
 use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
 use App\Filament\Resources\Services\ServiceResource;
+use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Subscribers\SubscriberResource;
 use App\Filament\Resources\Testimonials\TestimonialResource;
 use App\Filament\Widgets\ClientUsage;
@@ -42,6 +45,8 @@ use App\Filament\Widgets\StoreLink;
 use App\Filament\Widgets\StoreStats;
 use App\Http\Middleware\ApplyAdminScope;
 use App\Http\Middleware\DiscourageSearchEngines;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -99,6 +104,7 @@ class ClientPanelProvider extends PanelProvider
     public const PAGES = [
         Dashboard::class,
         SiteSettings::class,
+        FashionSettings::class,
         HomepageSettings::class,
         GrocerySettings::class,
         GroceryHomepageSettings::class,
@@ -108,6 +114,7 @@ class ClientPanelProvider extends PanelProvider
         PlumbingHomepageSettings::class,
         PlumbingServicesSettings::class,
         PlumbingServicesHomepageSettings::class,
+        BulkOrderSettings::class,
     ];
 
     public function panel(Panel $panel): Panel
@@ -119,6 +126,9 @@ class ClientPanelProvider extends PanelProvider
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(Login::class)
+            ->profile(EditProfile::class, isSimple: false)
+            // The menu item shows the account name (not "Profile") and opens the edit profile page.
+            ->userMenuItems(['profile' => fn (Action $action): Action => $action->label(fn (): string => Filament::getUserName(Filament::auth()->user()))])
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => app(ClientContext::class)->client()?->name ?? config('app.name'))
             ->brandLogo(fn () => view('filament.partials.brand'))

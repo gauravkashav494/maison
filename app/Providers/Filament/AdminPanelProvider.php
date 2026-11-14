@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\EditProfile;
 use App\Filament\Auth\Login;
 use App\Filament\Pages\ClientTotalsReport;
 use App\Filament\Pages\PlatformSettings;
@@ -17,6 +18,8 @@ use App\Filament\Widgets\RecentClients;
 use App\Http\Middleware\ApplyAdminScope;
 use App\Http\Middleware\DiscourageSearchEngines;
 use App\Models\Storefront;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -72,6 +75,9 @@ class AdminPanelProvider extends PanelProvider
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(Login::class)
+            ->profile(EditProfile::class, isSimple: false)
+            // The menu item shows the account name (not "Profile") and opens the edit profile page.
+            ->userMenuItems(['profile' => fn (Action $action): Action => $action->label(fn (): string => Filament::getUserName(Filament::auth()->user()))])
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => setting('platform.name', config('app.name')))
             ->brandLogo(fn () => view('filament.partials.brand'))

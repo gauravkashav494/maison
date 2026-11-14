@@ -8,8 +8,15 @@ use App\Clients\ClientQuota;
 use App\Rules\WithinClientStorage;
 use App\Templates\TemplateManager;
 use Filament\Forms\Components\BaseFileUpload;
+use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -28,6 +35,18 @@ class Fields
      * Image upload stored on the public disk. Existing values may also be absolute URLs
      * (e.g. seeded Unsplash imagery), which are previewed as-is instead of being dropped.
      */
+    /** The "nothing entered" value for a field: [] for list-like fields, false for switches, otherwise null. */
+    public static function emptyStateFor(Field $field): mixed
+    {
+        return match (true) {
+            $field instanceof Toggle, $field instanceof Checkbox => false,
+            $field instanceof TagsInput, $field instanceof Repeater, $field instanceof CheckboxList,
+            $field instanceof KeyValue, $field instanceof Builder, $field instanceof BaseFileUpload => [],
+            $field instanceof Select && $field->isMultiple() => [],
+            default => null,
+        };
+    }
+
     public static function image(string $name, ?string $label = null, string $directory = 'uploads', bool $multiple = false): FileUpload
     {
         // A client's media lives under clients/<subdomain>/… so its storage can be measured and capped.

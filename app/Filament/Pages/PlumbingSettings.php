@@ -55,8 +55,8 @@ class PlumbingSettings extends Page
                 Tabs::make('Plumbing settings')->persistTabInQueryString()->tabs([
                     Tab::make('Header')->icon('heroicon-o-window')->schema([
                         Section::make('Logo & top strip')->columns(2)->schema([
-                            TextInput::make("$g.logo_primary")->label('Logo — first word')->helperText('Rendered in deep blue.'),
-                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->helperText('Rendered in bright blue.'),
+                            TextInput::make("$g.logo_primary")->label('Logo — first word')->placeholder('Plumb')->helperText('The first half of your store name, in deep blue. Examples: Plumb, Pipe, Aqua.'),
+                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->placeholder('Kart')->helperText('The second half, in bright blue, joined to the first with no space. Examples: Kart, Mart, Store — "Plumb" + "Kart" reads "PlumbKart".'),
                             TextInput::make("$g.tagline")->label('Tagline')->columnSpan(2),
                             TagsInput::make("$g.usp_strip")->label('Top strip promises')->helperText('Short trust lines shown in the strip above the header, e.g. "Pan-India delivery".')->columnSpan(2),
                         ]),
