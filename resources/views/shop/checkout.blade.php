@@ -133,9 +133,12 @@
                     <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-smoke">Discount <span class="text-[0.625rem]" x-text="$store.cart.coupon ? '(' + $store.cart.coupon.code + ')' : ''"></span></dt><dd class="tabular-nums text-emerald-700" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                     <div class="flex justify-between"><dt class="text-smoke">Shipping</dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-smoke">Cash on delivery fee</dt><dd class="tabular-nums" x-text="fmt(codExtra)"></dd></div>
-                    <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    @if(shows_tax_row())
+                        <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    @endif
                     <div class="flex justify-between border-t border-ink/10 pt-3 text-lg"><dt>Total</dt><dd class="tabular-nums" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
+                @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg mt-6 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
                 <p class="mt-4 text-center text-[0.6875rem] leading-relaxed text-taupe">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>. 30-day returns on every piece.</p>
                 <ul class="mt-5 grid grid-cols-3 gap-2 border-t border-ink/10 pt-5 text-center text-[0.5625rem] uppercase tracking-[0.15em] text-smoke">

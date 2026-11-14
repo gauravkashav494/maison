@@ -87,9 +87,12 @@
                         <div class="flex justify-between"><dt class="text-slate">Item total</dt><dd class="tabular" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-slate">Coupon discount</dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-slate">Delivery charge</dt><dd class="tabular" :class="$store.cart.shipping === 0 && 'font-bold text-leaf'" x-text="$store.cart.shipping === 0 ? 'FREE' : $store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-slate" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @if(shows_tax_row())
+                            <div class="flex justify-between"><dt class="text-slate" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @endif
                         <div class="flex justify-between border-t border-line pt-3 text-base font-extrabold"><dt>To pay</dt><dd class="tabular" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
+                    @if(prices_include_tax())<p class="mt-1 text-right text-xs text-slate">Inclusive of all taxes</p>@endif
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg btn-block mt-4">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>
                     <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate"><x-ico name="lock" :size="12" /> Safe & secure payments · UPI, cards, wallets, COD</p>
                 </div>

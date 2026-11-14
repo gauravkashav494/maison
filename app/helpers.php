@@ -37,6 +37,18 @@ if (! function_exists('prices_include_tax')) {
     }
 }
 
+if (! function_exists('shows_tax_row')) {
+    /**
+     * Whether a cart or checkout lists the tax as its own row: only when a rate is set, so the
+     * row always has an amount (the order pages likewise hide a zero tax). Without a rate,
+     * prices that include tax say so under the total instead.
+     */
+    function shows_tax_row(): bool
+    {
+        return (float) setting('checkout.tax_rate', 0) > 0;
+    }
+}
+
 if (! function_exists('tax_line')) {
     /** Label for the tax row of a cart or order, e.g. "GST (18%)" or "Includes GST (18%)". */
     function tax_line(?string $label, float|int|string|null $rate, bool $inclusive): string

@@ -123,9 +123,12 @@
                     <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-muted">Coupon <span x-text="$store.cart.coupon ? '(' + $store.cart.coupon.code + ')' : ''"></span></dt><dd class="tabular text-red" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                     <div class="flex justify-between"><dt class="text-muted">Delivery</dt><dd class="tabular" x-text="($store.cart.loaded ? $store.cart.shipping : @js($cart['shipping'])) === 0 ? 'FREE' : ($store.cart.shipping_formatted || @js($cart['shipping_formatted']))"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-muted">COD handling fee</dt><dd class="tabular" x-text="fmt(codExtra)"></dd></div>
-                    <div class="flex justify-between"><dt class="text-muted" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    @if(shows_tax_row())
+                        <div class="flex justify-between"><dt class="text-muted" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    @endif
                     <div class="flex justify-between border-t border-line pt-3 text-base font-semibold"><dt>To pay</dt><dd class="tabular" x-text="fmt(($store.cart.loaded ? $store.cart.total : {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
+                @if(prices_include_tax())<p class="mt-1 text-right text-xs text-muted">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
                 <p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-muted">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>.</p>
             </div>

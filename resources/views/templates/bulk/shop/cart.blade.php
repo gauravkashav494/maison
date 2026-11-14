@@ -87,9 +87,12 @@
                 <template x-if="$store.cart.discount > 0"><dt>Discount</dt></template>
                 <template x-if="$store.cart.discount > 0"><dd x-text="'− ' + $store.cart.discount_formatted"></dd></template>
                 <dt>Delivery</dt><dd x-text="$store.cart.shipping_formatted"></dd>
-                <dt x-text="$store.cart.tax_line"></dt><dd x-text="$store.cart.tax_formatted"></dd>
+                @if(shows_tax_row())
+                    <dt x-text="$store.cart.tax_line"></dt><dd x-text="$store.cart.tax_formatted"></dd>
+                @endif
                 <dt class="is-total">Total</dt><dd class="is-total" x-text="$store.cart.total_formatted"></dd>
             </dl>
+            @if(prices_include_tax())<p class="mt-1 text-right text-xs bk-muted">Inclusive of all taxes</p>@endif
 
             <a href="{{ route('checkout') }}" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base">Checkout <x-heroicon-o-chevron-right aria-hidden="true" /></a>
         </aside>

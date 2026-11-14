@@ -137,6 +137,26 @@ class TaxModeTest extends TestCase
         $this->assertSame('Inclusive of all taxes', price_tax_note());
     }
 
+    public function test_the_cart_lists_the_tax_row_only_when_a_rate_is_set(): void
+    {
+        $this->addToCart();
+        $page = fn () => $this->withSession([Client::SESSION_KEY => 'alpha'])->get('/cart')->assertSuccessful();
+
+        // Inclusive with a rate: the row shows the GST inside the price, and the total says so.
+        $this->checkoutSettings('inclusive', 18);
+        $page()->assertSee('$store.cart.tax_line', false)->assertSee('Inclusive of all taxes');
+
+        // Inclusive without a rate: no "Includes GST — Included" row with nothing in it.
+        $this->checkoutSettings('inclusive', 0);
+        $page()->assertDontSee('$store.cart.tax_line', false)->assertSee('Inclusive of all taxes');
+
+        // Before tax: the row when tax is charged, nothing when it is not.
+        $this->checkoutSettings('exclusive', 18);
+        $page()->assertSee('$store.cart.tax_line', false)->assertDontSee('Inclusive of all taxes');
+        $this->checkoutSettings('exclusive', 0);
+        $page()->assertDontSee('$store.cart.tax_line', false)->assertDontSee('Inclusive of all taxes');
+    }
+
     public function test_stores_default_to_prices_before_tax(): void
     {
         $this->assertFalse(prices_include_tax());

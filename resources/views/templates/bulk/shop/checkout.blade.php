@@ -120,10 +120,13 @@
                 <dt>Delivery</dt><dd x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd>
                 <template x-if="codExtra > 0"><dt>Cash on delivery fee</dt></template>
                 <template x-if="codExtra > 0"><dd x-text="fmt(codExtra)"></dd></template>
-                <dt x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt>
-                <dd x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd>
+                @if(shows_tax_row())
+                    <dt x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt>
+                    <dd x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd>
+                @endif
                 <dt class="is-total">Total</dt><dd class="is-total" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd>
             </dl>
+            @if(prices_include_tax())<p class="mt-1 text-right text-xs bk-muted">Inclusive of all taxes</p>@endif
 
             <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base" :disabled="submitting">
                 <x-heroicon-o-check-circle aria-hidden="true" /><span x-text="submitting ? 'Placing order…' : 'Place order'">Place order</span>
