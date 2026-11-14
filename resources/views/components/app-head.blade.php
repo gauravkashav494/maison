@@ -12,4 +12,5 @@
 <meta name="apple-mobile-web-app-title" content="{{ $appName }}">
 <meta name="application-name" content="{{ $appName }}">
 <link rel="apple-touch-icon" href="{{ $iconBase }}/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ $iconBase }}/favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="{{ $iconBase }}/icon-192.png">

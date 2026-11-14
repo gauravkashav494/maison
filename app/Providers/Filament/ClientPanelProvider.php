@@ -132,7 +132,7 @@ class ClientPanelProvider extends PanelProvider
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => app(ClientContext::class)->client()?->name ?? config('app.name'))
             ->brandLogo(fn () => view('filament.partials.brand'))
-            ->favicon(null)
+            ->favicon('/favicon.ico')
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])

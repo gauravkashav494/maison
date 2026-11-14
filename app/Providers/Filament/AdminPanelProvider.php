@@ -81,7 +81,7 @@ class AdminPanelProvider extends PanelProvider
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => setting('platform.name', config('app.name')))
             ->brandLogo(fn () => view('filament.partials.brand'))
-            ->favicon(null)
+            ->favicon('/favicon.ico')
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
