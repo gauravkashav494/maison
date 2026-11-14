@@ -71,6 +71,10 @@
             <div class="bk-catbar-main">
                 <a href="{{ url('/#bulk-order') }}" class="is-cta"><x-heroicon-o-clipboard-document-list aria-hidden="true" />Bulk order</a>
                 <a href="{{ route('shop.index') }}" @class(['is-on' => request()->routeIs('shop.index', 'shop.category')])>All products</a>
+                {{-- Ready-made order lists; no tab until the store has at least one. --}}
+                @if(\App\Models\Collection::active()->exists())
+                    <a href="{{ route('collections.index') }}" @class(['is-on' => request()->routeIs('collections.*')])>Collections</a>
+                @endif
             </div>
             <div class="bk-catbar-side">
                 @foreach($menus['header'] ?? [] as $item)

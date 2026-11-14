@@ -315,6 +315,35 @@ class BulkTemplateTest extends TestCase
             ->assertSee('PK-CT-1000');
     }
 
+    public function test_collections_are_ready_made_order_lists_linked_from_the_menu(): void
+    {
+        // A tab beside All products, marked current on the collection pages.
+        $tabs = fn (string $path) => (string) str($this->visit($path)->assertSuccessful()->getContent())->after('bk-catbar-main')->before('bk-catbar-side');
+        $this->assertStringContainsString('>Collections</a>', $tabs('/'));
+        $this->assertStringContainsString('class="is-on">Collections</a>', $tabs('/collections/takeaway-packing'));
+
+        // A store with no collections has no tab leading to an empty page.
+        Collection::withoutGlobalScopes()->where('client_id', $this->client->id)->update(['is_active' => false]);
+        $this->assertStringNotContainsString('Collections', $tabs('/'));
+        Collection::withoutGlobalScopes()->where('client_id', $this->client->id)->update(['is_active' => true]);
+
+        $this->visit('/collections')
+            ->assertSuccessful()
+            ->assertSee('Restaurant kitchen essentials')
+            ->assertSee('Takeaway &amp; delivery packing', false)
+            ->assertSee('Office monthly restock');
+
+        // A list a buyer can order in one go, with every size of a variant product as its own row.
+        $this->visit('/collections/takeaway-packing')
+            ->assertSuccessful()
+            ->assertSee('orderSheet(', false)
+            ->assertSee('Add all to order')
+            ->assertSee('PK-CT-250')
+            ->assertSee('PK-CT-1000')
+            ->assertSee('PK-KB-M')
+            ->assertDontSee('OF-A4-75');
+    }
+
     public function test_a_sorted_list_is_not_split_into_repeating_category_headings(): void
     {
         $html = $this->visit('/shop?sort=price-asc')->assertSuccessful()->getContent();

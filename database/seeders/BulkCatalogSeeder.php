@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Clients\ClientContext;
 use App\Models\Category;
+use App\Models\Collection;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
 
@@ -11,8 +12,10 @@ use Illuminate\Database\Seeder;
  * Starter catalogue for the Bulk Order template: trade supplies for kitchens, cleaning teams
  * and offices, each with a product code. Some products are sold by variant (gloves by size,
  * containers by capacity), each variant with a code of its own, so the order form lists them
- * as separate rows and the quick-order pad can find them. Every row is tagged
- * `template = bulk`, so it never appears in another storefront. Idempotent.
+ * as separate rows and the quick-order pad can find them. Collections are ready-made order
+ * lists for one kind of buyer (a restaurant kitchen, a cleaning crew, an office): their page is
+ * the same order list with "Add all to order". Every row is tagged `template = bulk`, so it
+ * never appears in another storefront. Idempotent.
  */
 class BulkCatalogSeeder extends Seeder
 {
@@ -81,9 +84,10 @@ class BulkCatalogSeeder extends Seeder
         $new = ['CL-HS-5L', 'PK-KB-M', 'GL-HS-5L', 'KT-BP-4575'];
 
         $sort = 0;
+        $bySku = [];
         foreach ($products as $slug => $rows) {
             foreach ($rows as [$name, $sku, $price, $stock, $pack]) {
-                $this->product($client, $cat[$slug], $sort++, $name, $sku, [
+                $bySku[$sku] = $this->product($client, $cat[$slug], $sort++, $name, $sku, [
                     'price' => $price,
                     'compare_at_price' => $was[$sku] ?? null,
                     'is_best_seller' => in_array($sku, $bestsellers, true),
@@ -95,18 +99,58 @@ class BulkCatalogSeeder extends Seeder
         }
 
         // Sold by variant: each size or capacity has its own code, price and stock.
-        $this->variants($client, $cat['hygiene'], $sort++, 'Nitrile gloves, powder free, blue', 'GL-NT', '100 pcs/box', [
+        $bySku['GL-NT'] = $this->variants($client, $cat['hygiene'], $sort++, 'Nitrile gloves, powder free, blue', 'GL-NT', '100 pcs/box', [
             'S' => ['GL-NT-S', 420, 180],
             'M' => ['GL-NT-M', 420, 340],
             'L' => ['GL-NT-L', 420, 290],
             'XL' => ['GL-NT-XL', 460, 0],
         ]);
-        $this->variants($client, $cat['disposables'], $sort++, 'Round food container with lid, clear', 'PK-CT', '50 pcs/sleeve', [
+        $bySku['PK-CT'] = $this->variants($client, $cat['disposables'], $sort++, 'Round food container with lid, clear', 'PK-CT', '50 pcs/sleeve', [
             '250 ml' => ['PK-CT-250', 210, 260],
             '500 ml' => ['PK-CT-500', 265, 410],
             '750 ml' => ['PK-CT-750', 310, 220],
             '1000 ml' => ['PK-CT-1000', 355, 140],
         ]);
+
+        $this->collections($client, $bySku);
+    }
+
+    /**
+     * Ready-made order lists, named for the buyer rather than the product type (categories
+     * already do that). A product can sit in several lists.
+     *
+     * @param  array<string, Product>  $bySku
+     */
+    private function collections(array $client, array $bySku): void
+    {
+        $collections = [
+            ['slug' => 'restaurant-kitchen', 'name' => 'Restaurant kitchen essentials', 'description' => 'What a busy kitchen reorders every week: wash-up, wraps, gloves and towels.', 'is_featured' => true,
+                'products' => ['CL-DW-5L', 'KT-CF-300', 'PK-AF-72', 'KT-BP-4575', 'GL-NT', 'GL-HN-W', 'GL-AP-PE', 'KT-KR-2P']],
+            ['slug' => 'takeaway-packing', 'name' => 'Takeaway & delivery packing', 'description' => 'Containers, bags, cups and napkins for outlets that pack orders to go.', 'is_featured' => true,
+                'products' => ['PK-CT', 'PK-KB-M', 'PK-PC-200', 'KT-TN-30', 'PK-AF-72']],
+            ['slug' => 'housekeeping', 'name' => 'Housekeeping & cleaning crew', 'description' => 'Floor, surface, washroom and glass care for facility teams, hotels and clinics.',
+                'products' => ['CL-FC-5L', 'CL-HS-5L', 'CL-TB-1L', 'CL-GC-500', 'PK-GB-L', 'GL-NT']],
+            ['slug' => 'office-restock', 'name' => 'Office monthly restock', 'description' => 'Paper, files, pens and pantry basics for offices and schools.',
+                'products' => ['OF-A4-75', 'OF-LA-FS', 'OF-BP-BL', 'OF-MK-BK', 'GL-HS-5L', 'PK-PC-200', 'KT-TN-30']],
+            ['slug' => 'hygiene-compliance', 'name' => 'Hygiene & safety compliance', 'description' => 'The protective kit a food business is checked for at inspection.',
+                'products' => ['GL-HN-W', 'GL-AP-PE', 'GL-NT', 'GL-HS-5L', 'CL-HS-5L']],
+        ];
+
+        foreach ($collections as $i => $data) {
+            $codes = $data['products'];
+            unset($data['products']);
+
+            $collection = Collection::updateOrCreate(
+                ['slug' => $data['slug'], 'template' => 'bulk'] + $client,
+                $data + ['sort_order' => $i, 'is_active' => true],
+            );
+
+            $sync = [];
+            foreach ($codes as $k => $code) {
+                $sync[$bySku[$code]->id] = ['sort_order' => $k];
+            }
+            $collection->products()->sync($sync);
+        }
     }
 
     private function product(array $client, Category $category, int $sort, string $name, string $sku, array $values): Product
@@ -126,9 +170,9 @@ class BulkCatalogSeeder extends Seeder
     }
 
     /** @param  array<string, array{0:string, 1:int, 2:int}>  $sizes  size => [code, price, stock] */
-    private function variants(array $client, Category $category, int $sort, string $name, string $sku, string $pack, array $sizes): void
+    private function variants(array $client, Category $category, int $sort, string $name, string $sku, string $pack, array $sizes): Product
     {
-        $this->product($client, $category, $sort, $name, $sku, [
+        return $this->product($client, $category, $sort, $name, $sku, [
             'description' => $name.' — supplied per '.$pack.'.',
             'sizes' => array_map('strval', array_keys($sizes)),
             'has_variants' => true,
