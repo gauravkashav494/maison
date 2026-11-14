@@ -148,6 +148,8 @@ class BulkTemplate extends Template
                 'support_phone' => null,
                 'support_hours' => 'Mon–Sat, 9 am – 6 pm',
                 'footer_blurb' => 'Wholesale supplies for kitchens, cleaning teams and offices.',
+                'newsletter_heading' => 'Get trade price updates',
+                'newsletter_text' => 'New stock and price-list changes, straight to your inbox. No spam.',
                 'show_stock' => true,
                 // Customer sign-in pages: hands receiving a parcel, behind the brand panel.
                 'login_image' => Media::unsplash('1566576721346-d4a3b4eaeb55', 1000, '&h=1400'),

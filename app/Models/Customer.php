@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
 /**
  * A shopper on one client's storefront.
@@ -59,6 +60,14 @@ class Customer extends Authenticatable
     public function serviceRequests(): HasMany
     {
         return $this->hasMany(ServiceRequest::class)->latest();
+    }
+
+    /** Customers who joined within a range of days; either end may be left open. Used by the admin filter. */
+    public function scopeJoinedBetween($query, $from = null, $until = null)
+    {
+        return $query
+            ->when(filled($from), fn ($q) => $q->whereDate($q->qualifyColumn('created_at'), '>=', Carbon::parse($from)))
+            ->when(filled($until), fn ($q) => $q->whereDate($q->qualifyColumn('created_at'), '<=', Carbon::parse($until)));
     }
 
     public function firstName(): string

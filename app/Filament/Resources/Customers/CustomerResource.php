@@ -13,6 +13,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -22,9 +23,11 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 /**
  * Shoppers of one client. Customers live in the platform database and are scoped by client,
@@ -108,7 +111,29 @@ class CustomerResource extends Resource
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
-            ->filters([TrashedFilter::make()])
+            ->filters([
+                // When the customer joined; either end may be left open, and the same day in both is one day.
+                Filter::make('joined')
+                    ->schema([
+                        DatePicker::make('from')->label('Joined from')->native(false)->maxDate(today()),
+                        DatePicker::make('until')->label('Joined until')->native(false)->maxDate(today())
+                            ->minDate(fn ($get) => $get('from') ?: null),
+                    ])
+                    ->query(fn (Builder $query, array $data) => $query->joinedBetween($data['from'] ?? null, $data['until'] ?? null))
+                    ->indicateUsing(function (array $data) {
+                        $from = filled($data['from'] ?? null) ? Carbon::parse($data['from'])->format('d M Y') : null;
+                        $until = filled($data['until'] ?? null) ? Carbon::parse($data['until'])->format('d M Y') : null;
+
+                        return match (true) {
+                            $from && $from === $until => "Joined on $from",
+                            $from && $until => "Joined $from – $until",
+                            (bool) $from => "Joined from $from",
+                            (bool) $until => "Joined until $until",
+                            default => null,
+                        };
+                    }),
+                TrashedFilter::make(),
+            ])
             ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }

@@ -6,6 +6,7 @@ use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\ClientModules;
 use App\Filament\Resources\ClientRoles\Pages\CreateClientRole;
+use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
 use App\Models\Client;
@@ -277,6 +278,38 @@ class ClientPermissionsTest extends TestCase
             ['Manager', 'Catalogue', 'Customer support', 'Content editor'],
             $this->alpha->roles()->pluck('name')->all(),
         );
+    }
+
+    public function test_the_customer_list_filters_by_the_date_customers_joined(): void
+    {
+        $joined = function (string $name, $when) {
+            $customer = Customer::create(['client_id' => $this->alpha->id, 'name' => $name, 'email' => strtolower($name).'@alpha.test', 'password' => 'password123', 'is_active' => true]);
+            $customer->forceFill(['created_at' => $when])->save();
+
+            return $customer;
+        };
+        $old = $joined('Old', now()->subDays(30));
+        $mid = $joined('Mid', now()->subDays(10)->setTime(23, 30));
+        $new = $joined('New', now());
+
+        $this->enterClientPanel($this->staff(['customers.view']));
+        $day = fn (int $ago) => now()->subDays($ago)->toDateString();
+
+        Livewire::test(ListCustomers::class)
+            ->assertCanSeeTableRecords([$old, $mid, $new])
+            // A range, inclusive at both ends (a late-evening sign-up still counts for its day).
+            ->filterTable('joined', ['from' => $day(12), 'until' => $day(10)])
+            ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
+            // One day: the same date at both ends.
+            ->filterTable('joined', ['from' => $day(10), 'until' => $day(10)])
+            ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
+            // Either end on its own.
+            ->filterTable('joined', ['from' => $day(10), 'until' => null])
+            ->assertCanSeeTableRecords([$mid, $new])->assertCanNotSeeTableRecords([$old])
+            ->filterTable('joined', ['from' => null, 'until' => $day(10)])
+            ->assertCanSeeTableRecords([$old, $mid])->assertCanNotSeeTableRecords([$new])
+            ->resetTableFilters()
+            ->assertCanSeeTableRecords([$old, $mid, $new]);
     }
 
     // ---- Writes that do not pass through a page ---------------------------------------------

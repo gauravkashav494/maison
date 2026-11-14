@@ -1,7 +1,25 @@
-{{-- Store footer: about, shop links, help links, the trade desk, and the policies. --}}
+{{-- Store footer: trade updates sign-up, about, shop links, help links, the trade desk, and the policies. --}}
 @php $storeName = setting('site.name', config('app.name')); @endphp
 
 <footer class="bk-foot mt-16">
+    {{-- Trade updates: price-list and new-stock emails, saved to Marketing → Subscribers --}}
+    <div class="border-b border-white/10">
+        <div class="bk-wrap flex flex-col gap-4 py-8 lg:flex-row lg:items-center lg:justify-between" x-data="newsletter('bulk-footer')">
+            <div class="max-w-lg">
+                <h3 class="!mb-1">{{ tsetting('site.newsletter_heading', 'Get trade price updates') }}</h3>
+                <p>{{ tsetting('site.newsletter_text', 'New stock and price-list changes, straight to your inbox. No spam.') }}</p>
+            </div>
+            <div class="w-full max-w-md">
+                <form @submit.prevent="submit()" class="flex flex-col gap-2 sm:flex-row" x-show="!done" novalidate>
+                    <input x-model="email" type="email" placeholder="Work email address" class="bk-input flex-1" aria-label="Email address" autocomplete="email">
+                    <button type="submit" :disabled="busy" class="bk-btn bk-btn-accent px-5 py-2.5">Subscribe</button>
+                </form>
+                <p x-show="done" x-cloak class="flex items-center gap-2 font-semibold text-white"><x-heroicon-o-check-circle class="size-5" aria-hidden="true" /> You’re subscribed. Watch your inbox for trade updates.</p>
+                <p x-show="error" x-cloak class="mt-2 text-sm text-red-300" x-text="error"></p>
+            </div>
+        </div>
+    </div>
+
     <div class="bk-wrap grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
             <p class="bk-logo"><span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span><span>{{ $storeName }}</span></p>
