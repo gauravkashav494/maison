@@ -66,7 +66,7 @@ class CustomerInfolist
                         TextEntry::make('orders_count')->label('Orders')->inlineLabel()->state(fn (Customer $r) => self::orders($r)['count']),
                         TextEntry::make('spent')->label('Total spent')->inlineLabel()->weight('bold')->state(fn (Customer $r) => money(self::orders($r)['spent'])),
                         TextEntry::make('average')->label('Average order')->inlineLabel()
-                            ->state(fn (Customer $r) => self::orders($r)['count'] ? money(intdiv(self::orders($r)['spent'], self::orders($r)['count'])) : null)
+                            ->state(fn (Customer $r) => self::orders($r)['count'] ? money(self::orders($r)['spent'] / self::orders($r)['count']) : null)
                             ->placeholder('—'),
                         TextEntry::make('last_order')->label('Last order')->inlineLabel()->state(fn (Customer $r) => self::orders($r)['last'])
                             ->since()->placeholder('Never'),
@@ -88,7 +88,7 @@ class CustomerInfolist
         ]);
     }
 
-    /** @return array{count:int, spent:int, last:?string} */
+    /** @return array{count:int, spent:float, last:?string} */
     private static function orders(Customer $customer): array
     {
         return once(function () use ($customer) {
@@ -96,7 +96,7 @@ class CustomerInfolist
 
             return [
                 'count' => (clone $orders)->count(),
-                'spent' => (int) (clone $orders)->sum('total'),
+                'spent' => (float) (clone $orders)->sum('total'),
                 'last' => (clone $orders)->max('created_at'),
             ];
         });

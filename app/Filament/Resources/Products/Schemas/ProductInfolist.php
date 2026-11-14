@@ -68,7 +68,7 @@ class ProductInfolist
                             ->schema([
                                 TextEntry::make('label')->hiddenLabel()->weight('medium'),
                                 TextEntry::make('sku')->hiddenLabel()->placeholder('—')->color('gray'),
-                                TextEntry::make('price')->hiddenLabel()->formatStateUsing(fn ($state) => money((int) $state)),
+                                TextEntry::make('price')->hiddenLabel()->formatStateUsing(fn ($state) => money((float) $state)),
                                 TextEntry::make('stock')->hiddenLabel()->formatStateUsing(fn ($state) => $state.' in stock'),
                                 IconEntry::make('is_active')->hiddenLabel()->boolean(),
                             ])
@@ -119,10 +119,10 @@ class ProductInfolist
                 Section::make('Price & stock')
                     ->icon('heroicon-o-banknotes')
                     ->schema([
-                        TextEntry::make('price')->inlineLabel()->formatStateUsing(fn (int $state) => money($state))->weight('bold'),
+                        TextEntry::make('price')->inlineLabel()->formatStateUsing(fn (float $state) => money($state))->weight('bold'),
                         TextEntry::make('compare_at_price')->label('Compare-at')->inlineLabel()
-                            ->formatStateUsing(fn ($state, Product $r) => money((int) $state).($r->discount_percent ? " ({$r->discount_percent}% off)" : ''))
-                            ->visible(fn (Product $r) => (int) $r->compare_at_price > 0),
+                            ->formatStateUsing(fn ($state, Product $r) => money((float) $state).($r->discount_percent ? " ({$r->discount_percent}% off)" : ''))
+                            ->visible(fn (Product $r) => (float) $r->compare_at_price > 0),
                         TextEntry::make('stock')->inlineLabel()->badge()
                             ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= 5 ? 'warning' : 'success'))
                             ->formatStateUsing(fn ($state) => (int) $state <= 0 ? 'Out of stock' : $state.' in stock'),
@@ -184,7 +184,7 @@ class ProductInfolist
         return false;
     }
 
-    /** @return array{units:int, revenue:int, orders:int, last:?string} */
+    /** @return array{units:int, revenue:float, orders:int, last:?string} */
     private static function sales(Product $product): array
     {
         // Several entries read these; once() works them out a single time per product per request.
@@ -195,7 +195,7 @@ class ProductInfolist
 
             return [
                 'units' => (int) (clone $items)->sum('qty'),
-                'revenue' => (int) (clone $items)->sum('total'),
+                'revenue' => (float) (clone $items)->sum('total'),
                 'orders' => (int) (clone $items)->distinct()->count('order_id'),
                 'last' => (clone $items)->max('created_at'),
             ];

@@ -36,7 +36,7 @@
                             <a :href="item.product.url" class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug" x-text="item.product.name"></a>
                             <p class="mt-0.5 text-xs text-slate" x-text="item.options_label || item.size"></p>
                             <div class="mt-1.5 flex items-center justify-between">
-                                <div class="text-sm font-bold tabular"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="ml-1 text-xs font-medium text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span></div>
+                                <div class="text-sm font-bold tabular"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="ml-1 text-xs font-medium text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span></div>
                                 <div class="stepper">
                                     <button type="button" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button>
                                     <span x-text="item.qty"></span>

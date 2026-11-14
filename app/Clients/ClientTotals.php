@@ -23,7 +23,7 @@ class ClientTotals
             ->map(fn (Client $client) => self::for($client) + ['client' => $client]);
     }
 
-    /** @return array{products: int, services: int, orders: int, revenue: int, customers: int, staff: int} */
+    /** @return array{products: int, services: int, orders: int, revenue: float, customers: int, staff: int} */
     public static function for(Client $client): array
     {
         $databases = app(ClientDatabase::class);
@@ -32,7 +32,7 @@ class ClientTotals
             'products' => Product::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
             'services' => Service::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
             'orders' => Order::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->count(),
-            'revenue' => (int) Order::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->where('status', '!=', 'cancelled')->sum('total'),
+            'revenue' => (float) Order::withoutGlobalScopes()->whereNull('deleted_at')->where('client_id', $client->id)->where('status', '!=', 'cancelled')->sum('total'),
         ];
         $counts = $databases->isolated()
             ? $databases->forClientOr($client, $read, ['products' => 0, 'services' => 0, 'orders' => 0, 'revenue' => 0])

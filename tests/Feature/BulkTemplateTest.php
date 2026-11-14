@@ -86,7 +86,7 @@ class BulkTemplateTest extends TestCase
         $lines = collect(OrderLines::for($this->product('PK-CT')))->keyBy('sku');
 
         $this->assertSame(['PK-CT-250', 'PK-CT-500', 'PK-CT-750', 'PK-CT-1000'], $lines->keys()->all());
-        $this->assertSame(265, $lines['PK-CT-500']['price']);
+        $this->assertSame(265.0, $lines['PK-CT-500']['price']);
         $this->assertSame(410, $lines['PK-CT-500']['stock']);
         $this->assertSame(['Size' => '500 ml'], $lines['PK-CT-500']['options']);
         $this->assertSame('500 ml', $lines['PK-CT-500']['label']);
@@ -108,8 +108,8 @@ class BulkTemplateTest extends TestCase
     public function test_a_line_carries_its_list_price_and_discount_for_the_order_form(): void
     {
         $offer = OrderLines::for($this->product('CL-FC-5L'))[0];
-        $this->assertSame(600, $offer['list_price']);
-        $this->assertSame(540, $offer['price']);
+        $this->assertSame(600.0, $offer['list_price']);
+        $this->assertSame(540.0, $offer['price']);
         $this->assertSame(10.0, $offer['discount_percent']);
 
         $plain = OrderLines::for($this->product('CL-HS-5L'))[0];
@@ -278,9 +278,9 @@ class BulkTemplateTest extends TestCase
         $dearest = $products->max('price');
 
         $asc = $prices('?sort=price-asc');
-        $this->assertSame($cheapest, $asc[0], 'Low to high starts with the cheapest product.');
+        $this->assertEquals($cheapest, $asc[0], 'Low to high starts with the cheapest product.');
         $desc = $prices('?sort=price-desc');
-        $this->assertSame($dearest, $desc[0], 'High to low starts with the dearest product.');
+        $this->assertEquals($dearest, $desc[0], 'High to low starts with the dearest product.');
     }
 
     public function test_the_sort_menu_is_a_real_form_not_an_inline_script(): void

@@ -94,7 +94,7 @@
                                    :checked="shipping === @js($m['code'])" @change="setShipping(@js($m['code']))">
                             <span class="ol-option-main">
                                 <span>{{ $m['name'] }}<span class="ol-sub">{{ $m['description'] }}@if($m['eta']) · {{ $m['eta'] }}@endif</span></span>
-                                <span class="ol-price">{{ ($free || $m['cost'] === 0) ? 'Free' : money($m['cost']) }}</span>
+                                <span class="ol-price">{{ ($free || $m['cost'] <= 0) ? 'Free' : money($m['cost']) }}</span>
                             </span>
                         </label>
                     @endforeach

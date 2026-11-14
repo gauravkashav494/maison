@@ -43,7 +43,7 @@ class ProductsRelationManager extends RelationManager
             ->columns([
                 ImageColumn::make('image')->label('')->state(fn (Product $r) => Media::url($r->images[0] ?? null))->square()->imageSize(40),
                 TextColumn::make('name')->searchable()->description(fn (Product $r) => $r->sku),
-                TextColumn::make('price')->formatStateUsing(fn (int $state) => money($state))->sortable()
+                TextColumn::make('price')->formatStateUsing(fn (float $state) => money($state))->sortable()
                     ->description(fn (Product $r) => $r->compare_at_price ? 'was '.money($r->compare_at_price) : null),
                 TextColumn::make('stock')->sortable()->alignRight()
                     ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= 5 ? 'warning' : null)),

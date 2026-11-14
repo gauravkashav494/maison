@@ -90,7 +90,7 @@ class CartController extends Controller
         if (! $coupon) {
             return response()->json(['message' => 'That code is not valid or has expired.'], 422);
         }
-        if ($coupon->discountFor($this->cart->toArray()['subtotal']) === 0 && $coupon->type !== 'free_shipping') {
+        if ($coupon->discountFor($this->cart->toArray()['subtotal']) <= 0 && $coupon->type !== 'free_shipping') {
             $this->cart->removeCoupon();
 
             return response()->json(['message' => 'This code needs a minimum subtotal of '.money($coupon->min_subtotal).'.'], 422);
@@ -150,7 +150,7 @@ class CartController extends Controller
             'cart' => $cart,
             'shippingMethods' => $this->cart->shippingMethods(),
             'paymentMethods' => $payments,
-            'codFee' => (int) setting('checkout.cod_fee', 0),
+            'codFee' => (float) setting('checkout.cod_fee', 0),
             'user' => $user,
             'address' => $default,
             'seo' => Seo::simple('Checkout', null, noindex: true),
@@ -168,7 +168,7 @@ class CartController extends Controller
 
         $this->cart->setShippingMethod($data['shipping_method']);
         $cart = $this->cart->toArray();
-        $codFee = $data['payment_method'] === 'cod' ? (int) setting('checkout.cod_fee', 0) : 0;
+        $codFee = $data['payment_method'] === 'cod' ? (float) setting('checkout.cod_fee', 0) : 0.0;
 
         // Orders, items and stock live on the client connection; addresses and coupons may live on
         // the central one. Wrap both so a late failure doesn't leave a half-placed order behind.

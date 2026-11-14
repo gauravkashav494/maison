@@ -53,7 +53,7 @@ class StoreStats extends Widget
             ];
             $stats[] = [
                 'label' => 'Revenue this month',
-                'value' => money((int) Order::where('created_at', '>=', $monthStart)->where('status', '!=', 'cancelled')->sum('total')),
+                'value' => money((float) Order::where('created_at', '>=', $monthStart)->where('status', '!=', 'cancelled')->sum('total')),
                 'description' => 'Excluding cancelled orders',
                 'icon' => 'banknotes',
                 'color' => 'is-green',

@@ -47,7 +47,7 @@
                         <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors" :class="shipping === @js($m['code']) ? 'border-primary bg-sky/60' : 'border-line hover:border-mist'">
                             <input type="radio" name="shipping_method" value="{{ $m['code'] }}" class="check mt-1" :checked="shipping === @js($m['code'])" @change="setShipping(@js($m['code']))">
                             <span class="flex-1">
-                                <span class="flex items-baseline justify-between gap-3"><span class="text-sm font-bold">{{ $m['name'] }}</span><span class="text-sm font-bold tabular {{ ($free || $m['cost'] === 0) ? 'text-primary' : '' }}">{{ ($free || $m['cost'] === 0) ? 'FREE' : money($m['cost']) }}</span></span>
+                                <span class="flex items-baseline justify-between gap-3"><span class="text-sm font-bold">{{ $m['name'] }}</span><span class="text-sm font-bold tabular {{ ($free || $m['cost'] <= 0) ? 'text-primary' : '' }}">{{ ($free || $m['cost'] <= 0) ? 'FREE' : money($m['cost']) }}</span></span>
                                 <span class="mt-0.5 block text-xs text-slate">{{ $m['description'] }}@if($m['eta']) · {{ $m['eta'] }}@endif</span>
                             </span>
                         </label>

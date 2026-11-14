@@ -64,7 +64,7 @@
                                    @change="row.line && fit(row)" :aria-label="'Quantity for ' + row.code">
                         </td>
                         <td class="is-num font-bold" data-label="Amount"
-                            x-text="row.line && !row.error ? '₹' + Math.round(row.qty * row.line.price).toLocaleString('en-IN') : '—'"></td>
+                            x-text="row.line && !row.error ? '₹' + (row.qty * row.line.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'"></td>
                         <td class="text-right">
                             <button type="button" class="bk-del" @click="remove(i)" aria-label="Remove line"><x-heroicon-o-trash /></button>
                         </td>

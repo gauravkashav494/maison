@@ -72,7 +72,7 @@
                 <p class="ol-sub" style="margin:1rem 0 .4rem">Delivery</p>
                 <select class="ol-select" @change="$store.cart.setShipping($event.target.value)" aria-label="Delivery method">
                     @foreach(app(\App\Services\Cart::class)->shippingMethods() as $method)
-                        <option value="{{ $method['code'] }}">{{ $method['name'] }} — {{ $method['cost'] === 0 ? 'free' : money($method['cost']) }}</option>
+                        <option value="{{ $method['code'] }}">{{ $method['name'] }} — {{ $method['cost'] <= 0 ? 'free' : money($method['cost']) }}</option>
                     @endforeach
                 </select>
             </div>

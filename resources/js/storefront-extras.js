@@ -153,7 +153,7 @@ export default function registerExtras(Alpine, api) {
         submitting: false,
         async setShipping(code) { this.shipping = code; await Alpine.store('cart').setShipping(code); },
         get codExtra() { return this.payment === 'cod' ? this.codFee : 0; },
-        fmt(n) { return '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n)); },
+        fmt(n) { return '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); },
     }));
 
 

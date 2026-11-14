@@ -3,11 +3,11 @@
 use App\Models\Setting;
 
 if (! function_exists('money')) {
-    /** Format whole-rupee amounts as ₹12,900 (Indian digit grouping). */
-    function money(int|float|null $amount): string
+    /** Format rupee amounts as ₹12,900.50 (Indian digit grouping, always two decimals). */
+    function money(int|float|string|null $amount): string
     {
-        $amount = (int) round($amount ?? 0);
-        $s = (string) abs($amount);
+        $amount = round((float) ($amount ?? 0), 2);
+        [$s, $paise] = explode('.', number_format(abs($amount), 2, '.', ''));
         if (strlen($s) > 3) {
             $last3 = substr($s, -3);
             $rest = substr($s, 0, -3);
@@ -15,7 +15,7 @@ if (! function_exists('money')) {
             $s = $rest.','.$last3;
         }
 
-        return ($amount < 0 ? '-' : '').'₹'.$s;
+        return ($amount < 0 ? '-' : '').'₹'.$s.'.'.$paise;
     }
 }
 

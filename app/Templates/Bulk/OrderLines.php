@@ -52,7 +52,7 @@ class OrderLines
         }
 
         foreach ($combinations as $options) {
-            $lines[] = self::line($product, $choices, $options, $product->sku, (int) $product->price, (int) $product->stock);
+            $lines[] = self::line($product, $choices, $options, $product->sku, (float) $product->price, (int) $product->stock);
         }
 
         return $lines;
@@ -115,7 +115,7 @@ class OrderLines
         return $combinations;
     }
 
-    private static function line(Product $product, array $choices, array $options, ?string $sku, int $price, int $stock): array
+    private static function line(Product $product, array $choices, array $options, ?string $sku, float $price, int $stock): array
     {
         $chosen = array_intersect_key($options, array_flip($choices));
 
@@ -124,8 +124,8 @@ class OrderLines
 
         // The "was" price applies to the product's own price only; a variant priced on its
         // own has no list price to be discounted from.
-        $listPrice = ! $product->sellsVariants() && (int) $product->compare_at_price > $price
-            ? (int) $product->compare_at_price
+        $listPrice = ! $product->sellsVariants() && (float) $product->compare_at_price > $price
+            ? (float) $product->compare_at_price
             : $price;
 
         return [

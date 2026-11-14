@@ -15,7 +15,7 @@ class OrderItem extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['options' => 'array'];
+    protected $casts = ['options' => 'array', 'price' => 'float', 'total' => 'float'];
 
     public function order(): BelongsTo
     {

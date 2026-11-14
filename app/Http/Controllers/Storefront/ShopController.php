@@ -194,8 +194,8 @@ class ShopController extends Controller
             'sizes' => $sizes,
             'colors' => $colors,
             'diets' => collect($diets)->sortKeys(),
-            'price_min' => (int) ($products->min('price') ?? 0),
-            'price_max' => (int) ($products->max('price') ?? 0),
+            'price_min' => (float) ($products->min('price') ?? 0),
+            'price_max' => (float) ($products->max('price') ?? 0),
         ];
     }
 

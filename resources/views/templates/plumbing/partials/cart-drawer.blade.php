@@ -34,7 +34,7 @@
                             <a :href="item.product.url" class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug" x-text="item.product.name"></a>
                             <p class="mt-0.5 text-xs text-slate" x-text="[item.product.brand, item.options_label || item.size].filter(Boolean).join(' · ')"></p>
                             <div class="mt-1.5 flex items-center justify-between">
-                                <div class="price text-sm"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="mrp ml-1" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span></div>
+                                <div class="price text-sm"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="mrp ml-1" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span></div>
                                 <div class="stepper !rounded-lg">
                                     <button type="button" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease" class="!h-8 !w-8"><x-ico name="minus" :size="14" /></button>
                                     <span class="text-sm" x-text="item.qty"></span>

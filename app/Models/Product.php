@@ -25,6 +25,8 @@ class Product extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'price' => 'float',
+        'compare_at_price' => 'float',
         'images' => 'array',
         'colors' => 'array',
         'sizes' => 'array',
@@ -213,7 +215,7 @@ class Product extends Model
             $variants[] = [
                 'options' => $options,
                 'sku' => filled($variant['sku'] ?? null) ? (string) $variant['sku'] : $this->sku,
-                'price' => $price === null || $price === '' ? (int) $this->price : (int) $price,
+                'price' => $price === null || $price === '' ? (float) $this->price : round((float) $price, 2),
                 'stock' => $stock === null || $stock === '' ? (int) $this->stock : (int) $stock,
                 'is_active' => (bool) ($variant['is_active'] ?? true),
                 'label' => implode(' / ', array_values($options)),
@@ -286,9 +288,9 @@ class Product extends Model
     }
 
     /** Price of a chosen combination (the product's own price when it does not sell variants). */
-    public function priceFor(array $options = []): int
+    public function priceFor(array $options = []): float
     {
-        return (int) ($this->sellsVariants() ? ($this->findVariant($options)['price'] ?? $this->price) : $this->price);
+        return (float) ($this->sellsVariants() ? ($this->findVariant($options)['price'] ?? $this->price) : $this->price);
     }
 
     /** Stock of a chosen combination. */

@@ -92,7 +92,7 @@
                             <span class="flex flex-1 justify-between gap-4">
                                 <span><span class="font-bold">{{ $m['name'] }}</span>
                                     <span class="bk-muted block text-xs">{{ $m['description'] }}@if($m['eta']) · {{ $m['eta'] }}@endif</span></span>
-                                <span class="font-bold bk-num">{{ ($free || $m['cost'] === 0) ? 'Free' : money($m['cost']) }}</span>
+                                <span class="font-bold bk-num">{{ ($free || $m['cost'] <= 0) ? 'Free' : money($m['cost']) }}</span>
                             </span>
                         </label>
                     @endforeach

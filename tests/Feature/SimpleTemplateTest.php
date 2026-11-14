@@ -160,7 +160,7 @@ class SimpleTemplateTest extends TestCase
         ])->assertSuccessful();
 
         $this->assertSame(3, $response->json('items.0.qty'));
-        $this->assertSame($product->price * 3, $response->json('subtotal'));
+        $this->assertEquals($product->price * 3, $response->json('subtotal'));
         $this->assertSame($product->sku, $response->json('items.0.variant_sku'));
     }
 

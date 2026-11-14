@@ -44,7 +44,7 @@ class ProductsTable
                 TextColumn::make('collections.name')->label('Collections')->badge()->color('gray')
                     ->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('price')
-                    ->formatStateUsing(fn (int $state) => money($state))
+                    ->formatStateUsing(fn (float $state) => money($state))
                     ->sortable()
                     ->description(fn (Product $record) => $record->compare_at_price ? 'was '.money($record->compare_at_price) : null),
                 TextColumn::make('stock')->sortable()->alignRight(),

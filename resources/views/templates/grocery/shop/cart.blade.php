@@ -44,7 +44,7 @@
                                 <button type="button" @click="$store.cart.remove(item.key)" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-mist hover:bg-paper hover:text-berry" aria-label="Remove"><x-ico name="trash" :size="16" /></button>
                             </div>
                             <div class="mt-2 flex items-center justify-between gap-3">
-                                <div class="flex items-baseline gap-2"><span class="text-base font-extrabold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span><span class="text-xs text-slate" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
+                                <div class="flex items-baseline gap-2"><span class="text-base font-extrabold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span><span class="text-xs text-slate" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
                                 <div class="stepper">
                                     <button type="button" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button>
                                     <span x-text="item.qty"></span>

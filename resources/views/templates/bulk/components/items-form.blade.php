@@ -57,7 +57,7 @@
                         <button type="button" class="bk-lines-toggle" @click="toggle(row)"
                                 :aria-expanded="row.expanded" :aria-controls="'bk-item-' + row.id">
                             <span class="bk-lines-title" x-text="heading(row)"></span>
-                            <span class="bk-lines-badge" x-show="row.line" x-text="money(amount(row)) + '.00'"></span>
+                            <span class="bk-lines-badge" x-show="row.line" x-text="money(amount(row))"></span>
                             <x-heroicon-m-chevron-down class="bk-lines-chev" aria-hidden="true" />
                         </button>
                     </td>

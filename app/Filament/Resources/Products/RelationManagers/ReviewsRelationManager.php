@@ -38,7 +38,7 @@ class ReviewsRelationManager extends RelationManager
             ->recordTitleAttribute('title')
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('rating')->formatStateUsing(fn (int $state) => str_repeat('★', $state).str_repeat('☆', 5 - $state))->color('warning')->sortable(),
+                TextColumn::make('rating')->formatStateUsing(fn (float $state) => str_repeat('★', $state).str_repeat('☆', 5 - $state))->color('warning')->sortable(),
                 TextColumn::make('title')->weight('medium')->description(fn (Review $r) => str($r->body)->limit(90))->wrap(),
                 TextColumn::make('name')->label('By')->description(fn (Review $r) => $r->email),
                 IconColumn::make('is_verified_purchase')->label('Verified')->boolean(),

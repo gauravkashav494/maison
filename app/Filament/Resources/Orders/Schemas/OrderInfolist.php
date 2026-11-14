@@ -27,15 +27,15 @@ class OrderInfolist
                                 TextEntry::make('name')->hiddenLabel()->weight('bold')
                                     ->helperText(fn ($record) => trim(implode(' · ', array_filter([$record->optionsLabel(), $record->variant_sku ?: $record->sku])))),
                                 TextEntry::make('qty')->label('Qty')->alignRight(),
-                                TextEntry::make('total')->label('Total')->formatStateUsing(fn (int $state) => money($state))->alignRight(),
+                                TextEntry::make('total')->label('Total')->formatStateUsing(fn (float $state) => money($state))->alignRight(),
                             ])
                             ->columns(4),
                         Grid::make(2)->schema([
-                            TextEntry::make('subtotal')->formatStateUsing(fn (int $state) => money($state)),
-                            TextEntry::make('discount')->formatStateUsing(fn (int $state, Order $r) => money($state).($r->coupon_code ? " ({$r->coupon_code})" : ''))->visible(fn (Order $r) => $r->discount > 0),
-                            TextEntry::make('shipping_cost')->label('Shipping')->formatStateUsing(fn (int $state) => money($state)),
-                            TextEntry::make('tax')->formatStateUsing(fn (int $state) => money($state))->visible(fn (Order $r) => $r->tax > 0),
-                            TextEntry::make('total')->formatStateUsing(fn (int $state) => money($state))->weight('bold')->size('lg'),
+                            TextEntry::make('subtotal')->formatStateUsing(fn (float $state) => money($state)),
+                            TextEntry::make('discount')->formatStateUsing(fn (float $state, Order $r) => money($state).($r->coupon_code ? " ({$r->coupon_code})" : ''))->visible(fn (Order $r) => $r->discount > 0),
+                            TextEntry::make('shipping_cost')->label('Shipping')->formatStateUsing(fn (float $state) => money($state)),
+                            TextEntry::make('tax')->formatStateUsing(fn (float $state) => money($state))->visible(fn (Order $r) => $r->tax > 0),
+                            TextEntry::make('total')->formatStateUsing(fn (float $state) => money($state))->weight('bold')->size('lg'),
                         ]),
                     ]),
 

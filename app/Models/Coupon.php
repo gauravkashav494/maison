@@ -17,7 +17,7 @@ class Coupon extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = ['value' => 'float', 'min_subtotal' => 'float', 'is_active' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime'];
 
     public static function findValid(string $code): ?self
     {
@@ -44,24 +44,24 @@ class Coupon extends Model
         return true;
     }
 
-    /** Discount amount (in rupees) for a given subtotal; 0 when the minimum is not met. */
-    public function discountFor(int $subtotal): int
+    /** Discount amount (in rupees and paise) for a given subtotal; 0 when the minimum is not met. */
+    public function discountFor(float $subtotal): float
     {
         if ($subtotal < $this->min_subtotal) {
-            return 0;
+            return 0.0;
         }
 
         return match ($this->type) {
-            'percent' => (int) round($subtotal * min(100, $this->value) / 100),
+            'percent' => round($subtotal * min(100, $this->value) / 100, 2),
             'fixed' => min($subtotal, $this->value),
-            default => 0,
+            default => 0.0,
         };
     }
 
     public function describe(): string
     {
         return match ($this->type) {
-            'percent' => "{$this->value}% off",
+            'percent' => rtrim(rtrim(number_format($this->value, 2, '.', ''), '0'), '.').'% off',
             'fixed' => money($this->value).' off',
             'free_shipping' => 'Free shipping',
             default => $this->code,

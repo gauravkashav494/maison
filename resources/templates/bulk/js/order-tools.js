@@ -11,7 +11,7 @@
  */
 import Alpine from 'alpinejs';
 
-const rupees = (n) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+const rupees = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Adds lines to the cart one after another; returns which keys succeeded and why others failed. */
 async function addLines(lines) {
@@ -392,7 +392,7 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
     get filled() { return this.rows.filter((r) => r.line && r.qty > 0); },
     amount(row) { return row.line ? row.qty * row.line.price : 0; },
     money: rupees,
-    rate(n) { return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+    rate(n) { return (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
     async addAll() {
         this.rows.forEach((r) => this.fitQty(r));

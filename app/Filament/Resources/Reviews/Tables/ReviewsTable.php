@@ -26,7 +26,7 @@ class ReviewsTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('product.name')->searchable()->sortable()->limit(30),
-                TextColumn::make('rating')->formatStateUsing(fn (int $state) => str_repeat('★', $state).str_repeat('☆', 5 - $state))->color('warning')->sortable(),
+                TextColumn::make('rating')->formatStateUsing(fn (float $state) => str_repeat('★', $state).str_repeat('☆', 5 - $state))->color('warning')->sortable(),
                 TextColumn::make('name')->searchable()->description(fn (Review $r) => $r->title),
                 TextColumn::make('body')->limit(60)->color('gray')->wrap(),
                 IconColumn::make('is_verified_purchase')->label('Verified')->boolean()

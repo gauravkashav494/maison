@@ -94,7 +94,7 @@ class ProductVariantTest extends TestCase
         $this->assertSame(['Camel', 'Ink'], $product->variantAttributes()[0]['values']);
         $this->assertSame(['XS', 'S', 'M'], $product->variantAttributes()[1]['values']);
         $this->assertFalse($product->sellsVariants(), 'Colour and size lists alone do not change how the product is priced.');
-        $this->assertSame(2000, $product->priceFor(['Size' => 'M']));
+        $this->assertSame(2000.0, $product->priceFor(['Size' => 'M']));
     }
 
     // ---- Resolution --------------------------------------------------------
@@ -105,7 +105,7 @@ class ProductVariantTest extends TestCase
         $chosen = ['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'];
 
         $this->assertTrue($product->sellsVariants());
-        $this->assertSame(2500, $product->priceFor($chosen));
+        $this->assertSame(2500.0, $product->priceFor($chosen));
         $this->assertSame(3, $product->stockFor($chosen));
         $this->assertSame('SHIRT-M-CAMEL-LINEN', $product->findVariant($chosen)['sku']);
     }
@@ -237,8 +237,8 @@ class ProductVariantTest extends TestCase
 
         $this->assertSame(['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'], $item->options);
         $this->assertSame('SHIRT-M-CAMEL-LINEN', $item->variant_sku);
-        $this->assertSame(2500, $item->price, 'The order line is priced by the variant.');
-        $this->assertSame(5000, $item->total);
+        $this->assertSame(2500.0, $item->price, 'The order line is priced by the variant.');
+        $this->assertSame(5000.0, $item->total);
         $this->assertSame('Size: M / Colour: Camel / Material: Linen', $item->optionsLabel());
 
         // The variant's own stock is reduced, not just the product total.

@@ -23,6 +23,11 @@ class Order extends Model
 
     protected $casts = [
         'status_history' => 'array',
+        'shipping_cost' => 'float',
+        'subtotal' => 'float',
+        'discount' => 'float',
+        'tax' => 'float',
+        'total' => 'float',
         'estimated_delivery' => 'date',
         'dispatched_at' => 'datetime',
         'delivered_at' => 'datetime',

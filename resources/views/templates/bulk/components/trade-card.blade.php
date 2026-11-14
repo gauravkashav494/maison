@@ -32,7 +32,7 @@
 
         <div class="flex flex-wrap items-baseline gap-x-2">
             <span class="bk-price" x-text="line ? line.price_formatted : ''">{{ $first['price_formatted'] ?? money($product->price) }}</span>
-            <span class="bk-was" x-show="line && line.list_price > line.price" x-text="line ? '₹' + line.list_price.toLocaleString('en-IN') : ''"
+            <span class="bk-was" x-show="line && line.list_price > line.price" x-text="line ? '₹' + Number(line.list_price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''"
                   @if(! $first || $first['list_price'] <= $first['price']) x-cloak @endif>{{ $first && $first['list_price'] > $first['price'] ? money($first['list_price']) : '' }}</span>
             @if(count($product->sizes ?? []) === 1 && ! $product->sellsVariants())
                 <span class="text-xs bk-muted">/ {{ $product->sizes[0] }}</span>

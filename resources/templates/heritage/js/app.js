@@ -34,7 +34,7 @@ async function api(url, options = {}) {
     return res.json();
 }
 
-const inr = (n) => '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n));
+const inr = (n) => '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 
 /* ---------------------------------------------------------------------------
    Stores

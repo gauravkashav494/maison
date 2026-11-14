@@ -54,7 +54,7 @@ class OrdersRelationManager extends RelationManager
                 TextColumn::make('number')->label('Order')->weight('bold')->searchable(),
                 TextColumn::make('created_at')->label('Placed')->dateTime('d M Y, H:i')->sortable(),
                 TextColumn::make('items_count')->counts('items')->label('Items')->alignRight(),
-                TextColumn::make('total')->formatStateUsing(fn (int $state) => money($state))->sortable()->alignRight(),
+                TextColumn::make('total')->formatStateUsing(fn (float $state) => money($state))->sortable()->alignRight(),
                 TextColumn::make('payment_method')->formatStateUsing(fn ($state) => Order::PAYMENT_METHODS[$state] ?? $state)->badge()->color('gray'),
                 TextColumn::make('status')->formatStateUsing(fn ($state, Order $r) => $r->statusLabel())->badge()
                     // Same colours as the orders list.

@@ -124,20 +124,20 @@ class Cart
 
     // ---- Shipping ----------------------------------------------------------
 
-    /** @return array<int, array{code:string,name:string,description:?string,cost:int,free_over:?int,eta:?string}> */
+    /** @return array<int, array{code:string,name:string,description:?string,cost:float,free_over:?float,eta:?string}> */
     public function shippingMethods(): array
     {
         $methods = setting('checkout.shipping_methods', []);
         if (empty($methods)) {
-            $methods = [['code' => 'standard', 'name' => 'Standard delivery', 'description' => 'Tracked, 3–5 business days', 'cost' => 250, 'free_over' => (int) setting('site.free_shipping_threshold', 0), 'eta' => '3–5 business days']];
+            $methods = [['code' => 'standard', 'name' => 'Standard delivery', 'description' => 'Tracked, 3–5 business days', 'cost' => 250, 'free_over' => (float) setting('site.free_shipping_threshold', 0), 'eta' => '3–5 business days']];
         }
 
         return array_map(fn ($m) => [
             'code' => $m['code'] ?? str($m['name'])->slug()->toString(),
             'name' => $m['name'] ?? 'Delivery',
             'description' => $m['description'] ?? null,
-            'cost' => (int) ($m['cost'] ?? 0),
-            'free_over' => isset($m['free_over']) && $m['free_over'] !== '' ? (int) $m['free_over'] : null,
+            'cost' => round((float) ($m['cost'] ?? 0), 2),
+            'free_over' => isset($m['free_over']) && $m['free_over'] !== '' ? (float) $m['free_over'] : null,
             'eta' => $m['eta'] ?? null,
         ], array_values($methods));
     }
@@ -169,7 +169,7 @@ class Cart
         $products = Product::with('category')->whereIn('id', array_column($raw, 'product_id'))->get()->keyBy('id');
 
         $items = [];
-        $subtotal = 0;
+        $subtotal = 0.0;
         foreach ($raw as $key => $line) {
             $product = $products[$line['product_id']] ?? null;
             if (! $product || ! $product->is_active) {
@@ -178,8 +178,8 @@ class Cart
             // A product sold by variant is priced by the chosen combination, not by itself.
             $options = $line['options'] ?? [];
             $variant = $product->sellsVariants() ? $product->findVariant($options) : null;
-            $unitPrice = $variant['price'] ?? $product->price;
-            $lineTotal = $unitPrice * $line['qty'];
+            $unitPrice = (float) ($variant['price'] ?? $product->price);
+            $lineTotal = round($unitPrice * $line['qty'], 2);
             $subtotal += $lineTotal;
             $card = $product->toCard();
             $card['price'] = $unitPrice;
@@ -200,22 +200,23 @@ class Cart
         }
 
         $coupon = $this->coupon();
-        $discount = $coupon ? $coupon->discountFor($subtotal) : 0;
+        $subtotal = round($subtotal, 2);
+        $discount = $coupon ? $coupon->discountFor($subtotal) : 0.0;
 
         $method = $this->shippingMethod();
         $freeOver = $method['free_over'];
-        $shipping = $subtotal === 0 ? 0 : $method['cost'];
+        $shipping = $subtotal <= 0 ? 0.0 : $method['cost'];
         if (($freeOver !== null && $freeOver > 0 && $subtotal >= $freeOver) || ($coupon && $coupon->type === 'free_shipping')) {
-            $shipping = 0;
+            $shipping = 0.0;
         }
 
         $taxRate = (float) setting('checkout.tax_rate', 0);
         $taxable = max(0, $subtotal - $discount);
-        $tax = $taxRate > 0 ? (int) round($taxable * $taxRate / 100) : 0;
+        $tax = $taxRate > 0 ? round($taxable * $taxRate / 100, 2) : 0.0;
 
-        $total = max(0, $taxable + $shipping + $tax);
+        $total = round(max(0, $taxable + $shipping + $tax), 2);
 
-        $threshold = (int) setting('site.free_shipping_threshold', 0);
+        $threshold = (float) setting('site.free_shipping_threshold', 0);
         $remaining = max(0, $threshold - $subtotal);
 
         $recommendations = Product::with('category')
@@ -234,7 +235,7 @@ class Cart
             'discount_formatted' => money($discount),
             'shipping_method' => $method,
             'shipping' => $shipping,
-            'shipping_formatted' => $shipping === 0 ? 'Complimentary' : money($shipping),
+            'shipping_formatted' => $shipping <= 0 ? 'Complimentary' : money($shipping),
             'tax' => $tax,
             'tax_rate' => $taxRate,
             'tax_label' => setting('checkout.tax_label', 'GST'),

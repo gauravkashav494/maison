@@ -77,7 +77,7 @@
             <label class="bk-label mt-4">Delivery
                 <select class="bk-select" @change="$store.cart.setShipping($event.target.value)">
                     @foreach(app(\App\Services\Cart::class)->shippingMethods() as $method)
-                        <option value="{{ $method['code'] }}" :selected="$store.cart.shipping_method.code === @js($method['code'])">{{ $method['name'] }} — {{ $method['cost'] === 0 ? 'free' : money($method['cost']) }}</option>
+                        <option value="{{ $method['code'] }}" :selected="$store.cart.shipping_method.code === @js($method['code'])">{{ $method['name'] }} — {{ $method['cost'] <= 0 ? 'free' : money($method['cost']) }}</option>
                     @endforeach
                 </select>
             </label>

@@ -29,7 +29,7 @@
                             <a :href="item.product.url" class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug hover:text-red" x-text="item.product.name"></a>
                             <p class="mt-0.5 text-xs text-muted" x-text="item.options_label || item.size"></p>
                             <div class="mt-2 flex items-center justify-between">
-                                <div class="text-sm font-semibold tabular"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="ml-1 text-xs font-normal text-muted strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span></div>
+                                <div class="text-sm font-semibold tabular"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="ml-1 text-xs font-normal text-muted strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span></div>
                                 <div class="stepper !h-8"><button type="button" class="!w-8" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span class="!min-w-7 text-xs" x-text="item.qty"></span><button type="button" class="!w-8" @click="$store.cart.update(item.key, item.qty + 1)" :disabled="item.product.max_qty && item.qty >= item.product.max_qty" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>
                             </div>
                         </div>
