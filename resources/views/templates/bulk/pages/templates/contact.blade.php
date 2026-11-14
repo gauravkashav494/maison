@@ -7,8 +7,8 @@
 
 @php
     $subjects = $page->data['subjects'] ?? ['Order enquiry', 'Other'];
-    $email = tsetting('site.support_email') ?: ($site['contact_email'] ?? null);
-    $phone = tsetting('site.support_phone') ?: ($site['contact_phone'] ?? null);
+    $email = store_email();
+    $phone = store_phone();
     $hours = tsetting('site.support_hours');
 @endphp
 

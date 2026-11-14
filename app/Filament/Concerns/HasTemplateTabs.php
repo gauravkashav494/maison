@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Splits a resource list into one tab per storefront template plus "Shared"
- * (records visible in every template) and "All". The active storefront template
- * is selected by default, and "New …" pre-fills the template of the open tab.
+ * (records visible in every template) and "All". "All" is selected by default,
+ * and "New …" pre-fills the template of the open tab.
  */
 trait HasTemplateTabs
 {
@@ -43,7 +43,7 @@ trait HasTemplateTabs
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return app(TemplateManager::class)->activeId();
+        return 'all';
     }
 
     /** "New …" opens the create form with the current tab's template pre-selected. */

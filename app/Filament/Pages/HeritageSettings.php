@@ -82,10 +82,10 @@ class HeritageSettings extends Page
                 ]),
                 Tab::make('Support')->icon('heroicon-o-lifebuoy')->schema([
                     Grid::make(3)->schema([
-                        TextInput::make("$g.support_phone")->label('Support phone')->helperText('Falls back to Site settings → contact phone.'),
+                        TextInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                         TextInput::make("$g.support_hours")->label('Support hours'),
                         TextInput::make("$g.support_toll_free")->label('Toll-free number'),
-                        TextInput::make("$g.support_email")->label('Support email')->helperText('Falls back to Site settings → contact email.'),
+                        TextInput::make("$g.support_email")->label('Support email (override)')->placeholder('Uses Site settings → Client care email')->helperText('Only fill in to show a different address on this template.'),
                         TextInput::make("$g.gifting_email")->label('Corporate gifting email'),
                         TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format, e.g. 919876543210.'),
                     ]),

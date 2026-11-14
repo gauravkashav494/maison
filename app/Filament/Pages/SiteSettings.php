@@ -20,6 +20,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -48,6 +49,8 @@ class SiteSettings extends Page
 
     public function form(Schema $schema): Schema
     {
+        $branding = $this->usesSiteBranding();
+
         return $schema
             ->statePath('data')
             ->components([
@@ -55,30 +58,36 @@ class SiteSettings extends Page
                     Tab::make('Brand')->icon('heroicon-o-building-storefront')->schema([
                         Grid::make(3)->schema([
                             TextInput::make('site.name')->label('Site name')->required(),
-                            TextInput::make('site.logo_primary')->label('Wordmark — first word')->helperText('Rendered in uppercase serif.'),
-                            TextInput::make('site.logo_accent')->label('Wordmark — accent word')->helperText('Rendered in italic.'),
+                            TextInput::make('site.logo_primary')->label('Wordmark — first word')->helperText('Rendered in uppercase serif.')->visible($branding),
+                            TextInput::make('site.logo_accent')->label('Wordmark — accent word')->helperText('Rendered in italic.')->visible($branding),
                         ]),
-                        TextInput::make('site.tagline'),
                         Textarea::make('site.description')->rows(2)->helperText('Used as the default site description.'),
-                        Textarea::make('site.footer_blurb')->label('Footer blurb')->rows(2),
-                        TextInput::make('site.footer_newsletter_heading')->label('Footer newsletter heading'),
-                        Fields::image('site.page_header_image', 'Page header background (landscape, used on shop, policies, account and info pages)', 'site'),
+                        Group::make([
+                            Textarea::make('site.footer_blurb')->label('Footer blurb')->rows(2),
+                            TextInput::make('site.footer_newsletter_heading')->label('Footer newsletter heading'),
+                            Fields::image('site.page_header_image', 'Page header background (landscape, used on shop, policies, account and info pages)', 'site'),
+                        ])->visible($branding),
+                        Callout::make('Wordmark, header and footer')
+                            ->description('This store\'s template has its own logo, promo bar, footer and support details under Appearance in the menu.')
+                            ->info()->visible(! $branding),
                     ]),
-                    Tab::make('Announcement bar')->icon('heroicon-o-megaphone')->schema([
+                    Tab::make('Announcement bar')->icon('heroicon-o-megaphone')->visible($branding)->schema([
                         TextInput::make('site.announcement_text')->label('Message'),
                         TextInput::make('site.announcement_text_short')->label('Short message (mobile)'),
                         Grid::make(2)->schema([
                             TextInput::make('site.announcement_link_label')->label('Link label'),
                             TextInput::make('site.announcement_link_url')->label('Link URL'),
                         ]),
-                        TextInput::make('site.free_shipping_threshold')->numeric()->prefix('₹')->label('Free shipping threshold')->helperText('Drives the progress bar in the shopping bag.'),
                     ]),
                     Tab::make('Contact & social')->icon('heroicon-o-at-symbol')->schema([
                         Grid::make(3)->schema([
                             TextInput::make('site.contact_email')->email()->label('Client care email'),
                             TextInput::make('site.contact_phone')->label('Phone'),
-                            TextInput::make('site.contact_hours')->label('Hours'),
+                            TextInput::make('site.contact_hours')->label('Hours')->visible($branding),
                         ]),
+                        Callout::make('Used everywhere on the store')
+                            ->description('Shown on the storefront, in emails and in search-engine data. A template can show a different support phone or email: Appearance → its Settings page → Support.')
+                            ->info()->visible(! $branding),
                         Grid::make(2)->schema([
                             TextInput::make('site.social_instagram')->url()->label('Instagram'),
                             TextInput::make('site.social_pinterest')->url()->label('Pinterest'),
@@ -120,6 +129,10 @@ class SiteSettings extends Page
 
                                         return $name.' — '.$price;
                                     }),
+                            ]),
+                        Section::make('Free shipping')
+                            ->schema([
+                                TextInput::make('site.free_shipping_threshold')->numeric()->prefix('₹')->label('Free shipping threshold')->helperText('Drives the progress bar in the shopping bag. Leave at 0 to hide it.'),
                             ]),
                         Section::make('Payment methods')
                             ->description('Which ways customers can pay.')
@@ -218,6 +231,17 @@ class SiteSettings extends Page
                     ]),
                 ]),
             ]);
+    }
+
+    /**
+     * Whether this store's template reads the wordmark, footer, announcement bar and hours from
+     * here. A super admin not narrowed to one store sees every field.
+     */
+    protected function usesSiteBranding(): bool
+    {
+        $template = app(ClientContext::class)->client()?->templateObject();
+
+        return $template === null || $template->usesSiteBranding();
     }
 
     /** The store's own default for a sign-in page field (its template's), with the client's name filled in. */

@@ -7,7 +7,7 @@
         'Company' => $menus['footer_company'] ?? collect(),
     ];
     $socials = ['instagram' => $site['social_instagram'] ?? null, 'facebook' => $site['social_facebook'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'pinterest' => $site['social_pinterest'] ?? null];
-    $phone = $g['support_phone'] ?? ($site['contact_phone'] ?? null);
+    $phone = store_phone();
 @endphp
 <footer class="mt-8 border-t border-line bg-white">
     {{-- Newsletter --}}

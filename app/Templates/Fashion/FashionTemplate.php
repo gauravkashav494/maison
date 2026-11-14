@@ -72,6 +72,11 @@ class FashionTemplate extends Template
         return ['site' => 'site', 'home' => 'home'];
     }
 
+    public function usesSiteBranding(): bool
+    {
+        return true;
+    }
+
     public function adminPages(): array
     {
         return [HomepageSettings::class];

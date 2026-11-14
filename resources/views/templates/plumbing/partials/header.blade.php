@@ -4,7 +4,7 @@
     $links = $menus['header'] ?? collect();
     $cats = $navCategories ?? collect();
     $isHome = request()->routeIs('home');
-    $phone = $p['support_phone'] ?? ($site['contact_phone'] ?? null);
+    $phone = store_phone();
 @endphp
 
 {{-- Top strip: trust promises + support (desktop only) --}}

@@ -4,8 +4,8 @@
     $col1 = $menus['footer_company'] ?? collect();
     $col2 = $menus['footer_help'] ?? collect();
     $socials = ['facebook' => $site['social_facebook'] ?? null, 'instagram' => $site['social_instagram'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'pinterest' => $site['social_pinterest'] ?? null];
-    $email = $h['support_email'] ?? ($site['contact_email'] ?? null);
-    $phone = $h['support_phone'] ?? ($site['contact_phone'] ?? null);
+    $email = store_email();
+    $phone = store_phone();
 @endphp
 <footer class="bg-red pt-9 text-cream">
     {{-- Newsletter row --}}

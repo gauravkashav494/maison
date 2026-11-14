@@ -91,8 +91,8 @@ class BulkOrderSettings extends Page
                     ]),
                     Tab::make('Support & footer')->icon('heroicon-o-lifebuoy')->schema([
                         Grid::make(3)->schema([
-                            TextInput::make("$g.support_email")->label('Orders email')->email(),
-                            TextInput::make("$g.support_phone")->label('Orders phone'),
+                            TextInput::make("$g.support_email")->label('Orders email (override)')->email()->placeholder('Uses Site settings → Client care email')->helperText('Only fill in to show a different address on this template.'),
+                            TextInput::make("$g.support_phone")->label('Orders phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                             TextInput::make("$g.support_hours")->label('Hours'),
                         ]),
                         Textarea::make("$g.footer_blurb")->label('Footer blurb')->rows(2),

@@ -19,7 +19,7 @@ class MenusTable
             ->columns([
                 TextColumn::make('name')->searchable(),
                 // Every menu of a store has the store's template; the column only helps a super admin across stores.
-                TextColumn::make('template')->label('Template')->visible(fn () => app(StoreContext::class)->template() === null)->formatStateUsing(fn (?string $state) => $state ? app(TemplateManager::class)->get($state)->name() : '—')->badge()->color(fn (?string $state) => $state === app(TemplateManager::class)->activeId() ? 'success' : 'gray'),
+                TextColumn::make('template')->label('Template')->visible(fn () => app(StoreContext::class)->template() === null)->formatStateUsing(fn (?string $state) => $state ? app(TemplateManager::class)->get($state)->name() : '—')->badge()->color('gray'),
                 TextColumn::make('location')->formatStateUsing(fn (string $state) => app(TemplateManager::class)->menuLocationsFor(app(StoreContext::class)->template())[$state]
                     ?? app(TemplateManager::class)->allMenuLocations()[$state] ?? $state)->badge()->color('gray'),
                 TextColumn::make('all_items_count')->counts('allItems')->label('Items')->alignRight(),

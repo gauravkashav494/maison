@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = $g['support_phone'] ?? ($site['contact_phone'] ?? null); @endphp
+@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = store_phone(); @endphp
 <x-page-head :title="$page->title" :text="$page->excerpt" :breadcrumbs="[$page->title => null]" />
 <section class="g-container grid gap-6 py-6 lg:grid-cols-12">
     <div class="lg:col-span-7">

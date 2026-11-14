@@ -19,8 +19,7 @@ use Illuminate\Support\Facades\View;
  * A storefront for buyers who order many lines at once: trade counters, restaurants, offices,
  * resellers restocking from a wholesaler.
  *
- * Where Simple List is a price list you add from row by row, this template is an order form
- * laid out like an invoice: the buyer adds rows, searching each item by name or code — every
+ * This template is an order form laid out like an invoice: the buyer adds rows, searching each item by name or code — every
  * variant is its own item with its own code, price and stock — sets a quantity, sees rate,
  * discount and amount per row, and adds the lot in one go. A second tab takes a pasted list of
  * codes and quantities (or a CSV exported from their own system) and checks every code before
@@ -77,6 +76,11 @@ class BulkTemplate extends Template
             'footer' => ['bulk_footer', 'Footer — Help'],
             'legal' => ['bulk_legal', 'Footer — Policies'],
         ];
+    }
+
+    public function thumbnail(): ?string
+    {
+        return '/templates/bulk/thumbnail.jpg';
     }
 
     public function settingGroups(): array
@@ -140,8 +144,8 @@ class BulkTemplate extends Template
                 'search_placeholder' => 'Search by name or code…',
                 'empty_text' => 'No item matches that. Try a shorter word or a product code.',
                 // Support & footer
-                'support_email' => 'trade@example.com',
-                'support_phone' => '+91 98765 43210',
+                'support_email' => null,
+                'support_phone' => null,
                 'support_hours' => 'Mon–Sat, 9 am – 6 pm',
                 'footer_blurb' => 'Wholesale supplies for kitchens, cleaning teams and offices.',
                 'show_stock' => true,

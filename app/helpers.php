@@ -98,3 +98,19 @@ if (! function_exists('tsetting')) {
         return template()->setting($key, $default);
     }
 }
+
+if (! function_exists('store_phone')) {
+    /** The store's support phone: the template's override (Appearance) or Site settings → Contact phone. */
+    function store_phone(): ?string
+    {
+        return tsetting('site.support_phone') ?: setting('site.contact_phone');
+    }
+}
+
+if (! function_exists('store_email')) {
+    /** The store's support email: the template's override (Appearance) or Site settings → Client care email. */
+    function store_email(): ?string
+    {
+        return tsetting('site.support_email') ?: setting('site.contact_email');
+    }
+}

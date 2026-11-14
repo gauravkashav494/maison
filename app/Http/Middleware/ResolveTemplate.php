@@ -82,8 +82,8 @@ class ResolveTemplate
         $client = $this->clientForRequest($request);
         $hostTemplate = $client ? null : Storefront::templateForHost($request->getHost());
 
-        // The old entry links (/store/<subdomain>, /c/<subdomain>, /bulkorder) redirect on their own.
-        $isEntryLink = $request->is('store/*', 'c/*', 'bulkorder');
+        // The old entry links (/store/<subdomain>, /c/<subdomain>) redirect on their own.
+        $isEntryLink = $request->is('store/*', 'c/*');
 
         if (! $client && ! $isEntryLink) {
             // The main domain is the Super Admin panel, never a store.
@@ -114,8 +114,8 @@ class ResolveTemplate
         $publicId = $client?->templateId()
             ?? $hostTemplate
             ?? Storefront::templateForCookie($request->cookie(Storefront::COOKIE))
-            ?? $manager->activeId();
-        if ($publicId !== $manager->activeId() && ! $manager->previewId()) {
+            ?? $manager->defaultId();
+        if (! $manager->previewId()) {
             $manager->setCurrent($manager->get($publicId));
         }
 

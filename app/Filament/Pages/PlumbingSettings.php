@@ -67,10 +67,10 @@ class PlumbingSettings extends Page
                     ]),
                     Tab::make('Support & delivery')->icon('heroicon-o-phone')->schema([
                         Section::make('Support')->columns(2)->schema([
-                            TextInput::make("$g.support_phone")->label('Support phone'),
+                            TextInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                             TextInput::make("$g.support_hours")->label('Support hours'),
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format without +, e.g. 919876543210. Leave blank to hide WhatsApp buttons.'),
-                            TextInput::make("$g.support_email")->label('Support email')->email(),
+                            TextInput::make("$g.support_email")->label('Support email (override)')->email()->placeholder('Uses Site settings → Client care email')->helperText('Only fill in to show a different address on this template.'),
                         ]),
                         Section::make('Delivery & GST messaging')->columns(1)->schema([
                             TextInput::make("$g.delivery_promise")->label('Delivery promise')->helperText('Shown on product pages and in the cart.'),

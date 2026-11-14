@@ -12,9 +12,9 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 
 /**
- * Appearance → Templates: choose which storefront template visitors see.
- * Switching only changes the presentation layer; every product, category, page,
- * order, customer and setting is shared and kept.
+ * Platform → Templates: the storefront templates a store can be built on. Each store's
+ * template is set on the store itself (its host decides what visitors see); here a super
+ * admin installs demo content, builds the public theme preview and opens a template's settings.
  */
 class Templates extends Page
 {
@@ -32,47 +32,16 @@ class Templates extends Page
     // answer that folder (403) before the app.
     protected static ?string $slug = 'appearance/templates';
 
-    /** @return Collection<string, Template> */
-    /** Activating a template changes the public website: super admin only. */
+    /** Installing content and building theme previews: super admin only. */
     public static function canAccess(): bool
     {
         return (bool) filament()->auth()->user()?->isSuperAdmin();
     }
 
+    /** @return Collection<string, Template> */
     public function getTemplates(): Collection
     {
         return app(TemplateManager::class)->all();
-    }
-
-    public function getActiveId(): string
-    {
-        return app(TemplateManager::class)->activeId();
-    }
-
-    public function getActivatedAt(): ?string
-    {
-        return setting('appearance.activated_at');
-    }
-
-    public function activateAction(): Action
-    {
-        return Action::make('activate')
-            ->label('Activate')
-            ->icon('heroicon-m-check')
-            ->requiresConfirmation()
-            ->modalHeading(fn (array $arguments) => 'Activate the '.$this->template($arguments)->name().' template?')
-            ->modalDescription('Visitors on the main domain will see this template immediately. Every store also stays reachable on its own address (Platform → Stores). All products, categories, pages, orders, customers and settings are kept.')
-            ->modalSubmitActionLabel('Yes, activate')
-            ->action(function (array $arguments) {
-                $template = $this->template($arguments);
-                if (! $template->isInstalled()) {
-                    Notification::make()->warning()->title('Install the demo content first')->body('This template has no content yet. Use "Install demo content" and then activate it.')->send();
-
-                    return;
-                }
-                app(TemplateManager::class)->activate($template->id());
-                Notification::make()->success()->title($template->name().' is now live')->body('Visitors see the new template. Open the storefront to check it.')->send();
-            });
     }
 
     public function previewAction(): Action
@@ -121,7 +90,7 @@ class Templates extends Page
             ->action(function (array $arguments) {
                 $template = $this->template($arguments);
                 $template->install();
-                Notification::make()->success()->title('Demo content installed')->body('You can now preview or activate '.$template->name().'.')->send();
+                Notification::make()->success()->title('Demo content installed')->body($template->name().' is ready to preview and to build stores on.')->send();
             });
     }
 

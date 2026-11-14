@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = $g['support_phone'] ?? ($site['contact_phone'] ?? null); @endphp
+@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = store_phone(); @endphp
 <x-page-head :title="$page->title" :text="$page->excerpt" :breadcrumbs="[$page->title => null]" />
 <section class="h-container grid gap-6 py-6 lg:grid-cols-12">
     <div class="lg:col-span-7">
@@ -28,7 +28,7 @@
             <ul class="mt-3 space-y-3 text-sm">
                 @if($phone)<li class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-lg bg-cream text-red"><x-ico name="phone" :size="18" /></span><span><a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="font-bold">{{ $phone }}</a><span class="block text-xs text-muted">{{ $g['support_hours'] ?? '' }}</span></span></li>@endif
                 @if(!empty($g['whatsapp_number']))<li class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-lg bg-cream text-red"><x-ico name="whatsapp" :size="18" /></span><a href="https://wa.me/{{ preg_replace('/\D/', '', $g['whatsapp_number']) }}" class="font-bold">Chat on WhatsApp</a></li>@endif
-                @if(!empty($site['contact_email']))<li class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-lg bg-cream text-red"><x-ico name="mail" :size="18" /></span><a href="mailto:{{ $site['contact_email'] }}" class="font-bold">{{ $site['contact_email'] }}</a></li>@endif
+                @if($supportEmail = store_email())<li class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-lg bg-cream text-red"><x-ico name="mail" :size="18" /></span><a href="mailto:{{ $supportEmail }}" class="font-bold">{{ $supportEmail }}</a></li>@endif
                 <li class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-lg bg-cream text-red"><x-ico name="package" :size="18" /></span><a href="{{ route('track') }}" class="font-bold">Track an order</a></li>
             </ul>
         </div>

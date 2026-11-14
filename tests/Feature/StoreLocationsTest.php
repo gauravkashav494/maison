@@ -106,7 +106,6 @@ class StoreLocationsTest extends TestCase
 
         // No stores page, so no locations.
         $this->assertSame([], StoreLocationsSeeder::for('plumbing-services'));
-        $this->assertSame([], StoreLocationsSeeder::for('simple'));
         $this->assertSame([], StoreLocationsSeeder::for('bulk'));
     }
 

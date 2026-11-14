@@ -5,8 +5,7 @@
             <a href="{{ $url }}" target="_blank" rel="noopener" class="fi-store-link-url">{{ $url }}</a>
             <p class="fi-store-link-note">
                 @if(! $store->is_active) This store is inactive — the address is not answering until it is activated.
-                @elseif($onMainDomain) Also served on the main domain {{ $mainUrl }}.
-                @else Share this address with your customers; the main domain shows another store by default. @endif
+                @else Share this address with your customers. @endif
             </p>
         </div>
         <div class="fi-store-link-actions">

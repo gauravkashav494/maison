@@ -23,7 +23,7 @@
                 <li class="flex gap-3"><x-heroicon-o-map-pin class="size-5 shrink-0" aria-hidden="true" /><span><strong class="block">Saved delivery addresses</strong><span class="opacity-75">Checkout fills them in for you.</span></span></li>
                 <li class="flex gap-3"><x-heroicon-o-truck class="size-5 shrink-0" aria-hidden="true" /><span><strong class="block">Order history and tracking</strong><span class="opacity-75">Every order, its items and where it is now.</span></span></li>
             </ul>
-            @if($phone = tsetting('site.support_phone'))
+            @if($phone = store_phone())
                 <p class="mt-auto pt-10 text-sm opacity-80">Questions? Call the trade desk on <a href="tel:{{ preg_replace('/\s+/', '', $phone) }}" class="font-bold text-white underline">{{ $phone }}</a></p>
             @endif
         </aside>

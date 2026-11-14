@@ -5,7 +5,7 @@
 --}}
 @php
     $storeName = setting('site.name', config('app.name'));
-    $phone = tsetting('site.support_phone');
+    $phone = store_phone();
 @endphp
 
 <header x-data>

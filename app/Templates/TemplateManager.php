@@ -2,21 +2,16 @@
 
 namespace App\Templates;
 
-use App\Models\Setting;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 
 /**
- * Registry of storefront templates and the switch that says which one is live.
- * The active template is stored in the "appearance" settings group so it can be
- * changed from the admin without a deploy; an admin may also preview any template
- * for their own session without affecting visitors.
+ * Registry of storefront templates. Which template a request renders comes from the
+ * store its host belongs to (see ResolveTemplate); an admin may also preview any
+ * template for their own session without affecting visitors.
  */
 class TemplateManager
 {
-    public const SETTING = 'appearance';
-
     public const PREVIEW_SESSION = 'template.preview';
 
     /** @var Collection<string, Template> */
@@ -47,26 +42,21 @@ class TemplateManager
         return $this->templates[$id] ?? throw new InvalidArgumentException("Unknown template [{$id}].");
     }
 
-    /** The template activated in the admin (what visitors see). */
-    public function activeId(): string
+    /** Fallback template when a request belongs to no store (config "templates.default"). */
+    public function defaultId(): string
     {
-        $id = (string) Setting::get(self::SETTING.'.active_template', config('templates.default'));
+        $id = (string) config('templates.default');
 
-        return $this->has($id) ? $id : config('templates.default');
-    }
-
-    public function active(): Template
-    {
-        return $this->get($this->activeId());
+        return $this->has($id) ? $id : (string) $this->templates->keys()->first();
     }
 
     /**
-     * The template rendering the current request: the admin preview when one is
-     * set for this session, otherwise the active template.
+     * The template rendering the current request: set by ResolveTemplate from the host's
+     * store, or the admin preview for this session, otherwise the default.
      */
     public function current(): Template
     {
-        return $this->current ??= $this->get($this->previewId() ?? $this->activeId());
+        return $this->current ??= $this->get($this->previewId() ?? $this->defaultId());
     }
 
     /** Called by the middleware once the request (and its session) is known. */
@@ -82,23 +72,12 @@ class TemplateManager
         }
         $id = session(self::PREVIEW_SESSION);
 
-        return $id && $this->has($id) && $id !== $this->activeId() ? $id : null;
+        return $id && $this->has($id) ? $id : null;
     }
 
     public function isPreviewing(): bool
     {
         return $this->previewId() !== null;
-    }
-
-    public function activate(string $id): void
-    {
-        $template = $this->get($id);
-        Setting::set(self::SETTING, array_replace(Setting::get(self::SETTING, []) ?: [], [
-            'active_template' => $template->id(),
-            'activated_at' => now()->toIso8601String(),
-        ]));
-        Cache::flush(); // menus + settings caches
-        $this->current = null;
     }
 
     /** Every menu location across all templates: key => label. */

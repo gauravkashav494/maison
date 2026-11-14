@@ -61,7 +61,9 @@ trait HasSettingsForm
     {
         $state = $this->form->getState();
         foreach ($this->settingGroups() as $group) {
-            Setting::set($group, $state[$group] ?? []);
+            // Merge, so values of fields hidden for this store (not in the form state) are kept.
+            $stored = Setting::get($group, []);
+            Setting::set($group, array_replace(is_array($stored) ? $stored : [], $state[$group] ?? []));
         }
 
         Notification::make()->success()->title('Settings saved')->send();

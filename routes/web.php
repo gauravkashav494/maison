@@ -23,10 +23,6 @@ Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('prod
 Route::post('/product/{slug}/reviews', [CatalogController::class, 'storeReview'])->middleware('throttle:5,1')->name('products.reviews.store');
 Route::get('/search', [CatalogController::class, 'search'])->name('search');
 
-// A standing link to the Simple List template's bulk order page: it redirects to /shop on the
-// subdomain of the client running that template (see StoreEntryController::bulkOrder).
-Route::get('/bulkorder', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'bulkOrder'])->name('bulkorder');
-
 // Editorial
 Route::get('/journal', [CatalogController::class, 'journal'])->name('journal.index');
 Route::get('/journal/{slug}', [CatalogController::class, 'post'])->name('journal.show');

@@ -7,8 +7,8 @@
         'Policies' => $menus['legal'] ?? collect(),
     ];
     $socials = ['instagram' => $site['social_instagram'] ?? null, 'facebook' => $site['social_facebook'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'linkedin' => $site['social_linkedin'] ?? null];
-    $phone = $p['support_phone'] ?? ($site['contact_phone'] ?? null);
-    $email = $p['support_email'] ?? ($site['contact_email'] ?? null);
+    $phone = store_phone();
+    $email = store_email();
 @endphp
 <footer class="mt-10 bg-deep text-white">
     {{-- Newsletter strip --}}

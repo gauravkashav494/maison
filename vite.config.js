@@ -20,9 +20,6 @@ export default defineConfig({
                 'resources/templates/plumbing/js/app.js',
                 'resources/templates/plumbing-services/css/app.css',
                 'resources/templates/plumbing-services/js/app.js',
-                // Simple List template (image-free order list)
-                'resources/templates/simple/css/app.css',
-                'resources/templates/simple/js/app.js',
                 // Bulk Order template (order sheet + quick-order pad)
                 'resources/templates/bulk/css/app.css',
                 'resources/templates/bulk/js/app.js',

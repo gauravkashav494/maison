@@ -31,10 +31,10 @@
         <div>
             <h3>Trade desk</h3>
             <ul class="space-y-2">
-                @if($phone = tsetting('site.support_phone'))
+                @if($phone = store_phone())
                     <li class="flex items-center gap-2"><x-heroicon-o-phone class="size-4" aria-hidden="true" /><a href="tel:{{ preg_replace('/\s+/', '', $phone) }}">{{ $phone }}</a></li>
                 @endif
-                @if($email = tsetting('site.support_email'))
+                @if($email = store_email())
                     <li class="flex items-center gap-2"><x-heroicon-o-envelope class="size-4" aria-hidden="true" /><a href="mailto:{{ $email }}">{{ $email }}</a></li>
                 @endif
                 @if($hours = tsetting('site.support_hours'))

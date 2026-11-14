@@ -13,7 +13,7 @@
 */
 
 return [
-    // Used when nothing has been activated yet (settings "appearance.active_template").
+    // Fallback for a request that belongs to no store (each store's own template is set on the store).
     'default' => 'fashion',
 
     // Every client and every store demo is on <slug>.<base_domain> (or its own custom domain); this
@@ -32,7 +32,6 @@ return [
         App\Templates\Heritage\HeritageTemplate::class,
         App\Templates\Plumbing\PlumbingTemplate::class,
         App\Templates\PlumbingServices\PlumbingServicesTemplate::class,
-        App\Templates\Simple\SimpleTemplate::class,
         App\Templates\Bulk\BulkTemplate::class,
     ],
 ];
