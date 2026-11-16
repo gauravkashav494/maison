@@ -121,6 +121,9 @@ class CartController extends Controller
         if ($subscriber->trashed()) {
             $subscriber->restore(); // re-subscribing after being removed brings the same row back
         }
+        if ($subscriber->isUnsubscribed()) {
+            $subscriber->forceFill(['unsubscribed_at' => null])->save(); // signing up again is a fresh opt-in
+        }
 
         return response()->json(['ok' => true]);
     }

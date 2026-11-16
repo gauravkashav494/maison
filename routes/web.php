@@ -4,6 +4,7 @@ use App\Http\Controllers\Storefront\AccountController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CatalogController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\NewsletterController;
 use App\Http\Controllers\Storefront\PwaController;
 use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\ShopController;
@@ -43,6 +44,8 @@ Route::match(['get', 'post'], '/track-order', [CatalogController::class, 'track'
 
 // Forms
 Route::post('/newsletter', [CartController::class, 'subscribe'])->name('newsletter');
+Route::get('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'show'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{20,64}')->name('newsletter.unsubscribe');
+Route::post('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'destroy'])->middleware('throttle:10,1')->where('token', '[A-Za-z0-9]{20,64}')->name('newsletter.unsubscribe.confirm');
 Route::post('/delivery-pincode', [CartController::class, 'pincode'])->middleware('throttle:30,1')->name('delivery.pincode');
 Route::post('/contact', [CatalogController::class, 'contactStore'])->middleware('throttle:5,1')->name('contact.store');
 

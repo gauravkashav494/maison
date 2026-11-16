@@ -154,7 +154,7 @@ class HeritageHomepageSettings extends Page
                         TextInput::make("$g.story_cta_label")->label('Button label'),
                         TextInput::make("$g.story_cta_url")->label('Button link'),
                         Fields::image("$g.story_image", 'Image (portrait)', 'heritage'),
-                        Repeater::make("$g.story_stats")->label('Statistics strip')->schema([Grid::make(2)->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])])->reorderable()->maxItems(5),
+                        Repeater::make("$g.story_stats")->label('Statistics strip')->helperText('Shown on every product page, under the certifications.')->schema([Grid::make(2)->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])])->reorderable()->maxItems(5),
                     ]),
                 ]),
 

@@ -8,10 +8,17 @@
 
 {{-- Announcement ticker --}}
 @if($promos)
-    <div class="hidden overflow-hidden bg-red text-cream lg:block" aria-label="Announcements">
-        <div class="ticker font-medium">
-            @for($r = 0; $r < 2; $r++)@foreach($promos as $m)<span>{{ $m }}</span>@endforeach @endfor
+    @php($promoLink = filled($h['announcement_cta_label'] ?? null) && filled($h['announcement_cta_url'] ?? null))
+    <div class="hidden items-stretch bg-red text-cream lg:flex" aria-label="Announcements">
+        <div class="min-w-0 flex-1 overflow-hidden">
+            <div class="ticker font-medium">
+                @for($r = 0; $r < 2; $r++)@foreach($promos as $m)<span>{{ $m }}</span>@endforeach @endfor
+            </div>
         </div>
+        {{-- Promo bar link (Heritage → Settings → Promo bar), pinned beside the scrolling messages --}}
+        @if($promoLink)
+            <a href="{{ $h['announcement_cta_url'] }}" class="relative z-10 flex shrink-0 items-center bg-red px-6 text-[0.9375rem] font-semibold text-gold-light underline decoration-gold-light/60 underline-offset-4 shadow-[-12px_0_12px_-4px_var(--color-red)] hover:text-cream">{{ $h['announcement_cta_label'] }}</a>
+        @endif
     </div>
 @endif
 
