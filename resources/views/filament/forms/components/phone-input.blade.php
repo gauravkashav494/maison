@@ -32,7 +32,11 @@
                 const found = exact ?? [...this.countries].sort((a, b) => b.dial.length - a.dial.length).find((c) => digits.startsWith(c.dial))
                 if (! found) { this.number = value; return }
                 this.country = found.code
-                this.number = exact ? match[2] : digits.slice(found.dial.length)
+                this.number = this.tidy(exact ? match[2] : digits.slice(found.dial.length))
+            },
+            // Digits only; the box itself takes at most 10 characters (maxlength).
+            tidy(value) {
+                return (value ?? '').toString().replace(/\D+/g, '').slice(0, 10)
             },
             compose() {
                 const number = (this.number ?? '').trim()
@@ -96,14 +100,15 @@
                 <input
                     x-ref="number"
                     type="tel"
-                    inputmode="tel"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
                     autocomplete="tel-national"
                     id="{{ $getId() }}"
                     class="fi-input fi-phone-number"
                     x-model="number"
-                    x-on:input="write()"
+                    x-on:input="number = tidy($event.target.value); $event.target.value = number; write()"
                     @if (filled($getPlaceholder())) placeholder="{{ $getPlaceholder() }}" @else x-bind:placeholder="current().example" @endif
-                    maxlength="20"
+                    maxlength="10"
                     @disabled($isDisabled)
                     @if ($isRequired()) required @endif
                 />

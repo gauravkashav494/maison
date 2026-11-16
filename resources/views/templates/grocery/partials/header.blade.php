@@ -58,7 +58,7 @@
             <button type="button" @click="$store.ui.openCart()" class="btn btn-primary relative h-10 gap-2 px-3 sm:px-4" aria-label="Open cart">
                 <x-ico name="cart" :size="20" />
                 <span class="hidden flex-col items-start leading-none sm:flex">
-                    <span class="text-[0.6875rem] font-semibold opacity-90" x-text="$store.cart.count ? $store.cart.count + ' item' + ($store.cart.count > 1 ? 's' : '') : 'My cart'">My cart</span>
+                    <span class="text-[0.6875rem] font-semibold opacity-90" x-text="$store.cart.count ? $store.cart.count + ' item' + ($store.cart.count > 1 ? 's' : '') : 'Cart'">Cart</span>
                     <span class="mt-0.5 text-[0.8125rem] font-extrabold" x-show="$store.cart.count" x-cloak x-text="$store.cart.total_formatted"></span>
                 </span>
                 <span x-show="$store.cart.count" x-cloak class="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-saffron px-1 text-[0.6875rem] font-extrabold text-white sm:hidden" x-text="$store.cart.count"></span>

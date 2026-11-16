@@ -570,7 +570,7 @@ class BulkTemplateTest extends TestCase
         $line = collect(OrderLines::for($this->product('PK-CT')))->firstWhere('sku', 'PK-CT-500');
         $this->order(['product_id' => $line['product_id'], 'options' => $line['options'], 'qty' => 2])->assertSuccessful();
 
-        $this->visit('/cart')->assertSuccessful()->assertSee('Your order');
+        $this->visit('/cart')->assertSuccessful()->assertSee('Cart')->assertDontSee('Your order');
         $this->visit('/checkout')->assertSuccessful()->assertSee('Place order');
         $this->visit('/contact')->assertSuccessful()->assertSee(route('contact.store'), false);
     }

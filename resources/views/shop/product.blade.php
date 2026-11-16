@@ -113,7 +113,7 @@
                         <span class="w-8 text-center text-sm tabular-nums" x-text="qty"></span>
                         <button type="button" @click="qty++" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
                     </div>
-                    <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Bag' : 'Sold out' }}</button>
+                    <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Cart' : 'Sold out' }}</button>
                     <button type="button" @click="$store.wishlist.toggle(p.id)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has(p.id)" class="grid h-14 w-14 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink"><x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has(p.id) && 'fill-ink'" /></button>
                 </div>
                 @if($product->in_stock)<button type="button" @click="add(true)" :disabled="$store.cart.busy" class="btn btn-outline btn-lg mt-3 w-full">Buy now</button>@endif
@@ -146,14 +146,14 @@
         </div>
     </div>
 
-    {{-- Sticky mobile add-to-bag --}}
+    {{-- Sticky mobile add-to-cart --}}
     <div x-cloak x-show="showSticky" x-transition class="above-tabs border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
         <div class="flex items-center gap-4">
             <div class="min-w-0 flex-1">
                 <p class="truncate font-serif text-base">{{ $product->name }}</p>
                 <p class="text-xs tabular-nums text-smoke">{{ money($product->price) }} <span x-show="size">· <span x-text="size"></span></span></p>
             </div>
-            <button type="button" @click="add()" class="btn btn-primary">Add to Bag</button>
+            <button type="button" @click="add()" class="btn btn-primary">Add to Cart</button>
         </div>
     </div>
 

@@ -189,7 +189,9 @@ class ClientQuota
     public function directories(): array
     {
         return array_values(array_unique(array_filter([
-            'clients/'.$this->client->subdomain,
+            $this->client->mediaDirectory(),
+            // Until `clients:media-by-id` has moved it, older media is still in the subdomain folder.
+            $this->client->legacyMediaDirectory(),
             'stores/'.($this->client->storefront?->slug ?? ''),
             (string) $this->client->templateId(),
         ])));

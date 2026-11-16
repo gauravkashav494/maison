@@ -32,11 +32,11 @@ class PhoneInput extends Field
         $this->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? (PhoneNumber::normalise($state) ?? $state) : null);
     }
 
-    /** @return list<array{code: string, name: string, dial: string, example: string, hint: string}> */
+    /** @return list<array{code: string, name: string, dial: string, digits?: int, example: string, hint: string}> */
     public function getCountries(): array
     {
         return collect(PhoneNumber::enabled())
-            ->map(fn (array $c, string $code) => ['code' => $code] + array_intersect_key($c, array_flip(['name', 'dial', 'example', 'hint'])))
+            ->map(fn (array $c, string $code) => ['code' => $code] + array_intersect_key($c, array_flip(['name', 'dial', 'digits', 'example', 'hint'])))
             ->values()
             ->all();
     }

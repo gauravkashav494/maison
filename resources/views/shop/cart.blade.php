@@ -1,7 +1,7 @@
 @extends('layouts.app', ['transparentHeader' => filled(setting('site.page_header_image'))])
 
 @section('content')
-    <x-page-hero eyebrow="Your selection" title="Shopping Bag" :breadcrumbs="['Shopping Bag' => null]" />
+    <x-page-hero eyebrow="Your selection" title="Cart" :breadcrumbs="['Cart' => null]" />
 
     <section class="container-luxe pb-28 pt-8 lg:py-16" x-data="{ code: '' }">
         {{-- App-style sticky checkout bar (phones) --}}
@@ -13,7 +13,7 @@
         </div>
 
         <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak class="py-16 text-center">
-            <p class="font-serif text-3xl">Your bag is empty</p>
+            <p class="font-serif text-3xl">Your cart is empty</p>
             <p class="mt-3 text-sm text-smoke">Discover the new season and the pieces that define it.</p>
             <a href="{{ route('shop.index') }}" class="btn btn-outline btn-lg mt-8">Continue shopping</a>
         </div>

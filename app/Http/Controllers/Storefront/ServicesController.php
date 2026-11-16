@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
 use App\Models\Testimonial;
+use App\Support\GuestCustomer;
 use App\Support\Media;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
@@ -178,7 +179,7 @@ class ServicesController extends Controller
         $data['service_name'] = $service?->name ?? $data['service_name'];
         $data['type'] = $data['type'] ?? ($service?->is_emergency ? 'emergency' : 'booking');
         $data['template'] = template()->id();
-        $data['customer_id'] = $request->user()?->id;
+        $data['customer_id'] = GuestCustomer::idFor($request->user(), $data['email'] ?? null, $data['name'], $data['phone']);
         if (($data['time_slot'] ?? null) === 'asap') {
             $data['preferred_date'] = $data['preferred_date'] ?? today();
         }
@@ -223,7 +224,7 @@ class ServicesController extends Controller
         $data['type'] = 'quote';
         $data['time_slot'] = 'asap';
         $data['template'] = template()->id();
-        $data['customer_id'] = $request->user()?->id;
+        $data['customer_id'] = GuestCustomer::idFor($request->user(), $data['email'] ?? null, $data['name'], $data['phone']);
 
         $quote = ServiceRequest::create($data);
         $request->session()->put('booking.'.$quote->reference, true);

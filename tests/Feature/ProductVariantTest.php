@@ -16,7 +16,10 @@ use App\Models\Storefront;
 use App\Support\ColourNames;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -278,6 +281,35 @@ class ProductVariantTest extends TestCase
         }
     }
 
+    public function test_an_image_whose_file_is_gone_is_dropped_when_the_form_opens(): void
+    {
+        // A missing file would leave the upload box on "Loading" for ever; the field drops it.
+        Storage::fake('public');
+        Storage::disk('public')->put('products/kept.jpg', 'x');
+        $product = $this->product(['images' => ['products/kept.jpg', 'products/gone.jpg', 'https://example.test/sample.jpg']]);
+        $this->actAsClientAdmin();
+
+        $images = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->get('data.images');
+
+        $this->assertSame(['products/kept.jpg', 'https://example.test/sample.jpg'], array_values($images));
+    }
+
+    public function test_saved_images_are_handed_to_the_upload_box_on_the_same_host(): void
+    {
+        // The disk URL carries APP_URL; on a client's subdomain the box's fetch of that URL is
+        // blocked as cross-origin, so it gets a path on whatever host the panel is on.
+        Storage::fake('public');
+        Storage::disk('public')->put('products/kept.jpg', 'x');
+        $product = $this->product(['images' => ['products/kept.jpg']]);
+        $this->actAsClientAdmin();
+
+        $field = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->instance()->form
+            ->getComponent(fn ($component) => $component instanceof FileUpload && $component->getName() === 'images', withHidden: true);
+        $files = $field->getUploadedFiles();
+
+        $this->assertSame('/storage/products/kept.jpg', reset($files)['url']);
+    }
+
     public function test_saving_the_form_keeps_each_combinations_chosen_values(): void
     {
         $product = $this->variantProduct();
@@ -443,9 +475,14 @@ class ProductVariantTest extends TestCase
 
         $variants = array_values($page->get('data.variants'));
         $this->assertCount(8, $variants, '2 sizes × 2 colours × 2 materials.');
-        $this->assertSame('SHIRT-M-CAMEL-LINEN', $variants[0]['sku'], 'Existing combinations keep their details.');
-        $this->assertSame(3, (int) $variants[0]['stock']);
-        $this->assertSame(0, $variants[7]['stock'], 'New combinations start with no stock.');
+        // Listed in option order: every S first, then every M.
+        $this->assertSame(
+            ['S Camel Linen', 'S Camel Silk', 'S Ink Linen', 'S Ink Silk', 'M Camel Linen', 'M Camel Silk', 'M Ink Linen', 'M Ink Silk'],
+            array_map(fn ($v) => implode(' ', $v['options']), $variants),
+        );
+        $this->assertSame('SHIRT-M-CAMEL-LINEN', $variants[4]['sku'], 'Existing combinations keep their details.');
+        $this->assertSame(3, (int) $variants[4]['stock']);
+        $this->assertSame(0, $variants[1]['stock'], 'New combinations start with no stock.');
 
         // Running it again adds nothing.
         $page->callAction(TestAction::make('generateCombinations')->schemaComponent('combinations', schema: 'form'));
@@ -632,5 +669,102 @@ class ProductVariantTest extends TestCase
             ->assertSee('XXL')            // Size suggestions
             ->assertSee('Multicolour')    // Colour suggestions
             ->assertSee('Add a value — pick a suggestion or type your own', false);
+    }
+
+    public function test_an_option_already_added_cannot_be_chosen_again_in_another_row(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $material = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Material');
+
+        // Each other row's option shows as unavailable in this row's dropdown; "Other…" stays open.
+        $html = $page->html();
+        // Three rows: each option is open in its own row and unavailable in the other two.
+        $this->assertSame(2, preg_match_all('/<option\s+disabled\s+value="Size"/', $html));
+        $this->assertSame(2, preg_match_all('/<option\s+disabled\s+value="Colour"/', $html));
+        $this->assertSame(0, preg_match_all('/<option\s+disabled\s+value="__other"/', $html));
+
+        // Choosing it anyway is refused on save.
+        $page->set("data.variant_attributes.{$material}.preset", 'Size')
+            ->call('save')
+            ->assertHasFormErrors(["variant_attributes.{$material}.preset"]);
+    }
+
+    public function test_a_custom_option_name_already_used_is_refused(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $material = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Material');
+
+        // "Color" is the Colour option under another spelling.
+        $page->set("data.variant_attributes.{$material}.name", 'Color')
+            ->call('save')
+            ->assertHasFormErrors(["variant_attributes.{$material}.name"]);
+
+        $this->assertSame(['Size', 'Colour', 'Material'], array_column(Product::withoutGlobalScopes()->findOrFail($product->id)->variant_attributes, 'name'));
+    }
+
+    public function test_rows_listed_before_an_option_was_added_are_split_into_its_combinations(): void
+    {
+        $product = $this->product([
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Size', 'values' => ['250 ml', '750 ml']]],
+            'variants' => [
+                ['options' => ['Size' => '250 ml'], 'sku' => 'PK-CT-250', 'price' => 210, 'stock' => 40, 'is_active' => true],
+                ['options' => ['Size' => '750 ml'], 'sku' => 'PK-CT-750', 'price' => 310, 'stock' => 220, 'is_active' => false],
+            ],
+        ]);
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Paint', 'slug' => 'paint', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/paint.jpg']]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $page->set('data.variant_attributes', $page->get('data.variant_attributes') + [
+            (string) Str::uuid() => ['name' => 'Finish', 'preset' => 'Finish', 'values' => ['Matte', 'Glossy'], 'swatches' => []],
+        ]);
+
+        $page->callAction(TestAction::make('generateCombinations')->schemaComponent('combinations', schema: 'form'))
+            ->assertNotified();
+
+        $variants = array_values($page->get('data.variants'));
+        $this->assertSame(
+            ['250 ml Matte', '250 ml Glossy', '750 ml Matte', '750 ml Glossy'],
+            array_map(fn ($v) => implode(' ', $v['options']), $variants),
+            'The size-only rows are replaced by their combinations, none left half-filled.',
+        );
+        $this->assertSame(['PK-CT-250-MATTE', 'PK-CT-250-GLOSSY', 'PK-CT-750-MATTE', 'PK-CT-750-GLOSSY'], array_column($variants, 'sku'));
+        $this->assertEquals([210, 210, 310, 310], array_column($variants, 'price'), 'Each keeps the price of the row it came from.');
+        $this->assertSame([true, true, false, false], array_column($variants, 'is_active'));
+        $this->assertSame([0, 0, 0, 0], array_column($variants, 'stock'), 'Stock cannot be split, so it is set per row.');
+    }
+
+    public function test_an_earlier_row_fills_the_blank_combinations_a_previous_generate_added(): void
+    {
+        $product = $this->product([
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Size', 'values' => ['750 ml']], ['name' => 'Finish', 'values' => ['Matte', 'Glossy']]],
+            'variants' => [
+                ['options' => ['Size' => '750 ml'], 'sku' => 'PK-CT-750', 'price' => 310, 'stock' => 220, 'is_active' => true],
+                // Added by an earlier generate, left blank, and one already given its own price.
+                ['options' => ['Size' => '750 ml', 'Finish' => 'Matte'], 'sku' => null, 'price' => null, 'stock' => 4, 'is_active' => true],
+                ['options' => ['Size' => '750 ml', 'Finish' => 'Glossy'], 'sku' => null, 'price' => 330, 'stock' => 0, 'is_active' => true],
+            ],
+        ]);
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Paint', 'slug' => 'paint', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/paint.jpg']]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
+            ->callAction(TestAction::make('generateCombinations')->schemaComponent('combinations', schema: 'form'));
+
+        $variants = array_values($page->get('data.variants'));
+        $this->assertSame(['750 ml Matte', '750 ml Glossy'], array_map(fn ($v) => implode(' ', $v['options']), $variants), 'The size-only row is gone.');
+        $this->assertSame(['PK-CT-750-MATTE', 'PK-CT-750-GLOSSY'], array_column($variants, 'sku'));
+        $this->assertEquals([310, 330], array_column($variants, 'price'), 'Only blanks are filled; a price already set stays.');
+        $this->assertEquals([4, 0], array_column($variants, 'stock'));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Clients\ClientContext;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\AddressRequest;
 use App\Http\Requests\Storefront\ForgotPasswordRequest;
@@ -11,9 +12,7 @@ use App\Http\Requests\Storefront\ProfileRequest;
 use App\Http\Requests\Storefront\RegisterRequest;
 use App\Http\Requests\Storefront\ResetPasswordRequest;
 use App\Models\Address;
-use App\Clients\ClientContext;
 use App\Models\Customer;
-use App\Models\Order;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -73,6 +72,17 @@ class AccountController extends Controller
         abort_unless($clientId !== null, 404);
 
         $data = $request->validated();
+
+        // Someone has already ordered as a guest with this address. Their orders are only shown
+        // once the address is proven to be theirs, so they set the password from an emailed link.
+        $guest = Customer::withTrashed()->where('client_id', $clientId)->whereNull('password')
+            ->whereRaw('lower(email) = ?', [strtolower($data['email'])])->first();
+        if ($guest) {
+            Password::broker('customers')->sendResetLink(['email' => $guest->email, 'client_id' => $clientId, 'is_active' => true]);
+
+            return redirect()->route('login')->with('status', 'You have ordered with us before. We have emailed you a link to set your password and see your orders.');
+        }
+
         $customer = Customer::create($data + ['client_id' => $clientId]);
         Auth::login($customer);
         $request->session()->regenerate();

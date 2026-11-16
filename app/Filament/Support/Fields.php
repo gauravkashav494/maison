@@ -49,19 +49,22 @@ class Fields
 
     public static function image(string $name, ?string $label = null, string $directory = 'uploads', bool $multiple = false): FileUpload
     {
-        // A client's media lives under clients/<subdomain>/… so its storage can be measured and capped.
+        // A client's media lives under clients/<client id>/… so its storage can be measured and capped.
         $client = app(ClientContext::class)->client();
 
         $field = FileUpload::make($name)
             ->label($label ?? Str::headline($name))
             ->disk('public')
-            ->directory($client ? 'clients/'.$client->subdomain.'/'.$directory : $directory)
+            ->directory($client ? $client->mediaDirectory().'/'.$directory : $directory)
             ->rules([new WithinClientStorage])
             ->helperText(fn () => ($q = ClientQuota::current())?->storageLimit() === null ? null : 'Media storage: '.$q->storageLabel().' used.')
             ->visibility('public')
             ->image()
             ->imageEditor()
             ->maxSize(8192)
+            // Adds the open icon on each saved image; a click on the image shows it large
+            // (resources/views/filament/partials/image-lightbox.blade.php).
+            ->openable()
             ->fetchFileInformation(false)
             ->getUploadedFileUsing(function (BaseFileUpload $component, string $file, string|array|null $storedFileNames): ?array {
                 if (Str::startsWith($file, ['http://', 'https://', '/'])) {
@@ -73,11 +76,39 @@ class Fields
                     ];
                 }
 
-                return $component->getUploadedFile($file, $storedFileNames);
+                $uploaded = $component->getUploadedFile($file, $storedFileNames);
+
+                // The disk URL is built from APP_URL (the main domain), but a client edits on its
+                // own subdomain. The upload box fetches each image with JavaScript, and the browser
+                // blocks that cross-domain fetch (CORS), leaving the box on "Loading". The same
+                // file is served on every host under /storage, so hand the box a same-host path.
+                if (is_array($uploaded) && filled($uploaded['url'] ?? null) && ($path = parse_url($uploaded['url'], PHP_URL_PATH))) {
+                    $query = parse_url($uploaded['url'], PHP_URL_QUERY);
+                    $uploaded['url'] = $path.($query ? '?'.$query : '');
+                }
+
+                return $uploaded;
             });
 
+        // A saved path whose file is gone (deleted, or lost in a move) would leave the box
+        // spinning on "Loading" for ever, as there is nothing to fetch: drop it when the form opens.
+        // Full URLs (sample images) are kept as they are.
+        $field->afterStateHydrated(function (BaseFileUpload $component, $state): void {
+            if (blank($state)) {
+                return;
+            }
+            $disk = $component->getDisk();
+            $kept = array_filter((array) $state, fn ($file) => ! is_string($file)
+                || Str::startsWith($file, ['http://', 'https://', '/'])
+                || $disk->exists($file));
+            if (count($kept) !== count((array) $state)) {
+                $component->state(is_array($state) ? $kept : (array_values($kept)[0] ?? null));
+            }
+        });
+
         if ($multiple) {
-            $field->multiple()->reorderable()->appendFiles()->panelLayout('grid')->maxFiles(12);
+            // Small tiles (see .filepond grid rules in the admin theme), not a third of the form each.
+            $field->multiple()->reorderable()->appendFiles()->panelLayout('grid')->maxFiles(12)->imagePreviewHeight('150');
         }
 
         return $field;

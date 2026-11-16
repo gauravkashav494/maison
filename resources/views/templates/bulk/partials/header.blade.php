@@ -49,11 +49,11 @@
                         <strong>{{ auth()->check() ? 'My orders' : 'Account' }}</strong>
                     </span>
                 </a>
-                <button type="button" class="bk-top-action bk-cart-pill" @click="$store.ui.openCart()" aria-label="Open your order">
+                <button type="button" class="bk-top-action bk-cart-pill" @click="$store.ui.openCart()" aria-label="Open cart">
                     <x-heroicon-o-shopping-cart aria-hidden="true" />
                     <span class="bk-cart-count" x-text="$store.cart.count">0</span>
                     <span class="hidden text-left sm:block">
-                        <span class="opacity-75">Your order</span>
+                        <span class="opacity-75">Cart</span>
                         <strong x-text="$store.cart.subtotal_formatted">₹0</strong>
                     </span>
                 </button>

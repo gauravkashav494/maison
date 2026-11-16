@@ -6,7 +6,7 @@
     $label = 'block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke';
     $old = fn (string $k, $default = null) => old($k, $default);
 @endphp
-<x-page-hero eyebrow="Secure checkout" title="Checkout" :breadcrumbs="['Shopping Bag' => route('cart'), 'Checkout' => null]" />
+<x-page-hero eyebrow="Secure checkout" title="Checkout" :breadcrumbs="['Cart' => route('cart'), 'Checkout' => null]" />
 
 <section class="container-luxe py-12 lg:py-16" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
 

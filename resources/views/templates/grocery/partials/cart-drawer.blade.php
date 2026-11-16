@@ -3,7 +3,7 @@
     <div class="overlay" x-show="$store.ui.cartOpen" x-transition.opacity @click="$store.ui.closeAll()"></div>
     <aside class="sheet sheet-right" x-show="$store.ui.cartOpen" x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" x-trap.noscroll="$store.ui.cartOpen" aria-label="Shopping cart" x-data>
         <div class="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 class="text-lg font-extrabold">My cart <span class="text-sm font-semibold text-slate" x-text="$store.cart.count ? '(' + $store.cart.count + ')' : ''"></span></h2>
+            <h2 class="text-lg font-extrabold">Cart <span class="text-sm font-semibold text-slate" x-text="$store.cart.count ? '(' + $store.cart.count + ')' : ''"></span></h2>
             <button type="button" @click="$store.ui.closeAll()" class="grid h-9 w-9 place-items-center rounded-lg hover:bg-paper" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
 

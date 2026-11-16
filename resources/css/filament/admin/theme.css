@@ -538,3 +538,40 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-phone-name { flex: 1; }
 .fi-phone-option .fi-phone-dial { color: var(--ink-soft); }
 .fi-phone-empty { padding: 0.5rem; font-size: 0.875rem; color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------------------
+   Multi-image uploads (Fields::image(..., multiple: true)): compact tiles
+   instead of Filament's third-of-the-form previews.
+--------------------------------------------------------------------------- */
+.fi-fo-file-upload .filepond--root[data-style-panel-layout='grid'] .filepond--item {
+  width: 10rem;
+}
+
+/* Lightbox for saved images in upload fields (filament/partials/image-lightbox). */
+.fi-fo-file-upload .filepond--item .filepond--image-preview-wrapper { cursor: zoom-in; }
+.fi-lightbox {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 3rem 1rem; background: rgba(8, 17, 29, 0.85); cursor: zoom-out;
+}
+/* The size the storefront shows a product photo: a square of about 560px (the gallery column
+   of the 80rem-wide product page), smaller on small screens. The image is scaled to fit it,
+   small images included; contain keeps the proportions. */
+.fi-lightbox img {
+  width: min(560px, 90vw, 85vh); height: min(560px, 90vw, 85vh); object-fit: contain; cursor: default;
+  image-rendering: auto;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.45));
+}
+.fi-lightbox-close {
+  position: absolute; top: 0.75rem; right: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 9999px;
+  color: #fff; font-size: 1.75rem; line-height: 1; background: rgba(255, 255, 255, 0.12);
+}
+.fi-lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
+.fi-lightbox-new {
+  position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.85); font-size: 0.8125rem; text-decoration: underline;
+}
+
+/* Combination photos: a one-line drop box, so each combination row stays as short as its inputs. */
+.fi-variant-photos .filepond--root { margin-bottom: 0; font-size: 0.8125rem; }
+.fi-variant-photos .filepond--drop-label { min-height: 2.25rem; }
+.fi-variant-photos .filepond--drop-label label { padding: 0.35rem 0.5rem; }

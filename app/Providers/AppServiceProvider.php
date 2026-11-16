@@ -65,6 +65,12 @@ class AppServiceProvider extends ServiceProvider
         $this->registerTableFilterIndicators();
         $this->registerTableFilterLayout();
 
+        // Saved images in upload fields open large in a lightbox, and load from the browser cache.
+        \Filament\Support\Facades\FilamentView::registerRenderHook(
+            \Filament\View\PanelsRenderHook::BODY_END,
+            fn () => view('filament.partials.image-lightbox'),
+        );
+
         // Picking a module in the sidebar collapses it to icons (desktop too, not only on phones), so
         // the page gets the room; the ☰ button opens it again. Group headers do not count as a pick.
         \Filament\Support\Facades\FilamentView::registerRenderHook(

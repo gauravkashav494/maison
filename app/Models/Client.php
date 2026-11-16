@@ -122,6 +122,22 @@ class Client extends Model
         return $this->database ?: config('clients.prefix', 'client_').$this->key();
     }
 
+    /**
+     * Where this client's uploads live on the public disk: clients/<id>/<type>/…. Named after the
+     * id, not the subdomain, so it never depends on the address. Folders made before this
+     * (clients/<subdomain>) are moved by `php artisan clients:media-by-id`.
+     */
+    public function mediaDirectory(): string
+    {
+        return 'clients/'.$this->getKey();
+    }
+
+    /** The folder uploads used before they were named by client id. */
+    public function legacyMediaDirectory(): string
+    {
+        return 'clients/'.$this->subdomain;
+    }
+
     /** Slug in a form that is safe inside an identifier or a connection name. */
     public function key(): string
     {

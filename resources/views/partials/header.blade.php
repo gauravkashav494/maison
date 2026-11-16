@@ -65,7 +65,7 @@
                 <x-ico name="heart" :size="19" />
                 <span x-cloak x-show="$store.wishlist.count > 0" class="absolute right-1 top-1.5 h-1.5 w-1.5 rounded-full bg-gold"></span>
             </a>
-            <button type="button" class="relative -mr-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openCart()" aria-label="Shopping bag">
+            <button type="button" class="relative -mr-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openCart()" aria-label="Open cart">
                 <x-ico name="bag" :size="19" />
                 <span x-cloak x-show="$store.cart.count > 0" x-text="$store.cart.count"
                       class="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.5625rem] tabular-nums"

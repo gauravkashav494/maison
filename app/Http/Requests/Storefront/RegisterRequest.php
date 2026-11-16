@@ -12,7 +12,8 @@ class RegisterRequest extends StorefrontRequest
         return [
             'name' => $this->personName(),
             // Unique within this client only: the same address may shop with another client.
-            'email' => [...$this->email(), Rule::unique('customers', 'email')->where('client_id', app(ClientContext::class)->id())],
+            // A guest customer (created at checkout, no password yet) is claimed by email instead.
+            'email' => [...$this->email(), Rule::unique('customers', 'email')->where('client_id', app(ClientContext::class)->id())->whereNotNull('password')],
             'phone' => $this->phone(required: false),
             'password' => $this->newPassword(),
         ];

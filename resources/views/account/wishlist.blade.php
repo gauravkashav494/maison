@@ -18,7 +18,7 @@
                     <a :href="p.url" class="mt-1 block font-serif text-[1.0625rem] leading-snug" x-text="p.name"></a>
                     <div class="mt-2 flex items-center justify-between">
                         <span class="text-sm tabular-nums" x-text="p.price_formatted"></span>
-                        <button type="button" @click="$store.ui.showQuickView(p.slug)" class="text-[0.625rem] uppercase tracking-[0.2em] underline-offset-4 hover:underline">Add to bag</button>
+                        <button type="button" @click="$store.ui.showQuickView(p.slug)" class="text-[0.625rem] uppercase tracking-[0.2em] underline-offset-4 hover:underline">Add to cart</button>
                     </div>
                 </article>
             </template>

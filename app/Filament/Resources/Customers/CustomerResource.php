@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\Customers;
 
-use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Filament\Support\PasswordHintColumn;
@@ -110,6 +110,10 @@ class CustomerResource extends Resource
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()
                     ->visible(fn () => app(ClientContext::class)->isSuperAdmin()),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->searchable()->toggleable(),
+                // Guests were created from an order or booking and have not set a password yet.
+                TextColumn::make('account')->label('Account')->badge()
+                    ->state(fn (Customer $r) => $r->password === null ? 'Guest' : 'Registered')
+                    ->color(fn (string $state) => $state === 'Guest' ? 'gray' : 'success'),
                 PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),

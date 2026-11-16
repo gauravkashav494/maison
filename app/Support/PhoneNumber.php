@@ -22,7 +22,7 @@ class PhoneNumber
 
     /** @var array<string, array{name: string, dial: string, pattern: string, example: string, hint: string}> */
     public const COUNTRIES = [
-        'IN' => ['name' => 'India', 'dial' => '91', 'pattern' => '/^([6-9]\d{9}|[1-5]\d{9}|1800\d{7})$/', 'example' => '98765 43210', 'hint' => '10 digits: a mobile, or a landline with its area code'],
+        'IN' => ['name' => 'India', 'dial' => '91', 'pattern' => '/^[1-9]\d{9}$/', 'digits' => 10, 'groups' => [5, 5], 'example' => '9876543210', 'hint' => '10 digits: a mobile, or a landline with its area code'],
         // One entry for +1: the number alone cannot tell the two apart.
         'US' => ['name' => 'United States / Canada', 'dial' => '1', 'pattern' => '/^[2-9]\d{2}[2-9]\d{6}$/', 'example' => '201 555 0123', 'hint' => '10 digits: area code and number'],
         'GB' => ['name' => 'United Kingdom', 'dial' => '44', 'pattern' => '/^[1-37]\d{8,9}$/', 'example' => '7400 123456', 'hint' => '9 or 10 digits after the leading 0'],
@@ -86,12 +86,13 @@ class PhoneNumber
     }
 
     /**
-     * Spaces the digits the way the country's example is spaced ("98765 43210", "50 123 4567"),
+     * Spaces the digits by the country's groups (India: "98765 43210"), or as its example is spaced,
      * so a number reads well wherever it is shown; a length that differs from the example stays unspaced.
      */
     private static function group(?string $country, string $national): string
     {
-        $chunks = array_map('strlen', explode(' ', self::country($country)['example']));
+        $rules = self::country($country);
+        $chunks = $rules['groups'] ?? array_map('strlen', explode(' ', $rules['example']));
         if (array_sum($chunks) !== strlen($national)) {
             return $national;
         }

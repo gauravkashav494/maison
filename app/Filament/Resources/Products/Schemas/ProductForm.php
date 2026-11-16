@@ -23,6 +23,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -32,6 +33,7 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -130,6 +132,10 @@ class ProductForm
                                                                 ->native()
                                                                 ->required()
                                                                 ->live()
+                                                                // An option already added in another row cannot be chosen again;
+                                                                // "Other…" stays open, and its typed name is checked below.
+                                                                ->disableOptionWhen(fn (Select $component, string $value) => $value !== self::OTHER_OPTION && self::optionTakenInSiblingRow($component, $value))
+                                                                ->rule(fn (Select $component, Get $get) => self::uniqueOptionRule($component, $get('preset') === self::OTHER_OPTION ? null : $get('name')))
                                                                 ->dehydrated(false)
                                                                 ->afterStateHydrated(fn (Select $component, Get $get) => $component->state(self::presetFor($get('name'))))
                                                                 ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
@@ -160,6 +166,7 @@ class ProductForm
                                                                 // A dot would split the name into a nested path.
                                                                 ->notRegex('/\./')
                                                                 ->validationMessages(['not_regex' => 'Option names cannot contain a full stop.'])
+                                                                ->rule(fn (TextInput $component, ?string $state) => self::uniqueOptionRule($component, $state))
                                                                 // Renaming an option carries the combinations' chosen values over to the new name.
                                                                 ->afterStateUpdated(fn (Get $get, Set $set, ?string $old, ?string $state) => self::renameOptionInCombinations($get, $set, $old, $state)),
                                                         ]),
@@ -268,9 +275,12 @@ class ProductForm
                                                             ->validationMessages(['required' => 'Enter how many of this combination you have (0 if none).']),
                                                         Toggle::make('is_active')->label('Available')->default(true),
                                                         // Shown in the gallery when a customer picks this combination.
+                                                        // A one-line drop box, so the row stays as short as its inputs.
                                                         Fields::image('images', 'Photos', 'products', multiple: true)
                                                             ->panelLayout('compact')
-                                                            ->imagePreviewHeight('40'),
+                                                            ->imagePreviewHeight('40')
+                                                            ->placeholder('<span class="filepond--label-action">Add photos</span>')
+                                                            ->extraAttributes(['class' => 'fi-variant-photos']),
                                                     ])
                                                     ->reorderable()
                                                     ->defaultItems(0),
@@ -538,6 +548,41 @@ class ProductForm
      * The dropdown choice for a saved option name: its preset (matched without regard to case,
      * and Color as Colour), "Other…" for any other name, or nothing for a new row.
      */
+    /** Option names entered in the other rows of the options repeater (not the component's own row). */
+    private static function siblingOptionNames(Component $component): array
+    {
+        $repeater = $component->getParentRepeater();
+        if (! $repeater) {
+            return [];
+        }
+        $ownKey = (string) str($component->getStatePath())->after($repeater->getStatePath().'.')->before('.');
+
+        return collect($repeater->getRawState() ?? [])
+            ->reject(fn ($row, $key) => (string) $key === $ownKey)
+            ->map(fn ($row) => trim((string) ($row['name'] ?? '')))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /** Whether another row already uses this option (Colour and Color count as the same). */
+    private static function optionTakenInSiblingRow(Component $component, ?string $name): bool
+    {
+        $name = trim((string) $name);
+
+        return $name !== '' && collect(self::siblingOptionNames($component))->contains(fn (string $other) => Product::sameAttribute($other, $name));
+    }
+
+    /** Fails when the same option is added twice, so each option appears once on the product. */
+    private static function uniqueOptionRule(Component $component, ?string $name): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($component, $name) {
+            if (self::optionTakenInSiblingRow($component, $name)) {
+                $fail('"'.trim((string) $name).'" is already added as an option. Add its values to that row instead.');
+            }
+        };
+    }
+
     private static function presetFor(mixed $name): ?string
     {
         $name = trim((string) $name);
@@ -577,8 +622,13 @@ class ProductForm
     }
 
     /**
-     * Adds every combination of the option values that is not listed yet. Combinations already
-     * listed keep their price, SKU, stock and photos; new ones start available with no stock.
+     * Lists every combination of the option values, in option order (all of the first value,
+     * then the next). Combinations already listed keep their price, SKU, stock and photos.
+     *
+     * A row listed before an option was added (e.g. "750 ml" before Colour and Finish) is split
+     * into its combinations: each keeps the row's price, availability and photos, and gets its
+     * SKU with the new values added. Stock cannot be split, so the new rows start at 0. Rows
+     * that match no combination (a value was removed above) are kept at the end, untouched.
      */
     private static function generateCombinations(Get $get, Set $set): void
     {
@@ -602,20 +652,93 @@ class ProductForm
         }
 
         $existing = (array) $get('variants');
-        $listed = array_map(fn ($variant) => self::combinationKey((array) ($variant['options'] ?? [])), $existing);
-        $added = 0;
-        foreach ($combinations as $options) {
-            if (! in_array(self::combinationKey($options), $listed, true)) {
-                $existing[(string) Str::uuid()] = ['options' => $options, 'sku' => null, 'price' => null, 'stock' => 0, 'is_active' => true, 'images' => []];
-                $added++;
+        $byKey = [];
+        foreach ($existing as $id => $variant) {
+            $byKey[self::combinationKey((array) ($variant['options'] ?? []))] ??= $id;
+        }
+
+        // Rows missing a value for some option, whose chosen values all still exist: these are
+        // the ones listed before an option was added, and are split into their combinations.
+        $partial = [];
+        foreach ($existing as $id => $variant) {
+            $chosen = self::chosenOptions((array) ($variant['options'] ?? []));
+            $complete = count($chosen) === count($attributes);
+            $valid = collect($chosen)->every(fn ($value, $name) => in_array($value, collect($attributes)->firstWhere('name', $name)['values'] ?? [], true));
+            if (! $complete && $valid) {
+                $partial[$id] = $chosen;
             }
         }
-        $set('variants', $existing);
+
+        $rows = [];
+        $added = 0;
+        $split = [];
+        foreach ($combinations as $options) {
+            $key = self::combinationKey($options);
+            // The most specific earlier row this combination belongs to, if any.
+            $source = collect($partial)
+                ->filter(fn (array $chosen) => array_intersect_assoc($chosen, $options) === $chosen)
+                ->sortByDesc(fn (array $chosen) => count($chosen))
+                ->keys()->first();
+            $from = $source !== null ? $existing[$source] : [];
+            $source !== null && $split[$source] = true;
+            $sku = filled($from['sku'] ?? null) ? self::extendSku($from['sku'], array_diff_key($options, $partial[$source])) : null;
+
+            if (isset($byKey[$key]) && ! isset($partial[$byKey[$key]])) {
+                // Already listed: kept as it is, with only its blanks filled from the earlier row
+                // (when generate ran once before that row was split).
+                $row = $existing[$byKey[$key]];
+                blank($row['sku'] ?? null) && $row['sku'] = $sku;
+                blank($row['price'] ?? null) && $row['price'] = $from['price'] ?? null;
+                empty($row['images']) && $row['images'] = $from['images'] ?? [];
+                $rows[$byKey[$key]] = $row;
+
+                continue;
+            }
+
+            $rows[(string) Str::uuid()] = [
+                'options' => $options,
+                'sku' => $sku,
+                'price' => $from['price'] ?? null,
+                'stock' => 0,
+                'is_active' => $from['is_active'] ?? true,
+                'images' => $from['images'] ?? [],
+            ];
+            $added++;
+        }
+
+        // Anything else (a value removed above, or a row split here only partly) stays at the end.
+        foreach ($existing as $id => $variant) {
+            if (! isset($rows[$id]) && ! isset($split[$id])) {
+                $rows[$id] = $variant;
+            }
+        }
+        $set('variants', $rows);
+
+        $splitNames = collect(array_keys($split))->map(fn ($id) => implode(' / ', $partial[$id]))->filter()->all();
+        $body = $added ? 'New combinations start with 0 in stock. Set the stock (and a price or SKU if it differs) for each one.' : null;
+        if ($splitNames) {
+            $body = Arr::join($splitNames, ', ', ' and ').' '.(count($splitNames) === 1 ? 'was' : 'were').' split into one row per combination, keeping '
+                .(count($splitNames) === 1 ? 'its' : 'their').' price, SKU and photos. Set the stock for each new row.';
+        }
 
         Notification::make()->success()
             ->title($added ? "Added {$added} ".Str::plural('combination', $added) : 'Every combination is already listed')
-            ->body($added ? 'New combinations start with 0 in stock. Set the stock (and a price or SKU if it differs) for each one.' : null)
+            ->body($body)
             ->send();
+    }
+
+    /** A combination's chosen values, blanks left out: [Option => Value]. */
+    private static function chosenOptions(array $options): array
+    {
+        return array_filter(array_map(fn ($v) => trim((string) $v), $options), 'strlen');
+    }
+
+    /** "PK-CT-750" with Black and Matte added: "PK-CT-750-BLACK-MATTE". */
+    private static function extendSku(string $sku, array $values): string
+    {
+        $parts = array_map(fn ($v) => strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', (string) $v)), $values);
+
+        return mb_substr(implode('-', array_filter([trim($sku), ...$parts], 'strlen')), 0, 64);
     }
 
     /** Order-independent identity of a combination's chosen values. */

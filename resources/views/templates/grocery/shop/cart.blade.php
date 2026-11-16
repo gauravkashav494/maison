@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<x-page-head title="My cart" :breadcrumbs="['Cart' => null]" />
+<x-page-head title="Cart" :breadcrumbs="['Cart' => null]" />
 
 <section class="g-container pb-28 pt-4 lg:py-6" x-data="{ code: '' }">
     {{-- App-style sticky checkout bar (phones) --}}

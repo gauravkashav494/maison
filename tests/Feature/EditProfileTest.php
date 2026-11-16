@@ -9,6 +9,7 @@ use App\Models\ClientUser;
 use App\Models\Plan;
 use App\Models\Storefront;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -81,11 +82,16 @@ class EditProfileTest extends TestCase
 
         // The field holds "+<dial code> <number>"; the country picker sets the code.
         // India only for now: another country's code is refused.
-        foreach (['+91 12345', '+91 05876 5432', '+44 7400 123456', '+999 1234567'] as $invalid) {
+        // (Three through the form: the profile page allows only 5 saves a minute; the rest below.)
+        foreach (['+91 12345', '+91 98765 432101', '+44 7400 123456'] as $invalid) {
             Livewire::test(EditProfile::class)
                 ->fillForm(['phone' => $invalid])
                 ->call('save')
                 ->assertHasFormErrors(['phone']);
+        }
+
+        foreach (['+91 05876 5432', '+91 1800 1234567', '+999 1234567', '98765'] as $invalid) {
+            $this->assertNull(PhoneNumber::normalise($invalid), $invalid);
         }
 
         // Spaces, dashes and a trunk 0 are fine; it is saved in one shape.
@@ -134,10 +140,12 @@ class EditProfileTest extends TestCase
         Filament::setCurrentPanel('client');
         $this->actingAs($this->admin->fresh(), 'client');
 
-        // The code is shown fixed inside the box: with India only there is no dropdown.
+        // The code is shown fixed inside the box: with India only there is no dropdown. The number
+        // box takes digits only, 10 at most (tidied in the browser, checked again on save).
         Livewire::test(EditProfile::class)
             ->assertSchemaStateSet(['phone' => '+91 98765 43210'])
             ->assertSee('fi-phone-country is-fixed', false)
+            ->assertSee('inputmode="numeric"', false)
             ->assertDontSee('fi-phone-panel', false);
     }
 

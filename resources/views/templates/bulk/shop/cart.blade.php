@@ -9,7 +9,7 @@
 <div class="bk-wrap mt-6" x-data="{ code: '' }">
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Your order</h1>
+            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Cart</h1>
             <p class="bk-muted mt-1 text-sm" x-show="$store.cart.items.length" x-cloak>
                 <span x-text="$store.cart.items.length"></span> lines · <span x-text="$store.cart.count"></span> units
             </p>
@@ -19,7 +19,7 @@
 
     <div class="bk-card mt-5 p-10 text-center" x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak>
         <x-heroicon-o-shopping-cart class="mx-auto size-12 text-brand" aria-hidden="true" />
-        <p class="mt-3 text-lg font-extrabold">Your order is empty</p>
+        <p class="mt-3 text-lg font-extrabold">Your cart is empty</p>
         <p class="bk-muted mt-1 text-sm">Browse the catalogue, or add your whole list at once on Bulk order.</p>
         <p class="mt-5 flex flex-wrap justify-center gap-3">
             <a href="{{ route('shop.index') }}" class="bk-btn bk-btn-outline">Browse products</a>

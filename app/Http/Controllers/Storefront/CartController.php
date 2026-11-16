@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Subscriber;
 use App\Services\Cart;
+use App\Support\GuestCustomer;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,7 @@ class CartController extends Controller
 
     public function page(): View
     {
-        return view('shop.cart', ['cart' => $this->cart->toArray(), 'seo' => Seo::simple('Shopping Bag', null, noindex: true)]);
+        return view('shop.cart', ['cart' => $this->cart->toArray(), 'seo' => Seo::simple('Cart', null, noindex: true)]);
     }
 
     // ---- JSON API used by the Alpine cart store ---------------------------
@@ -180,7 +181,8 @@ class CartController extends Controller
             $order = Order::create([
                 'number' => Order::generateNumber(),
                 'template' => template()->id(),
-                'customer_id' => $request->user()?->id,
+                // A guest's order is kept against a customer record for their email, as on most stores.
+                'customer_id' => GuestCustomer::idFor($request->user(), $data['email'], $data['shipping_name'], $data['phone']),
                 'status' => 'confirmed',
                 'email' => strtolower($data['email']),
                 'phone' => $data['phone'],

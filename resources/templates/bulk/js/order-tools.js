@@ -531,7 +531,7 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
             }
             if (!this.rows.length) this.rows.push(this.blank());
             if (added.length) {
-                this.message = `${added.length} ${added.length === 1 ? 'item' : 'items'} added to your order.`;
+                this.message = `${added.length} ${added.length === 1 ? 'item' : 'items'} added to your cart.`;
                 Alpine.store('ui').openCart();
             }
         } finally {
@@ -677,7 +677,7 @@ Alpine.data('quickOrder', (index = { lines: {}, codes: {} }) => ({
             }
             this.text = this.rows.map((r) => `${r.code}, ${r.qty}`).join('\n');
             this.message = added.length
-                ? `${added.length} ${added.length === 1 ? 'line' : 'lines'} added to your order.`
+                ? `${added.length} ${added.length === 1 ? 'line' : 'lines'} added to your cart.`
                 : '';
             if (!this.rows.length) this.checked = false;
             if (added.length) Alpine.store('ui').openCart();
