@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Collections\Schemas;
 
+use App\Admin\StoreContext;
 use App\Models\Collection;
 use App\Support\Media;
 use App\Templates\TemplateManager;
@@ -46,6 +47,7 @@ class CollectionInfolist
                         TextEntry::make('products_total')->label('Products')->inlineLabel()
                             ->state(fn (Collection $r) => $r->products()->count()),
                         TextEntry::make('template')->label('Visible in')->inlineLabel()
+                            ->hidden(fn () => app(StoreContext::class)->isLocked())
                             ->formatStateUsing(fn ($state) => app(TemplateManager::class)->options()[$state] ?? $state)
                             ->placeholder('All templates'),
                         TextEntry::make('slug')->label('URL')->inlineLabel()->prefix('/collections/')->copyable()->color('gray'),

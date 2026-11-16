@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Admin\PlatformModules;
 use App\Clients\ClientContext;
 use App\Clients\ClientTotals;
 use App\Filament\Pages\ClientTotalsReport;
@@ -24,7 +25,7 @@ class PlatformStats extends Widget
 
     public static function canView(): bool
     {
-        return app(ClientContext::class)->isSuperAdmin();
+        return app(ClientContext::class)->isSuperAdmin() && PlatformModules::current(PlatformModules::CLIENTS);
     }
 
     protected function getViewData(): array

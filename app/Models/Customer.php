@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
  */
 class Customer extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use Concerns\StoresPasswordHint, HasFactory, Notifiable;
     use SoftDeletes;
     use UsesPlatformConnection;
 

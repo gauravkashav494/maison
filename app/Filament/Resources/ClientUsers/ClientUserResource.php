@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ClientUsers;
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\ClientRole;
@@ -162,6 +163,7 @@ class ClientUserResource extends Resource
                     TextEntry::make('name')->weight('bold'),
                     TextEntry::make('email')->copyable()->icon('heroicon-m-envelope'),
                     TextEntry::make('phone')->placeholder('—')->copyable()->icon('heroicon-m-phone'),
+                    PasswordHintColumn::entry(),
                 ]),
                 Section::make('Access')->columns(2)->schema([
                     TextEntry::make('role')->label('Account type')->badge()
@@ -205,6 +207,7 @@ class ClientUserResource extends Resource
                     ->formatStateUsing(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? ClientUser::ROLES[$state] : ($r->clientRole?->name ?? 'No role'))
                     ->color(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? 'info' : ($r->clientRole ? 'gray' : 'danger')),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->toggleable(),
+                PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Added')->date('d M Y')->sortable()->toggleable(),
             ])

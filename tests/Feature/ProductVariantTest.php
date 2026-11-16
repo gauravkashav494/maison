@@ -13,6 +13,8 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Storefront;
+use App\Support\ColourNames;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -67,7 +69,7 @@ class ProductVariantTest extends TestCase
             'variants' => [
                 ['options' => ['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'], 'sku' => 'SHIRT-M-CAMEL-LINEN', 'price' => 2500, 'stock' => 3],
                 ['options' => ['Size' => 'S', 'Colour' => 'Ink', 'Material' => 'Silk'], 'sku' => 'SHIRT-S-INK-SILK', 'price' => 4000, 'stock' => 0],
-                ['options' => ['Size' => 'S', 'Colour' => 'Camel', 'Material' => 'Linen'], 'is_active' => false],
+                ['options' => ['Size' => 'S', 'Colour' => 'Camel', 'Material' => 'Linen'], 'stock' => 5, 'is_active' => false],
             ],
         ]);
     }
@@ -140,7 +142,7 @@ class ProductVariantTest extends TestCase
     {
         $product = $this->variantProduct();
 
-        $response = $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
+        $response = $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
             'product_id' => $product->id,
             'options' => ['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'],
             'qty' => 2,
@@ -157,7 +159,7 @@ class ProductVariantTest extends TestCase
     public function test_an_incomplete_or_unavailable_choice_is_refused(): void
     {
         $product = $this->variantProduct();
-        $post = fn (array $payload) => $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', $payload + ['product_id' => $product->id]);
+        $post = fn (array $payload) => $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', $payload + ['product_id' => $product->id]);
 
         // Nothing chosen
         $post([])->assertStatus(422);
@@ -182,8 +184,8 @@ class ProductVariantTest extends TestCase
             ],
         ]);
 
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', ['product_id' => $product->id, 'options' => ['Size' => 'S']])->assertSuccessful();
-        $response = $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', ['product_id' => $product->id, 'options' => ['Size' => 'M']])->assertSuccessful();
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', ['product_id' => $product->id, 'options' => ['Size' => 'S']])->assertSuccessful();
+        $response = $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', ['product_id' => $product->id, 'options' => ['Size' => 'M']])->assertSuccessful();
 
         $this->assertCount(2, $response->json('items'));
         $this->assertSame(2200, $response->json('subtotal'));
@@ -193,7 +195,7 @@ class ProductVariantTest extends TestCase
     {
         $product = $this->product(['sizes' => ['S', 'M'], 'colors' => [['name' => 'Camel', 'hex' => '#B8916A']]]);
 
-        $response = $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
+        $response = $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
             'product_id' => $product->id,
             'size' => 'M',
             'color' => 'Camel',
@@ -212,14 +214,14 @@ class ProductVariantTest extends TestCase
         $product = $this->variantProduct();
         $customer = Customer::create(['client_id' => $this->client->id, 'name' => 'Shopper', 'email' => 'shopper@alpha.test', 'password' => 'password123', 'is_active' => true]);
 
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
             'product_id' => $product->id,
             'options' => ['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'],
             'qty' => 2,
         ])->assertSuccessful();
 
         $this->actingAs($customer, 'web')
-            ->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])
+            ->withSession([Client::SESSION_KEY => 'alpha'])
             ->post('/checkout', [
                 'email' => 'shopper@alpha.test',
                 'phone' => '9999999999',
@@ -321,5 +323,314 @@ class ProductVariantTest extends TestCase
 
         $swatches = collect(Product::withoutGlobalScopes()->findOrFail($product->id)->variantAttributes())->firstWhere('name', 'Colour')['swatches'];
         $this->assertSame(['Camel' => '#B8916A', 'Ink' => '#1F2A44'], $swatches);
+    }
+
+    // ---- Options kept in step with what the storefront renders ------------
+
+    /** A product the admin form can save (it requires a category and an image). */
+    private function editableVariantProduct(): Product
+    {
+        $product = $this->variantProduct();
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Shirts', 'slug' => 'shirts', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/shirt.jpg']]);
+
+        return $product;
+    }
+
+    public function test_size_and_colour_options_fill_the_lists_the_templates_render(): void
+    {
+        $product = $this->variantProduct()->fresh();
+
+        $this->assertSame(['S', 'M'], $product->sizes);
+        $this->assertSame([['name' => 'Camel', 'hex' => '#B8916A'], ['name' => 'Ink', 'hex' => null]], $product->colors);
+
+        // A list with no matching option is left as it is.
+        $product->update(['variant_attributes' => [['name' => 'Material', 'values' => ['Linen']]]]);
+        $this->assertSame(['S', 'M'], $product->fresh()->sizes);
+    }
+
+    public function test_a_display_colour_beside_a_size_option_is_kept_and_stays_editable(): void
+    {
+        // Like the seeded kada bangle: sold by size, shown in one colour that is not a choice.
+        $product = $this->product([
+            'name' => 'Kada', 'slug' => 'kada', 'sku' => 'KADA-1',
+            'colors' => [['name' => 'Rose gold', 'hex' => '#D7A07C']],
+            'sizes' => ['2.4', '2.6'],
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Size', 'values' => ['2.4', '2.6']]],
+            'variants' => [['options' => ['Size' => '2.4'], 'price' => 4200, 'stock' => 12]],
+        ]);
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Bangles', 'slug' => 'bangles', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/kada.jpg']]);
+        $this->assertSame([['name' => 'Rose gold', 'hex' => '#D7A07C']], $product->fresh()->colors);
+
+        $this->actAsClientAdmin();
+        $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()->assertSee('Older colour &amp; size lists', false);
+
+        Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->call('save')->assertHasNoFormErrors();
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame([['name' => 'Rose gold', 'hex' => '#D7A07C']], $saved->colors);
+        $this->assertSame(['2.4', '2.6'], $saved->sizes);
+
+        // A product whose lists are all options does not show the older section.
+        $other = $this->editableVariantProduct();
+        $this->get('/client/products/'.$other->id.'/edit')->assertSuccessful()->assertDontSee('Older colour &amp; size lists', false);
+    }
+
+    public function test_the_storefront_shows_size_and_colour_options_defined_as_options(): void
+    {
+        $product = $this->editableVariantProduct();
+        app(ClientContext::class)->resolveForPublic($this->client);
+
+        $this->get($this->client->publicUrl().'/product/'.$product->slug)
+            ->assertSuccessful()
+            ->assertSee("@click=\"size = 'S'", false)        // the template's own size picker
+            ->assertSee('aria-label="Camel"', false)          // a swatch: Camel has a colour
+            ->assertSee('>Ink</button>', false)               // no colour set: shown as its name
+            ->assertSee('>Linen</button>', false);            // other options: the shared picker
+    }
+
+    public function test_a_combination_loses_values_for_options_that_no_longer_exist(): void
+    {
+        $product = $this->variantProduct();
+        $product->update(['variant_attributes' => [
+            ['name' => 'Size', 'values' => ['S', 'M']],
+            ['name' => 'Colour', 'values' => ['Camel', 'Ink']],
+        ]]);
+
+        $this->assertSame(['Size' => 'M', 'Colour' => 'Camel'], $product->fresh()->variants[0]['options']);
+        $this->assertNotNull($product->fresh()->findVariant(['Size' => 'M', 'Colour' => 'Camel']));
+    }
+
+    public function test_colour_and_color_are_the_same_option(): void
+    {
+        $product = $this->product([
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Color', 'values' => ['Red', 'Blue']]],
+            'variants' => [['options' => ['Color' => 'Red'], 'price' => 2100, 'stock' => 4]],
+        ]);
+
+        // The storefront posts the template's colour picker as "Colour".
+        $this->assertSame(['Color' => 'Red'], $product->normaliseOptions(['Colour' => 'red']));
+        $this->assertSame(2100.0, $product->priceFor(['Colour' => 'Red']));
+    }
+
+    public function test_a_combinations_photos_are_sent_to_the_gallery(): void
+    {
+        $product = $this->product([
+            'images' => ['products/shirt.jpg'],
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Colour', 'values' => ['Camel', 'Ink']]],
+            'variants' => [
+                ['options' => ['Colour' => 'Camel'], 'stock' => 2, 'images' => ['products/camel.jpg']],
+                ['options' => ['Colour' => 'Ink'], 'stock' => 2],
+            ],
+        ]);
+
+        $card = $product->toCard();
+        $this->assertCount(1, $card['variant_images']);
+        $this->assertSame(['Colour' => 'Camel'], $card['variant_images'][0]['options']);
+        $this->assertStringEndsWith('products/camel.jpg', $card['variant_images'][0]['images'][0]);
+    }
+
+    public function test_generate_all_combinations_adds_the_missing_ones_and_keeps_the_rest(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
+            ->callAction(TestAction::make('generateCombinations')->schemaComponent('combinations', schema: 'form'));
+
+        $variants = array_values($page->get('data.variants'));
+        $this->assertCount(8, $variants, '2 sizes × 2 colours × 2 materials.');
+        $this->assertSame('SHIRT-M-CAMEL-LINEN', $variants[0]['sku'], 'Existing combinations keep their details.');
+        $this->assertSame(3, (int) $variants[0]['stock']);
+        $this->assertSame(0, $variants[7]['stock'], 'New combinations start with no stock.');
+
+        // Running it again adds nothing.
+        $page->callAction(TestAction::make('generateCombinations')->schemaComponent('combinations', schema: 'form'));
+        $this->assertCount(8, $page->get('data.variants'));
+    }
+
+    public function test_a_combination_must_have_its_own_stock(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $first = array_key_first($page->get('data.variants'));
+
+        $page->set("data.variants.{$first}.stock", null)
+            ->call('save')
+            ->assertHasFormErrors(["variants.{$first}.stock" => 'required']);
+    }
+
+    public function test_renaming_an_option_carries_the_combinations_values_over(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $material = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Material');
+
+        $page->set("data.variant_attributes.{$material}.name", 'Fabric')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame(['Size' => 'M', 'Colour' => 'Camel', 'Fabric' => 'Linen'], $saved->variants[0]['options']);
+    }
+
+    public function test_an_older_product_opens_with_its_sizes_and_colours_as_options(): void
+    {
+        $product = $this->product([
+            'colors' => [['name' => 'Sand', 'hex' => '#D8C8A8']],
+            'sizes' => ['S', 'M', 'L'],
+        ]);
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Shirts', 'slug' => 'shirts', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/shirt.jpg']]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $options = array_values($page->get('data.variant_attributes'));
+        $this->assertSame(['Colour', 'Size'], array_column($options, 'name'));
+        $this->assertSame(['Sand' => '#D8C8A8'], $options[0]['swatches']);
+
+        $page->call('save')->assertHasNoFormErrors();
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame(['S', 'M', 'L'], $saved->sizes, 'Saving keeps the lists the storefront reads.');
+        $this->assertSame([['name' => 'Sand', 'hex' => '#D8C8A8']], $saved->colors);
+    }
+
+    // ---- Swatches from colour names ----------------------------------------
+
+    public function test_colour_values_named_like_colours_get_swatches_unless_one_was_picked(): void
+    {
+        $this->assertSame('#1f2a44', ColourNames::hex('Navy Blue'));
+        $this->assertSame('#f5f1e8', ColourNames::hex('off-white'));
+        $this->assertNull(ColourNames::hex('Ink'));
+
+        $product = $this->product([
+            'variant_attributes' => [['name' => 'color', 'values' => ['red', 'Yellow', 'Ink'], 'swatches' => ['red' => '#aa0000']]],
+        ]);
+
+        $swatches = $product->variantAttributes()[0]['swatches'];
+        $this->assertSame('#aa0000', $swatches['red'], 'A picked colour wins.');
+        $this->assertSame('#fbc02d', $swatches['Yellow']);
+        $this->assertArrayNotHasKey('Ink', $swatches, 'An unknown name stays text.');
+        $this->assertSame([['name' => 'red', 'hex' => '#aa0000'], ['name' => 'Yellow', 'hex' => '#fbc02d'], ['name' => 'Ink', 'hex' => null]], $product->fresh()->colors);
+    }
+
+    public function test_typing_a_colour_value_in_the_form_fills_its_swatch(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $colour = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Colour');
+
+        $page->set("data.variant_attributes.{$colour}.values", ['Camel', 'Ink', 'Maroon']);
+
+        $this->assertSame('#800000', $page->get("data.variant_attributes.{$colour}.swatches.Maroon"));
+        $this->assertSame('#B8916A', $page->get("data.variant_attributes.{$colour}.swatches.Camel"), 'An existing pick is kept.');
+    }
+
+    // ---- Option dropdown -----------------------------------------------------
+
+    public function test_options_open_with_their_preset_or_other(): void
+    {
+        $product = $this->editableVariantProduct();
+        $product->update(['variant_attributes' => [
+            ['name' => 'Size', 'values' => ['S', 'M']],
+            ['name' => 'color', 'values' => ['Camel', 'Ink']],
+            ['name' => 'Fragrance', 'values' => ['Rose']],
+        ]]);
+        $this->actAsClientAdmin();
+
+        $rows = array_values(Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->get('data.variant_attributes'));
+        $this->assertSame(['Size', 'Colour', '__other'], array_column($rows, 'preset'));
+        $this->assertSame(['Size', 'color', 'Fragrance'], array_column($rows, 'name'), 'The saved names are untouched.');
+    }
+
+    public function test_choosing_a_preset_or_other_sets_the_option_name(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $material = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Material');
+
+        // Other… keeps "Material" in the box; renaming it carries the combinations over.
+        $page->set("data.variant_attributes.{$material}.preset", '__other')
+            ->assertSet("data.variant_attributes.{$material}.name", 'Material')
+            ->set("data.variant_attributes.{$material}.name", 'Fabric')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame('Fabric', $saved->variant_attributes[2]['name']);
+        $this->assertSame(['Size' => 'M', 'Colour' => 'Camel', 'Fabric' => 'Linen'], $saved->variants[0]['options']);
+        $this->assertArrayNotHasKey('preset', $saved->variant_attributes[2], 'Only the name is stored.');
+
+        // Back to a preset: the name becomes the preset's.
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $fabric = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Fabric');
+        $page->set("data.variant_attributes.{$fabric}.preset", 'Style')
+            ->assertSet("data.variant_attributes.{$fabric}.name", 'Style')
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame(['Size' => 'M', 'Colour' => 'Camel', 'Style' => 'Linen'], Product::withoutGlobalScopes()->findOrFail($product->id)->variants[0]['options']);
+    }
+
+    public function test_an_unpicked_colour_value_opens_with_its_named_colour(): void
+    {
+        $product = $this->editableVariantProduct();
+        $product->update(['variant_attributes' => [['name' => 'Colour', 'values' => ['Red', 'Ink']]]]);
+        $this->actAsClientAdmin();
+
+        $row = array_values(Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])->get('data.variant_attributes'))[0];
+        $this->assertSame('#d32f2f', $row['swatches']['Red'] ?? null);
+        $this->assertEmpty($row['swatches']['Ink'] ?? null, 'An unknown name stays text only.');
+    }
+
+    public function test_choosing_an_option_fills_its_common_values_on_an_empty_row(): void
+    {
+        $product = $this->editableVariantProduct();
+        $product->update(['variant_attributes' => [
+            ['name' => 'Size', 'values' => ['S', 'M']],
+            ['name' => 'Weight', 'values' => []],
+        ]]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $keys = array_keys($page->get('data.variant_attributes'));
+
+        // An empty row: the option's common values are filled in (here Colour, with swatches).
+        $page->set("data.variant_attributes.{$keys[1]}.preset", 'Colour')
+            ->assertSet("data.variant_attributes.{$keys[1]}.values", ['Black', 'White', 'Red', 'Blue'])
+            ->assertSet("data.variant_attributes.{$keys[1]}.swatches.Red", '#d32f2f');
+
+        // A row with values keeps them when the option changes.
+        $page->set("data.variant_attributes.{$keys[0]}.preset", 'Pack size')
+            ->assertSet("data.variant_attributes.{$keys[0]}.values", ['S', 'M']);
+
+        // Trimmed and extended by hand, then saved as entered.
+        $page->set("data.variant_attributes.{$keys[1]}.values", ['Black', 'Red', 'Teal blue'])
+            ->set('data.has_variants', false)
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id)->variant_attributes;
+        $this->assertSame(['Black', 'Red', 'Teal blue'], $saved[1]['values']);
+    }
+
+    public function test_the_values_box_suggests_the_options_common_values(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()
+            ->assertSee('XXL')            // Size suggestions
+            ->assertSee('Multicolour')    // Colour suggestions
+            ->assertSee('Add a value — pick a suggestion or type your own', false);
     }
 }

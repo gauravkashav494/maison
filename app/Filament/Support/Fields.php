@@ -130,7 +130,9 @@ class Fields
 
         return Select::make($column)
             ->default(fn () => $context->template() ?? (app(TemplateManager::class)->has((string) request()->query('template')) ? request()->query('template') : null))
-            ->disabled(fn () => $context->isLocked())
+            // Only a super admin sees it. A store's staff work in their one template, and the
+            // model stamps it on every save (BelongsToTemplate), so the field would only be noise.
+            ->hidden(fn () => $context->isLocked())
             ->dehydrated()
             ->label('Visible in')
             ->options(fn () => app(TemplateManager::class)->options())

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Admin\StoreContext;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -47,7 +48,7 @@ class ProductInfolist
                         TextEntry::make('care')->label('Care')->visible(fn (Product $r) => filled($r->care)),
                     ]),
 
-                Section::make('Variants')
+                Section::make('Options & variants')
                     ->icon('heroicon-o-swatch')
                     ->description(fn (Product $r) => $r->sellsVariants()
                         ? 'Price, SKU and stock are set per variant.'
@@ -141,6 +142,7 @@ class ProductInfolist
                             ->placeholder('No reviews yet'),
                         TextEntry::make('collections.name')->label('Collections')->badge()->color('gray')->placeholder('None'),
                         TextEntry::make('template')->label('Visible in')->inlineLabel()
+                            ->hidden(fn () => app(StoreContext::class)->isLocked())
                             ->formatStateUsing(fn ($state) => app(TemplateManager::class)->options()[$state] ?? $state)
                             ->placeholder('All templates'),
                         TextEntry::make('slug')->label('URL')->inlineLabel()->prefix('/product/')->copyable()->color('gray'),

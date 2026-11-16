@@ -6,6 +6,7 @@ use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
+use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
@@ -108,6 +109,7 @@ class CustomerResource extends Resource
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()
                     ->visible(fn () => app(ClientContext::class)->isSuperAdmin()),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->searchable()->toggleable(),
+                PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])

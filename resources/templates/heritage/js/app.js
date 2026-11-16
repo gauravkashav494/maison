@@ -9,6 +9,7 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
 import '../../../js/password-reveal';
 import '../../../js/phone-input';
 
@@ -276,15 +277,13 @@ Alpine.data('productPage', (product) => ({
     options: {},
     p: product, image: 0, qty: 1, lightbox: false, showSticky: false, tab: 'description', zoom: { on: false, x: 50, y: 50 },
     size: product.sizes[0] ?? null,
-    get slides() {
-        const s = product.images.map((src) => ({ type: 'image', src }));
-        if (product.video_url) s.push({ type: 'video', src: product.video_url });
-        return s;
-    },
+    // A combination with its own photos takes over the gallery when it is chosen.
+    get slides() { return gallerySlides(product, this); },
     get inCart() { return Alpine.store('cart').qtyOf(this.p.id, this.size); },
     get max() { return this.p.max_qty || 20; },
     init() {
         Alpine.store('recent_products').push(product.slug);
+        watchVariantGallery(this, product);
         const anchor = this.$refs.buy;
         if (anchor) new IntersectionObserver(([e]) => { this.showSticky = !e.isIntersecting && e.boundingClientRect.top < 0; }, { threshold: 0 }).observe(anchor);
         let x0 = null;
@@ -354,17 +353,7 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape') Alpine.store
 
 window.Alpine = Alpine;
 registerAppShell(Alpine);
+// Registered before start: the product page's price line is built when Alpine starts.
+registerVariants(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
-
-/* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
-Alpine.data('variantPricing', (variants) => ({
-    get current() {
-        const chosen = this.options || {};
-        const picked = Object.keys(chosen).filter((k) => chosen[k]);
-        return variants.find((v) => {
-            const names = Object.keys(v.options);
-            return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
-        }) || null;
-    },
-}));

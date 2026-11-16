@@ -6,7 +6,7 @@ use App\Contracts\AdminIdentity;
 use App\Models\User;
 
 /**
- * SuperAdmin accounts: a platform-only module. A client's staff account reaching this policy
+ * Platform accounts (Super Admins and platform staff): never delegated, Super Admins only. A client's staff account reaching this policy
  * fails every check, because only App\Models\User answers true to isSuperAdmin(). Nobody may
  * delete themselves or the last active super admin.
  */
@@ -38,7 +38,7 @@ class UserPolicy
             return false;
         }
 
-        return ! ($record->isSuperAdmin() && User::where('role', User::ROLE_SUPER_ADMIN)->where('is_active', true)->count() <= 1);
+        return ! ($record->isSuperAdmin() && User::where('is_super_admin', true)->where('is_active', true)->count() <= 1);
     }
 
     public function deleteAny(AdminIdentity $user): bool

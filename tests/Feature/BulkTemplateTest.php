@@ -81,6 +81,16 @@ class BulkTemplateTest extends TestCase
         $this->assertTrue($store->templateObject()->isInstalled());
     }
 
+    public function test_every_policy_page_the_store_links_to_opens(): void
+    {
+        // Linked from the footer menu (privacy, terms, refund-policy) and the cookie banner.
+        foreach (['/privacy', '/terms', '/refund-policy', '/cookies', '/contact'] as $path) {
+            $this->visit($path)->assertOk();
+        }
+
+        $this->visit('/cookies')->assertSee('Your cookie choices')->assertSee('$store.cookies.save', false);
+    }
+
     public function test_every_active_variant_becomes_a_line_with_its_own_code_price_and_stock(): void
     {
         $lines = collect(OrderLines::for($this->product('PK-CT')))->keyBy('sku');
@@ -479,12 +489,12 @@ class BulkTemplateTest extends TestCase
         $collection->products()->attach($this->product('CL-FC-5L')->id);
         Post::create(['client_id' => $this->client->id, 'template' => 'bulk', 'title' => 'Storing chemicals', 'slug' => 'storing-chemicals', 'body' => '<p>Keep them cool.</p>', 'published_at' => now()->subDay()]);
         foreach (['legal' => 'privacy', 'default' => 'delivery'] as $layout => $slug) {
-            Page::create(['client_id' => $this->client->id, 'storefront_template' => 'bulk', 'title' => ucfirst($slug), 'slug' => $slug, 'template' => $layout, 'body' => '<h3>Section</h3><p>Text.</p>', 'is_active' => true]);
+            Page::updateOrCreate(['client_id' => $this->client->id, 'storefront_template' => 'bulk', 'slug' => $slug], ['title' => ucfirst($slug), 'template' => $layout, 'body' => '<h3>Section</h3><p>Text.</p>', 'is_active' => true]);
         }
 
         $pages = [
             '/track-order', '/track-order?number=ME-9002&email=asha@example.test', '/collections', '/collections/kitchen-kit',
-            '/journal', '/journal/storing-chemicals', '/privacy', '/delivery',
+            '/journal', '/journal/storing-chemicals', '/privacy', '/delivery', '/cookies',
         ];
         $signedIn = ['/account', '/account/orders', '/account/orders/ME-9002', '/account/addresses', '/account/profile', '/account/wishlist', '/order/ME-9002/confirmation'];
 

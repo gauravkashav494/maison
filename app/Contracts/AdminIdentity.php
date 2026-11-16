@@ -12,6 +12,9 @@ interface AdminIdentity
 {
     public function isSuperAdmin(): bool;
 
+    /** True for any /admin account (Super Admin or platform staff); never for a client's staff. */
+    public function isPlatformAccount(): bool;
+
     /** Client this account belongs to; null only for a SuperAdmin. */
     public function clientId(): ?int;
 

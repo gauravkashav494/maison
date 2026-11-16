@@ -1,18 +1,20 @@
 {{--
-    Pickers for the attributes a product varies by, beyond the colour and size lists each
-    template already renders itself. The chosen values go into the Alpine `options` object of
+    Pickers for the options a product varies by, beyond the Size (and, where the template
+    has one, Colour) picker each template renders itself. The chosen values go into the Alpine `options` object of
     the surrounding product component, which posts them with the add-to-bag request; the server
     checks them again and prices the line from the matching variant.
 
     Styling is deliberately neutral (stock Tailwind greys) so the one component fits every
     template. Each template bundle lists this file as a source so the classes are built.
 --}}
-@props(['product'])
+@props(['product', 'ownColourPicker' => false])
 
 @php
-    $skip = ['size', 'colour', 'color'];
+    // Every template renders Size with its own picker (from the product's sizes); a template
+    // that renders Colour itself too passes own-colour-picker.
     $extras = collect($product->variantAttributes())
-        ->reject(fn (array $attribute) => in_array(strtolower($attribute['name']), $skip, true))
+        ->reject(fn (array $attribute) => \App\Models\Product::isSizeAttribute($attribute['name'])
+            || ($ownColourPicker && \App\Models\Product::isColourAttribute($attribute['name'])))
         ->values();
     $variants = $product->pricingVariants();
 @endphp

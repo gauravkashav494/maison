@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\ClientUser;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -132,6 +133,37 @@ class ReviewModerationTest extends TestCase
         $this->assertSame(0, $this->product->fresh()->review_count);
     }
 
+    public function test_a_storefront_review_adds_to_the_count_typed_in_admin(): void
+    {
+        $this->product->update(['base_rating' => 4.0, 'base_review_count' => 10]);
+        $this->assertSame(10, $this->product->fresh()->review_count);
+
+        // Held for approval: the typed figures stay as they are.
+        $this->submit(null);
+        $this->assertSame(10, $this->product->fresh()->review_count);
+        $this->assertSame(4.0, $this->product->fresh()->rating);
+
+        // Published: it is added on top, and the rating is weighted across all eleven.
+        $this->submit($this->buyer, ['rating' => 5]);
+        $product = $this->product->fresh();
+        $this->assertSame(11, $product->review_count);
+        $this->assertSame(10, $product->base_review_count);
+        $this->assertSame(4.1, $product->rating);
+
+        // Changing the typed count later keeps the customer review in the total.
+        $product->update(['base_review_count' => 20]);
+        $this->assertSame(21, $product->fresh()->review_count);
+    }
+
+    public function test_a_product_without_images_shows_a_placeholder(): void
+    {
+        $this->assertSame([], $this->product->images);
+        $this->assertStringEndsWith(Product::PLACEHOLDER_IMAGE, $this->product->image_url);
+
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->get('/product/banarasi-saree')
+            ->assertOk()->assertSee('product-placeholder.svg', false);
+    }
+
     public function test_a_guest_review_waits_for_approval(): void
     {
         $review = $this->submit(null);
@@ -169,9 +201,9 @@ class ReviewModerationTest extends TestCase
         foreach ([5 => 'Five-star review', 4 => 'Four-star review', 2 => 'Two-star review', 1 => 'One-star review'] as $rating => $title) {
             Review::create($own + ['name' => 'Shopper', 'rating' => $rating, 'title' => $title]);
         }
-        $admin = \App\Models\ClientUser::create([
+        $admin = ClientUser::create([
             'client_id' => $this->client->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test',
-            'password' => 'password123', 'role' => \App\Models\ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+            'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
         ]);
 
         $html = $this->actingAs($admin, 'client')

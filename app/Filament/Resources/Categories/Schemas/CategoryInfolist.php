@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categories\Schemas;
 
+use App\Admin\StoreContext;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Models\Category;
 use App\Templates\TemplateManager;
@@ -47,6 +48,7 @@ class CategoryInfolist
                         TextEntry::make('products_visible')->label('Visible products')->inlineLabel()
                             ->state(fn (Category $r) => $r->products()->where('is_active', true)->count()),
                         TextEntry::make('template')->label('Visible in')->inlineLabel()
+                            ->hidden(fn () => app(StoreContext::class)->isLocked())
                             ->formatStateUsing(fn ($state) => app(TemplateManager::class)->options()[$state] ?? $state)
                             ->placeholder('All templates'),
                         TextEntry::make('slug')->label('URL')->inlineLabel()->prefix('/shop/')->copyable()->color('gray'),

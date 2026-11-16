@@ -16,8 +16,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
  */
 class WithinClientImageLimit implements ValidationRule
 {
-    /** @param  array<string>  $replacing  image paths the record holds today and that this save may drop */
-    public function __construct(private readonly array $replacing = []) {}
+    /**
+     * @param  array<string>  $replacing  image paths the record holds today and that this save may drop
+     * @param  array<int, mixed>  $extra  other images saved with it (a product's combination photos), in the same form
+     */
+    public function __construct(private readonly array $replacing = [], private readonly array $extra = []) {}
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -30,7 +33,7 @@ class WithinClientImageLimit implements ValidationRule
         // (objects); each of the latter is a new image whatever it is eventually named.
         $paths = [];
         $added = 0;
-        foreach (is_array($value) ? $value : [$value] as $item) {
+        foreach ([...(is_array($value) ? array_values($value) : [$value]), ...$this->extra] as $item) {
             if (is_string($item) && filled($item)) {
                 $paths[] = $item;
             } elseif ($item !== null && $item !== '') {

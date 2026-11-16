@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\UsesClientConnection;
+use App\Support\ColourNames;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -104,9 +105,14 @@ class Product extends Model
     }
 
     /** Ordered public URLs for all images. */
+    /** Images are optional: a product without any shows one neutral placeholder, so no view renders a broken image. */
+    public const PLACEHOLDER_IMAGE = 'images/product-placeholder.svg';
+
     public function getImageUrlsAttribute(): array
     {
-        return array_values(array_filter(array_map(fn ($p) => Media::url($p), $this->images ?? [])));
+        $urls = array_values(array_filter(array_map(fn ($p) => Media::url($p), $this->images ?? [])));
+
+        return $urls ?: [asset(self::PLACEHOLDER_IMAGE)];
     }
 
     public function getImageUrlAttribute(): ?string
@@ -153,6 +159,121 @@ class Product extends Model
 
     // ---- Variants ----------------------------------------------------------
 
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product) {
+            $product->syncVariantData();
+            $product->syncReviewBaseline();
+        });
+    }
+
+    /**
+     * The shown rating and review count combine two sources: the baseline an admin types in
+     * (reviews collected elsewhere) and the approved reviews customers leave here. A review
+     * left on the storefront therefore adds to the typed figures instead of replacing them.
+     *
+     * @return array{rating: float, review_count: int}
+     */
+    public function combinedReviewStats(): array
+    {
+        $baseCount = (int) $this->base_review_count;
+        $baseTotal = (float) $this->base_rating * $baseCount;
+
+        $real = $this->exists
+            ? Review::approved()->where('product_id', $this->getKey())->reorder()
+                ->selectRaw('count(*) as n, coalesce(sum(rating), 0) as total')->first()
+            : null;
+        $count = $baseCount + (int) ($real->n ?? 0);
+
+        return [
+            'rating' => $count > 0 ? round(($baseTotal + (float) ($real->total ?? 0)) / $count, 1) : 0.0,
+            'review_count' => $count,
+        ];
+    }
+
+    /**
+     * Writing rating / review_count directly (a seeder, an import) sets the baseline, since
+     * those columns only ever hold the combined figures; either way they are then recomputed.
+     */
+    private function syncReviewBaseline(): void
+    {
+        if ($this->isDirty('review_count') && ! $this->isDirty('base_review_count')) {
+            $this->base_review_count = max(0, (int) $this->review_count);
+        }
+        if ($this->isDirty('rating') && ! $this->isDirty('base_rating')) {
+            $this->base_rating = (float) $this->rating;
+        }
+
+        if (! $this->exists || $this->isDirty(['base_rating', 'base_review_count'])) {
+            $this->forceFill($this->combinedReviewStats());
+        }
+    }
+
+    /** "Size" or "Sizes", in any case. */
+    public static function isSizeAttribute(?string $name): bool
+    {
+        return (bool) preg_match('/^sizes?$/i', trim((string) $name));
+    }
+
+    /** "Colour", "Color", "Colours" or "Colors", in any case. */
+    public static function isColourAttribute(?string $name): bool
+    {
+        return (bool) preg_match('/^colou?rs?$/i', trim((string) $name));
+    }
+
+    /** Two attribute names are the same choice: case aside, Colour and Color are one. */
+    public static function sameAttribute(string $a, string $b): bool
+    {
+        $canon = fn (string $n) => self::isColourAttribute($n) ? 'colour' : (self::isSizeAttribute($n) ? 'size' : mb_strtolower(trim($n)));
+
+        return $canon($a) === $canon($b);
+    }
+
+    /**
+     * Keeps what is derived from the options in step when they are defined:
+     *  - the size and colour lists, which every template's own Size and Colour pickers render
+     *    (without this, a Size or Colour entered as an option never showed on the storefront);
+     *  - each combination's chosen values, dropping any for an option that no longer exists,
+     *    so a renamed or removed option cannot leave a combination that never matches.
+     */
+    public function syncVariantData(): void
+    {
+        $attributes = [];
+        foreach ((array) $this->variant_attributes as $attribute) {
+            $name = trim((string) ($attribute['name'] ?? ''));
+            $values = array_values(array_unique(array_filter(array_map(fn ($v) => trim((string) $v), (array) ($attribute['values'] ?? [])), 'strlen')));
+            if ($name !== '' && $values) {
+                $attributes[] = ['name' => $name, 'values' => $values, 'swatches' => (array) ($attribute['swatches'] ?? [])];
+            }
+        }
+        if (! $attributes) {
+            return; // An older product: the size and colour lists are its options.
+        }
+
+        $size = collect($attributes)->first(fn ($a) => self::isSizeAttribute($a['name']));
+        $colour = collect($attributes)->first(fn ($a) => self::isColourAttribute($a['name']));
+        // Only a list with a matching option is rewritten: a product may keep an older list
+        // that is not a choice (one display colour beside a Size option, say).
+        if ($size) {
+            $this->sizes = $size['values'];
+        }
+        if ($colour) {
+            $this->colors = array_map(fn ($value) => ['name' => $value, 'hex' => filled($colour['swatches'][$value] ?? null) ? $colour['swatches'][$value] : ColourNames::hex($value)], $colour['values']);
+        }
+
+        $names = array_column($attributes, 'name');
+        $this->variants = array_values(array_map(function ($variant) use ($names) {
+            $options = [];
+            foreach ((array) ($variant['options'] ?? []) as $name => $value) {
+                if (in_array($name, $names, true) && filled($value)) {
+                    $options[$name] = $value;
+                }
+            }
+
+            return ['options' => $options] + (array) $variant;
+        }, (array) $this->variants));
+    }
+
     /**
      * The attributes this product varies by, in one shape whether they were entered as
      * variant attributes or as the older colour and size lists.
@@ -174,6 +295,14 @@ class Product extends Model
                 array_intersect_key((array) ($attribute['swatches'] ?? []), array_flip($values)),
                 fn ($hex) => filled($hex),
             );
+            // A colour option's values named like a colour ("Red", "Navy blue") get that swatch
+            // unless one was picked.
+            if (self::isColourAttribute($name)) {
+                foreach ($values as $value) {
+                    $swatches[$value] ??= ColourNames::hex($value);
+                }
+                $swatches = array_filter($swatches);
+            }
             $attributes[] = ['name' => $name, 'values' => $values, 'swatches' => $swatches];
         }
 
@@ -216,7 +345,7 @@ class Product extends Model
      * The variant combinations, normalised. A variant with no price of its own inherits the
      * product's price; the same goes for stock and SKU.
      *
-     * @return array<int, array{options:array<string,string>, sku:?string, price:int, stock:int, is_active:bool, label:string}>
+     * @return array<int, array{options:array<string,string>, sku:?string, price:int, stock:int, is_active:bool, label:string, images:array<int,string>}>
      */
     public function variantList(): array
     {
@@ -243,6 +372,8 @@ class Product extends Model
                 'stock' => $stock === null || $stock === '' ? (int) $this->stock : (int) $stock,
                 'is_active' => (bool) ($variant['is_active'] ?? true),
                 'label' => implode(' / ', array_values($options)),
+                // Photos of this combination (URLs); the gallery switches to them when it is chosen.
+                'images' => array_values(array_filter(array_map(fn ($path) => is_string($path) ? Media::url($path) : null, (array) ($variant['images'] ?? [])))),
             ];
         }
 
@@ -292,7 +423,7 @@ class Product extends Model
         foreach ($this->variantAttributes() as $attribute) {
             $value = null;
             foreach ($options as $name => $candidate) {
-                if (strcasecmp((string) $name, $attribute['name']) === 0) {
+                if (self::sameAttribute((string) $name, $attribute['name'])) {
                     $value = (string) $candidate;
                     break;
                 }
@@ -343,6 +474,11 @@ class Product extends Model
             'compare_at_price_formatted' => $this->compare_at_price ? money($this->compare_at_price) : null,
             'discount_percent' => $this->discount_percent,
             'images' => $this->image_urls,
+            // Combinations with photos of their own: [{options: {Colour: 'Navy'}, images: [url…]}].
+            'variant_images' => array_values(array_map(
+                fn (array $v) => ['options' => $v['options'], 'images' => $v['images']],
+                array_filter($this->variantList(), fn (array $v) => $v['is_active'] && $v['images'] !== []),
+            )),
             'colors' => $this->colors ?? [],
             'sizes' => $this->sizes ?? [],
             'rating' => $this->rating,

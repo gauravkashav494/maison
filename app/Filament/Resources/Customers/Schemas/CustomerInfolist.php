@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers\Schemas;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
+use App\Filament\Support\PasswordHintColumn;
 use App\Models\Customer;
 use App\Models\Order;
 use Filament\Infolists\Components\IconEntry;
@@ -32,6 +33,7 @@ class CustomerInfolist
                             ->url(fn (Customer $r) => 'mailto:'.$r->email),
                         TextEntry::make('phone')->icon('heroicon-m-phone')->copyable()->placeholder('—')
                             ->url(fn (Customer $r) => $r->phone ? 'tel:'.preg_replace('/[^0-9+]/', '', $r->phone) : null),
+                        PasswordHintColumn::entry(),
                     ]),
 
                 Section::make('Addresses')

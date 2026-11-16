@@ -2,6 +2,9 @@
 
 namespace App\Admin;
 
+use App\Clients\ClientAccess;
+use App\Contracts\AdminIdentity;
+use App\Filament\Pages\SiteSettings;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\ContactMessage;
@@ -21,7 +24,6 @@ use App\Models\Store;
 use App\Models\Storefront;
 use App\Models\Subscriber;
 use App\Models\Testimonial;
-use App\Contracts\AdminIdentity;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 
@@ -68,7 +70,7 @@ class StoreContext
         if (! $user || ! $user->isActiveAccount()) {
             return;
         }
-        if ($user->isSuperAdmin()) {
+        if ($user->isPlatformAccount()) {
             $this->template = $chosenTemplate && app(TemplateManager::class)->has($chosenTemplate) ? $chosenTemplate : null;
 
             return;
@@ -118,8 +120,8 @@ class StoreContext
     /** Can this session open the given admin module (model class)? */
     public function allowsModel(string $model): bool
     {
-        // A SuperAdmin runs the platform and has no access to a client's business data.
-        if (! $this->user || $this->isSuperAdmin()) {
+        // A platform account runs the platform and has no access to a client's business data.
+        if (! $this->user || $this->user->isPlatformAccount()) {
             return false;
         }
         if (! $this->template) {
@@ -156,12 +158,12 @@ class StoreContext
 
         // Site settings (brand, contact, checkout, SEO) apply to every store; a client's save
         // stays its own, because settings are stored per client.
-        $forThisStore = $pageClass === \App\Filament\Pages\SiteSettings::class
+        $forThisStore = $pageClass === SiteSettings::class
             || ($template && in_array($pageClass, $template->adminPages(), true));
 
         return $template
             && $forThisStore
-            && \App\Clients\ClientAccess::allows($this->user, 'appearance', 'update');
+            && ClientAccess::allows($this->user, 'appearance', 'update');
     }
 
     /** Label shown in the topbar. */

@@ -79,9 +79,14 @@
                 @if(!empty($product->colors))
                     <div class="mt-8">
                         <p class="mb-3 text-[0.6875rem] uppercase tracking-[0.2em]">Colour <span class="ml-2 text-smoke normal-case tracking-normal" x-text="color"></span></p>
-                        <div class="flex gap-3">
+                        <div class="flex flex-wrap items-center gap-3">
                             @foreach($product->colors as $c)
-                                <button type="button" @click="color = @js($c['name'])" aria-label="{{ $c['name'] }}" :aria-pressed="color === @js($c['name'])" class="h-8 w-8 rounded-full ring-1 ring-offset-2 ring-offset-ivory transition-all" :class="color === @js($c['name']) ? 'ring-ink' : 'ring-ink/15 hover:ring-ink/40'" style="background-color: {{ $c['hex'] }}"></button>
+                                @if(!empty($c['hex']))
+                                    <button type="button" @click="color = @js($c['name'])" aria-label="{{ $c['name'] }}" :aria-pressed="color === @js($c['name'])" class="h-8 w-8 rounded-full ring-1 ring-offset-2 ring-offset-ivory transition-all" :class="color === @js($c['name']) ? 'ring-ink' : 'ring-ink/15 hover:ring-ink/40'" style="background-color: {{ $c['hex'] }}"></button>
+                                @else
+                                    {{-- No swatch colour set for this value: shown as its name --}}
+                                    <button type="button" @click="color = @js($c['name'])" :aria-pressed="color === @js($c['name'])" class="min-w-14 border px-4 py-2 text-[0.75rem] uppercase tracking-wider transition-colors" :class="color === @js($c['name']) ? 'border-ink bg-ink text-ivory' : 'border-ink/20 hover:border-ink'">{{ $c['name'] }}</button>
+                                @endif
                             @endforeach
                         </div>
                     </div>
@@ -100,7 +105,7 @@
                 </div>
 
                 {{-- Any further attributes this product varies by (material, style, …) --}}
-                <x-variant-options :product="$product" />
+                <x-variant-options :product="$product" own-colour-picker />
 
                 <div class="mt-8 flex gap-3" x-ref="buy">
                     <div class="flex h-14 items-center border border-ink/20">

@@ -39,7 +39,7 @@ class OrderLines
         if ($product->sellsVariants()) {
             foreach ($product->variantList() as $variant) {
                 if ($variant['is_active']) {
-                    $lines[] = self::line($product, $choices, $variant['options'], $variant['sku'], $variant['price'], $variant['stock']);
+                    $lines[] = self::line($product, $choices, $variant['options'], $variant['sku'], $variant['price'], $variant['stock'], $variant['images'][0] ?? null);
                 }
             }
 
@@ -115,7 +115,7 @@ class OrderLines
         return $combinations;
     }
 
-    private static function line(Product $product, array $choices, array $options, ?string $sku, float $price, int $stock): array
+    private static function line(Product $product, array $choices, array $options, ?string $sku, float $price, int $stock, ?string $image = null): array
     {
         $chosen = array_intersect_key($options, array_flip($choices));
 
@@ -143,7 +143,8 @@ class OrderLines
             'max' => (int) min($limits),
             'url' => $product->url,
             'unit' => count($product->sizes ?? []) === 1 && ! $chosen ? ($product->sizes[0] ?? null) : null,
-            'image' => $product->image_url,
+            // A combination with photos of its own shows its first one.
+            'image' => $image ?? $product->image_url,
             'category' => $product->category?->name,
         ];
     }

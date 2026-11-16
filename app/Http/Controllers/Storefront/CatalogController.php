@@ -14,7 +14,6 @@ use App\Models\Order;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Product;
-use App\Models\Review;
 use App\Models\Store;
 use App\Support\ReviewModeration;
 use App\Support\Seo;
@@ -81,7 +80,8 @@ class CatalogController extends Controller
             '@type' => 'Product',
             'name' => $product->name,
             'description' => $product->description,
-            'image' => $product->image_urls,
+            // Real photos only: the no-image placeholder is not something to hand search engines.
+            'image' => $product->images ? $product->image_urls : [],
             'sku' => $product->sku,
             'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: setting('site.name')],
             'offers' => [

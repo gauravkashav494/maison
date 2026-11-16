@@ -14,8 +14,8 @@ use App\Models\ClientRole;
 use App\Models\ClientUser;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\PlatformActivity;
 use App\Models\Plan;
+use App\Models\PlatformActivity;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Setting;
@@ -349,15 +349,15 @@ class ClientPermissionsTest extends TestCase
 
     // ---- Modules ----------------------------------------------------------------------------
 
-    public function test_a_module_switched_off_is_gone_even_for_the_client_admin(): void
+    public function test_the_client_admin_keeps_every_module_whatever_is_switched_off(): void
     {
-        $this->alpha->update(['modules' => ['orders', 'customers']]);
+        $this->alpha->update(['modules' => []]);
         $this->actingAs($this->alphaAdmin->fresh(), 'client');
 
-        $this->get('/client/products')->assertForbidden();
-        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertForbidden();
+        $this->get('/client/products')->assertSuccessful();
+        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertSuccessful();
         $this->get('/client/orders')->assertSuccessful();
-        $this->get('/client')->assertSuccessful()->assertDontSee('/client/products');
+        $this->get('/client/services')->assertForbidden(); // still nothing the store does not support
     }
 
     public function test_a_module_switched_off_overrides_a_role_that_grants_it(): void

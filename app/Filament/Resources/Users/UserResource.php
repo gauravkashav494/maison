@@ -14,7 +14,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -24,7 +23,7 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $modelLabel = 'Super Admin';
+    protected static ?string $modelLabel = 'Platform user';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
@@ -32,7 +31,7 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationLabel = 'Super Admins';
+    protected static ?string $navigationLabel = 'Platform users';
 
     public static function form(Schema $schema): Schema
     {
@@ -42,12 +41,6 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return UsersTable::configure($table);
-    }
-
-    /** This resource is for platform operators only; nothing else in `users` is listed. */
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->where('role', User::ROLE_SUPER_ADMIN);
     }
 
     public static function getRelations(): array

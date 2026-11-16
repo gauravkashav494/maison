@@ -3,6 +3,7 @@
  * reviews, recently viewed, coupons/shipping on the cart, checkout, cookie consent.
  * Imported by app.js after the core stores are defined.
  */
+import { gallerySlides, registerVariants, watchVariantGallery } from './variants';
 export default function registerExtras(Alpine, api) {
     /* ---- Cart extras: promo codes + shipping method ---------------------- */
     const cart = Alpine.store('cart');
@@ -82,14 +83,12 @@ export default function registerExtras(Alpine, api) {
         lightbox: false,
         zoom: { on: false, x: 50, y: 50 },
         showSticky: false,
-        get slides() {
-            const s = product.images.map((src) => ({ type: 'image', src }));
-            if (product.video_url) s.push({ type: 'video', src: product.video_url });
-            return s;
-        },
-        get current() { return this.slides[this.image]; },
+        // A combination with its own photos takes over the gallery when it is chosen.
+        get slides() { return gallerySlides(product, this); },
+        get current() { return this.slides[this.image] ?? this.slides[0]; },
         init() {
             Alpine.store('recent_products').push(product.slug);
+            watchVariantGallery(this, product);
             const anchor = this.$refs.buy;
             if (anchor) {
                 new IntersectionObserver(([e]) => { this.showSticky = !e.isIntersecting && e.boundingClientRect.top < 0; }, { threshold: 0 }).observe(anchor);
@@ -158,18 +157,7 @@ export default function registerExtras(Alpine, api) {
 
 
     /* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
-    // Templates render Size and Colour with their own pickers, which set the page's `size` and
-    // `color` rather than `options`, so those are read as the Size and Colour attributes here
-    // (the same way the cart reads them on the server).
-    Alpine.data('variantPricing', (variants) => ({
-        get current() {
-            const chosen = { ...(this.options || {}) };
-            if (this.size && !chosen.Size) chosen.Size = this.size;
-            if (this.color && !chosen.Colour) chosen.Colour = this.color;
-            // A variant matches when every attribute it is defined by has been chosen with its value.
-            return variants.find((v) => Object.keys(v.options).every((n) => chosen[n] === v.options[n])) || null;
-        },
-    }));
+    registerVariants(Alpine);
 
     /* ---- FAQ accordion / generic accordion -------------------------------- */
     Alpine.data('accordion', (first = null) => ({ open: first, toggle(k) { this.open = this.open === k ? null : k; } }));

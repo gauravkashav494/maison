@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Admin\PlatformModules;
 use App\Clients\ClientTotals;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Support\RowActions;
@@ -44,7 +45,7 @@ class ClientTotalsReport extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return (bool) filament()->auth()->user()?->isSuperAdmin();
+        return PlatformModules::current(PlatformModules::REPORTS);
     }
 
     private function totalsFor(Client $client): array

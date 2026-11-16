@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Clients\Schemas;
 use App\Clients\ClientDatabase;
 use App\Clients\ClientModules;
 use App\Clients\ClientQuota;
+use App\Clients\ClientTemplateSwitch;
 use App\Models\Client;
 use App\Models\Plan;
 use App\Models\Storefront;
@@ -83,8 +84,24 @@ class ClientForm
                     ->searchable()
                     ->live()
                     // Every module the new store supports starts switched on.
-                    ->afterStateUpdated(fn ($set, $state) => $set('modules', array_keys(ClientModules::optionsForStorefront($state))))
+                    ->afterStateUpdated(function ($set, $state) {
+                        $set('modules', array_keys(ClientModules::optionsForStorefront($state)));
+                        // The toggle below is hidden until the store changes, so its default never
+                        // applied: start it on each time the choice changes.
+                        $set('move_content', true);
+                    })
                     ->helperText('The store (template) this client runs. Two clients may run the same store; they share no data.'),
+                // Changing the store of an existing client to one with another template: offer to
+                // bring their catalogue along, or it disappears from their site (it stays in admin).
+                Toggle::make('move_content')
+                    ->label('Move this client\'s content to the new template')
+                    ->default(true)
+                    ->dehydrated(false)
+                    ->visible(fn (?Client $record, $get) => self::switchesTemplate($record, $get('storefront_id')))
+                    ->helperText(fn (?Client $record) => $record
+                        ? self::moveContentHelp($record)
+                        : null)
+                    ->columnSpanFull(),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('Inactive clients cannot sign in and their storefront stops answering.'),
             ]),
@@ -98,7 +115,7 @@ class ClientForm
                         ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://.'),
                 ]),
             'modules' => Section::make('Modules')
-                ->description('What this client can use. A module switched off disappears from their panel, for every member of their team.')
+                ->description('What this client\'s Admin Staff can be given. A module switched off disappears for Admin Staff, whatever their role says; the Client Admin always has every module.')
                 ->schema([
                     CheckboxList::make('modules')
                         ->hiddenLabel()
@@ -146,5 +163,27 @@ class ClientForm
                         ->helperText('Fills the store with its demo products, categories and collections, or services, areas and projects, which the client can edit or delete later. Menus and pages are added either way.'),
                 ]),
         ];
+    }
+
+    /** True when an existing client is being moved to a store that runs a different template. */
+    public static function switchesTemplate(?Client $record, mixed $storefrontId): bool
+    {
+        if (! $record || blank($storefrontId) || (int) $storefrontId === (int) $record->storefront_id) {
+            return false;
+        }
+        $to = Storefront::find($storefrontId)?->template;
+
+        return $to !== null && $to !== $record->templateId();
+    }
+
+    private static function moveContentHelp(Client $record): string
+    {
+        $from = $record->templateId();
+        $count = $from ? ClientTemplateSwitch::countContent($record, $from) : 0;
+
+        return "Their products, categories, collections, pages, posts and other content ({$count} "
+            .Str::plural('item', $count).') were made for the current template and only show there. '
+            .'On: they move to the new template and stay on the site. Off: they disappear from the site but stay in admin. '
+            .'Either way the new template\'s homepage, menus and Appearance settings start from its defaults.';
     }
 }

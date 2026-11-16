@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
+use App\Clients\ClientTemplateSwitch;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Models\ClientUser;
@@ -16,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Wizard\Step;
+use Illuminate\Support\Str;
 
 class EditClient extends EditRecord
 {
@@ -63,7 +65,9 @@ class EditClient extends EditRecord
                             ->dehydrated(fn ($state) => filled($state))
                             ->hint('Minimum 8 characters')
                             ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.')
-                            ->helperText(fn (?ClientUser $record) => $record ? 'Leave blank to keep their current password.' : null),
+                            ->helperText(fn (?ClientUser $record) => $record
+                                ? 'Leave blank to keep their current password'.(filled($record->password_hint) ? ': '.$record->password_hint : '.')
+                                : null),
                         Toggle::make('is_active')->label('Can sign in')->default(true)->inline(false),
                     ]),
             ]);
@@ -107,6 +111,41 @@ class EditClient extends EditRecord
 
             $this->halt();
         }
+
+        $this->previousTemplate = $this->getRecord()->templateId();
+    }
+
+    /** The template the client ran before this save, to move their content if it changed. */
+    protected ?string $previousTemplate = null;
+
+    /**
+     * A client moved to a store with another template: their content moves with them, unless
+     * "Move this client's content" was switched off.
+     */
+    protected function afterSave(): void
+    {
+        $client = $this->getRecord()->refresh();
+        $from = $this->previousTemplate;
+        $to = $client->templateId();
+        if (! $from || ! $to || $from === $to) {
+            return;
+        }
+
+        if (! ($this->data['move_content'] ?? true)) {
+            Notification::make()->warning()->title('Store changed, content left behind')
+                ->body('Content made for the old template no longer shows on the storefront. It is still in admin.')
+                ->send();
+
+            return;
+        }
+
+        $moved = ClientTemplateSwitch::moveContent($client, $from, $to);
+        $total = array_sum($moved);
+        Notification::make()->success()->title('Store changed')
+            ->body($total
+                ? 'Moved '.$total.' '.Str::plural('item', $total).' to the new template ('.collect($moved)->map(fn ($n, $model) => $n.' '.Str::plural(Str::headline($model), $n))->implode(', ').').'
+                : 'There was no content to move.')
+            ->send();
     }
 
     /** Editing: jump straight to any step by its header instead of clicking through them all. */

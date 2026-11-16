@@ -46,7 +46,9 @@ class ClientContext
             return;
         }
 
-        if ($identity->isSuperAdmin()) {
+        // Any platform account (Super Admin or platform staff) works on the platform side; what
+        // each may open there is decided by its modules (App\Admin\PlatformModules).
+        if ($identity->isPlatformAccount()) {
             $this->superAdmin = true;
             $this->client = $this->validated($chosen);
             $this->source = $this->client ? 'super_admin_choice' : 'super_admin_all';
@@ -115,6 +117,7 @@ class ClientContext
         return $this->locked;
     }
 
+    /** A platform session (Super Admin or platform staff), as opposed to a client's or a storefront's. */
     public function isSuperAdmin(): bool
     {
         return $this->superAdmin;
