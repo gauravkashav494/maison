@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ClientUsers;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Clients\ClientResource;
@@ -107,7 +108,7 @@ class ClientUserResource extends Resource
                 TextInput::make('email')->email()->required()->maxLength(190)
                     // Addresses are unique inside a client, not across the platform.
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $get) => $rule->where('client_id', app(ClientContext::class)->id() ?? $get('client_id') ?? 0)),
-                TextInput::make('phone')->maxLength(30),
+                PhoneInput::make('phone'),
                 TextInput::make('password')
                     ->password()
                     ->revealable()

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
 use App\Filament\Auth\Login;
 use App\Filament\Pages\Concerns\HasSettingsForm;
@@ -107,7 +108,7 @@ class SiteSettings extends Page
                     Tab::make('Contact & social')->icon('heroicon-o-at-symbol')->schema([
                         Grid::make(2)->schema([
                             TextInput::make('site.contact_email')->email()->label('Client care email'),
-                            TextInput::make('site.contact_phone')->label('Phone'),
+                            PhoneInput::make('site.contact_phone')->label('Phone'),
                         ]),
                         Callout::make('Used everywhere on the store')
                             ->description('Shown on the storefront, in emails and in search-engine data. A template can show a different support phone or email: Appearance → its Settings page → Support.')

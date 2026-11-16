@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ServiceRequests\Schemas;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Models\ServiceRequest;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -33,7 +34,7 @@ class ServiceRequestForm
             ]),
             Section::make('Customer')->columns(3)->schema([
                 TextInput::make('name')->required()->maxLength(80),
-                TextInput::make('phone')->required()->maxLength(30),
+                PhoneInput::make('phone')->required(),
                 TextInput::make('email')->email()->maxLength(190),
             ]),
             Textarea::make('admin_notes')->label('Internal notes')->rows(3),

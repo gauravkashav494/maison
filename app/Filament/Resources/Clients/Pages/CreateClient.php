@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientProvisioner;
 use App\Clients\ClientSetup;
 use App\Filament\Resources\Clients\ClientResource;
@@ -45,7 +46,7 @@ class CreateClient extends CreateRecord
             ->schema([
                 TextInput::make('name')->label('Full name')->required()->maxLength(120),
                 TextInput::make('email')->label('Email')->email()->required()->maxLength(190),
-                TextInput::make('phone')->label('Phone (optional)')->tel()->maxLength(30),
+                PhoneInput::make('phone')->label('Phone (optional)'),
                 TextInput::make('password')->label('Password')->password()->revealable()->required()->minLength(8)
                     ->hint('Minimum 8 characters')
                     ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.'),

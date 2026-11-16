@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Admin\PlatformModules;
 use App\Models\User;
 use Filament\Forms\Components\CheckboxList;
@@ -24,7 +25,7 @@ class UserForm
             Section::make('Account')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120),
                 TextInput::make('email')->email()->required()->unique(ignoreRecord: true),
-                TextInput::make('phone')->maxLength(30),
+                PhoneInput::make('phone'),
                 TextInput::make('password')
                     ->password()
                     ->revealable()

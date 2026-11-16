@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Models\Order;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -43,7 +44,7 @@ class OrderForm
                     ->collapsed()
                     ->schema([
                         TextInput::make('shipping_name')->required(),
-                        TextInput::make('phone'),
+                        PhoneInput::make('phone'),
                         TextInput::make('shipping_line1')->label('Address line 1')->required()->columnSpanFull(),
                         TextInput::make('shipping_line2')->label('Address line 2')->columnSpanFull(),
                         TextInput::make('shipping_city')->required(),

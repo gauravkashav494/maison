@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Stores\Schemas;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Support\Fields;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -23,7 +24,7 @@ class StoreForm
                 TextInput::make('state'),
                 TextInput::make('postal_code'),
                 TextInput::make('country')->default('India'),
-                TextInput::make('phone'),
+                PhoneInput::make('phone'),
                 TextInput::make('email')->email(),
                 Textarea::make('hours')->rows(3)->helperText('One line per day range, e.g. "Mon–Sat 10:30–20:00".')->columnSpanFull(),
             ]),

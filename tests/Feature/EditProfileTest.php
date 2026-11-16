@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Auth\EditProfile;
+use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Plan;
@@ -70,7 +71,74 @@ class EditProfileTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame('Renamed', $this->admin->fresh()->name);
-        $this->assertSame('9876543210', $this->admin->fresh()->phone);
+        $this->assertSame('+91 98765 43210', $this->admin->fresh()->phone);
+    }
+
+    public function test_the_phone_is_checked_against_its_country(): void
+    {
+        Filament::setCurrentPanel('client');
+        $this->actingAs($this->admin, 'client');
+
+        // The field holds "+<dial code> <number>"; the country picker sets the code.
+        // India only for now: another country's code is refused.
+        foreach (['+91 12345', '+91 05876 5432', '+44 7400 123456', '+999 1234567'] as $invalid) {
+            Livewire::test(EditProfile::class)
+                ->fillForm(['phone' => $invalid])
+                ->call('save')
+                ->assertHasFormErrors(['phone']);
+        }
+
+        // Spaces, dashes and a trunk 0 are fine; it is saved in one shape.
+        Livewire::test(EditProfile::class)
+            ->fillForm(['phone' => '+91 098765-43210'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame('+91 98765 43210', $this->admin->fresh()->phone);
+    }
+
+    /** Its own test: the profile page allows only 5 saves a minute. */
+    public function test_a_blank_phone_clears_the_number(): void
+    {
+        $this->admin->update(['phone' => '+91 98765 43210']);
+        Filament::setCurrentPanel('client');
+        $this->actingAs($this->admin->fresh(), 'client');
+
+        Livewire::test(EditProfile::class)
+            ->fillForm(['phone' => ''])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertNull($this->admin->fresh()->phone);
+    }
+
+    public function test_the_same_check_applies_to_the_other_phone_fields(): void
+    {
+        $operator = User::create(['name' => 'Ops', 'email' => 'ops2@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'is_active' => true]);
+        Filament::setCurrentPanel('admin');
+        $this->actingAs($operator, 'admin');
+
+        Livewire::test(CreateUser::class)
+            ->fillForm(['name' => 'Support', 'email' => 'support@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'phone' => '+91 12'])
+            ->call('create')
+            ->assertHasFormErrors(['phone']);
+
+        Livewire::test(CreateUser::class)
+            ->fillForm(['name' => 'Support', 'email' => 'support@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'phone' => '+91 98765 43210'])
+            ->call('create')
+            ->assertHasNoFormErrors();
+        $this->assertSame('+91 98765 43210', User::where('email', 'support@platform.test')->value('phone'));
+    }
+
+    public function test_a_saved_phone_opens_with_its_country(): void
+    {
+        $this->admin->update(['phone' => '+91 98765 43210']);
+        Filament::setCurrentPanel('client');
+        $this->actingAs($this->admin->fresh(), 'client');
+
+        // The code is shown fixed inside the box: with India only there is no dropdown.
+        Livewire::test(EditProfile::class)
+            ->assertSchemaStateSet(['phone' => '+91 98765 43210'])
+            ->assertSee('fi-phone-country is-fixed', false)
+            ->assertDontSee('fi-phone-panel', false);
     }
 
     public function test_an_email_used_in_another_client_is_still_allowed(): void

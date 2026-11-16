@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -81,7 +82,7 @@ class GrocerySettings extends Page
                     ]),
                     Tab::make('Support')->icon('heroicon-o-lifebuoy')->schema([
                         Grid::make(3)->schema([
-                            TextInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
+                            PhoneInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                             TextInput::make("$g.support_hours")->label('Support hours'),
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format, e.g. 919876543210. Leave blank to hide the WhatsApp button.'),
                         ]),

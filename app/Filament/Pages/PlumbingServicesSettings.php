@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -66,7 +67,7 @@ class PlumbingServicesSettings extends Page
                         ]),
                         Section::make('Contact')->columns(2)->schema([
                             TextInput::make("$g.phone")->label('Phone')->required()->helperText('Shown on every Call button.'),
-                            TextInput::make("$g.emergency_phone")->label('Emergency phone')->helperText('Leave blank to use the main phone.'),
+                            PhoneInput::make("$g.emergency_phone")->label('Emergency phone')->helperText('Leave blank to use the main phone.'),
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format without +, e.g. 919876543210. Leave blank to hide WhatsApp buttons.'),
                             TextInput::make("$g.whatsapp_message")->label('WhatsApp pre-filled message'),
                             TextInput::make("$g.email")->label('Email')->email(),

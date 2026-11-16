@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientTemplateSwitch;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
@@ -59,7 +60,7 @@ class EditClient extends EditRecord
                         TextInput::make('name')->label('Full name')->required()->maxLength(120),
                         TextInput::make('email')->label('Email')->email()->required()->maxLength(190)->distinct()
                             ->unique(ClientUser::class, 'email', ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', $clientId())),
-                        TextInput::make('phone')->label('Phone (optional)')->tel()->maxLength(30),
+                        PhoneInput::make('phone')->label('Phone (optional)'),
                         TextInput::make('password')->label('Password')->password()->revealable()->minLength(8)
                             ->required(fn (?ClientUser $record) => $record === null)
                             ->dehydrated(fn ($state) => filled($state))

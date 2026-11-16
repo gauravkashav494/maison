@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
@@ -69,7 +70,7 @@ class CustomerResource extends Resource
                 TextInput::make('name')->required()->maxLength(120),
                 TextInput::make('email')->email()->required()->maxLength(190)
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0)),
-                TextInput::make('phone')->maxLength(30),
+                PhoneInput::make('phone'),
                 TextInput::make('password')
                     ->password()
                     ->revealable()

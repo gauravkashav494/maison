@@ -2,6 +2,7 @@
 
 namespace App\Filament\Auth;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Models\ClientUser;
 use App\Support\Initials;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
@@ -53,12 +54,7 @@ class EditProfile extends BaseEditProfile
                             ->schema([
                                 $this->getNameFormComponent()->prefixIcon(Heroicon::OutlinedUser),
                                 $this->getEmailFormComponent()->prefixIcon(Heroicon::OutlinedEnvelope),
-                                TextInput::make('phone')
-                                    ->label('Phone number')
-                                    ->tel()
-                                    ->maxLength(32)
-                                    ->placeholder('+91 98765 43210')
-                                    ->prefixIcon(Heroicon::OutlinedPhone),
+                                PhoneInput::make('phone')->label('Phone number'),
                             ]),
 
                         Section::make('Password & security')
