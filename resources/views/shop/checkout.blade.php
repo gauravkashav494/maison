@@ -1,51 +1,49 @@
-@extends('layouts.app', ['transparentHeader' => filled(setting('site.page_header_image'))])
+@extends('layouts.app')
 
 @section('content')
 @php
     $field = 'input-luxe';
-    $label = 'block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke';
+    $label = 'block text-[0.625rem] uppercase tracking-[0.18em] text-smoke';
     $old = fn (string $k, $default = null) => old($k, $default);
 @endphp
-<x-page-hero eyebrow="Secure checkout" title="Checkout" :breadcrumbs="['Cart' => route('cart'), 'Checkout' => null]" />
+<section class="container-luxe pb-12 pt-20 lg:pb-16 lg:pt-36" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
 
-<section class="container-luxe py-12 lg:py-16" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 pb-4">
+        <h1 class="font-serif text-3xl lg:text-4xl">Checkout</h1>
+        <a href="{{ route('cart') }}" class="text-xs uppercase tracking-[0.2em] text-smoke underline-offset-4 hover:underline">← Back to cart</a>
+    </div>
 
-    <form method="post" action="{{ route('checkout.place') }}" class="grid gap-12 lg:grid-cols-12 lg:gap-16" @submit="submitting = true" novalidate>
+    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form grid gap-8 lg:grid-cols-12 lg:gap-12" @submit="submitting = true" novalidate>
         @csrf
-        <div class="space-y-12 lg:col-span-7">
-            {{-- Contact --}}
+        <div class="space-y-6 lg:col-span-7">
+            {{-- Contact & shipping address --}}
             <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">01</span><span class="font-serif text-2xl">Contact information</span></legend>
-                @guest<p class="mt-2 text-sm text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a> for a faster checkout.</p>@endguest
-                <div class="mt-6 grid gap-6 sm:grid-cols-2">
-                    <label><span class="{{ $label }}">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                <legend class="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <span class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">01</span><span class="font-serif text-xl">Contact &amp; shipping</span></span>
+                    @guest<span class="text-xs text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a></span>@endguest
+                </legend>
+                <div class="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-12">
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-8"><span class="{{ $label }}">Address<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="{{ $field }}" autocomplete="address-line1" placeholder="House / flat, street">@error('shipping_line1')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Landmark (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="{{ $field }}" autocomplete="address-line2">@error('shipping_line2')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="{{ $label }}">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="{{ $field }}" autocomplete="address-level2">@error('shipping_city')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="{{ $label }}">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="{{ $field }}" autocomplete="address-level1">@error('shipping_state')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="{{ $label }}">Postal code<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="{{ $field }}" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="{{ $label }}">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="{{ $field }}" autocomplete="country-name">@error('shipping_country')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                 </div>
-            </fieldset>
-
-            {{-- Shipping address --}}
-            <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">02</span><span class="font-serif text-2xl">Shipping address</span></legend>
-                <div class="mt-6 grid gap-6 sm:grid-cols-2">
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Address<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="{{ $field }}" autocomplete="address-line1" placeholder="House / flat, street">@error('shipping_line1')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="{{ $label }}">Apartment, landmark (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="{{ $field }}" autocomplete="address-line2">@error('shipping_line2')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="{{ $field }}" autocomplete="address-level2">@error('shipping_city')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="{{ $field }}" autocomplete="address-level1">@error('shipping_state')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Postal code<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="{{ $field }}" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label><span class="{{ $label }}">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="{{ $field }}" autocomplete="country-name">@error('shipping_country')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                </div>
-                @auth<label class="mt-5 flex items-center gap-3 text-sm"><input type="checkbox" name="save_address" value="1" class="accent-ink" checked> Save this address to my account</label>@endauth
+                @auth<label class="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" name="save_address" value="1" class="accent-ink" checked> Save this address to my account</label>@endauth
             </fieldset>
 
             {{-- Shipping method --}}
             <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">03</span><span class="font-serif text-2xl">Delivery method<span class="req" aria-hidden="true">*</span></span></legend>
+                <legend class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">02</span><span class="font-serif text-xl">Delivery method<span class="req" aria-hidden="true">*</span></span></legend>
                 @error('shipping_method')<p class="mt-2 text-xs text-rouge">{{ $message }}</p>@enderror
-                <div class="mt-6 divide-y divide-ink/10 border border-ink/15">
+                <div class="mt-3 grid gap-px border border-ink/15 bg-ink/10 sm:grid-cols-2">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
-                        <label class="flex cursor-pointer items-start gap-4 px-5 py-4 transition-colors" :class="shipping === @js($m['code']) && 'bg-cream'">
+                        <label class="flex cursor-pointer items-start gap-3 bg-ivory px-4 py-3 transition-colors" :class="shipping === @js($m['code']) && '!bg-cream'">
                             <input type="radio" name="shipping_method" value="{{ $m['code'] }}" class="mt-1 accent-ink" :checked="shipping === @js($m['code'])" @change="setShipping(@js($m['code']))">
                             <span class="flex-1">
                                 <span class="flex items-baseline justify-between gap-4"><span class="text-sm font-medium">{{ $m['name'] }}</span><span class="text-sm tabular-nums">{{ ($free || $m['cost'] <= 0) ? 'Complimentary' : money($m['cost']) }}</span></span>
@@ -58,14 +56,14 @@
 
             {{-- Payment --}}
             <fieldset>
-                <legend class="flex items-baseline gap-3"><span class="font-serif text-3xl">04</span><span class="font-serif text-2xl">Payment<span class="req" aria-hidden="true">*</span></span></legend>
-                <p class="mt-2 flex items-center gap-2 text-xs text-smoke"><x-ico name="lock" :size="12" /> All transactions are encrypted. We never store card details.</p>
-                <div class="mt-6 divide-y divide-ink/10 border border-ink/15">
+                <legend class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">03</span><span class="font-serif text-xl">Payment<span class="req" aria-hidden="true">*</span></span></legend>
+                @if(array_diff(array_keys($paymentMethods), ['cod']))<p class="mt-2 flex items-center gap-2 text-xs text-smoke"><x-ico name="lock" :size="12" /> All transactions are encrypted. We never store card details.</p>@endif
+                <div class="mt-3 divide-y divide-ink/10 border border-ink/15">
                     @foreach($paymentMethods as $code => $name)
                         <div>
-                            <label class="flex cursor-pointer items-center gap-4 px-5 py-4" :class="payment === @js($code) && 'bg-cream'">
+                            <label class="flex cursor-pointer items-center gap-3 px-4 py-3" :class="payment === @js($code) && 'bg-cream'">
                                 <input type="radio" name="payment_method" value="{{ $code }}" class="accent-ink" x-model="payment">
-                                <span class="flex-1 text-sm font-medium">{{ $name }}</span>
+                                <span class="flex-1 text-sm font-medium">{{ $name }}@if($code === 'cod')<span class="block text-xs font-normal text-smoke">Pay by cash or card to the courier</span>@endif</span>
                                 <span class="text-[0.5625rem] uppercase tracking-wider text-taupe">
                                     @switch($code)
                                         @case('card') Visa · MC · Amex · RuPay @break
@@ -75,6 +73,7 @@
                                     @endswitch
                                 </span>
                             </label>
+                            @if($code !== 'cod')
                             <div x-show="payment === @js($code)" x-collapse x-cloak class="border-t border-ink/10 bg-cream px-5 py-5">
                                 @switch($code)
                                     @case('card')
@@ -100,23 +99,27 @@
                                         @break
                                 @endswitch
                             </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
                 @error('payment_method')<p class="mt-2 text-xs text-rouge">{{ $message }}</p>@enderror
             </fieldset>
 
-            <label class="block"><span class="{{ $label }}">Order notes (optional)</span><textarea name="notes" rows="2" class="{{ $field }}" placeholder="Gift message, delivery instructions…">{{ $old('notes') }}</textarea>@error('notes')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+            <div x-data="{ open: @js(filled(old('notes')) || $errors->has('notes')) }">
+                <button type="button" class="text-xs uppercase tracking-[0.2em] text-smoke underline-offset-4 hover:underline" @click="open = !open" :aria-expanded="open"><span x-text="open ? '−' : '+'">+</span> Add order notes</button>
+                <label x-show="open" x-collapse x-cloak class="mt-2 block"><span class="sr-only">Order notes</span><textarea name="notes" rows="2" class="{{ $field }}" placeholder="Gift message, delivery instructions…">{{ $old('notes') }}</textarea>@error('notes')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+            </div>
         </div>
 
         {{-- Summary --}}
         <aside class="lg:col-span-5">
-            <div class="border border-ink/10 bg-cream p-6 lg:sticky lg:top-28 lg:p-8">
-                <h2 class="font-serif text-2xl">Your order</h2>
-                <ul class="mt-6 divide-y divide-ink/10">
+            <div class="border border-ink/10 bg-cream p-5 lg:sticky lg:top-28 lg:p-6">
+                <h2 class="font-serif text-xl">Your order</h2>
+                <ul class="mt-3 max-h-72 divide-y divide-ink/10 overflow-y-auto">
                     @foreach($cart['items'] as $item)
-                        <li class="flex items-center gap-4 py-4">
-                            <div class="relative h-20 w-16 shrink-0 overflow-hidden bg-sand">
+                        <li class="flex items-center gap-3 py-3">
+                            <div class="relative h-14 w-11 shrink-0 overflow-hidden bg-sand">
                                 <img src="{{ $item['product']['images'][0] ?? '' }}" alt="" class="img-cover">
                                 <span class="absolute -right-0 -top-0 grid h-5 min-w-5 place-items-center bg-ink px-1 text-[0.625rem] text-ivory">{{ $item['qty'] }}</span>
                             </div>
@@ -128,7 +131,7 @@
                         </li>
                     @endforeach
                 </ul>
-                <dl class="mt-4 space-y-3 border-t border-ink/10 pt-5 text-sm" x-data>
+                <dl class="mt-3 space-y-2 border-t border-ink/10 pt-4 text-sm" x-data>
                     <div class="flex justify-between"><dt class="text-smoke">Subtotal</dt><dd class="tabular-nums" x-text="$store.cart.subtotal_formatted || @js($cart['subtotal_formatted'])"></dd></div>
                     <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-smoke">Discount <span class="text-[0.625rem]" x-text="$store.cart.coupon ? '(' + $store.cart.coupon.code + ')' : ''"></span></dt><dd class="tabular-nums text-emerald-700" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                     <div class="flex justify-between"><dt class="text-smoke">Shipping</dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd></div>
@@ -139,13 +142,8 @@
                     <div class="flex justify-between border-t border-ink/10 pt-3 text-lg"><dt>Total</dt><dd class="tabular-nums" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
-                <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg mt-6 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
                 <p class="mt-4 text-center text-[0.6875rem] leading-relaxed text-taupe">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>. 30-day returns on every piece.</p>
-                <ul class="mt-5 grid grid-cols-3 gap-2 border-t border-ink/10 pt-5 text-center text-[0.5625rem] uppercase tracking-[0.15em] text-smoke">
-                    <li><x-ico name="lock" :size="16" :stroke="1" class="mx-auto mb-1" />Secure</li>
-                    <li><x-ico name="truck" :size="16" :stroke="1" class="mx-auto mb-1" />Tracked</li>
-                    <li><x-ico name="rotate" :size="16" :stroke="1" class="mx-auto mb-1" />Free returns</li>
-                </ul>
             </div>
         </aside>
     </form>

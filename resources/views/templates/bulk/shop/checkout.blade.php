@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 {{--
-    Checkout: four numbered steps (contact, delivery address, delivery method, payment) beside
+    Checkout: three numbered steps (contact & delivery address, delivery method, payment) beside
     a summary of the order. Field names and the Alpine `checkout` component are the shared
     ones, so the controller receives exactly the request every template sends.
 --}}
@@ -11,7 +11,7 @@
 @endphp
 
 @section('content')
-<div class="bk-wrap mt-6"
+<div class="bk-wrap mt-4"
      x-data="checkout({
         shipping: @js(old('shipping_method', $cart['shipping_method']['code'])),
         payment: @js(old('payment_method', array_key_first($paymentMethods))),
@@ -23,43 +23,40 @@
         <a href="{{ route('cart') }}" class="bk-link text-sm">← Back to your order</a>
     </div>
 
-    <form method="post" action="{{ route('checkout.place') }}" class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]" @submit="submitting = true" novalidate>
+    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]" @submit="submitting = true" novalidate>
         @csrf
 
-        <div class="space-y-5">
-            <section class="bk-card p-5 sm:p-6">
-                <h2 class="flex items-center gap-3 text-lg font-extrabold"><span class="bk-step-no">1</span>Contact</h2>
-                @guest
-                    <p class="bk-muted mt-2 text-sm">Ordering regularly? <a href="{{ route('login') }}?redirect=checkout" class="bk-link">Sign in</a> to use your saved address and repeat orders.</p>
-                @endguest
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <x-checked-field name="email" label="Email" rule="email" attribute="email address" :value="$user?->email" required type="email" autocomplete="email" />
-                    <x-phone-field :value="$user?->phone ?? $address?->phone" required />
+        <div class="space-y-3">
+            <section class="bk-card p-4 sm:p-5">
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                    <h2 class="flex items-center gap-3 text-lg font-extrabold"><span class="bk-step-no">1</span>Contact &amp; delivery address</h2>
+                    @guest
+                        <p class="bk-muted text-sm"><a href="{{ route('login') }}?redirect=checkout" class="bk-link">Sign in</a> to use your saved address</p>
+                    @endguest
                 </div>
-            </section>
-
-            <section class="bk-card p-5 sm:p-6">
-                <h2 class="flex items-center gap-3 text-lg font-extrabold"><span class="bk-step-no">2</span>Delivery address</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <x-checked-field name="shipping_name" label="Contact name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="sm:col-span-2" />
-                    <x-checked-field name="shipping_line1" label="Address" rule="line" attribute="address" :value="$address?->line1" required autocomplete="address-line1" placeholder="Unit / building, street" class="sm:col-span-2" />
-                    <x-checked-field name="shipping_line2" label="Area, landmark" rule="line" attribute="apartment or landmark" :value="$address?->line2" autocomplete="address-line2" class="sm:col-span-2" />
-                    <x-checked-field name="shipping_city" label="City" rule="place" attribute="city" :value="$address?->city" required autocomplete="address-level2" />
-                    <x-checked-field name="shipping_state" label="State" rule="place" attribute="state" :value="$address?->state" required autocomplete="address-level1" />
-                    <x-checked-field name="shipping_postal_code" label="PIN code" rule="postal" attribute="postal code" :value="$address?->postal_code" required autocomplete="postal-code" inputmode="numeric" />
-                    <x-checked-field name="shipping_country" label="Country" rule="place" attribute="country" :value="$address?->country ?? 'India'" required autocomplete="country-name" />
+                <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
+                    <x-checked-field name="shipping_name" label="Name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="col-span-2 sm:col-span-4" />
+                    <x-phone-field :value="$user?->phone ?? $address?->phone" required class="col-span-2 sm:col-span-4" />
+                    <x-checked-field name="email" label="Email" rule="email" attribute="email address" :value="$user?->email" required type="email" autocomplete="email" class="col-span-2 sm:col-span-4" />
+                    <x-checked-field name="shipping_line1" label="Address" rule="line" attribute="address" :value="$address?->line1" required autocomplete="address-line1" placeholder="Unit / building, street" class="col-span-2 sm:col-span-8" />
+                    <x-checked-field name="shipping_line2" label="Area, landmark" rule="line" attribute="apartment or landmark" :value="$address?->line2" autocomplete="address-line2" class="col-span-2 sm:col-span-4" />
+                    <x-checked-field name="shipping_city" label="City" rule="place" attribute="city" :value="$address?->city" required autocomplete="address-level2" class="sm:col-span-3" />
+                    <x-checked-field name="shipping_state" label="State" rule="place" attribute="state" :value="$address?->state" required autocomplete="address-level1" class="sm:col-span-3" />
+                    <x-checked-field name="shipping_postal_code" label="PIN code" rule="postal" attribute="postal code" :value="$address?->postal_code" required autocomplete="postal-code" inputmode="numeric" class="sm:col-span-3" />
+                    <x-checked-field name="shipping_country" label="Country" rule="place" attribute="country" :value="$address?->country ?? 'India'" required autocomplete="country-name" class="sm:col-span-3" />
                 </div>
                 @auth
-                    <label class="mt-4 flex items-center gap-2 text-sm">
+                    <label class="mt-3 flex items-center gap-2 text-sm">
                         <input type="checkbox" name="save_address" value="1" checked class="accent-[var(--bk-brand)]"> Save this address for next time
                     </label>
                 @endauth
             </section>
 
-            <section class="bk-card overflow-hidden">
-                <h2 class="flex items-center gap-3 p-5 pb-3 text-lg font-extrabold sm:px-6"><span class="bk-step-no">3</span>Delivery</h2>
-                @error('shipping_method')<p class="bk-error px-5 sm:px-6">{{ $message }}</p>@enderror
-                <div class="border-t border-[var(--bk-line)]">
+            <div class="bk-card overflow-hidden">
+            <section>
+                <h2 class="flex items-center gap-3 p-4 pb-3 text-lg font-extrabold sm:px-5"><span class="bk-step-no">2</span>Delivery</h2>
+                @error('shipping_method')<p class="bk-error px-4 sm:px-5">{{ $message }}</p>@enderror
+                <div class="grid border-t border-[var(--bk-line)] sm:grid-cols-2 sm:[&>.bk-option:nth-child(2)]:border-t-0 sm:[&>.bk-option:nth-child(even)]:border-l sm:[&>.bk-option:nth-child(even)]:border-[var(--bk-line)]">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
                         <label class="bk-option" :class="shipping === @js($m['code']) && 'is-on'">
@@ -75,27 +72,31 @@
                 </div>
             </section>
 
-            <section class="bk-card overflow-hidden">
-                <h2 class="flex items-center gap-3 p-5 pb-3 text-lg font-extrabold sm:px-6"><span class="bk-step-no">4</span>Payment</h2>
+            <section class="border-t border-[var(--bk-line)]">
+                <h2 class="flex items-center gap-3 p-4 pb-3 text-lg font-extrabold sm:px-5"><span class="bk-step-no">3</span>Payment</h2>
                 <div class="border-t border-[var(--bk-line)]">
                     @foreach($paymentMethods as $code => $name)
                         <label class="bk-option" :class="payment === @js($code) && 'is-on'">
                             <input type="radio" name="payment_method" value="{{ $code }}" x-model="payment">
                             <span class="flex flex-1 justify-between gap-4">
-                                <span class="font-bold">{{ $name }}</span>
+                                <span class="font-bold">{{ $name }}@if($code === 'cod')<span class="bk-muted block text-xs font-normal">Pay the driver on delivery</span>@endif</span>
                                 @if($code === 'cod')<span class="bk-muted text-sm">+ {{ money($codFee) }} fee</span>@endif
                             </span>
                         </label>
                     @endforeach
                 </div>
-                @error('payment_method')<p class="bk-error px-5 pb-4 sm:px-6">{{ $message }}</p>@enderror
-                <p class="bk-muted px-5 pb-5 text-xs sm:px-6">Payment is taken after the order is placed. No card details are stored.</p>
+                @error('payment_method')<p class="bk-error px-4 pb-4 sm:px-5">{{ $message }}</p>@enderror
+                @if(array_diff(array_keys($paymentMethods), ['cod']))<p class="bk-muted px-4 pb-4 text-xs sm:px-5">Payment is taken after the order is placed. No card details are stored.</p>@endif
             </section>
+            </div>
 
-            <label class="bk-label bk-card block p-5 sm:p-6">Purchase order number or delivery notes <span class="bk-muted font-normal">(optional)</span>
-                <textarea name="notes" rows="2" class="bk-textarea" placeholder="e.g. PO-2291 · deliver to the back gate before 10 am">{{ old('notes') }}</textarea>
-                @error('notes')<span class="bk-error">{{ $message }}</span>@enderror
-            </label>
+            <div x-data="{ open: @js(filled(old('notes')) || $errors->has('notes')) }">
+                <button type="button" class="bk-link text-sm" @click="open = !open" :aria-expanded="open"><span x-text="open ? '−' : '+'">+</span> Add a purchase order number or delivery notes</button>
+                <label x-show="open" x-collapse x-cloak class="bk-label bk-card mt-2 block p-4 sm:p-5"><span class="sr-only">Purchase order number or delivery notes</span>
+                    <textarea name="notes" rows="2" class="bk-textarea" placeholder="e.g. PO-2291 · deliver to the back gate before 10 am">{{ old('notes') }}</textarea>
+                    @error('notes')<span class="bk-error">{{ $message }}</span>@enderror
+                </label>
+            </div>
         </div>
 
         <aside class="bk-card bk-summary p-5">

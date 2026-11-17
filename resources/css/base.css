@@ -146,6 +146,8 @@
   }
   .input-luxe::placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
   .input-luxe:focus { border-bottom-color: currentColor; }
+  /* Checkout keeps its fields short so the whole form fits on fewer screens. */
+  .checkout-form .input-luxe { padding-block: 0.5rem; font-size: 0.875rem; }
 
   /* Scroll-triggered reveals (toggled by x-intersect) */
   .reveal { opacity: 0; transform: translateY(28px); transition: opacity 1s var(--ease-luxe), transform 1s var(--ease-luxe); transition-delay: var(--reveal-delay, 0s); }

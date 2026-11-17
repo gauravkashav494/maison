@@ -158,8 +158,7 @@ class CartController extends Controller
         $user = $request->user();
         $default = $user?->addresses()->where('is_default', true)->first() ?? $user?->addresses()->first();
 
-        $enabled = setting('checkout.payment_methods', array_keys(Order::PAYMENT_METHODS));
-        $payments = array_filter(Order::PAYMENT_METHODS, fn ($k) => in_array($k, (array) $enabled, true), ARRAY_FILTER_USE_KEY);
+        $payments = Order::checkoutPaymentMethods();
 
         return view('shop.checkout', [
             'cart' => $cart,

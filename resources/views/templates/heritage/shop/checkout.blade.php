@@ -4,47 +4,39 @@
 @php $old = fn (string $k, $default = null) => old($k, $default); @endphp
 <x-page-head title="Checkout" :breadcrumbs="['Cart' => route('cart'), 'Checkout' => null]" />
 
-<section class="h-container py-6" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
+<section class="h-container py-4" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
 
-    <form method="post" action="{{ route('checkout.place') }}" class="grid gap-6 lg:grid-cols-12 lg:gap-8" @submit="submitting = true" novalidate>
+    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form grid gap-4 lg:grid-cols-12 lg:gap-6" @submit="submitting = true" novalidate>
         @csrf
-        <div class="space-y-4 lg:col-span-8">
-            {{-- Contact --}}
+        <div class="space-y-3 lg:col-span-8">
+            {{-- Contact & delivery address --}}
             <fieldset class="card p-4 sm:p-5">
-                <legend class="sr-only">Contact</legend>
-                <div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-semibold">Contact details</h2></div>
-                @guest<p class="mt-2 text-xs text-muted">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-red underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                <legend class="sr-only">Contact and delivery address</legend>
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-semibold">Contact &amp; delivery address</h2></div>@guest<p class="text-xs text-muted">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-red underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest</div>
+                <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-8"><span class="label">House / flat, building, street<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="field @error('shipping_line1') field-error @enderror" autocomplete="address-line1">@error('shipping_line1')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Landmark, area (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="field" autocomplete="address-line2">@error('shipping_line2')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="field @error('shipping_city') field-error @enderror" autocomplete="address-level2">@error('shipping_city')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="field @error('shipping_state') field-error @enderror" autocomplete="address-level1">@error('shipping_state')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">Pincode<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="field @error('shipping_postal_code') field-error @enderror" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="field" autocomplete="country-name">@error('shipping_country')<span class="error-text">{{ $message }}</span>@enderror</label>
                 </div>
+                @auth<label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" name="save_address" value="1" class="check" checked> Save this address for next time</label>@endauth
             </fieldset>
 
-            {{-- Address --}}
-            <fieldset class="card p-4 sm:p-5">
-                <legend class="sr-only">Delivery address</legend>
-                <div class="flex items-center gap-3"><span class="step-num">2</span><h2 class="text-base font-semibold">Delivery address</h2></div>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label class="sm:col-span-2"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="label">House / flat, building, street<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="field @error('shipping_line1') field-error @enderror" autocomplete="address-line1">@error('shipping_line1')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="label">Landmark, area (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="field" autocomplete="address-line2">@error('shipping_line2')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Pincode<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="field @error('shipping_postal_code') field-error @enderror" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="field @error('shipping_city') field-error @enderror" autocomplete="address-level2">@error('shipping_city')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="field @error('shipping_state') field-error @enderror" autocomplete="address-level1">@error('shipping_state')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="field" autocomplete="country-name">@error('shipping_country')<span class="error-text">{{ $message }}</span>@enderror</label>
-                </div>
-                @auth<label class="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" name="save_address" value="1" class="check" checked> Save this address for next time</label>@endauth
-            </fieldset>
-
-            {{-- Delivery slot --}}
-            <fieldset class="card p-4 sm:p-5">
+            {{-- Delivery & payment --}}
+            <div class="card divide-y divide-line">
+            <fieldset class="p-4 sm:p-5">
                 <legend class="sr-only">Delivery option</legend>
-                <div class="flex items-center gap-3"><span class="step-num">3</span><h2 class="text-base font-semibold">Delivery option<span class="req" aria-hidden="true">*</span></h2></div>
+                <div class="flex items-center gap-3"><span class="step-num">2</span><h2 class="text-base font-semibold">Delivery option<span class="req" aria-hidden="true">*</span></h2></div>
                 @error('shipping_method')<p class="error-text">{{ $message }}</p>@enderror
-                <div class="mt-4 grid gap-2">
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
-                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors" :class="shipping === @js($m['code']) ? 'border-red bg-cream' : 'border-line hover:border-line'">
+                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors" :class="shipping === @js($m['code']) ? 'border-red bg-cream' : 'border-line hover:border-line'">
                             <input type="radio" name="shipping_method" value="{{ $m['code'] }}" class="check mt-1" :checked="shipping === @js($m['code'])" @change="setShipping(@js($m['code']))">
                             <span class="flex-1">
                                 <span class="flex items-baseline justify-between gap-3"><span class="text-sm font-bold">{{ $m['name'] }}</span><span class="text-sm font-bold tabular {{ ($free || $m['cost'] <= 0) ? 'text-red' : '' }}">{{ ($free || $m['cost'] <= 0) ? 'FREE' : money($m['cost']) }}</span></span>
@@ -56,16 +48,16 @@
             </fieldset>
 
             {{-- Payment --}}
-            <fieldset class="card p-4 sm:p-5">
+            <fieldset class="p-4 sm:p-5">
                 <legend class="sr-only">Payment</legend>
-                <div class="flex items-center gap-3"><span class="step-num">4</span><h2 class="text-base font-semibold">Payment method<span class="req" aria-hidden="true">*</span></h2></div>
-                <p class="mt-2 flex items-center gap-1.5 text-xs text-muted"><x-ico name="lock" :size="12" /> 100% secure. We never store card details.</p>
-                <div class="mt-4 grid gap-2">
+                <div class="flex items-center gap-3"><span class="step-num">3</span><h2 class="text-base font-semibold">Payment method<span class="req" aria-hidden="true">*</span></h2></div>
+                @if(array_diff(array_keys($paymentMethods), ['cod']))<p class="mt-2 flex items-center gap-1.5 text-xs text-muted"><x-ico name="lock" :size="12" /> 100% secure. We never store card details.</p>@endif
+                <div class="mt-3 grid gap-2">
                     @foreach($paymentMethods as $code => $name)
                         <div class="rounded-xl border transition-colors" :class="payment === @js($code) ? 'border-red' : 'border-line'">
-                            <label class="flex cursor-pointer items-center gap-3 px-4 py-3">
+                            <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5">
                                 <input type="radio" name="payment_method" value="{{ $code }}" class="check" x-model="payment">
-                                <span class="flex-1 text-sm font-bold">{{ $name }}</span>
+                                <span class="flex-1 text-sm font-bold">{{ $name }}@if($code === 'cod')<span class="block text-xs font-normal text-muted">Pay by cash or UPI at your door</span>@endif</span>
                                 <span class="text-[0.6875rem] font-semibold text-muted">
                                     @switch($code)
                                         @case('card') Visa · Mastercard · RuPay @break
@@ -75,6 +67,7 @@
                                     @endswitch
                                 </span>
                             </label>
+                            @if($code !== 'cod')
                             <div x-show="payment === @js($code)" x-collapse x-cloak class="border-t border-line bg-cream px-4 py-4 text-sm">
                                 @switch($code)
                                     @case('card')
@@ -96,13 +89,18 @@
                                     @case('cod') <p class="text-muted">Pay in cash or by UPI to the delivery partner at your door.@if($codFee > 0) A handling fee of {{ money($codFee) }} applies.@endif</p> @break
                                 @endswitch
                             </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
                 @error('payment_method')<p class="error-text">{{ $message }}</p>@enderror
             </fieldset>
+            </div>
 
-            <label class="card block p-4 sm:p-5"><span class="label">Delivery instructions (optional)</span><textarea name="notes" rows="2" class="field" placeholder="e.g. Leave at the door, call on arrival, avoid ringing the bell…">{{ $old('notes') }}</textarea>@error('notes')<span class="error-text">{{ $message }}</span>@enderror</label>
+            <div x-data="{ open: @js(filled(old('notes')) || $errors->has('notes')) }">
+                <button type="button" class="text-sm font-semibold text-red" @click="open = !open" :aria-expanded="open"><span x-text="open ? '−' : '+'">+</span> Add delivery instructions</button>
+                <label x-show="open" x-collapse x-cloak class="mt-2 block"><span class="sr-only">Delivery instructions</span><textarea name="notes" rows="2" class="field" placeholder="e.g. Leave at the door, call on arrival, avoid ringing the bell…">{{ $old('notes') }}</textarea>@error('notes')<span class="error-text">{{ $message }}</span>@enderror</label>
+            </div>
         </div>
 
         {{-- Summary --}}

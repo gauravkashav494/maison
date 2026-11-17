@@ -67,6 +67,22 @@ class Order extends Model
         'cod' => 'Cash on delivery',
     ];
 
+    /**
+     * Temporary override: when non-empty, checkout in every store offers only these methods,
+     * whatever the store's own settings say. Empty it to go back to the per-store settings.
+     * The other methods' code (views, admin, labels) is kept as is.
+     */
+    public const CHECKOUT_ONLY_PAYMENT_METHODS = ['cod'];
+
+    /** Payment methods a shopper can pick at checkout: code => label. */
+    public static function checkoutPaymentMethods(): array
+    {
+        $enabled = self::CHECKOUT_ONLY_PAYMENT_METHODS
+            ?: (array) setting('checkout.payment_methods', array_keys(self::PAYMENT_METHODS));
+
+        return array_filter(self::PAYMENT_METHODS, fn ($k) => in_array($k, $enabled, true), ARRAY_FILTER_USE_KEY);
+    }
+
     /** The storefront account that placed this, or null for a guest. */
     public function customer(): BelongsTo
     {

@@ -87,6 +87,9 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-input:focus, .bk-select:focus, .bk-textarea:focus { outline: 2px solid var(--bk-brand); outline-offset: 0; border-color: transparent; }
 .bk-label { display: block; font-size: .8125rem; font-weight: 600; color: var(--bk-ink); }
 .bk-label > .bk-input, .bk-label > .bk-select, .bk-label > .bk-textarea { margin-top: .35rem; font-weight: 400; }
+/* Checkout keeps its fields short so the whole form fits on fewer screens. */
+.checkout-form .bk-input, .checkout-form .bk-textarea { padding: .45rem .7rem; font-size: .875rem; }
+.checkout-form .bk-label > .bk-input, .checkout-form .bk-label > .bk-textarea { margin-top: .25rem; }
 .bk-req { color: var(--bk-out); margin-left: .15rem; }
 .bk-error { display: block; margin-top: .3rem; font-size: .75rem; font-weight: 500; color: var(--bk-out); }
 

@@ -10,7 +10,7 @@ class CheckoutRequest extends StorefrontRequest
 {
     public function rules(): array
     {
-        $payments = (array) setting('checkout.payment_methods', array_keys(Order::PAYMENT_METHODS));
+        $payments = array_keys(Order::checkoutPaymentMethods());
         $shipping = collect(app(Cart::class)->shippingMethods())->pluck('code')->filter()->all();
 
         return [

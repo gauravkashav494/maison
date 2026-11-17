@@ -106,6 +106,9 @@
   .field { display: block; width: 100%; border-radius: 10px; border: 1.5px solid var(--color-line); background: #fff; padding: 0.7rem 0.9rem; font-size: 0.9375rem; color: var(--color-ink); transition: border-color .15s, box-shadow .15s; }
   .field::placeholder { color: var(--color-mist); }
   .field:focus { outline: none; border-color: var(--color-bright); box-shadow: 0 0 0 3px rgb(25 118 210 / 0.15); }
+  /* Checkout keeps its fields short so the whole form fits on fewer screens. */
+  .checkout-form .field { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  .checkout-form .label { margin-bottom: 0.25rem; }
   .field-error { border-color: var(--color-danger); }
   .error-text { margin-top: 0.35rem; font-size: 0.8125rem; color: var(--color-danger); }
   .check { width: 1.05rem; height: 1.05rem; border-radius: 4px; border: 1.5px solid var(--color-mist); accent-color: var(--color-primary); }
