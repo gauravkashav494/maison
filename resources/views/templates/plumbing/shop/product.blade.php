@@ -75,12 +75,17 @@
             </div>
 
             {{-- Price block --}}
+            {{-- Price and MRP follow the chosen variant; the product's own until one is chosen. --}}
+            @php $base = $product->displayPricing(); @endphp
             <div class="card mt-4 p-4 lg:p-5">
-                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span class="price text-3xl text-ink">{{ money($product->price) }}</span>
-                    @if($product->compare_at_price)<span class="mrp text-base">MRP {{ money($product->compare_at_price) }}</span><span class="off text-base">{{ $product->discount_percent }}% off</span>@endif
+                <div x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span class="price text-3xl text-ink" x-text="shown.price_formatted">{{ $base['price_formatted'] }}</span>
+                        <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="mrp text-base" x-text="'MRP ' + shown.compare_at_price_formatted">MRP {{ $base['compare_at_price_formatted'] }}</span>
+                        <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="off text-base" x-text="shown.discount_percent + '% off'">{{ $base['discount_percent'] }}% off</span>
+                    </div>
+                    <p x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="mt-1 text-sm font-semibold text-success" x-text="'You save ' + shown.save_formatted">You save {{ $base['save_formatted'] }}</p>
                 </div>
-                @if($product->compare_at_price)<p class="mt-1 text-sm font-semibold text-success">You save {{ money($product->compare_at_price - $product->price) }}</p>@endif
                 @if(price_tax_note() !== '')<p class="mt-1 text-xs text-slate">{{ prices_include_tax() ? ($p['gst_note'] ?? 'Inclusive of all taxes.') : price_tax_note().'.' }}</p>@endif
 
                 @if(count($product->sizes ?? []) > 1)
@@ -238,7 +243,7 @@
     {{-- Sticky mobile buy bar --}}
     <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
-            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="price text-base">{{ money($product->price) }} <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
+            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="price text-base" x-data="variantPricing(@js($product->pricingVariants()), @js($product->displayPricing()))"><span x-text="shown.price_formatted">{{ money($product->price) }}</span> <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
             @if($product->in_stock)<button type="button" @click="add()" class="btn btn-primary"><x-ico name="cart" :size="16" /> Add</button><button type="button" @click="buyNow()" class="btn btn-accent">Buy now</button>@endif
         </div>
     </div>

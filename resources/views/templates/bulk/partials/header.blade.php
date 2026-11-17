@@ -42,13 +42,13 @@
                         <span class="hidden xl:block" aria-hidden="true"><span class="opacity-75">Trade desk</span><strong>{{ $phone }}</strong></span>
                     </a>
                 @endif
-                <a href="{{ auth()->check() ? route('account.orders') : route('login') }}" class="bk-top-action">
+                <x-account-menu class="bk-top-action" panel="rounded-lg border border-black/10 bg-white text-sm text-[var(--bk-ink)] shadow-lg" item="hover:bg-black/5" muted="opacity-70">
                     <x-heroicon-o-user aria-hidden="true" />
                     <span class="hidden sm:block">
                         <span class="opacity-75">{{ auth()->check() ? 'Hello, '.\Illuminate\Support\Str::before(auth()->user()->name, ' ') : 'Sign in' }}</span>
-                        <strong>{{ auth()->check() ? 'My orders' : 'Account' }}</strong>
+                        <strong>{{ auth()->check() ? 'My account' : 'Account' }}</strong>
                     </span>
-                </a>
+                </x-account-menu>
                 <button type="button" class="bk-top-action bk-cart-pill" @click="$store.ui.openCart()" aria-label="Open cart">
                     <x-heroicon-o-shopping-cart aria-hidden="true" />
                     <span class="bk-cart-count" x-text="$store.cart.count">0</span>

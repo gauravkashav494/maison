@@ -66,11 +66,8 @@
             </a>
             @if($biz['whatsapp'])<a href="{{ $biz['whatsapp_href'] }}" target="_blank" rel="noopener" class="icon-btn hidden h-11 w-11 bg-success-light text-whatsapp-dark hover:bg-success-light xl:grid" aria-label="WhatsApp"><x-ico name="whatsapp" :size="22" /></a>@endif
             <a href="{{ route('booking.create') }}" class="btn btn-primary px-4 2xl:px-5">Book a plumber</a>
-            @auth
-                <a href="{{ route('account.index') }}" class="icon-btn hidden h-11 w-11 2xl:grid" aria-label="My account"><x-ico name="user" :size="22" /></a>
-            @else
-                <a href="{{ route('login') }}" class="icon-btn hidden h-11 w-11 2xl:grid" aria-label="Log in"><x-ico name="user" :size="22" /></a>
-            @endauth
+            <x-account-menu wrapper="hidden 2xl:block" class="icon-btn h-11 w-11" aria-label="{{ auth()->check() ? 'My account' : 'Log in' }}" orders="account.bookings" orders-label="My bookings"
+                            panel="rounded-xl border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-sky" muted="text-slate"><x-ico name="user" :size="22" /></x-account-menu>
         </div>
     </div>
 </header>

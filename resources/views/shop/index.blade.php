@@ -77,8 +77,8 @@
                                 <x-rating :value="$p->rating" :count="$p->review_count" class="mt-2" />
                                 <p class="mt-3 max-w-lg text-sm leading-relaxed text-smoke">{{ $p->description }}</p>
                                 <div class="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3 pt-5">
-                                    <span class="tabular-nums {{ $p->is_on_sale ? 'text-rouge' : '' }}">{{ money($p->price) }}</span>
-                                    @if($p->compare_at_price)<span class="text-sm text-smoke line-through">{{ money($p->compare_at_price) }}</span>@endif
+                                    <span class="tabular-nums {{ $p->is_on_sale ? 'text-rouge' : '' }}">{{ money($p->display_price) }}</span>
+                                    @if($p->display_compare_at_price)<span class="text-sm text-smoke line-through">{{ money($p->display_compare_at_price) }}</span>@endif
                                     <div class="flex gap-1.5">@foreach(array_slice($p->colors ?? [], 0, 4) as $c)<span class="h-3 w-3 rounded-full ring-1 ring-ink/10" style="background:{{ $c['hex'] }}"></span>@endforeach</div>
                                     <button type="button" @click="$store.ui.showQuickView(product.slug)" class="btn btn-outline btn-sm ml-auto">Quick add</button>
                                 </div>

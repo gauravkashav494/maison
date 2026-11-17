@@ -58,6 +58,8 @@
         <template x-if="current">
             <p class="text-[0.9375rem]">
                 <span class="font-medium tabular-nums" x-text="current.price_formatted"></span>
+                <span x-show="current.compare_at_price_formatted" class="ml-1 text-[0.8125rem] text-neutral-500 line-through tabular-nums" x-text="current.compare_at_price_formatted"></span>
+                <span x-show="current.discount_percent > 0" class="ml-1 text-[0.75rem] text-red-700" x-text="'−' + current.discount_percent + '%'"></span>
                 <span class="ml-2 text-[0.75rem] uppercase tracking-wider"
                       :class="current.stock > 0 ? 'text-neutral-500' : 'text-red-700'"
                       x-text="current.stock > 0 ? (current.sku ? current.sku : 'In stock') : 'Out of stock'"></span>

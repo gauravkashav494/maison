@@ -51,10 +51,11 @@
                 <x-ico name="heart" :size="20" />
                 <span x-show="$store.wishlist.count" x-cloak class="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-berry px-1 text-[0.625rem] font-bold text-white" x-text="$store.wishlist.count"></span>
             </a>
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="hidden h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold hover:bg-paper sm:flex">
+            <x-account-menu wrapper="hidden sm:block" class="flex h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold hover:bg-paper" aria-label="Account"
+                            panel="rounded-lg border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-paper" muted="text-mist">
                 <x-ico name="user" :size="20" />
                 <span class="hidden xl:block">{{ auth()->check() ? Str::of(auth()->user()->name)->before(' ') : 'Login' }}</span>
-            </a>
+            </x-account-menu>
             <button type="button" @click="$store.ui.openCart()" class="btn btn-primary relative h-10 gap-2 px-3 sm:px-4" aria-label="Open cart">
                 <x-ico name="cart" :size="20" />
                 <span class="hidden flex-col items-start leading-none sm:flex">

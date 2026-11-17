@@ -43,6 +43,14 @@ Alpine.store('ui', {
     searchOpen: false,
     menuOpen: false,
     quickView: null,
+    // A short message (e.g. "You can order at most 5 of this item."), shown by <x-cart-notice>.
+    notice: null,
+    noticeTimer: null,
+    notify(message) {
+        clearTimeout(this.noticeTimer);
+        this.notice = message;
+        this.noticeTimer = setTimeout(() => { this.notice = null; }, 3500);
+    },
     get anyOpen() {
         return this.cartOpen || this.searchOpen || this.menuOpen || !!this.quickView;
     },
@@ -102,7 +110,9 @@ Alpine.store('cart', {
         }
     },
     async update(key, qty) {
-        this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } }));
+        // Refused over the product's max quantity per order or its stock: say why.
+        try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
+        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart.'); }
     },
     async remove(key) {
         this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' }));
@@ -160,7 +170,13 @@ Alpine.data('productCard', (product) => ({
     async add(size) {
         this.sizesOpen = false;
         this.added = true;
-        await Alpine.store('cart').add(this.product.id, size, this.product.colors[0]?.name ?? null, 1, false);
+        try {
+            await Alpine.store('cart').add(this.product.id, size, this.product.colors[0]?.name ?? null, 1, false);
+        } catch (e) {
+            this.added = false;
+            Alpine.store('ui').notify(e.payload?.message || 'Could not add this item.');
+            return;
+        }
         setTimeout(() => { this.added = false; Alpine.store('ui').openCart(); }, 450);
     },
 }));
@@ -176,10 +192,17 @@ Alpine.data('quickView', () => ({
             this.image = 0;
         });
     },
+    /** + button: up to the product's max quantity per order, then says so. */
+    incQty() {
+        const max = this.$store.ui.quickView?.max_qty;
+        if (max && this.qty >= max) { this.$store.ui.notify(`You can order at most ${max} of this item.`); return; }
+        this.qty++;
+    },
     async add() {
         const p = this.$store.ui.quickView;
         if (!p || !this.size) return;
-        await this.$store.cart.add(p.id, this.size, this.color, this.qty, false);
+        try { await this.$store.cart.add(p.id, this.size, this.color, this.qty, false); }
+        catch (e) { this.$store.ui.notify(e.payload?.message || 'Could not add this item.'); return; }
         this.$store.ui.quickView = null;
         setTimeout(() => this.$store.ui.openCart(), 200);
     },

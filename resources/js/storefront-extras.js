@@ -114,9 +114,21 @@ export default function registerExtras(Alpine, api) {
             const m = src.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/);
             return m ? `https://www.youtube.com/embed/${m[1]}?rel=0` : src;
         },
+        /** + button: up to the product's max quantity per order, then says so. */
+        incQty() {
+            const max = this.p.max_qty;
+            if (max && this.qty >= max) { Alpine.store('ui').notify(`You can order at most ${max} of this item.`); return; }
+            this.qty++;
+        },
         async add(buyNow = false) {
             if (!this.size) { this.$refs.sizes?.scrollIntoView({ block: 'center', behavior: 'smooth' }); this.sizeError = true; return; }
-            await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
+            try {
+                await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
+            } catch (e) {
+                // Over the max quantity per order or the stock: the server says which.
+                Alpine.store('ui').notify(e.payload?.message || 'Could not add this item.');
+                return;
+            }
             if (buyNow) window.location.href = '/checkout';
         },
         sizeError: false,

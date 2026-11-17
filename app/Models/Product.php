@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 class Product extends Model
 {
@@ -125,13 +127,22 @@ class Product extends Model
         return $this->image_urls[1] ?? null;
     }
 
+    /** The discount shown on cards and badges: of the price displayPricing() shows. */
     public function getDiscountPercentAttribute(): int
     {
-        if (! $this->compare_at_price || $this->compare_at_price <= $this->price) {
-            return 0;
-        }
+        return $this->displayPricing()['discount_percent'];
+    }
 
-        return (int) round((1 - $this->price / $this->compare_at_price) * 100);
+    /** The price a card shows: the cheapest variant's for a product sold by variant. */
+    public function getDisplayPriceAttribute(): float
+    {
+        return $this->displayPricing()['price'];
+    }
+
+    /** The "was" price beside display_price, or null when it shows no discount. */
+    public function getDisplayCompareAtPriceAttribute(): ?float
+    {
+        return $this->displayPricing()['compare_at_price'];
     }
 
     public function getIsOnSaleAttribute(): bool
@@ -162,6 +173,7 @@ class Product extends Model
     protected static function booted(): void
     {
         static::saving(function (Product $product) {
+            $product->assignColourPhotos();
             $product->syncVariantData();
             $product->syncReviewBaseline();
         });
@@ -236,6 +248,58 @@ class Product extends Model
      *  - each combination's chosen values, dropping any for an option that no longer exists,
      *    so a renamed or removed option cannot leave a combination that never matches.
      */
+    /**
+     * Photos per colour, filled two ways besides picking them in the form:
+     *
+     *  1. files uploaded under a colour (Variants → Colour → Upload) arrive as
+     *     variant_attributes.<n>.uploads.<Colour>: they join the product's images and are ticked
+     *     for that colour;
+     *  2. a newly added image whose file name names exactly one colour ("container-red-1.jpg")
+     *     is ticked for it, as large stores sort studio photos. Images the product already had
+     *     are left alone, so a photo the store unticked stays unticked.
+     */
+    public function assignColourPhotos(): void
+    {
+        $attributes = (array) $this->variant_attributes;
+        $images = array_values(array_filter((array) $this->images, 'is_string'));
+        $colourKey = collect($attributes)->search(fn ($a) => is_array($a) && self::isColourAttribute((string) ($a['name'] ?? '')));
+
+        foreach ($attributes as $key => $attribute) {
+            if (! is_array($attribute) || ! array_key_exists('uploads', $attribute)) {
+                continue;
+            }
+            foreach ((array) $attribute['uploads'] as $value => $paths) {
+                foreach (array_filter((array) $paths, 'is_string') as $path) {
+                    in_array($path, $images, true) || $images[] = $path;
+                    if ($key === $colourKey) {
+                        $attributes[$key]['images'][$value] = array_values(array_unique([...(array) ($attributes[$key]['images'][$value] ?? []), $path]));
+                    }
+                }
+            }
+            unset($attributes[$key]['uploads']);
+        }
+
+        if ($colourKey !== false) {
+            $before = array_filter((array) ($this->getOriginal('images') ?? []), 'is_string');
+            $assigned = collect((array) ($attributes[$colourKey]['images'] ?? []))->flatten()->all();
+            $values = array_values(array_filter(array_map('strval', (array) ($attributes[$colourKey]['values'] ?? [])), 'strlen'));
+
+            foreach (array_diff($images, $before, $assigned) as $path) {
+                $words = '-'.Str::slug(pathinfo($path, PATHINFO_FILENAME)).'-';
+                $matches = array_values(array_filter($values, fn ($value) => Str::slug($value) !== '' && str_contains($words, '-'.Str::slug($value).'-')));
+                // "navy-blue" also contains "blue": a colour inside a longer one named is dropped;
+                // two separate colours named means unclear, so the photo is left for the store.
+                $matches = array_values(array_filter($matches, fn ($m) => ! collect($matches)->contains(fn ($other) => $other !== $m && str_contains('-'.Str::slug($other).'-', '-'.Str::slug($m).'-'))));
+                if (count($matches) === 1) {
+                    $attributes[$colourKey]['images'][$matches[0]] = [...(array) ($attributes[$colourKey]['images'][$matches[0]] ?? []), $path];
+                }
+            }
+        }
+
+        $this->images = $images;
+        $this->variant_attributes = $attributes;
+    }
+
     public function syncVariantData(): void
     {
         $attributes = [];
@@ -329,6 +393,59 @@ class Product extends Model
         return $attributes;
     }
 
+    /**
+     * Photos per value of the colour option (the first one, as on most stores), e.g.
+     * [{options: {Colour: 'Red'}, images: [url…]}]. Only images the product still has are used,
+     * so removing a photo in the Media tab never leaves a broken one behind.
+     *
+     * @return array<int, array{options: array<string, string>, images: array<int, string>}>
+     */
+    public function optionImages(): array
+    {
+        $own = array_flip(array_filter((array) $this->images, 'is_string'));
+
+        foreach ((array) $this->variant_attributes as $attribute) {
+            $name = trim((string) ($attribute['name'] ?? ''));
+            if (! self::isColourAttribute($name)) {
+                continue;
+            }
+            $values = array_values(array_filter(array_map('strval', (array) ($attribute['values'] ?? [])), 'strlen'));
+            $sets = [];
+            foreach ($values as $value) {
+                $paths = array_values(array_filter((array) (($attribute['images'] ?? [])[$value] ?? []), fn ($p) => is_string($p) && isset($own[$p])));
+                $urls = array_values(array_filter(array_map(fn (string $p) => Media::url($p), $paths)));
+                if ($name !== '' && $urls !== []) {
+                    $sets[] = ['options' => [$name => $value], 'images' => $urls];
+                }
+            }
+
+            return $sets; // one colour option drives the photos
+        }
+
+        return [];
+    }
+
+    /**
+     * The colours shown on a product card: each value of the colour option with its swatch and
+     * its first photo (null when none is picked), so hovering a swatch can show that colour.
+     *
+     * @return array<int, array{name: string, hex: ?string, image: ?string}>
+     */
+    public function cardColours(): array
+    {
+        $colour = collect($this->variantAttributes())->first(fn (array $a) => self::isColourAttribute($a['name']));
+        if (! $colour) {
+            return [];
+        }
+        $photos = collect($this->optionImages())->mapWithKeys(fn (array $set) => [reset($set['options']) => $set['images'][0] ?? null]);
+
+        return array_map(fn (string $value) => [
+            'name' => $value,
+            'hex' => $colour['swatches'][$value] ?? null,
+            'image' => $photos[$value] ?? null,
+        ], $colour['values']);
+    }
+
     /** Attribute names, in the order the customer chooses them. */
     public function variantAttributeNames(): array
     {
@@ -343,9 +460,11 @@ class Product extends Model
 
     /**
      * The variant combinations, normalised. A variant with no price of its own inherits the
-     * product's price; the same goes for stock and SKU.
+     * product's price; the same goes for compare-at price, stock and SKU. The compare-at
+     * price is null unless it is above the variant's price, so a variant priced above the
+     * product's compare-at price shows no discount.
      *
-     * @return array<int, array{options:array<string,string>, sku:?string, price:int, stock:int, is_active:bool, label:string, images:array<int,string>}>
+     * @return array<int, array{options:array<string,string>, sku:?string, price:float, compare_at_price:?float, stock:int, is_active:bool, label:string, images:array<int,string>}>
      */
     public function variantList(): array
     {
@@ -364,11 +483,15 @@ class Product extends Model
                 continue;
             }
             $price = $variant['price'] ?? null;
+            $price = $price === null || $price === '' ? (float) $this->price : round((float) $price, 2);
+            $compareAt = $variant['compare_at_price'] ?? null;
+            $compareAt = $compareAt === null || $compareAt === '' ? (float) $this->compare_at_price : round((float) $compareAt, 2);
             $stock = $variant['stock'] ?? null;
             $variants[] = [
                 'options' => $options,
                 'sku' => filled($variant['sku'] ?? null) ? (string) $variant['sku'] : $this->sku,
-                'price' => $price === null || $price === '' ? (float) $this->price : round((float) $price, 2),
+                'price' => $price,
+                'compare_at_price' => $compareAt > $price ? $compareAt : null,
                 'stock' => $stock === null || $stock === '' ? (int) $this->stock : (int) $stock,
                 'is_active' => (bool) ($variant['is_active'] ?? true),
                 'label' => implode(' / ', array_values($options)),
@@ -382,15 +505,58 @@ class Product extends Model
 
     /**
      * The variants for the storefront's live price display (the `variantPricing` Alpine
-     * component), each with its price already formatted. Empty when not sold by variant.
+     * component), each with its price, compare-at price and saving already formatted
+     * (see pricing()). Empty when not sold by variant.
      *
      * @return array<int, array<string, mixed>>
      */
     public function pricingVariants(): array
     {
         return $this->sellsVariants()
-            ? array_map(fn (array $variant) => $variant + ['price_formatted' => money($variant['price'])], $this->variantList())
+            ? array_map(fn (array $variant) => self::pricing($variant['price'], $variant['compare_at_price']) + $variant, $this->variantList())
             : [];
+    }
+
+    /**
+     * The price shown before a variant is chosen: on cards, in quick view and on the product
+     * page. For a product sold by variant it is the cheapest available variant's (one in stock
+     * if any is), with that variant's own "was" price, so the card and the page agree with
+     * what can be bought; otherwise the product's own price.
+     */
+    public function displayPricing(): array
+    {
+        if ($this->sellsVariants()) {
+            $active = array_filter($this->variantList(), fn (array $v) => $v['is_active']);
+            $inStock = array_filter($active, fn (array $v) => $v['stock'] > 0);
+            $pool = $inStock ?: $active;
+            if ($pool) {
+                usort($pool, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+
+                return self::pricing($pool[0]['price'], $pool[0]['compare_at_price']);
+            }
+        }
+
+        return self::pricing((float) $this->price, $this->compare_at_price ? (float) $this->compare_at_price : null);
+    }
+
+    /**
+     * A price with its "was" price for display: the compare-at price, discount and saving are
+     * null / 0 unless the compare-at price is above the price.
+     *
+     * @return array{price:float, price_formatted:string, compare_at_price:?float, compare_at_price_formatted:?string, discount_percent:int, save_formatted:?string}
+     */
+    public static function pricing(float $price, ?float $compareAt): array
+    {
+        $compareAt = $compareAt !== null && $compareAt > $price ? $compareAt : null;
+
+        return [
+            'price' => $price,
+            'price_formatted' => money($price),
+            'compare_at_price' => $compareAt,
+            'compare_at_price_formatted' => $compareAt ? money($compareAt) : null,
+            'discount_percent' => $compareAt ? (int) round((1 - $price / $compareAt) * 100) : 0,
+            'save_formatted' => $compareAt ? money($compareAt - $price) : null,
+        ];
     }
 
     /** The variant matching exactly these options, if it is on sale. */
@@ -442,10 +608,56 @@ class Product extends Model
         return $clean;
     }
 
+    /** Compare-at ("was") price of a chosen combination, or null when it shows no discount. */
+    public function compareAtFor(array $options = []): ?float
+    {
+        if (! $this->sellsVariants()) {
+            return $this->compare_at_price && $this->compare_at_price > $this->price ? (float) $this->compare_at_price : null;
+        }
+        $variant = $this->findVariant($options);
+
+        return $variant ? $variant['compare_at_price'] : null;
+    }
+
     /** Price of a chosen combination (the product's own price when it does not sell variants). */
     public function priceFor(array $options = []): float
     {
         return (float) ($this->sellsVariants() ? ($this->findVariant($options)['price'] ?? $this->price) : $this->price);
+    }
+
+    /**
+     * The most of this choice one order can hold, and why: the product's own "max quantity per
+     * order" or the stock of what is chosen, whichever is lower (null when neither applies).
+     *
+     * @return array{limit: ?int, reason: ?string} reason is 'max' or 'stock'
+     */
+    public function orderLimit(array $options = []): array
+    {
+        $max = $this->max_qty ? (int) $this->max_qty : null;
+        $stock = max(0, $this->stockFor($options));
+
+        if ($max !== null && $max <= $stock) {
+            return ['limit' => $max, 'reason' => 'max'];
+        }
+
+        return ['limit' => $stock, 'reason' => 'stock'];
+    }
+
+    /** What the customer is told when a quantity goes over orderLimit(); null when it does not. */
+    public function orderLimitMessage(int $wanted, array $options = [], int $inCart = 0): ?string
+    {
+        ['limit' => $limit, 'reason' => $reason] = $this->orderLimit($options);
+        if ($limit === null || $wanted <= $limit) {
+            return null;
+        }
+        if ($limit === 0) {
+            return 'This item is out of stock.';
+        }
+        $message = $reason === 'max'
+            ? "You can order at most {$limit} of this item."
+            : "Only {$limit} left in stock.";
+
+        return $inCart > 0 ? $message." You already have {$inCart} in your cart." : $message;
     }
 
     /** Stock of a chosen combination. */
@@ -468,17 +680,20 @@ class Product extends Model
             'url' => $this->url,
             'name' => $this->name,
             'category' => $this->category?->name,
-            'price' => $this->price,
-            'compare_at_price' => $this->compare_at_price,
-            'price_formatted' => money($this->price),
-            'compare_at_price_formatted' => $this->compare_at_price ? money($this->compare_at_price) : null,
-            'discount_percent' => $this->discount_percent,
+            // What the card shows: the cheapest variant's price and "was" price for a product
+            // sold by variant (see displayPricing()).
+            ...Arr::only($this->displayPricing(), ['price', 'compare_at_price', 'price_formatted', 'compare_at_price_formatted', 'discount_percent']),
             'images' => $this->image_urls,
-            // Combinations with photos of their own: [{options: {Colour: 'Navy'}, images: [url…]}].
-            'variant_images' => array_values(array_map(
-                fn (array $v) => ['options' => $v['options'], 'images' => $v['images']],
-                array_filter($this->variantList(), fn (array $v) => $v['is_active'] && $v['images'] !== []),
-            )),
+            // Photo sets for the gallery, best match wins: the photos chosen per colour (or the
+            // one option that changes the photos) first, then combinations with photos of their
+            // own, which override them once enough options are picked to match the combination.
+            'variant_images' => [
+                ...$this->optionImages(),
+                ...array_values(array_map(
+                    fn (array $v) => ['options' => $v['options'], 'images' => $v['images']],
+                    array_filter($this->variantList(), fn (array $v) => $v['is_active'] && $v['images'] !== []),
+                )),
+            ],
             'colors' => $this->colors ?? [],
             'sizes' => $this->sizes ?? [],
             'rating' => $this->rating,

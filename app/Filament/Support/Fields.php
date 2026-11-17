@@ -26,6 +26,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Validation\Rules\Unique;
 
 /** Reusable admin form building blocks shared across resources and settings pages. */
@@ -65,6 +66,10 @@ class Fields
             // Adds the open icon on each saved image; a click on the image shows it large
             // (resources/views/filament/partials/image-lightbox.blade.php).
             ->openable()
+            // "Container Red 1.JPG" is stored as "container-red-1-01jx…jpg": unique, safe (letters,
+            // digits and dashes only), and still readable, so a photo named after a colour can be
+            // sorted to that colour (Product::assignColourPhotos).
+            ->getUploadedFileNameForStorageUsing(fn (TemporaryUploadedFile $file): string => self::storedFileName($file))
             ->fetchFileInformation(false)
             ->getUploadedFileUsing(function (BaseFileUpload $component, string $file, string|array|null $storedFileNames): ?array {
                 if (Str::startsWith($file, ['http://', 'https://', '/'])) {
@@ -112,6 +117,15 @@ class Fields
         }
 
         return $field;
+    }
+
+    /** "Container Red 1.JPG" → "container-red-1-01jx….jpg". */
+    public static function storedFileName(TemporaryUploadedFile $file): string
+    {
+        $base = Str::limit(Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)), 60, '');
+        $extension = strtolower(preg_replace('/[^a-z0-9]/i', '', $file->getClientOriginalExtension()) ?: ($file->guessExtension() ?: 'jpg'));
+
+        return ($base !== '' ? $base.'-' : '').strtolower((string) Str::ulid()).'.'.$extension;
     }
 
     /**

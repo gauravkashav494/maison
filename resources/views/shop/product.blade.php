@@ -64,15 +64,12 @@
                     <a href="#reviews" class="flex items-center gap-2"><x-rating :value="$product->rating" :count="$product->review_count" :size="11" /></a>
                     @if($product->sku)<span class="text-[0.6875rem] text-taupe">Ref. {{ $product->sku }}</span>@endif
                 </div>
-                <div class="mt-5 flex items-baseline gap-3 text-xl tabular-nums">
-                    @if($product->sellsVariants())
-                        {{-- Follows the chosen size/options; the lowest variant price until one is chosen. --}}
-                        <span x-data="variantPricing(@js($product->pricingVariants()))" class="{{ $product->is_on_sale ? 'text-rouge' : '' }}"
-                              x-text="current ? current.price_formatted : @js(money($product->price))">{{ money($product->price) }}</span>
-                    @else
-                        <span class="{{ $product->is_on_sale ? 'text-rouge' : '' }}">{{ money($product->price) }}</span>
-                    @endif
-                    @if($product->compare_at_price)<span class="text-sm text-smoke line-through">{{ money($product->compare_at_price) }}</span><span class="text-[0.625rem] uppercase tracking-[0.2em] text-rouge">−{{ $product->discount_percent }}%</span>@endif
+                {{-- Price and "was" price follow the chosen variant; the product's own until one is chosen. --}}
+                @php $base = $product->displayPricing(); @endphp
+                <div class="mt-5 flex items-baseline gap-3 text-xl tabular-nums" x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
+                    <span class="{{ $base['compare_at_price'] ? 'text-rouge' : '' }}" :class="shown.compare_at_price && 'text-rouge'" x-text="shown.price_formatted">{{ $base['price_formatted'] }}</span>
+                    <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-sm text-smoke line-through" x-text="shown.compare_at_price_formatted">{{ $base['compare_at_price_formatted'] }}</span>
+                    <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-[0.625rem] uppercase tracking-[0.2em] text-rouge" x-text="'−' + shown.discount_percent + '%'">−{{ $base['discount_percent'] }}%</span>
                 </div>
                 <p class="mt-6 text-[0.9375rem] leading-relaxed text-smoke">{{ $product->description }}</p>
 
@@ -111,7 +108,7 @@
                     <div class="flex h-14 items-center border border-ink/20">
                         <button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="minus" :size="14" :stroke="1.5" /></button>
                         <span class="w-8 text-center text-sm tabular-nums" x-text="qty"></span>
-                        <button type="button" @click="qty++" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
+                        <button type="button" @click="incQty()" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
                     </div>
                     <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Cart' : 'Sold out' }}</button>
                     <button type="button" @click="$store.wishlist.toggle(p.id)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has(p.id)" class="grid h-14 w-14 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink"><x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has(p.id) && 'fill-ink'" /></button>

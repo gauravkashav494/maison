@@ -94,7 +94,11 @@ Alpine.store('cart', {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
         } finally { this.busy = false; }
     },
-    async update(key, qty) { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); },
+    async update(key, qty) {
+        // Refused over the product's max quantity per order or its stock: say why.
+        try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
+        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart', 'error'); }
+    },
     async remove(key) { this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' })); },
     async inc(productId, size, max = null) {
         const line = this.line(productId, size);

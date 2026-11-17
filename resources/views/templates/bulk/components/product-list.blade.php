@@ -10,7 +10,7 @@
     $items = $products instanceof \Illuminate\Contracts\Pagination\Paginator ? collect($products->items()) : collect($products);
     $rows = $items->map(fn ($product) => ['product' => $product, 'lines' => \App\Templates\Bulk\OrderLines::for($product)]);
     $sheet = $rows->flatMap(fn ($row) => array_map(
-        fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'price', 'max']),
+        fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'price', 'max', 'limit_message']),
         $row['lines'],
     ))->values();
     $columns = $showStock ? 5 : 4;
@@ -71,7 +71,7 @@
                                                x-model.number="qty[@js($key)]" @change="clamp(@js($key))"
                                                @keydown.enter.prevent="clamp(@js($key)); addAll()"
                                                aria-label="Quantity of {{ $product->name }}{{ $line['label'] ? ', '.$line['label'] : '' }}">
-                                        <button type="button" @click="step(@js($key), 1)" :disabled="(qty[@js($key)] || 0) >= {{ $line['max'] }}"
+                                        <button type="button" @click="step(@js($key), 1)"
                                                 aria-label="Increase quantity of {{ $product->name }}"><x-heroicon-o-plus /></button>
                                     </span>
                                     <span class="bk-error" x-show="errors[@js($key)]" x-text="errors[@js($key)]" x-cloak></span>

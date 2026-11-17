@@ -55,6 +55,12 @@ class Cart
         Session::put(self::KEY, $items);
     }
 
+    /** How many of this product and choice the cart already holds. */
+    public function quantityOf(int $productId, array $options): int
+    {
+        return (int) ($this->raw()[$this->key($productId, $options)]['qty'] ?? 0);
+    }
+
     /** First option whose attribute name matches one of these (case-insensitively). */
     private function option(array $options, string ...$names): ?string
     {
@@ -184,6 +190,13 @@ class Cart
             $card = $product->toCard();
             $card['price'] = $unitPrice;
             $card['price_formatted'] = money($unitPrice);
+            // The "was" price follows the chosen variant too, so the cart's strikethrough matches it.
+            if ($product->sellsVariants()) {
+                $pricing = Product::pricing($unitPrice, $variant['compare_at_price'] ?? null);
+                $card['compare_at_price'] = $pricing['compare_at_price'];
+                $card['compare_at_price_formatted'] = $pricing['compare_at_price_formatted'];
+                $card['discount_percent'] = $pricing['discount_percent'];
+            }
             $items[] = [
                 'key' => $key,
                 'qty' => $line['qty'],

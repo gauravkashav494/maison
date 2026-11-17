@@ -102,11 +102,13 @@ class BulkTemplateTest extends TestCase
         $this->assertSame('500 ml', $lines['PK-CT-500']['label']);
     }
 
-    public function test_a_line_is_capped_by_the_cart_limit_and_stock(): void
+    public function test_a_line_is_capped_by_its_stock_only(): void
     {
         $gloves = collect(OrderLines::for($this->product('GL-NT')))->keyBy('sku');
 
-        $this->assertSame(OrderLines::MAX_PER_LINE, $gloves['GL-NT-M']['max']);
+        // No fixed limit per line: as many as are in stock.
+        $this->assertSame($gloves['GL-NT-M']['stock'], $gloves['GL-NT-M']['max']);
+        $this->assertGreaterThan(20, $gloves['GL-NT-M']['max']);
         $this->assertSame(0, $gloves['GL-NT-XL']['max'], 'An out-of-stock variant cannot be ordered.');
 
         $single = OrderLines::for($this->product('CL-FC-5L'));
@@ -130,14 +132,17 @@ class BulkTemplateTest extends TestCase
         $this->assertNull($variant['discount_percent'], 'A variant has no list price of its own.');
     }
 
-    public function test_the_per_line_limit_matches_what_the_shared_cart_accepts(): void
+    public function test_the_shared_cart_takes_more_than_twenty_of_a_line(): void
     {
-        // If the cart's limit ever changes, the sheet and pad must change with it.
+        // The old fixed limit of 20 per line is gone, in every store.
         $line = collect(OrderLines::for($this->product('GL-NT')))->firstWhere('sku', 'GL-NT-M');
         $payload = ['product_id' => $line['product_id'], 'options' => $line['options']];
 
-        $this->order($payload + ['qty' => OrderLines::MAX_PER_LINE])->assertSuccessful();
-        $this->order($payload + ['qty' => OrderLines::MAX_PER_LINE + 1])->assertUnprocessable();
+        $cart = $this->order($payload + ['qty' => 50])->assertSuccessful();
+        $this->assertSame(50, $cart->json('items.0.qty'));
+
+        $key = $cart->json('items.0.key');
+        $this->withSession([Client::SESSION_KEY => 'trade'])->patchJson('/cart/items/'.$key, ['qty' => 120])->assertSuccessful();
     }
 
     public function test_a_line_posts_exactly_what_the_shared_cart_accepts(): void
@@ -574,4 +579,45 @@ class BulkTemplateTest extends TestCase
         $this->visit('/checkout')->assertSuccessful()->assertSee('Place order');
         $this->visit('/contact')->assertSuccessful()->assertSee(route('contact.store'), false);
     }
+
+    public function test_every_colour_can_be_chosen_on_the_product_page_by_its_name(): void
+    {
+        // Black and Red share the container photo, Blue has its own, White has none.
+        $product = $this->product('PK-CT');
+        $attributes = array_values(array_filter($product->variant_attributes, fn ($a) => ! preg_match('/^colou?rs?$/i', $a['name'])));
+        $attributes[] = ['name' => 'Colour', 'values' => ['Black', 'White', 'Red', 'Blue'], 'images' => [
+            'Black' => ['products/container.jpg'], 'Red' => ['products/container.jpg'], 'Blue' => ['products/dots.jpg'],
+        ]];
+        $product->update(['images' => ['products/container.jpg', 'products/dots.jpg'], 'variant_attributes' => $attributes]);
+
+        $html = $this->visit(parse_url($product->fresh()->url, PHP_URL_PATH))->assertSuccessful()->getContent();
+        $swatches = substr($html, strpos($html, 'aria-label="Available colours"'));
+        $swatches = substr($swatches, 0, strpos($swatches, '</div>'));
+
+        // Chosen by name, so picking Black does not also mark Red (same photo) as chosen.
+        $this->assertStringContainsString("chosen === 'Black'", $swatches);
+        $this->assertStringContainsString("chosen === 'Red'", $swatches);
+        // White can be chosen too, and shows the product's own picture (no photo of its own).
+        $this->assertStringContainsString("chosen === 'White'", $swatches);
+        $this->assertStringNotContainsString('disabled', $swatches);
+    }
+
+    public function test_a_line_says_why_its_quantity_is_held_back(): void
+    {
+        $gloves = collect(OrderLines::for($this->product('GL-NT')))->keyBy('sku');
+        $this->assertSame('Only '.$gloves['GL-NT-M']['max'].' left in stock.', $gloves['GL-NT-M']['limit_message']);
+        $this->assertSame('This item is out of stock.', $gloves['GL-NT-XL']['limit_message']);
+
+        $product = $this->product('PK-CT');
+        $product->update(['max_qty' => 5]);
+        $line = OrderLines::for($product->fresh())[0];
+        $this->assertSame(5, $line['max']);
+        $this->assertSame('You can order at most 5 of this item.', $line['limit_message']);
+
+        // The + button stays clickable at the limit, so a click can say so.
+        $html = $this->visit(parse_url($product->fresh()->url, PHP_URL_PATH))->assertSuccessful()->getContent();
+        $this->assertStringContainsString('You can order at most 5 of this item.', $html);
+        $this->assertStringNotContainsString(">= {$line['max']}\"", $html);
+    }
 }
+

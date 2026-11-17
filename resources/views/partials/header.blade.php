@@ -58,9 +58,10 @@
             <button type="button" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openSearch()" aria-label="Search">
                 <x-ico name="search" :size="19" />
             </button>
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="hidden h-10 w-10 place-items-center transition-opacity hover:opacity-60 sm:grid" aria-label="Account">
+            <x-account-menu wrapper="hidden sm:block" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" aria-label="Account"
+                            panel="border border-ink/10 bg-ivory text-sm text-ink shadow-lg" item="hover:bg-cream" muted="text-smoke">
                 <x-ico name="user" :size="19" />
-            </a>
+            </x-account-menu>
             <a href="{{ route('account.wishlist') }}" class="relative hidden h-10 w-10 place-items-center transition-opacity hover:opacity-60 sm:grid" aria-label="Wishlist">
                 <x-ico name="heart" :size="19" />
                 <span x-cloak x-show="$store.wishlist.count > 0" class="absolute right-1 top-1.5 h-1.5 w-1.5 rounded-full bg-gold"></span>

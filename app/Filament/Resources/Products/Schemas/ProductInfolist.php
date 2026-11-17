@@ -48,11 +48,8 @@ class ProductInfolist
                         TextEntry::make('care')->label('Care')->visible(fn (Product $r) => filled($r->care)),
                     ]),
 
-                Section::make('Options & variants')
-                    ->icon('heroicon-o-swatch')
-                    ->description(fn (Product $r) => $r->sellsVariants()
-                        ? 'Price, SKU and stock are set per variant.'
-                        : 'Options the shopper picks; price and stock are the product\'s own.')
+                Section::make('Options')
+                    ->icon('heroicon-o-adjustments-horizontal')
                     ->visible(fn (Product $r) => $r->variantAttributes() !== [])
                     ->schema([
                         RepeatableEntry::make('options')->hiddenLabel()
@@ -63,17 +60,24 @@ class ProductInfolist
                             ])
                             ->columns(2)
                             ->contained(false),
-                        RepeatableEntry::make('variant_rows')->label('Combinations')
-                            ->visible(fn (Product $r) => $r->sellsVariants())
+                    ]),
+
+                Section::make('Variants')
+                    ->icon('heroicon-o-swatch')
+                    ->description('Price, SKU and stock are set per variant.')
+                    ->visible(fn (Product $r) => $r->variantAttributes() !== [] && $r->sellsVariants())
+                    ->schema([
+                        RepeatableEntry::make('variant_rows')->hiddenLabel()
                             ->state(fn (Product $r) => $r->variantList())
                             ->schema([
                                 TextEntry::make('label')->hiddenLabel()->weight('medium'),
                                 TextEntry::make('sku')->hiddenLabel()->placeholder('—')->color('gray'),
                                 TextEntry::make('price')->hiddenLabel()->formatStateUsing(fn ($state) => money((float) $state)),
+                                TextEntry::make('compare_at_price')->hiddenLabel()->formatStateUsing(fn ($state) => 'was '.money((float) $state))->placeholder('—')->color('gray'),
                                 TextEntry::make('stock')->hiddenLabel()->formatStateUsing(fn ($state) => $state.' in stock'),
                                 IconEntry::make('is_active')->hiddenLabel()->boolean(),
                             ])
-                            ->columns(5),
+                            ->columns(6),
                     ]),
 
                 Section::make('Grocery details')

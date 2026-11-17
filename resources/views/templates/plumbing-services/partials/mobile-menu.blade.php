@@ -15,6 +15,7 @@
             @foreach($menus['header'] ?? [] as $item)<a href="{{ $item->url }}" class="mega-link">{{ $item->label }}</a>@endforeach
             <a href="{{ route('bookings') }}" class="mega-link">My bookings</a>
             <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="mega-link">{{ auth()->check() ? 'My account' : 'Log in' }}</a>
+            @auth<form method="post" action="{{ route('logout') }}" novalidate>@csrf<button type="submit" class="mega-link w-full text-left">Log out</button></form>@endauth
         </div>
         <div class="safe-bottom grid grid-cols-2 gap-2 border-t border-line p-3">
             <a href="{{ $biz['phone_href'] }}" class="btn btn-outline btn-sm"><x-ico name="phone" :size="16" /> Call</a>

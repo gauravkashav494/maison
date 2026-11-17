@@ -18,9 +18,11 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -308,6 +310,212 @@ class ProductVariantTest extends TestCase
         $files = $field->getUploadedFiles();
 
         $this->assertSame('/storage/products/kept.jpg', reset($files)['url']);
+    }
+
+    public function test_a_combinations_existing_photos_are_kept_and_stock_is_their_total(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        // Saved before the photo column was removed from the combinations table.
+        $variants = $product->variants;
+        $variants[0]['images'] = ['products/back.jpg'];
+        $product->update(['variants' => $variants]);
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $html = $page->html();
+        $table = substr($html, strpos($html, 'Generate all variants'));
+        preg_match('#<thead.*?</thead>#s', $table, $head);
+        preg_match('#<tbody.*?</tbody>#s', $table, $body);
+        preg_match('#<tr.*?</tr>#s', $body[0] ?? '', $row);
+        // No photo column, and the hidden field adds no empty cell: one cell per heading.
+        $this->assertStringNotContainsString('>Photos<', $head[0]);
+        $this->assertSame(preg_match_all('#<th[\s>]#', $head[0]), preg_match_all('#<td[\s>]#', $row[0]));
+        $page
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = $product->fresh();
+        $this->assertSame(['products/back.jpg'], $saved->variants[0]['images']);
+        // Product stock is not asked a second time: it is saved as the available combinations' total
+        // (3 + 0; the third is unavailable).
+        $this->assertSame(3, (int) $saved->stock);
+        // Combinations saved without an availability flag stayed available.
+        $this->assertSame([true, true, false], array_map(fn ($v) => (bool) $v['is_active'], $saved->variants));
+    }
+
+    /** A variant product with two photos uploaded in Media and a category, ready to save through the form. */
+    private function variantProductWithPhotos(): Product
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('products/front.jpg', 'x');
+        Storage::disk('public')->put('products/back.jpg', 'x');
+        $product = $this->variantProduct();
+        $category = Category::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Shirts', 'slug' => 'shirts', 'is_active' => true]);
+        $product->update(['category_id' => $category->id, 'images' => ['products/front.jpg', 'products/back.jpg'], 'stock' => 999]);
+
+        return $product;
+    }
+
+    public function test_photos_are_chosen_per_colour_and_a_combinations_own_photos_override_them(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $rows = $page->get('data.variant_attributes');
+        $colour = collect($rows)->search(fn ($row) => $row['name'] === 'Colour');
+
+        // No switch: the colour option has photo pickers, and nothing is picked until the store picks it.
+        $this->assertSame([], array_filter((array) ($rows[$colour]['images'] ?? [])));
+
+        $page->set("data.variant_attributes.{$colour}.images.Camel", ['products/back.jpg'])
+            ->set("data.variant_attributes.{$colour}.images.Ink", ['products/front.jpg'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $sets = collect($product->fresh()->toCard()['variant_images']);
+        // Every size of Camel shows the camel photo, from one choice, not per combination.
+        $this->assertSame(['Colour' => 'Camel'], $sets->first()['options']);
+        $this->assertStringEndsWith('products/back.jpg', $sets->first()['images'][0]);
+        $this->assertStringEndsWith('products/front.jpg', $sets->firstWhere('options', ['Colour' => 'Ink'])['images'][0]);
+    }
+
+    public function test_only_the_colour_option_changes_the_photos(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        $attributes = $product->variant_attributes;
+        foreach ($attributes as &$attribute) {
+            // Photos saved on a non-colour option are ignored; only Colour switches the gallery.
+            $attribute['images'] = [$attribute['values'][0] => ['products/back.jpg']];
+        }
+        $product->update(['variant_attributes' => $attributes]);
+
+        $this->assertSame([['Colour' => 'Camel']], array_column($product->fresh()->optionImages(), 'options'));
+    }
+
+    public function test_a_photo_removed_from_media_is_no_longer_shown_for_its_colour(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        $attributes = $product->variant_attributes;
+        foreach ($attributes as &$attribute) {
+            if ($attribute['name'] === 'Colour') {
+                $attribute['images'] = ['Camel' => ['products/back.jpg', 'products/deleted.jpg']];
+            }
+        }
+        $product->update(['variant_attributes' => $attributes]);
+
+        $sets = $product->fresh()->optionImages();
+        $this->assertCount(1, $sets[0]['images']);
+        $this->assertStringEndsWith('products/back.jpg', $sets[0]['images'][0]);
+    }
+
+    public function test_a_card_shows_a_colours_photo_while_its_swatch_is_hovered(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        $attributes = $product->variant_attributes;
+        foreach ($attributes as &$attribute) {
+            if ($attribute['name'] === 'Colour') {
+                $attribute['images'] = ['Ink' => ['products/front.jpg']];
+            }
+        }
+        $product->update(['variant_attributes' => $attributes]);
+        $product = $product->fresh();
+
+        // Ink has a photo to show, Camel has none (on a card its swatch changes nothing).
+        $colours = collect($product->cardColours())->keyBy('name');
+        $this->assertStringEndsWith('products/front.jpg', $colours['Ink']['image']);
+        $this->assertNull($colours['Camel']['image']);
+
+        $html = (string) $this->blade('<x-card-colours :product="$p" /><x-card-colour-photo :product="$p" />', ['p' => $product]);
+        $this->assertStringContainsString('card-colour has-photo', $html);
+        $this->assertStringContainsString("card-colour', { id: {$product->id}", $html);
+        $this->assertStringContainsString('card-colour-photo', $html);
+
+        // On a product page (Bulk) a click keeps the colour shown instead of opening the product.
+        $page = (string) $this->blade('<x-card-colours :product="$p" :select="true" />', ['p' => $product]);
+        $this->assertStringContainsString('<button type="button" title="Ink"', $page);
+        $this->assertStringContainsString('x-bind:aria-pressed', $page);
+        // A colour without photos can be chosen too: it shows the product's own picture.
+        $this->assertDoesNotMatchRegularExpression('/title="Camel"[^>]*disabled/s', $page);
+        $this->assertStringContainsString("chosen === 'Camel'", $page);
+
+        // A product whose colours have no photos keeps its card as it was.
+        $plain = $this->product(['slug' => 'plain-shirt', 'sku' => 'PLAIN-1', 'variant_attributes' => [['name' => 'Colour', 'values' => ['Red', 'Blue']]]]);
+        $this->assertSame('', trim((string) $this->blade('<x-card-colours :product="$p" /><x-card-colour-photo :product="$p" />', ['p' => $plain])));
+        // …except the Fashion card, which always showed its colours: still shown, just not hoverable.
+        $dots = (string) $this->blade('<x-card-colours :product="$p" :with-photos-only="false" />', ['p' => $plain]);
+        $this->assertStringContainsString('title="Red"', $dots);
+        $this->assertStringNotContainsString('card-colour has-photo', $dots);
+    }
+
+    public function test_photos_uploaded_under_a_colour_join_the_images_and_are_picked_for_it(): void
+    {
+        $product = $this->variantProductWithPhotos();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $colour = collect($page->get('data.variant_attributes'))->search(fn ($row) => $row['name'] === 'Colour');
+
+        $page->set("data.variant_attributes.{$colour}.uploads.Ink", [UploadedFile::fake()->image('Ink Front.JPG', 20, 20)])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = $product->fresh();
+        $new = collect($saved->images)->first(fn ($p) => str_contains($p, 'ink-front-'));
+        $this->assertNotNull($new, 'The upload joins the product images, named after the original file.');
+        $this->assertMatchesRegularExpression('#/ink-front-[0-9a-z]{26}\.jpg$#', $new);
+        Storage::disk('public')->assertExists($new);
+        $ink = collect($saved->variant_attributes)->firstWhere('name', 'Colour')['images']['Ink'];
+        $this->assertSame([$new], $ink);
+        $this->assertArrayNotHasKey('uploads', collect($saved->variant_attributes)->firstWhere('name', 'Colour'));
+
+        // The form now shows the product as saved, so saving again keeps it.
+        $page->call('save')->assertHasNoFormErrors();
+        $this->assertSame([$new], collect($product->fresh()->variant_attributes)->firstWhere('name', 'Colour')['images']['Ink']);
+    }
+
+    public function test_new_photos_named_after_a_colour_are_picked_for_it(): void
+    {
+        // A new product's photos are sorted too; then the store unticks the old one for Ink.
+        $product = $this->product([
+            'images' => ['products/old-ink-photo.jpg'],
+            'variant_attributes' => [['name' => 'Colour', 'values' => ['Blue', 'Navy blue', 'Ink', 'Camel']]],
+        ]);
+        $this->assertSame(['products/old-ink-photo.jpg'], $product->variant_attributes[0]['images']['Ink']);
+        $product->update(['variant_attributes' => [['name' => 'Colour', 'values' => ['Blue', 'Navy blue', 'Ink', 'Camel'], 'images' => ['Ink' => []]]]]);
+
+        $product->update(['images' => [
+            'products/old-ink-photo.jpg',       // already there and unticked: left alone
+            'products/shirt-ink-1-01jx.jpg',    // Ink
+            'products/shirt-navy-blue-01jx.jpg', // Navy blue, not Blue
+            'products/shirt-blue-01jx.jpg',     // Blue
+            'products/ink-and-camel-01jx.jpg',  // two colours: unclear, left for the store
+            'products/blueberry-01jx.jpg',      // a word, not the colour
+        ]]);
+
+        $picked = collect($product->fresh()->variant_attributes)->firstWhere('name', 'Colour')['images'] ?? [];
+        $this->assertSame(['products/shirt-ink-1-01jx.jpg'], $picked['Ink']);
+        $this->assertSame(['products/shirt-navy-blue-01jx.jpg'], $picked['Navy blue']);
+        $this->assertSame(['products/shirt-blue-01jx.jpg'], $picked['Blue']);
+        $this->assertArrayNotHasKey('Camel', $picked);
+    }
+
+    public function test_options_and_combinations_share_one_variants_tab(): void
+    {
+        $product = $this->variantProduct();
+        $this->actAsClientAdmin();
+
+        Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
+            ->assertSee('Variants')
+            ->assertSee('Step 1 · Options')
+            ->assertSee('Step 2 · Variants (price &amp; stock for each)', false)
+            ->assertSee('Default price')
+            ->assertSee('Camel photos')
+            ->assertDontSee('Photos change with this option')
+            // Merchandising moved to the Details tab with price and stock merged in here.
+            ->assertSee('Merchandising')
+            ->assertSee('Visible on storefront')
+            ->assertSee('Best seller');
     }
 
     public function test_saving_the_form_keeps_each_combinations_chosen_values(): void
@@ -668,7 +876,7 @@ class ProductVariantTest extends TestCase
         $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()
             ->assertSee('XXL')            // Size suggestions
             ->assertSee('Multicolour')    // Colour suggestions
-            ->assertSee('Add a value — pick a suggestion or type your own', false);
+            ->assertSee('Add a value', false);
     }
 
     public function test_an_option_already_added_cannot_be_chosen_again_in_another_row(): void
@@ -767,4 +975,202 @@ class ProductVariantTest extends TestCase
         $this->assertEquals([310, 330], array_column($variants, 'price'), 'Only blanks are filled; a price already set stays.');
         $this->assertEquals([4, 0], array_column($variants, 'stock'));
     }
+
+    // ---- Compare-at price per variant ---------------------------------------
+
+    /** The variant product with a product compare-at of ₹3,000 and one variant priced "was ₹5,000". */
+    private function discountedVariantProduct(): Product
+    {
+        $product = $this->variantProduct();
+        $variants = $product->variants;
+        $variants[1]['compare_at_price'] = 5000; // S / Ink / Silk at ₹4,000
+        $variants[1]['stock'] = 2;
+        $product->update(['compare_at_price' => 3000, 'variants' => $variants]);
+
+        return $product->fresh();
+    }
+
+    public function test_a_variant_has_its_own_compare_at_price_or_the_products(): void
+    {
+        $product = $this->discountedVariantProduct();
+        $list = collect($product->variantList())->keyBy('label');
+
+        $this->assertSame(5000.0, $list['S / Ink / Silk']['compare_at_price'], 'Its own compare-at price.');
+        $this->assertSame(3000.0, $list['M / Camel / Linen']['compare_at_price'], 'A blank uses the product\'s, when above the variant\'s ₹2,500.');
+
+        // The product's ₹3,000 is not above a ₹4,000 variant: no discount, rather than a negative one.
+        $variants = $product->variants;
+        unset($variants[1]['compare_at_price']);
+        $product->update(['variants' => $variants]);
+        $this->assertNull(collect($product->fresh()->variantList())->keyBy('label')['S / Ink / Silk']['compare_at_price']);
+    }
+
+    public function test_the_storefront_pricing_carries_each_variants_saving(): void
+    {
+        $product = $this->discountedVariantProduct();
+        $silk = collect($product->pricingVariants())->firstWhere('label', 'S / Ink / Silk');
+
+        $this->assertSame(money(5000), $silk['compare_at_price_formatted']);
+        $this->assertSame(20, $silk['discount_percent']);
+        $this->assertSame(money(1000), $silk['save_formatted']);
+        // Before a choice: the cheapest variant in stock (M / Camel / Linen at ₹2,500, was the product's ₹3,000).
+        $this->assertSame(['price' => 2500.0, 'compare_at_price' => 3000.0, 'discount_percent' => 17], array_intersect_key($product->displayPricing(), array_flip(['price', 'compare_at_price', 'discount_percent'])));
+        $this->assertSame(5000.0, $product->compareAtFor(['Size' => 'S', 'Colour' => 'Ink', 'Material' => 'Silk']));
+        $this->assertNull($product->compareAtFor(['Size' => 'S']), 'No variant chosen yet.');
+    }
+
+    public function test_a_bag_line_shows_its_variants_was_price(): void
+    {
+        $product = $this->discountedVariantProduct();
+
+        $line = $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', [
+            'product_id' => $product->id,
+            'options' => ['Size' => 'S', 'Colour' => 'Ink', 'Material' => 'Silk'],
+        ])->assertSuccessful()->json('items.0');
+
+        $this->assertSame(4000, $line['unit_price']);
+        $this->assertSame(5000, $line['product']['compare_at_price']);
+        $this->assertSame(20, $line['product']['discount_percent']);
+    }
+
+    public function test_a_variants_compare_at_price_must_be_above_its_price(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
+            ->assertSee('Compare-at (₹)');
+        $first = array_key_first($page->get('data.variants')); // M / Camel / Linen at ₹2,500
+
+        $page->set("data.variants.{$first}.compare_at_price", 2500)
+            ->call('save')
+            ->assertHasFormErrors(["variants.{$first}.compare_at_price"]);
+
+        $page->set("data.variants.{$first}.compare_at_price", 2999)
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertEquals(2999, $product->fresh()->variants[0]['compare_at_price']);
+    }
+
+    public function test_the_product_page_shows_the_products_own_saving_until_a_variant_is_chosen(): void
+    {
+        $product = $this->discountedVariantProduct();
+
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->get($product->url)
+            ->assertSuccessful()
+            ->assertSee(money(3000))
+            ->assertSee('−17%')
+            ->assertSee('variantPricing(', false);
+    }
+
+    public static function templatesWithAProductPage(): array
+    {
+        // Text only that template's product page has, so each run is known to use its view.
+        return [
+            'grocery' => ['grocery', 'You save'],
+            'plumbing' => ['plumbing', '% off'],
+            'heritage' => ['heritage', 'Select Pack Size'],
+        ];
+    }
+
+    #[DataProvider('templatesWithAProductPage')]
+    public function test_every_template_renders_a_variant_products_saving(string $template, string $marker): void
+    {
+        $this->client->storefront->update(['template' => $template]);
+        $product = $this->discountedVariantProduct();
+        $product->update(['template' => $template]);
+
+        $html = $this->withSession([Client::SESSION_KEY => 'alpha'])->get($product->fresh()->url)
+            ->assertSuccessful()
+            ->getContent();
+
+        $this->assertStringContainsString($marker, $html);
+        $this->assertStringContainsString('variantPricing(', $html);
+        $this->assertStringContainsString(e(money(3000)), $html, 'The product\'s own "was" price until a variant is chosen.');
+    }
+
+    public function test_cards_and_quick_view_show_the_cheapest_variants_saving(): void
+    {
+        $product = $this->discountedVariantProduct();
+        $card = $product->toCard();
+
+        $this->assertSame(2500.0, $card['price']);
+        $this->assertSame(money(3000), $card['compare_at_price_formatted']);
+        $this->assertSame(17, $card['discount_percent']);
+        $this->assertSame(2500.0, $product->display_price);
+        $this->assertTrue($product->is_on_sale);
+
+        // Out of stock is skipped while another variant is in stock: S / Ink / Silk, ₹4,000 was ₹5,000.
+        $variants = $product->variants;
+        $variants[0]['stock'] = 0;
+        $product->update(['variants' => $variants]);
+        $this->assertSame(['price' => 4000.0, 'discount_percent' => 20], array_intersect_key($product->fresh()->toCard(), array_flip(['price', 'discount_percent'])));
+
+        // The quick view loads the same card data.
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->getJson('/api/products/'.$product->slug)
+            ->assertSuccessful()
+            ->assertJsonFragment(['compare_at_price_formatted' => money(5000), 'discount_percent' => 20]);
+    }
+
+    public function test_the_stock_field_shows_the_variants_total_read_only(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
+            ->assertFormFieldIsDisabled('variant_stock_total')
+            ->assertFormFieldIsHidden('stock')
+            ->assertSee('Total of the variants (step 2 below).');
+    }
+
+    public function test_the_products_compare_at_price_must_be_above_its_price(): void
+    {
+        $product = $this->editableVariantProduct(); // default price ₹2,000
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+
+        $page->set('data.compare_at_price', 100)->call('save')->assertHasFormErrors(['compare_at_price']);
+        $page->set('data.compare_at_price', 2000)->call('save')->assertHasFormErrors(['compare_at_price']);
+        $page->set('data.compare_at_price', null)->call('save')->assertHasNoFormErrors();
+        $page->set('data.compare_at_price', 2400)->call('save')->assertHasNoFormErrors();
+        $this->assertEquals(2400, $product->fresh()->compare_at_price);
+    }
+
+    public function test_a_colour_value_written_as_a_colour_code_gets_that_swatch(): void
+    {
+        $this->assertSame('#cc6363', ColourNames::hex('#cc6363'));
+        $this->assertSame('#cc6363', ColourNames::hex('CC6363'));
+        $this->assertSame('#cc6666', ColourNames::hex('#c66'));
+        $this->assertNull(ColourNames::hex('123'));
+        $this->assertNull(ColourNames::hex('#zzz'));
+
+        $product = $this->product([
+            'has_variants' => false,
+            'variant_attributes' => [['name' => 'Colour', 'values' => ['Red', '#cc6363']]],
+        ]);
+        $this->assertSame(['Red' => '#d32f2f', '#cc6363' => '#cc6363'], $product->variantAttributes()[0]['swatches']);
+    }
+
+    public function test_the_cart_says_when_a_quantity_is_over_the_max_per_order_or_the_stock(): void
+    {
+        $post = fn (array $payload) => $this->withSession([Client::SESSION_KEY => 'alpha'])->postJson('/cart/items', $payload);
+
+        // The product's own "max quantity per order".
+        $limited = $this->product(['slug' => 'limited', 'sku' => 'LIM-1', 'stock' => 50, 'max_qty' => 5]);
+        $post(['product_id' => $limited->id, 'qty' => 6])->assertUnprocessable()
+            ->assertJson(['message' => 'You can order at most 5 of this item.']);
+        $cart = $post(['product_id' => $limited->id, 'qty' => 4])->assertSuccessful();
+        $post(['product_id' => $limited->id, 'qty' => 2])->assertUnprocessable()
+            ->assertJson(['message' => 'You can order at most 5 of this item. You already have 4 in your cart.']);
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->patchJson('/cart/items/'.$cart->json('items.0.key'), ['qty' => 9])
+            ->assertUnprocessable()->assertJson(['message' => 'You can order at most 5 of this item.']);
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->patchJson('/cart/items/'.$cart->json('items.0.key'), ['qty' => 5])->assertSuccessful();
+
+        // The stock of the chosen variant (M / Camel / Linen has 3).
+        $variant = $this->variantProduct();
+        $post(['product_id' => $variant->id, 'options' => ['Size' => 'M', 'Colour' => 'Camel', 'Material' => 'Linen'], 'qty' => 4])
+            ->assertUnprocessable()->assertJson(['message' => 'Only 3 left in stock.']);
+    }
 }
+

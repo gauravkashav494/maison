@@ -19,6 +19,7 @@
         <div class="border-t border-line p-4">
             @auth
                 <a href="{{ route('account.index') }}" class="btn btn-outline btn-block">My account</a>
+                <form method="post" action="{{ route('logout') }}" class="mt-2" novalidate>@csrf<button type="submit" class="block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate hover:bg-paper">Log out</button></form>
             @else
                 <a href="{{ route('login') }}" class="btn btn-primary btn-block">Login / Sign up</a>
             @endauth

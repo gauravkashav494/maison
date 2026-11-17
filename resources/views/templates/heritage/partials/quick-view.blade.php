@@ -17,7 +17,7 @@
                 <div class="mt-4 flex flex-wrap items-end gap-2"><span class="font-serif text-2xl font-semibold tabular" x-text="p.price_formatted"></span><span x-show="p.compare_at_price_formatted" class="text-sm text-muted strike" x-text="p.compare_at_price_formatted"></span><span x-show="p.discount_percent > 0" class="badge badge-soft" x-text="p.discount_percent + '% off'"></span></div>
                 <div class="mt-4" x-show="p.sizes.length > 1"><p class="label">Pack size</p><div class="flex flex-wrap gap-2"><template x-for="s in p.sizes" :key="s"><button type="button" @click="size = s" class="chip" :class="size === s && 'chip-active'" x-text="s"></button></template></div></div>
                 <div class="mt-5 flex items-center gap-3">
-                    <div class="stepper"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span x-text="qty"></span><button type="button" @click="qty = Math.min(p.max_qty || 20, qty + 1)" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>
+                    <div class="stepper"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span x-text="qty"></span><button type="button" @click="qty < (p.max_qty || Infinity) ? qty++ : $store.ui.notify(`Maximum ${p.max_qty} per order`, 'error')" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>
                     <button type="button" @click="add()" :disabled="!p.in_stock" class="btn btn-primary flex-1"><span x-text="p.in_stock ? 'Add to cart' : 'Out of stock'"></span></button>
                 </div>
                 <div class="mt-3 flex items-center justify-between text-sm">

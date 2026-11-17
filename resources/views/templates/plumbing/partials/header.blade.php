@@ -47,7 +47,8 @@
                     <span class="leading-tight"><span class="block text-[0.6875rem] font-semibold uppercase tracking-wider text-slate">Expert support</span><span class="block text-sm font-bold text-ink">{{ $phone }}</span></span>
                 </a>
             @endif
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="icon-btn hidden lg:grid" aria-label="Account" title="{{ auth()->check() ? 'My account' : 'Login' }}"><x-ico name="user" :size="22" /></a>
+            <x-account-menu wrapper="hidden lg:block" class="icon-btn" aria-label="Account" title="{{ auth()->check() ? 'My account' : 'Login' }}"
+                            panel="rounded-xl border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-sky" muted="text-slate"><x-ico name="user" :size="22" /></x-account-menu>
             <a href="{{ route('account.wishlist') }}" class="icon-btn relative hidden lg:grid" aria-label="Wishlist"><x-ico name="heart" :size="22" /><span x-show="$store.wishlist.count" x-cloak class="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[0.625rem] font-bold text-ink" x-text="$store.wishlist.count"></span></a>
             <button type="button" @click="$store.ui.openCart()" class="relative flex h-10 items-center gap-2 rounded-xl px-2 text-ink hover:bg-sky lg:bg-primary lg:px-4 lg:text-white lg:hover:bg-deep" aria-label="Open cart">
                 <x-ico name="cart" :size="22" />

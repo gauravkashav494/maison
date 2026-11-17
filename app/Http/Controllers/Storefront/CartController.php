@@ -44,7 +44,7 @@ class CartController extends Controller
             'options.*' => ['nullable', 'string', 'max:60'],
             'size' => ['nullable', 'string', 'max:40'],
             'color' => ['nullable', 'string', 'max:40'],
-            'qty' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'qty' => ['nullable', 'integer', 'min:1'],
         ]);
         $product = Product::active()->findOrFail($data['product_id']);
 
@@ -60,18 +60,29 @@ class CartController extends Controller
 
         if ($product->sellsVariants()) {
             $variant = $product->findVariant($options);
-            abort_unless((bool) $variant, 422, 'That combination is not available.');
-            abort_unless($variant['stock'] > 0, 422, 'That combination is out of stock.');
+            abort_unless((bool) $variant, 422, 'That variant is not available.');
+            abort_unless($variant['stock'] > 0, 422, 'That variant is out of stock.');
         }
 
-        $this->cart->add($product->id, $options, (int) ($data['qty'] ?? 1));
+        // No more than the product's "max quantity per order" or the stock of the choice.
+        $qty = (int) ($data['qty'] ?? 1);
+        $inCart = $this->cart->quantityOf($product->id, $options);
+        $refused = $product->orderLimitMessage($inCart + $qty, $options, $inCart);
+        abort_if($refused !== null, 422, $refused);
+
+        $this->cart->add($product->id, $options, $qty);
 
         return response()->json($this->cart->toArray());
     }
 
     public function update(Request $request, string $key): JsonResponse
     {
-        $data = $request->validate(['qty' => ['required', 'integer', 'min:0', 'max:20']]);
+        $data = $request->validate(['qty' => ['required', 'integer', 'min:0']]);
+        $line = $this->cart->raw()[$key] ?? null;
+        if ($line && (int) $data['qty'] > (int) $line['qty'] && ($product = Product::find($line['product_id']))) {
+            $refused = $product->orderLimitMessage((int) $data['qty'], (array) $line['options']);
+            abort_if($refused !== null, 422, $refused);
+        }
         $this->cart->update($key, (int) $data['qty']);
 
         return response()->json($this->cart->toArray());

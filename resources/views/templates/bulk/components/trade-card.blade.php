@@ -10,12 +10,13 @@
     $lines = \App\Templates\Bulk\OrderLines::for($product);
     $first = collect($lines)->first(fn ($l) => $l['max'] > 0) ?? ($lines[0] ?? null);
     $inStock = collect($lines)->contains(fn ($l) => $l['max'] > 0);
-    $state = array_map(fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'sku', 'label', 'price', 'price_formatted', 'list_price', 'stock', 'max']), $lines);
+    $state = array_map(fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'sku', 'label', 'price', 'price_formatted', 'list_price', 'stock', 'max', 'limit_message']), $lines);
 @endphp
 
 <article class="bk-card bk-pcard" x-data="tradeCard(@js($state), @js($first['key'] ?? null))">
     <a href="{{ $product->url }}" class="relative block" tabindex="-1" aria-hidden="true">
         <x-art :category="$product->category" :image="$product->image_url" :alt="$product->name" />
+        <x-card-colour-photo :product="$product" />
         <span class="bk-pcard-badges">
             @if($first && $first['list_price'] > $first['price'])
                 <span class="bk-badge bk-badge-deal">{{ (int) round(($first['list_price'] - $first['price']) * 100 / $first['list_price']) }}% off</span>
@@ -27,6 +28,7 @@
     <div class="bk-pcard-body">
         <div>
             <a href="{{ $product->url }}" class="bk-pcard-name">{{ $product->name }}</a>
+            <x-card-colours :product="$product" class="mt-1" />
             <p class="bk-code mt-1" x-text="line ? (line.sku || '') : ''">{{ $first['sku'] ?? $product->sku }}</p>
         </div>
 
@@ -66,7 +68,7 @@
                 <span class="bk-step">
                     <button type="button" @click="step(-1)" :disabled="qty <= 1" aria-label="Decrease quantity"><x-heroicon-o-minus /></button>
                     <input type="number" inputmode="numeric" min="1" :max="line?.max" x-model.number="qty" @change="step(0)" aria-label="Quantity of {{ $product->name }}">
-                    <button type="button" @click="step(1)" :disabled="!line || qty >= line.max" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
+                    <button type="button" @click="step(1)" :disabled="!line" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
                 </span>
                 <button type="button" class="bk-btn bk-btn-primary" :disabled="busy || !line || line.max <= 0" @click="add()">
                     <x-heroicon-o-shopping-cart /><span x-text="busy ? 'Adding…' : 'Add'">Add</span>

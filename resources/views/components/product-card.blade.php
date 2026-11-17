@@ -14,6 +14,7 @@
                 <img src="{{ $product->hover_image_url }}" alt="" loading="lazy" decoding="async"
                      class="img-cover absolute inset-0 scale-[1.04] opacity-0 transition-all duration-1000 ease-[var(--ease-luxe)] group-hover:scale-100 group-hover:opacity-100">
             @endif
+            <x-card-colour-photo :product="$product" />
         </a>
 
         {{-- Badges --}}
@@ -64,18 +65,12 @@
                     <a href="{{ $product->url }}" class="line-clamp-2 hover:text-smoke lg:line-clamp-1">{{ $product->name }}</a>
                 </h3>
             </div>
-            @if(!empty($product->colors))
-                <div class="mt-1 flex shrink-0 items-center gap-1.5" aria-label="Available colours">
-                    @foreach(array_slice($product->colors, 0, 4) as $c)
-                        <span title="{{ $c['name'] }}" class="h-3 w-3 rounded-full ring-1 ring-ink/10 ring-offset-1 ring-offset-ivory" style="background-color: {{ $c['hex'] }}"></span>
-                    @endforeach
-                    @if(count($product->colors) > 4)<span class="text-[0.625rem] text-smoke">+{{ count($product->colors) - 4 }}</span>@endif
-                </div>
-            @endif
+            {{-- Colours, also from the Colour option; hovering one with photos shows it in the picture. --}}
+            <x-card-colours :product="$product" :with-photos-only="false" :max="4" class="mt-1 shrink-0" />
         </div>
         <div class="flex items-center gap-2 text-[0.875rem] tabular-nums">
-            <span class="{{ $discount > 0 ? 'text-rouge' : '' }}">{{ money($product->price) }}</span>
-            @if($product->compare_at_price)<span class="text-smoke line-through">{{ money($product->compare_at_price) }}</span>@endif
+            <span class="{{ $discount > 0 ? 'text-rouge' : '' }}">{{ money($product->display_price) }}</span>
+            @if($product->display_compare_at_price)<span class="text-smoke line-through">{{ money($product->display_compare_at_price) }}</span>@endif
         </div>
         @if($showRating)<x-rating :value="$product->rating" :count="$product->review_count" />@endif
     </div>

@@ -17,12 +17,6 @@ use Illuminate\Support\Collection;
  */
 class OrderLines
 {
-    /**
-     * The shared cart accepts at most this many of a line per request
-     * (see CartController::store and ::update), so no box offers more.
-     */
-    public const MAX_PER_LINE = 20;
-
     /** A product with more combinations than this is ordered from its own page instead. */
     public const MAX_COMBINATIONS = 24;
 
@@ -39,7 +33,7 @@ class OrderLines
         if ($product->sellsVariants()) {
             foreach ($product->variantList() as $variant) {
                 if ($variant['is_active']) {
-                    $lines[] = self::line($product, $choices, $variant['options'], $variant['sku'], $variant['price'], $variant['stock'], $variant['images'][0] ?? null);
+                    $lines[] = self::line($product, $choices, $variant['options'], $variant['sku'], $variant['price'], $variant['stock'], $variant['images'][0] ?? null, $variant['compare_at_price']);
                 }
             }
 
@@ -52,7 +46,7 @@ class OrderLines
         }
 
         foreach ($combinations as $options) {
-            $lines[] = self::line($product, $choices, $options, $product->sku, (float) $product->price, (int) $product->stock);
+            $lines[] = self::line($product, $choices, $options, $product->sku, (float) $product->price, (int) $product->stock, compareAt: $product->compareAtFor());
         }
 
         return $lines;
@@ -115,18 +109,17 @@ class OrderLines
         return $combinations;
     }
 
-    private static function line(Product $product, array $choices, array $options, ?string $sku, float $price, int $stock, ?string $image = null): array
+    private static function line(Product $product, array $choices, array $options, ?string $sku, float $price, int $stock, ?string $image = null, ?float $compareAt = null): array
     {
         $chosen = array_intersect_key($options, array_flip($choices));
 
-        $limits = array_filter([self::MAX_PER_LINE, max(0, $stock), $product->max_qty ?: null], fn ($n) => $n !== null);
+        // No fixed cap per line: only the stock and the product's own "max quantity per order".
+        $limits = array_filter([max(0, $stock), $product->max_qty ?: null], fn ($n) => $n !== null);
         ksort($options);
 
-        // The "was" price applies to the product's own price only; a variant priced on its
-        // own has no list price to be discounted from.
-        $listPrice = ! $product->sellsVariants() && (float) $product->compare_at_price > $price
-            ? (float) $product->compare_at_price
-            : $price;
+        // The "was" price: the variant's own compare-at price (or the product's, for a product
+        // not sold by variant), only when it is above the price.
+        $listPrice = $compareAt !== null && $compareAt > $price ? $compareAt : $price;
 
         return [
             'key' => $product->id.'-'.substr(md5(json_encode($options)), 0, 8),
@@ -141,11 +134,25 @@ class OrderLines
             'discount_percent' => $listPrice > $price ? round(($listPrice - $price) * 100 / $listPrice, 1) : null,
             'stock' => $stock,
             'max' => (int) min($limits),
+            // Said when a quantity is held back to `max` (the same words the cart uses).
+            'limit_message' => self::limitMessage((int) min($limits), $product->max_qty ? (int) $product->max_qty : null),
             'url' => $product->url,
             'unit' => count($product->sizes ?? []) === 1 && ! $chosen ? ($product->sizes[0] ?? null) : null,
             // A combination with photos of its own shows its first one.
             'image' => $image ?? $product->image_url,
             'category' => $product->category?->name,
         ];
+    }
+
+    /** Why a line cannot go higher: the product's max quantity per order, or its stock. */
+    private static function limitMessage(int $max, ?int $maxPerOrder): string
+    {
+        if ($max <= 0) {
+            return 'This item is out of stock.';
+        }
+
+        return $maxPerOrder !== null && $max === $maxPerOrder
+            ? "You can order at most {$max} of this item."
+            : "Only {$max} left in stock.";
     }
 }

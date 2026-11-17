@@ -29,6 +29,7 @@
 
     @include('partials.footer')
     @include('partials.cart-drawer')
+    <x-cart-notice />
     @include('partials.cookie-banner')
 
     @stack('scripts')

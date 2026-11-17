@@ -83,7 +83,11 @@ Alpine.store('cart', {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
         } finally { this.busy = false; }
     },
-    async update(key, qty) { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); },
+    async update(key, qty) {
+        // Refused over the product's max quantity per order or its stock: say why.
+        try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
+        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart', 'error'); }
+    },
     async remove(key) { this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' })); },
     async applyCoupon(code) {
         this.couponError = null;
@@ -184,8 +188,8 @@ Alpine.data('hCard', (product) => ({
     product, qty: 1, added: false,
     size: product.sizes[0] ?? null,
     get multi() { return this.product.sizes.length > 1; },
-    get max() { return this.product.max_qty || 20; },
-    inc() { if (this.qty < this.max) this.qty++; },
+    get max() { return this.product.max_qty || Infinity; },
+    inc() { if (this.qty < this.max) this.qty++; else Alpine.store('ui').notify(`Maximum ${this.max} per order`, 'error'); },
     dec() { if (this.qty > 1) this.qty--; },
     async add() {
         if (!this.product.in_stock) return;
@@ -280,7 +284,7 @@ Alpine.data('productPage', (product) => ({
     // A combination with its own photos takes over the gallery when it is chosen.
     get slides() { return gallerySlides(product, this); },
     get inCart() { return Alpine.store('cart').qtyOf(this.p.id, this.size); },
-    get max() { return this.p.max_qty || 20; },
+    get max() { return this.p.max_qty || Infinity; },
     init() {
         Alpine.store('recent_products').push(product.slug);
         watchVariantGallery(this, product);

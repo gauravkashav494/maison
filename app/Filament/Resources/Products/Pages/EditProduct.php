@@ -26,7 +26,24 @@ class EditProduct extends EditRecord
             );
         }
 
+        // A combination saved without "is_active" is available on the storefront
+        // (Product::variantList). The form's Available switch would read it as off, and simply
+        // saving the product would then make it unbuyable, so it opens as available.
+        if (is_array($data['variants'] ?? null)) {
+            $data['variants'] = array_map(fn ($row) => is_array($row) ? $row + ['is_active' => true] : $row, $data['variants']);
+        }
+
         return $data;
+    }
+
+    /**
+     * Saving can add to what was typed (photos uploaded under a colour join the images; a photo
+     * named after a colour is picked for it): show the product as saved, so the next save keeps it.
+     */
+    protected function afterSave(): void
+    {
+        $this->getRecord()->refresh();
+        $this->fillForm();
     }
 
     protected function getHeaderActions(): array

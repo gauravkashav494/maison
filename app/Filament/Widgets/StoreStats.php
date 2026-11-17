@@ -8,7 +8,6 @@ use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\Product;
 use Filament\Widgets\Widget;
 
 /** A client's headline numbers. A figure is neither computed nor sent unless the role grants it. */
@@ -71,12 +70,14 @@ class StoreStats extends Widget
         }
 
         if (ClientAccess::current('customers', 'view')) {
-            $lowStock = ClientAccess::current('products', 'view') ? Product::active()->where('stock', '<=', 5)->count() : null;
+            $customers = Customer::where('client_id', app(StoreContext::class)->user()?->clientId());
+            $new = (clone $customers)->where('created_at', '>=', now()->startOfMonth())->count();
 
             $stats[] = [
                 'label' => 'Customers',
-                'value' => Customer::where('client_id', app(StoreContext::class)->user()?->clientId())->count(),
-                'description' => $lowStock === null ? 'Registered shoppers' : $lowStock.' product'.($lowStock === 1 ? '' : 's').' low on stock',
+                'value' => $customers->count(),
+                // About customers only (it used to borrow this line for a low-stock count).
+                'description' => $new.' new this month',
                 'icon' => 'users',
                 'color' => 'is-purple',
                 'url' => CustomerResource::getUrl('index'),

@@ -84,9 +84,29 @@ export function watchVariantGallery(ctx, product) {
     }
 }
 
-/** Registers the live price / stock line under the variant pickers. Call before Alpine.start(). */
+/**
+ * Registers the live price display. Call before Alpine.start().
+ *
+ * `variants` come from Product::pricingVariants() and `base` from Product::displayPricing(): each
+ * has price_formatted, compare_at_price_formatted (null when there is no discount),
+ * discount_percent and save_formatted. `shown` is the chosen variant's, or the product's own
+ * until every option is chosen (or when the product is not sold by variant).
+ */
 export function registerVariants(Alpine) {
-    Alpine.data('variantPricing', (variants) => ({
+    Alpine.data('variantPricing', (variants, base = null) => ({
         get current() { return matchVariant(variants, this); },
+        get shown() { return this.current || base; },
+        /**
+         * Pricing for one size (a pack-size card): the variant of that size matching the rest
+         * of the choice, else the cheapest one of that size, else the product's own.
+         */
+        forSize(size) {
+            const ctx = { options: { ...(this.options || {}) }, size, color: this.color };
+            for (const key of Object.keys(ctx.options)) if (isSize(key)) delete ctx.options[key];
+            const exact = matchVariant(variants, ctx);
+            if (exact) return exact;
+            const sized = variants.filter((v) => v.is_active && Object.entries(v.options).some(([name, value]) => isSize(name) && same(value, size)));
+            return sized.sort((a, b) => a.price - b.price)[0] || base;
+        },
     }));
 }

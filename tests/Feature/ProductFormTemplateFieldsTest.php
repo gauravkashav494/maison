@@ -92,9 +92,9 @@ class ProductFormTemplateFieldsTest extends TestCase
     {
         return [
             'fashion' => ['fashion', 'Size: S, M, L'],
-            'grocery' => ['grocery', 'Pack size: 250 g, 500 g, 1 kg — Flavour: Masala'],
-            'heritage' => ['heritage', 'Flavour: Kesar, Elaichi'],
-            'plumbing' => ['plumbing', 'Size: 1/2 inch, 3/4 inch, 1 inch'],
+            'grocery' => ['grocery', 'Pack size: 250 g, 500 g, 1 kg · Flavour: Masala'],
+            'heritage' => ['heritage', 'Flavour: Kesar'],
+            'plumbing' => ['plumbing', 'Size: 1/2 inch, 1 inch'],
             'bulk' => ['bulk', 'Size / pack: 500 ml, 1 L, 5 L'],
         ];
     }

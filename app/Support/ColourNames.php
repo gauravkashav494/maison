@@ -23,9 +23,19 @@ class ColourNames
         'brown' => '#6d4c41', 'dark brown' => '#4e342e', 'chocolate' => '#5d3a1a', 'coffee' => '#6f4e37', 'tan' => '#d2b48c', 'beige' => '#e8d9b5', 'khaki' => '#c3b091', 'camel' => '#c19a6b', 'nude' => '#e3bc9a', 'sand' => '#d8c8a8',
     ];
 
-    /** The swatch colour for a colour name ("Navy Blue", "off-white"), or null when unknown. */
+    /**
+     * The swatch colour for a colour name ("Navy Blue", "off-white"), or for a value that is a
+     * colour code itself ("#cc6363", "cc6363", "#c66"), or null when unknown.
+     */
     public static function hex(?string $name): ?string
     {
+        // The short form needs its "#", so a plain number such as "123" is not read as a colour.
+        if (preg_match('/^(?:#([0-9a-f]{3}|[0-9a-f]{6})|([0-9a-f]{6}))$/i', trim((string) $name), $m)) {
+            $code = strtolower($m[1] !== '' ? $m[1] : $m[2]);
+
+            return '#'.(strlen($code) === 3 ? $code[0].$code[0].$code[1].$code[1].$code[2].$code[2] : $code);
+        }
+
         $key = trim(preg_replace('/[\s_-]+/', ' ', mb_strtolower((string) $name)));
 
         return self::HEX[$key] ?? null;

@@ -151,10 +151,12 @@ Alpine.data('tradeCard', (lines = [], initial = null) => ({
 
     get line() { return this.lines.find((l) => l.key === this.key) || null; },
 
-    /** −1 / +1 from the buttons, 0 after typing: either way held to 1…max. */
+    /** −1 / +1 from the buttons, 0 after typing: either way held to 1…max, saying why when held. */
     step(by) {
         const max = this.line?.max || 1;
-        this.qty = Math.min(max, Math.max(1, (parseInt(this.qty, 10) || 1) + by));
+        const wanted = Math.max(1, (parseInt(this.qty, 10) || 1) + by);
+        this.qty = Math.min(max, wanted);
+        this.error = wanted > max ? (this.line?.limit_message || '') : '';
     },
 
     async add() {
@@ -260,10 +262,13 @@ Alpine.data('orderSheet', (lines = []) => ({
     clamp(key) {
         const line = this.lines[key];
         if (!line) return;
+        const wanted = parseInt(this.qty[key], 10) || 0;
         const n = clampQty(this.qty[key], line.max);
         this.qty[key] = n || '';
-        delete this.errors[key];
         delete this.added[key];
+        // Held back to the most this line allows: say why, beside the row.
+        if (wanted > line.max) this.errors[key] = line.limit_message;
+        else delete this.errors[key];
     },
     /** The − / + buttons: one at a time, held to 0…max like a typed quantity. */
     step(key, by) {
@@ -451,7 +456,7 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
         let n = parseInt(row.qty, 10);
         if (isNaN(n) || n < 1) n = 1;
         if (n > row.line.max) {
-            row.error = `${row.line.max} is the most for this item`;
+            row.error = row.line.limit_message || `${row.line.max} is the most for this item`;
             row.expanded = true;
             n = row.line.max;
         } else {
@@ -615,7 +620,7 @@ Alpine.data('quickOrder', (index = { lines: {}, codes: {} }) => ({
         if (isNaN(wanted) || wanted < 1) { row.error = 'Quantity must be at least 1'; return; }
         if (wanted > line.max) {
             row.qty = line.max;
-            row.note = `Reduced from ${wanted} — ${line.max} is the most per line`;
+            row.note = `Reduced from ${wanted}. ${line.limit_message || `${line.max} is the most per line.`}`;
         } else {
             row.qty = wanted;
         }

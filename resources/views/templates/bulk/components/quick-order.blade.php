@@ -28,7 +28,6 @@
             <x-heroicon-o-arrow-down-tray aria-hidden="true" />Download sample CSV
         </button>
         <button type="button" class="bk-btn bk-btn-ghost" x-show="text || rows.length" x-cloak @click="reset()">Clear</button>
-        <span class="bk-muted text-xs">At most {{ \App\Templates\Bulk\OrderLines::MAX_PER_LINE }} per line.</span>
     </div>
 
     <p class="bk-ok mt-3" role="status" x-show="message" x-text="message" x-cloak></p>

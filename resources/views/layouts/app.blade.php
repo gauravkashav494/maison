@@ -32,6 +32,7 @@
     @include('partials.search-overlay')
     @include('partials.cart-drawer')
     @include('partials.quick-view')
+    <x-cart-notice />
     @include('partials.cookie-banner')
 
     @stack('scripts')

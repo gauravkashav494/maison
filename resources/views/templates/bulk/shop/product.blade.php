@@ -11,7 +11,7 @@
     $lines = \App\Templates\Bulk\OrderLines::for($product);
     $first = collect($lines)->first(fn ($l) => $l['max'] > 0) ?? ($lines[0] ?? null);
     $showStock = (bool) tsetting('site.show_stock', true);
-    $sheet = array_map(fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'price', 'max']), $lines);
+    $sheet = array_map(fn ($l) => \Illuminate\Support\Arr::only($l, ['key', 'product_id', 'options', 'price', 'max', 'limit_message']), $lines);
 @endphp
 
 @section('content')
@@ -24,7 +24,13 @@
 
     <div class="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <div class="bk-card overflow-hidden">
-            <x-art :category="$product->category" :image="$product->image_url" :alt="$product->name" class="!aspect-square !rounded-none" />
+            <div class="relative">
+                <x-art :category="$product->category" :image="$product->image_url" :alt="$product->name" class="!aspect-square !rounded-none" />
+                {{-- The chosen colour's photo (Variants → Colour photos), over the product's own. --}}
+                <x-card-colour-photo :product="$product" />
+            </div>
+            {{-- Always on the product page (with or without photos); a colour with photos can be clicked to show them. --}}
+            <x-card-colours :product="$product" :select="true" :with-photos-only="false" :max="12" class="is-large border-t border-[var(--bk-line)] p-4" />
         </div>
 
         <div class="bk-card p-5 sm:p-7">
@@ -55,7 +61,7 @@
                             <span class="bk-step !h-12">
                                 <button type="button" @click="step(-1)" :disabled="qty <= 1" aria-label="Decrease quantity"><x-heroicon-o-minus /></button>
                                 <input type="number" inputmode="numeric" min="1" max="{{ $first['max'] }}" x-model.number="qty" @change="step(0)" aria-label="Quantity">
-                                <button type="button" @click="step(1)" :disabled="qty >= {{ $first['max'] }}" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
+                                <button type="button" @click="step(1)" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
                             </span>
                             <button type="button" class="bk-btn bk-btn-primary flex-1 !py-3 text-base" :disabled="busy" @click="add()">
                                 <x-heroicon-o-shopping-cart aria-hidden="true" /><span x-text="busy ? 'Adding…' : 'Add to order'">Add to order</span>
@@ -97,7 +103,7 @@
                                                 <button type="button" @click="step(@js($key), -1)" :disabled="!(qty[@js($key)] > 0)" aria-label="Decrease {{ $line['label'] }}"><x-heroicon-o-minus /></button>
                                                 <input type="number" inputmode="numeric" min="0" max="{{ $line['max'] }}" placeholder="0"
                                                        x-model.number="qty[@js($key)]" @change="clamp(@js($key))" aria-label="Quantity of size {{ $line['label'] }}">
-                                                <button type="button" @click="step(@js($key), 1)" :disabled="(qty[@js($key)] || 0) >= {{ $line['max'] }}" aria-label="Increase {{ $line['label'] }}"><x-heroicon-o-plus /></button>
+                                                <button type="button" @click="step(@js($key), 1)" aria-label="Increase {{ $line['label'] }}"><x-heroicon-o-plus /></button>
                                             </span>
                                             <span class="bk-error" x-show="errors[@js($key)]" x-text="errors[@js($key)]" x-cloak></span>
                                             <span class="bk-ok block" x-show="added[@js($key)]" x-text="added[@js($key)] + ' added'" x-cloak></span>
@@ -121,15 +127,17 @@
                 </div>
             @else
                 {{-- Too many combinations to list: choose them with the shared picker. --}}
-                <div class="mt-6 grid gap-4 border-t border-[var(--bk-line)] pt-6" x-data="productPage(@js($product->toCard()))">
+                <div class="mt-6 grid gap-4 border-t border-[var(--bk-line)] pt-6" x-data="productPage(@js($product->toCard()))"
+                     {{-- Choosing a colour in the picker shows its photo in the picture above. --}}
+                     x-effect="const c = Object.entries(options).find(([k, v]) => /^colou?rs?$/i.test(k) && v); $dispatch('card-colour', { id: {{ $product->id }}, src: c ? (@js(collect($product->cardColours())->pluck('image', 'name')->filter())[c[1]] ?? null) : null })">
                     <span class="bk-price !text-3xl">{{ money($product->price) }}</span>
                     <x-variant-options :product="$product" />
                     @if($product->stock > 0)
                         <div class="flex flex-wrap gap-3">
                             <span class="bk-step !h-12">
                                 <button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-heroicon-o-minus /></button>
-                                <input type="number" min="1" max="{{ \App\Templates\Bulk\OrderLines::MAX_PER_LINE }}" x-model.number="qty" aria-label="Quantity">
-                                <button type="button" @click="qty = Math.min({{ \App\Templates\Bulk\OrderLines::MAX_PER_LINE }}, qty + 1)" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
+                                <input type="number" min="1" @if($product->max_qty) max="{{ $product->max_qty }}" @endif x-model.number="qty" aria-label="Quantity">
+                                <button type="button" @click="incQty()" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
                             </span>
                             <button type="button" class="bk-btn bk-btn-primary flex-1 !py-3" :disabled="$store.cart.busy" @click="add()">Add to order</button>
                         </div>
