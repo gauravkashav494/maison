@@ -217,8 +217,14 @@ class ClientQuota
 
     public function forget(): void
     {
-        Cache::forget($this->cacheKey('storage'));
-        Cache::forget($this->cacheKey('images'));
+        self::forgetFor($this->client->id);
+    }
+
+    /** Drops the cached usage of a client, so the next reading counts afresh (after a product save). */
+    public static function forgetFor(int $clientId): void
+    {
+        Cache::forget('client.storage.'.$clientId);
+        Cache::forget('client.images.'.$clientId);
     }
 
     public function storageLimit(): ?int

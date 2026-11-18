@@ -32,6 +32,9 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 /** Reusable admin form building blocks shared across resources and settings pages. */
 class Fields
 {
+    /** Most images one upload box holds, and one product's gallery (WithinProductImageCap). */
+    public const MAX_IMAGES = 12;
+
     /**
      * Image upload stored on the public disk. Existing values may also be absolute URLs
      * (e.g. seeded Unsplash imagery), which are previewed as-is instead of being dropped.
@@ -113,7 +116,7 @@ class Fields
 
         if ($multiple) {
             // Small tiles (see .filepond grid rules in the admin theme), not a third of the form each.
-            $field->multiple()->reorderable()->appendFiles()->panelLayout('grid')->maxFiles(12)->imagePreviewHeight('150');
+            $field->multiple()->reorderable()->appendFiles()->panelLayout('grid')->maxFiles(self::MAX_IMAGES)->imagePreviewHeight('150');
         }
 
         return $field;

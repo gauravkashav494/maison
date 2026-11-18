@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Pages;
 
+use App\Filament\Resources\Products\Pages\Concerns\ValidatesProductImages;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Products\ProductRestoreActions;
 use Filament\Actions\DeleteAction;
@@ -11,6 +12,8 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditProduct extends EditRecord
 {
+    use ValidatesProductImages;
+
     protected static string $resource = ProductResource::class;
 
     /**

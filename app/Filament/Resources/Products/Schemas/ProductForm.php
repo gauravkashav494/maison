@@ -16,6 +16,7 @@ use App\Models\Collection;
 use App\Models\Product;
 use App\Models\Tax;
 use App\Rules\WithinClientImageLimit;
+use App\Rules\WithinProductImageCap;
 use App\Support\ColourNames;
 use App\Support\SkuGenerator;
 use App\Support\TaxPrices;
@@ -153,10 +154,10 @@ class ProductForm
                             ->icon('heroicon-o-photo')
                             ->schema([
                                 Fields::image('images', 'Product images', 'products', multiple: true)
-                                    // The allowance is enforced here as well as in the policy, so the
-                                    // limit holds even if the field is posted directly. Images on the
-                                    // combinations count too, so the check sees all of them at once.
-                                    ->rules(fn (?Product $record, Get $get) => [new WithinClientImageLimit(self::imagePaths($record), [...self::formVariantImages($get('variants')), ...self::formColourUploads($get('variant_attributes'))])])
+                                    // The account allowance and the per-product cap are checked on the
+                                    // whole form (ProductForm::imageRules), not here: Filament runs an
+                                    // upload field's rules once per file, so they would miss photos
+                                    // added under a colour, or not run at all on an empty gallery.
                                     ->helperText(function (?Product $record) {
                                         $quota = ClientQuota::current();
                                         $base = 'Drag to reorder. The first image is the main image; the second is shown on hover. '
@@ -1068,6 +1069,24 @@ class ProductForm
             }
         }
         $set('../../variants', $variants);
+    }
+
+    /**
+     * Rules for the gallery, given the whole form state. The product pages add them to their own
+     * validation (ValidatesProductImages), so they see every image at once: the gallery, photos
+     * uploaded under a colour (which join it on save) and the combinations' photos.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<int, object>
+     */
+    public static function imageRules(?Product $record, array $data): array
+    {
+        $colourUploads = self::formColourUploads($data['variant_attributes'] ?? []);
+
+        return [
+            new WithinClientImageLimit(self::imagePaths($record), [...self::formVariantImages($data['variants'] ?? []), ...$colourUploads]),
+            new WithinProductImageCap($colourUploads),
+        ];
     }
 
     /** Photos being uploaded under a colour (Variants → Colour): new images, counted with the rest. */

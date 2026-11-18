@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Clients\ClientQuota;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\HasSeo;
@@ -302,6 +303,14 @@ class Product extends Model
                 $product->categories()->syncWithoutDetaching([$product->category_id]);
             }
         });
+
+        // Images (and storage) used read from a short cache; recount after any change, so the
+        // usage bar and "Product images used" show the save at once, not up to 30 seconds later.
+        $recount = fn (Product $product) => $product->client_id && ClientQuota::forgetFor((int) $product->client_id);
+        static::saved($recount);
+        static::deleted($recount);
+        static::restored($recount);
+        static::forceDeleted($recount);
     }
 
     /**

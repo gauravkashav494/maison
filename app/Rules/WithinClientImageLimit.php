@@ -17,6 +17,12 @@ use Illuminate\Contracts\Validation\ValidationRule;
 class WithinClientImageLimit implements ValidationRule
 {
     /**
+     * Run even when the field itself is empty: photos added elsewhere in the form (under a
+     * colour, or on a combination) still count, and a product may have only those.
+     */
+    public bool $implicit = true;
+
+    /**
      * @param  array<string>  $replacing  image paths the record holds today and that this save may drop
      * @param  array<int, mixed>  $extra  other images saved with it (a product's combination photos), in the same form
      */
