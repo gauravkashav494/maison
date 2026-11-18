@@ -88,6 +88,12 @@ class AppServiceProvider extends ServiceProvider
             fn () => view('filament.partials.image-lightbox'),
         );
 
+        // Every form save scrolls back to the top, where the "Saved" toast shows.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.partials.scroll-top-on-save'),
+        );
+
         // Picking a module in the sidebar collapses it to icons (desktop too, not only on phones), so
         // the page gets the room; the ☰ button opens it again. Group headers do not count as a pick.
         FilamentView::registerRenderHook(

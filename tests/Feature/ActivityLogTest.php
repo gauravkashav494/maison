@@ -5,9 +5,8 @@ namespace Tests\Feature;
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Filament\Pages\SiteSettings;
-use App\Filament\RelationManagers\HistoryRelationManager;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
-use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\ActivityTable;
 use App\Models\Client;
@@ -306,18 +305,7 @@ class ActivityLogTest extends TestCase
             ->assertDontSee('Renamed By Beta');
     }
 
-    public function test_a_record_shows_its_own_history(): void
-    {
-        $this->seedLines();
-        $this->enterClientPanel($this->admin);
-        $coat = $this->coat->fresh();
-
-        Livewire::test(HistoryRelationManager::class, ['ownerRecord' => $coat, 'pageClass' => EditProduct::class])
-            ->assertCanSeeTableRecords(PlatformActivity::where('subject_type', 'Product')->where('subject_id', $coat->id)->get())
-            ->assertCanNotSeeTableRecords(PlatformActivity::where('subject', 'like', 'Renamed By R%')->orWhere('subject', 'like', 'Renamed By B%')->get());
-    }
-
-    public function test_history_and_activity_tabs_render(): void
+    public function test_record_pages_do_not_show_activity_only_the_activity_log_does(): void
     {
         $order = Order::withoutGlobalScopes()->create([
             'client_id' => $this->alpha->id, 'template' => 'fashion', 'number' => 'ME-2001',
@@ -327,7 +315,8 @@ class ActivityLogTest extends TestCase
             'subtotal' => 500, 'total' => 500,
         ]);
         $this->enterClientPanel($this->admin);
-        $this->get('/client/orders/'.$order->id)->assertSuccessful()->assertSee('History');
+        $this->get('/client/orders/'.$order->id)->assertSuccessful()->assertDontSee('No activity yet');
+        $this->get('/client/products/'.$this->coat->id)->assertSuccessful()->assertDontSee('No activity yet');
 
         $this->flushSession();
         $operator = User::create([
@@ -335,7 +324,8 @@ class ActivityLogTest extends TestCase
             'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
         ]);
         $this->actingAs($operator, 'admin');
-        $this->get('/clients/'.$this->alpha->id)->assertSuccessful()->assertSee('Activity');
+        $this->get('/clients/'.$this->alpha->id)->assertSuccessful()->assertDontSee('No activity yet');
+        $this->get(PlatformActivityResource::getUrl('index'))->assertSuccessful();
     }
 
     public function test_lines_older_than_a_year_are_pruned(): void

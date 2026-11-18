@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Clients;
 
 use App\Filament\Concerns\OpensTrashedRecords;
-use App\Filament\RelationManagers\ClientActivityRelationManager;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\Clients\Pages\ListClients;
@@ -52,7 +51,7 @@ class ClientResource extends Resource
 
     public static function getRelations(): array
     {
-        return [RelationManagers\TeamRelationManager::class, ClientActivityRelationManager::class];
+        return [RelationManagers\TeamRelationManager::class];
     }
 
     public static function getGloballySearchableAttributes(): array

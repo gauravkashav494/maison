@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Orders;
 
-use App\Filament\RelationManagers\HistoryRelationManager;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
@@ -63,9 +62,7 @@ class OrderResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            HistoryRelationManager::class,
-        ];
+        return [];
     }
 
     public static function getGloballySearchableAttributes(): array
