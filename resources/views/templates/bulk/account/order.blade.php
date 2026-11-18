@@ -22,6 +22,8 @@
         <div class="mt-5"><x-order-timeline :order="$order" /></div>
     </div>
 
+    <x-order-cancel :order="$order" class="mt-5" />
+
     <div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <x-order-summary :order="$order" />
         <x-order-details :order="$order">

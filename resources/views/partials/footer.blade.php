@@ -24,11 +24,13 @@
                     @endforeach
                 </div>
             </div>
+            @module('subscribers')
             <div class="lg:col-span-6 lg:col-start-7">
                 <p class="eyebrow text-ivory/60">Newsletter</p>
                 <p class="mt-3 font-serif text-2xl">{{ $site['footer_newsletter_heading'] ?? 'Early access, private sales and notes from the atelier.' }}</p>
                 @include('partials.newsletter-form', ['light' => true, 'source' => 'footer', 'class' => 'mt-5 max-w-md'])
             </div>
+            @endmodule
         </div>
 
         {{-- Link columns: accordions on phones (app-style), four open columns from md up --}}

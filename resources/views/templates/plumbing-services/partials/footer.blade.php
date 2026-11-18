@@ -26,6 +26,7 @@
                         </ul>
                     </div>
                 @endforeach
+                @module('service_areas')
                 <div>
                     <p class="font-display text-sm font-extrabold">Service areas</p>
                     <ul class="mt-3 space-y-2 text-sm text-slate">
@@ -33,6 +34,7 @@
                         <li><a href="{{ route('areas.index') }}" class="font-semibold text-primary">All areas</a></li>
                     </ul>
                 </div>
+                @endmodule
             </div>
         </div>
     </div>

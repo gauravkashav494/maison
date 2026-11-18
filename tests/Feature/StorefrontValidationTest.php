@@ -44,7 +44,7 @@ class StorefrontValidationTest extends TestCase
     public function test_an_empty_registration_is_rejected_field_by_field(): void
     {
         $this->onStore()->post('/register', [])
-            ->assertSessionHasErrors(['name', 'email', 'password']);
+            ->assertSessionHasErrors(['name', 'phone', 'password'])->assertSessionDoesntHaveErrors('email');
         $this->assertSame(0, Customer::withoutGlobalScopes()->count());
     }
 
@@ -67,7 +67,8 @@ class StorefrontValidationTest extends TestCase
             'phone' => '+91 98765 43210',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('account.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('account.index'));
 
         $this->assertSame('ravi@example.test', Customer::withoutGlobalScopes()->first()->email);
     }
@@ -87,7 +88,7 @@ class StorefrontValidationTest extends TestCase
     public function test_contact_and_tracking_forms_validate_on_the_server(): void
     {
         $this->onStore()->post('/contact', [])->assertSessionHasErrors(['name', 'email', 'message']);
-        $this->onStore()->get('/track-order?number=&email=')->assertRedirect(route('track'))->assertSessionHasErrors(['number', 'email']);
+        $this->onStore()->get('/track-order?number=&email=')->assertRedirect(route('track'))->assertSessionHasErrors(['number', 'contact']);
     }
 
     public function test_json_forms_return_field_errors(): void
@@ -101,6 +102,6 @@ class StorefrontValidationTest extends TestCase
     public function test_checkout_rejects_missing_fields(): void
     {
         $this->onStore()->post('/checkout', [])
-            ->assertSessionHasErrors(['email', 'phone', 'shipping_name', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country', 'payment_method']);
+            ->assertSessionHasErrors(['phone', 'shipping_name', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country', 'payment_method']);
     }
 }

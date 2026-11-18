@@ -3,13 +3,13 @@
 namespace App\Filament\Resources\Collections;
 
 use App\Filament\Concerns\OpensTrashedRecords;
-use App\Filament\Resources\Collections\Pages\CreateCollection;
 use App\Filament\RelationManagers\ProductsRelationManager;
+use App\Filament\Resources\Collections\Pages\CreateCollection;
 use App\Filament\Resources\Collections\Pages\EditCollection;
-use App\Filament\Resources\Collections\Pages\ViewCollection;
 use App\Filament\Resources\Collections\Pages\ListCollections;
-use App\Filament\Resources\Collections\Schemas\CollectionInfolist;
+use App\Filament\Resources\Collections\Pages\ViewCollection;
 use App\Filament\Resources\Collections\Schemas\CollectionForm;
+use App\Filament\Resources\Collections\Schemas\CollectionInfolist;
 use App\Filament\Resources\Collections\Tables\CollectionsTable;
 use App\Models\Collection;
 use BackedEnum;

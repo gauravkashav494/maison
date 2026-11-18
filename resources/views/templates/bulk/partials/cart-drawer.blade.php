@@ -23,7 +23,8 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-5">
-            <div class="py-16 text-center" x-show="$store.cart.loaded && !$store.cart.items.length">
+            <x-cart-unavailable-notice in-drawer margin="1rem 0 0" />
+            <div class="py-16 text-center" x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length">
                 <x-heroicon-o-clipboard-document-list class="mx-auto size-12 text-brand" aria-hidden="true" />
                 <p class="mt-3 font-bold">Your cart is empty</p>
                 <p class="bk-muted mt-1 text-sm">Add products from the catalogue, or your whole list at once on Bulk order.</p>
@@ -61,7 +62,7 @@
 
         <div class="border-t border-[var(--bk-line)] bg-[var(--bk-page)] p-5" x-show="$store.cart.items.length">
             <p class="flex justify-between text-base font-extrabold"><span>Subtotal</span><span class="bk-num" x-text="$store.cart.subtotal_formatted"></span></p>
-            <p class="bk-muted mt-1 text-xs">Delivery and GST are worked out at checkout.</p>
+            <p class="bk-muted mt-1 text-xs">Delivery and GST are calculated at checkout.</p>
             <a href="{{ route('checkout') }}" class="bk-btn bk-btn-primary bk-btn-block mt-4">Checkout</a>
             <a href="{{ route('cart') }}" class="bk-btn bk-btn-ghost bk-btn-block mt-1">Review full order</a>
         </div>

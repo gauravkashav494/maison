@@ -53,7 +53,7 @@
     {{-- Centred navigation (desktop) --}}
     <nav class="hidden border-t border-line-soft bg-cream/60 lg:block" aria-label="Main navigation" @mouseleave="scheduleClose()">
         <div class="h-container flex items-center justify-center">
-            @if(!empty($h['nav_featured_label']))<a href="{{ $h['nav_featured_url'] ?? '/shop/sale' }}" @mouseenter="scheduleClose()" class="nav-link text-red">{{ $h['nav_featured_label'] }}</a>@endif
+            @if(!empty($h['nav_featured_label']) && app(\App\Clients\StoreFeatures::class)->allowsUrl($h['nav_featured_url'] ?? '/shop/sale'))<a href="{{ $h['nav_featured_url'] ?? '/shop/sale' }}" @mouseenter="scheduleClose()" class="nav-link text-red">{{ $h['nav_featured_label'] }}</a>@endif
             <a href="{{ route('shop.index') }}" @mouseenter="scheduleClose()" class="nav-link">{{ $h['nav_all_label'] ?? 'All Products' }}</a>
             <a href="{{ route('shop.index') }}" @mouseenter="openMega('categories')" class="nav-link flex items-center gap-1.5" :class="mega === 'categories' && 'is-open'">{{ $h['nav_category_label'] ?? 'Shop By Category' }} <x-ico name="chevron-down" :size="14" class="text-gold" /></a>
             @if($needs->isNotEmpty())<a href="{{ route('collections.index') }}" @mouseenter="openMega('needs')" class="nav-link flex items-center gap-1.5" :class="mega === 'needs' && 'is-open'">{{ $h['nav_need_label'] ?? 'Shop By Need' }} <x-ico name="chevron-down" :size="14" class="text-gold" /></a>@endif

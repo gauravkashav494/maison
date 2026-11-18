@@ -68,9 +68,12 @@ class CustomerResource extends Resource
         return $schema->columns(1)->components([
             Section::make('Customer')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120),
-                TextInput::make('email')->email()->required()->maxLength(190)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0)),
-                PhoneInput::make('phone'),
+                PhoneInput::make('phone')->required(),
+                // Optional: a customer may be known by phone only (they sign in with their phone). Without
+                // an email they get no order emails and cannot reset a forgotten password.
+                TextInput::make('email')->email()->maxLength(190)
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0))
+                    ->helperText('Optional. Needed to receive order emails and to reset a forgotten password.'),
                 TextInput::make('password')
                     ->password()
                     ->revealable()
@@ -110,9 +113,9 @@ class CustomerResource extends Resource
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()
                     ->visible(fn () => app(ClientContext::class)->isSuperAdmin()),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->searchable()->toggleable(),
-                // Guests were created from an order or booking and have not set a password yet.
+                // Guests were created from an order or booking: no password and no phone proven by a WhatsApp code.
                 TextColumn::make('account')->label('Account')->badge()
-                    ->state(fn (Customer $r) => $r->password === null ? 'Guest' : 'Registered')
+                    ->state(fn (Customer $r) => $r->isAccount() ? 'Registered' : 'Guest')
                     ->color(fn (string $state) => $state === 'Guest' ? 'gray' : 'success'),
                 PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),

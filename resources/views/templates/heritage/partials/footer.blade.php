@@ -9,6 +9,7 @@
 @endphp
 <footer class="bg-red pt-9 text-cream">
     {{-- Newsletter row --}}
+    @module('subscribers')
     <div class="h-container mt-2.5 flex flex-col gap-4 pb-[26px] lg:flex-row lg:items-center lg:gap-10 lg:px-[60px]" x-data="newsletter('heritage-footer')">
         <h2 class="shrink-0 font-serif text-[27px] font-medium leading-[35px] text-gold-light lg:w-[380px]">{{ $g['newsletter_heading'] ?? 'Sign Up To Get Updates' }}</h2>
         <form @submit.prevent="submit()" class="flex flex-1 flex-col gap-2 sm:flex-row" x-show="!done" novalidate>
@@ -18,6 +19,7 @@
         <p x-show="done" x-cloak class="flex items-center gap-2 font-medium text-gold-light"><x-ico name="check" :size="18" /> Welcome — your first recipe is on its way.</p>
         <p x-show="error" x-cloak class="text-sm text-gold-light" x-text="error"></p>
     </div>
+    @endmodule
 
     <div class="h-container grid gap-10 pb-8 pt-[26px] max-md:gap-0 md:grid-cols-2 md:pb-[120px] lg:grid-cols-[498fr_208fr_221fr_309fr] lg:gap-2 lg:px-[60px] lg:pb-9">
         {{-- Logo, social, copyright --}}

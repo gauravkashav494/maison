@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Menus\Pages;
 
-use App\Filament\Resources\Menus\MenuResource;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Menus\MenuResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListMenus extends ListRecords

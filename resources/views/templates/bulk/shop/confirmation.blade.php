@@ -12,22 +12,24 @@
         <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-extrabold tracking-tight">Order placed — thank you</h1>
             <p class="bk-muted mt-1">
-                Your order number is <span class="bk-code text-[var(--bk-ink)]">{{ $order->number }}</span>. A confirmation has been sent to {{ $order->email }}.
+                Your order number is <span class="bk-code text-[var(--bk-ink)]">{{ $order->number }}</span>. @if($order->email)A confirmation has been sent to {{ $order->email }}.@endif
                 @if($order->estimated_delivery) Expected {{ $order->estimated_delivery->format('l, d M') }}.@endif
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('track') }}?number={{ urlencode($order->number) }}&email={{ urlencode($order->email) }}" class="bk-btn bk-btn-outline"><x-heroicon-o-truck aria-hidden="true" />Track order</a>
+            <a href="{{ route('track') }}?number={{ urlencode($order->number) }}&contact={{ urlencode($order->email ?: $order->phone) }}" class="bk-btn bk-btn-outline"><x-heroicon-o-truck aria-hidden="true" />Track order</a>
+            <a href="{{ $order->invoiceUrl() }}" class="bk-btn bk-btn-outline"><x-heroicon-o-document-arrow-down aria-hidden="true" />Download invoice</a>
             <a href="{{ url('/#bulk-order') }}" class="bk-btn bk-btn-primary"><x-heroicon-o-clipboard-document-list aria-hidden="true" />New bulk order</a>
         </div>
     </div>
 
     <div class="bk-card mt-5 p-5"><x-order-timeline :order="$order" /></div>
+    <x-order-cancel :order="$order" class="mt-5" />
 
     <div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <x-order-summary :order="$order" />
         <div class="space-y-5">
-            <x-order-details :order="$order" />
+            <x-order-details :order="$order" :invoice="false" />
             @guest
                 <div class="bk-card p-5 text-sm">
                     <p class="font-extrabold">Ordering again soon?</p>

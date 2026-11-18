@@ -17,6 +17,7 @@ use App\Support\ColourNames;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -888,11 +889,19 @@ class ProductVariantTest extends TestCase
         $material = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Material');
 
         // Each other row's option shows as unavailable in this row's dropdown; "Other…" stays open.
-        $html = $page->html();
         // Three rows: each option is open in its own row and unavailable in the other two.
-        $this->assertSame(2, preg_match_all('/<option\s+disabled\s+value="Size"/', $html));
-        $this->assertSame(2, preg_match_all('/<option\s+disabled\s+value="Colour"/', $html));
-        $this->assertSame(0, preg_match_all('/<option\s+disabled\s+value="__other"/', $html));
+        $presets = array_map(
+            fn (string $row) => $page->instance()->form->getComponent(
+                fn ($component) => $component instanceof Select && $component->getStatePath() === "data.variant_attributes.{$row}.preset",
+                withHidden: true,
+            ),
+            array_keys($page->get('data.variant_attributes')),
+        );
+        $disabled = fn (string $value) => count(array_filter($presets, fn (Select $preset) => $preset->isOptionDisabled($value, $value)));
+        $this->assertCount(3, array_filter($presets));
+        $this->assertSame(2, $disabled('Size'));
+        $this->assertSame(2, $disabled('Colour'));
+        $this->assertSame(0, $disabled('__other'));
 
         // Choosing it anyway is refused on save.
         $page->set("data.variant_attributes.{$material}.preset", 'Size')
@@ -1033,16 +1042,16 @@ class ProductVariantTest extends TestCase
         $this->assertSame(20, $line['product']['discount_percent']);
     }
 
-    public function test_a_variants_compare_at_price_must_be_above_its_price(): void
+    public function test_a_variants_mrp_may_not_be_below_its_price_including_tax(): void
     {
         $product = $this->editableVariantProduct();
         $this->actAsClientAdmin();
 
         $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()])
-            ->assertSee('Compare-at (₹)');
+            ->assertSee('MRP (₹)');
         $first = array_key_first($page->get('data.variants')); // M / Camel / Linen at ₹2,500
 
-        $page->set("data.variants.{$first}.compare_at_price", 2500)
+        $page->set("data.variants.{$first}.compare_at_price", 2400)
             ->call('save')
             ->assertHasFormErrors(["variants.{$first}.compare_at_price"]);
 
@@ -1123,7 +1132,7 @@ class ProductVariantTest extends TestCase
             ->assertSee('Total of the variants (step 2 below).');
     }
 
-    public function test_the_products_compare_at_price_must_be_above_its_price(): void
+    public function test_the_products_mrp_may_not_be_below_its_price_including_tax(): void
     {
         $product = $this->editableVariantProduct(); // default price ₹2,000
         $this->actAsClientAdmin();
@@ -1131,7 +1140,8 @@ class ProductVariantTest extends TestCase
         $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
 
         $page->set('data.compare_at_price', 100)->call('save')->assertHasFormErrors(['compare_at_price']);
-        $page->set('data.compare_at_price', 2000)->call('save')->assertHasFormErrors(['compare_at_price']);
+        // An MRP equal to the price is allowed: it simply shows no discount.
+        $page->set('data.compare_at_price', 2000)->call('save')->assertHasNoFormErrors();
         $page->set('data.compare_at_price', null)->call('save')->assertHasNoFormErrors();
         $page->set('data.compare_at_price', 2400)->call('save')->assertHasNoFormErrors();
         $this->assertEquals(2400, $product->fresh()->compare_at_price);
@@ -1173,4 +1183,3 @@ class ProductVariantTest extends TestCase
             ->assertUnprocessable()->assertJson(['message' => 'Only 3 left in stock.']);
     }
 }
-

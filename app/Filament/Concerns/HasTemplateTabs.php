@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Admin\StoreContext;
 use App\Templates\TemplateManager;
 use Filament\Actions\CreateAction;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -17,7 +18,7 @@ trait HasTemplateTabs
     public function getTabs(): array
     {
         // Narrowed to one store (store owner, or super admin using the switcher): the scope already filters, no tabs.
-        if (app(\App\Admin\StoreContext::class)->template()) {
+        if (app(StoreContext::class)->template()) {
             return [];
         }
 
@@ -51,7 +52,7 @@ trait HasTemplateTabs
     {
         return CreateAction::make()->url(function () {
             $tab = (string) ($this->activeTab ?? '');
-            $template = app(\App\Admin\StoreContext::class)->template() ?? (app(TemplateManager::class)->has($tab) ? $tab : null);
+            $template = app(StoreContext::class)->template() ?? (app(TemplateManager::class)->has($tab) ? $tab : null);
 
             return static::getResource()::getUrl('create', array_filter(['template' => $template]));
         });

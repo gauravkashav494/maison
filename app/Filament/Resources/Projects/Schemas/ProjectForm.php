@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Schemas;
 
 use App\Filament\Support\Fields;
+use App\Templates\Scopes\TemplateVisibility;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -19,7 +20,7 @@ class ProjectForm
             Grid::make(2)->schema([
                 ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'template'),
                 Fields::templateVisibility()->live(),
-                Select::make('service_id')->label('Service')->relationship('service', 'name', fn ($query) => $query->withoutGlobalScope(\App\Templates\Scopes\TemplateVisibility::NAME))->searchable()->preload()->native(false),
+                Select::make('service_id')->label('Service')->relationship('service', 'name', fn ($query) => $query->withoutGlobalScope(TemplateVisibility::NAME))->searchable()->preload()->native(false),
                 TextInput::make('location')->maxLength(80)->placeholder('Sector 70, Mohali'),
                 DatePicker::make('completed_on')->label('Completed on')->native(false),
                 Toggle::make('is_active')->label('Visible')->default(true)->inline(false),

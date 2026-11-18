@@ -41,7 +41,7 @@ class HomeComposer
             ->map(function (Category $c) use ($base) {
                 $ids = [$c->id, ...$c->children()->pluck('id')->all()];
 
-                return ['model' => $c, 'products' => $base()->whereIn('category_id', $ids)->limit(8)->get()];
+                return ['model' => $c, 'products' => $base()->inCategories($ids)->limit(8)->get()];
             })->filter(fn ($t) => $t['products']->isNotEmpty())->values();
 
         $view->with([

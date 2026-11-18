@@ -3,6 +3,7 @@
 namespace App\Templates\PlumbingServices;
 
 use App\Clients\ClientDatabase;
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Models\Service;
@@ -142,8 +143,10 @@ class PlumbingServicesTemplate extends Template
             'biz' => $this->contact(),
             'navServices' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_services'), 600, fn () => Service::active()
                 ->get(['id', 'name', 'slug', 'icon', 'excerpt', 'is_emergency', 'is_popular'])),
-            'navAreas' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
-                ->get(['id', 'name', 'slug', 'state', 'response_time'])),
+            'navAreas' => app(StoreFeatures::class)->on('service_areas')
+                ? Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
+                    ->get(['id', 'name', 'slug', 'state', 'response_time']))
+                : collect(),
         ];
     }
 

@@ -4,6 +4,7 @@
 @php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Bulk quote', 'Product question', 'Order issue', 'Return or replacement', 'Other']; $phone = store_phone(); @endphp
 <x-page-head :title="$page->title" :text="$page->excerpt" :breadcrumbs="[$page->title => null]" />
 <section class="p-container grid gap-6 py-6 lg:grid-cols-12">
+    @module('messages')
     <div class="lg:col-span-7">
         <div class="card p-5 sm:p-6">
             @if(session('contact_status'))<p class="mb-4 flex items-center gap-2 rounded-xl bg-sky px-4 py-3 text-sm font-semibold text-primary"><x-ico name="check" :size="16" /> {{ session('contact_status') }}</p>@endif
@@ -22,6 +23,7 @@
             </form>
         </div>
     </div>
+    @endmodule
     <div class="space-y-4 lg:col-span-5">
         <div class="card p-5">
             <p class="text-sm font-extrabold">Quick help</p>

@@ -2,13 +2,14 @@
 
 namespace App\Filament\Resources\Pages;
 
+use App\Admin\StoreContext;
+use App\Clients\StoreFeatures;
 use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Resources\Pages\Pages\CreatePage;
 use App\Filament\Resources\Pages\Pages\EditPage;
 use App\Filament\Resources\Pages\Pages\ListPages;
 use App\Filament\Resources\Pages\Schemas\PageForm;
 use App\Filament\Resources\Pages\Tables\PagesTable;
-use App\Admin\StoreContext;
 use App\Models\Page;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -47,6 +48,12 @@ class PageResource extends Resource
         }
 
         $options = array_intersect_key(Page::TEMPLATES, array_flip($templates->get($id)->pageLayouts()));
+        // A layout built from a switched-off module (FAQ, store locator) cannot be picked.
+        foreach (['faq' => 'faqs', 'stores' => 'stores'] as $layout => $module) {
+            if (! StoreFeatures::enabled($module)) {
+                unset($options[$layout]);
+            }
+        }
         if (filled($current) && ! isset($options[$current]) && isset(Page::TEMPLATES[$current])) {
             $options[$current] = Page::TEMPLATES[$current].' (not in this store\'s design)';
         }

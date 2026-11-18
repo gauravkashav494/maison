@@ -7,6 +7,7 @@ use App\Clients\ClientContext;
 use App\Clients\ClientModules;
 use App\Filament\Resources\ClientRoles\Pages\CreateClientRole;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
 use App\Models\Client;
@@ -349,24 +350,59 @@ class ClientPermissionsTest extends TestCase
 
     // ---- Modules ----------------------------------------------------------------------------
 
-    public function test_the_client_admin_keeps_every_module_whatever_is_switched_off(): void
+    public function test_a_module_switched_off_is_gone_for_the_client_admin_too(): void
     {
-        $this->alpha->update(['modules' => []]);
+        $this->alpha->update(['modules' => ['orders']]);
         $this->actingAs($this->alphaAdmin->fresh(), 'client');
 
-        $this->get('/client/products')->assertSuccessful();
-        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertSuccessful();
         $this->get('/client/orders')->assertSuccessful();
+        $this->get('/client/collections')->assertForbidden();
+        $this->get('/client/reviews')->assertForbidden();
         $this->get('/client/services')->assertForbidden(); // still nothing the store does not support
     }
 
     public function test_a_module_switched_off_overrides_a_role_that_grants_it(): void
     {
-        $staff = $this->staff(['products.view']);
+        $staff = $this->staff(['collections.view']);
         $this->alpha->update(['modules' => ['orders']]);
         $this->actingAs($staff->fresh(), 'client');
 
-        $this->get('/client/products')->assertForbidden();
+        $this->get('/client/collections')->assertForbidden();
+    }
+
+    public function test_core_modules_stay_on_even_when_the_saved_list_leaves_them_out(): void
+    {
+        $this->alpha->update(['modules' => []]);
+        $this->actingAs($this->alphaAdmin->fresh(), 'client');
+
+        $this->get('/client/orders')->assertSuccessful();
+        $this->get('/client/products')->assertSuccessful();
+        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertSuccessful();
+        $this->get('/client/customers')->assertSuccessful();
+        $this->get('/client/categories')->assertSuccessful();
+        $this->get('/client/collections')->assertForbidden();
+        $this->get('/client/services')->assertForbidden(); // core for service businesses, but not this store
+    }
+
+    public function test_core_modules_are_the_ones_a_store_cannot_run_without(): void
+    {
+        $core = array_keys(array_filter(ClientModules::all(), fn (array $module) => $module['core']));
+
+        // taxes: once a store has classes, every product must pick one.
+        $this->assertEqualsCanonicalizing(['orders', 'customers', 'products', 'categories', 'taxes', 'services', 'service_requests', 'appearance'], $core);
+    }
+
+    public function test_fields_of_a_switched_off_module_leave_the_other_forms(): void
+    {
+        $this->enterClientPanel($this->alphaAdmin);
+        Livewire::test(EditProduct::class, ['record' => $this->alphaProduct->getRouteKey()])->assertFormFieldVisible('collection');
+        Livewire::test(ListProducts::class)->assertTableFilterVisible('collections');
+
+        $this->alpha->update(['modules' => []]);
+        $this->enterClientPanel($this->alphaAdmin->fresh());
+
+        Livewire::test(EditProduct::class, ['record' => $this->alphaProduct->getRouteKey()])->assertFormFieldHidden('collection');
+        Livewire::test(ListProducts::class)->assertTableFilterHidden('collections')->assertTableColumnHidden('collections.name');
     }
 
     public function test_a_client_with_no_module_list_has_everything_its_store_supports(): void

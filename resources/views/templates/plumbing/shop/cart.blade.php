@@ -4,6 +4,7 @@
 <x-page-head title="Cart" :breadcrumbs="['Cart' => null]" />
 
 <section class="p-container pb-28 pt-4 lg:py-6" x-data="{ code: '' }">
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     {{-- App-style sticky checkout bar (phones) --}}
     <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
@@ -12,7 +13,7 @@
         </div>
     </div>
 
-    <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak>
+    <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak>
         <x-empty-state icon="cart" title="Your cart is empty" text="Pipes, fittings, taps, valves — add what the job needs and check out in minutes.">
             <a href="{{ route('shop.index') }}" class="btn btn-primary btn-lg">Start shopping</a>
         </x-empty-state>
@@ -68,6 +69,7 @@
         {{-- Bill --}}
         <aside class="lg:col-span-4">
             <div class="space-y-4 lg:sticky lg:top-[7.5rem]">
+                @module('coupons')
                 <div class="card p-4">
                     <p class="text-sm font-extrabold">Have a promo code?</p>
                     <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-2 flex gap-2" x-show="!$store.cart.coupon" novalidate>
@@ -80,6 +82,7 @@
                         <button type="button" @click="$store.cart.removeCoupon()" class="text-xs font-semibold text-slate hover:text-danger">Remove</button>
                     </div>
                 </div>
+                @endmodule
 
                 <div class="card p-4">
                     <p class="text-sm font-extrabold">Bill details</p>

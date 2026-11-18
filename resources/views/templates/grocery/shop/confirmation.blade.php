@@ -6,11 +6,12 @@
         <div class="card p-6 text-center sm:p-8">
             <span class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-leaf-light text-leaf"><x-ico name="check" :size="32" :stroke="3" /></span>
             <h1 class="mt-4 text-2xl font-extrabold sm:text-3xl">Order placed! 🎉</h1>
-            <p class="mt-2 text-sm text-slate sm:text-base">Thanks, {{ Str::of($order->shipping_name)->before(' ') }}. Your order <strong class="text-ink">{{ $order->number }}</strong> is confirmed and being packed. We’ve emailed the details to {{ $order->email }}.</p>
+            <p class="mt-2 text-sm text-slate sm:text-base">Thanks, {{ Str::of($order->shipping_name)->before(' ') }}. Your order <strong class="text-ink">{{ $order->number }}</strong> is confirmed and being packed. @if($order->email)We’ve emailed the details to {{ $order->email }}.@endif</p>
             @if($order->estimated_delivery)<p class="mt-4 inline-flex items-center gap-2 rounded-full bg-saffron-light px-4 py-1.5 text-sm font-bold text-saffron-dark"><x-ico name="clock" :size="16" /> Arriving by {{ $order->estimated_delivery->format('l, d M') }}</p>@endif
             <div class="mt-6 flex flex-wrap justify-center gap-2">
-                <a href="{{ route('track') }}?number={{ $order->number }}&email={{ urlencode($order->email) }}" class="btn btn-primary">Track order</a>
+                <a href="{{ route('track') }}?number={{ $order->number }}&contact={{ urlencode($order->email ?: $order->phone) }}" class="btn btn-primary">Track order</a>
                 <a href="{{ route('shop.index') }}" class="btn btn-ghost">Continue shopping</a>
+                <a href="{{ $order->invoiceUrl() }}" class="btn btn-outline">Download invoice</a>
             </div>
         </div>
 
@@ -32,6 +33,8 @@
         </div>
 
         <x-order-summary :order="$order" class="mt-4" />
+
+        <x-order-cancel :order="$order" class="mt-4" />
 
         @guest
             <div class="card mt-4 flex flex-col items-center gap-3 p-5 text-center sm:flex-row sm:text-left">

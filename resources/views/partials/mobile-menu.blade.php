@@ -60,7 +60,7 @@
                 <li><a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="flex items-center gap-3"><x-ico name="user" :size="16" /> Account</a></li>
                 <li><a href="{{ route('account.wishlist') }}" class="flex items-center gap-3"><x-ico name="heart" :size="16" /> Wishlist</a></li>
                 @auth<li><form method="post" action="{{ route('logout') }}" novalidate>@csrf<button type="submit" class="flex items-center gap-3"><x-ico name="user" :size="16" /> Sign out</button></form></li>@endauth
-                <li><a href="/stores" class="flex items-center gap-3"><x-ico name="pin" :size="16" /> Store locator</a></li>
+                @module('stores')<li><a href="/stores" class="flex items-center gap-3"><x-ico name="pin" :size="16" /> Store locator</a></li>@endmodule
             </ul>
         </div>
 

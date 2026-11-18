@@ -58,10 +58,13 @@ class CatalogController extends Controller
 
     public function product(string $slug): View
     {
-        $product = Product::with(['category.parent', 'collections'])->active()->where('slug', $slug)->firstOrFail();
+        $product = Product::with(['category.parent', 'categories', 'collections'])->active()->where('slug', $slug)->firstOrFail();
 
+        // Products sharing any of its categories, those in its main category first.
         $related = Product::with('category')->active()
-            ->where('category_id', $product->category_id)->whereKeyNot($product->id)
+            ->inCategories($product->categories->pluck('id')->push($product->category_id)->filter()->unique()->values())
+            ->whereKeyNot($product->id)
+            ->orderByRaw('case when category_id = ? then 0 else 1 end', [$product->category_id])
             ->orderBy('sort_order')->limit(4)->get();
 
         // "Complete the look": pieces from the same collections, other categories first.
@@ -233,17 +236,21 @@ class CatalogController extends Controller
         $order = null;
         $error = null;
         // The form was submitted (even empty): every field is checked on the server.
-        if ($request->hasAny(['number', 'email'])) {
-            $data = app(TrackOrderRequest::class)->validated();
+        if ($request->hasAny(['number', 'contact', 'email'])) {
+            $form = app(TrackOrderRequest::class);
+            $data = $form->validated();
             $order = Order::with('items')->where('number', strtoupper($data['number']))
-                ->whereRaw('lower(email) = ?', [$data['email']])->first();
-            $error = $order ? null : 'We could not find an order with that number and email.';
+                ->when($form->isEmail(),
+                    fn ($q) => $q->whereRaw('lower(email) = ?', [$data['contact']]),
+                    fn ($q) => $q->where('phone', $data['contact']))
+                ->first();
+            $error = $order ? null : 'We could not find an order with that number and email or phone.';
         }
 
         return view('shop.track', [
             'order' => $order,
             'error' => $error,
-            'seo' => Seo::simple('Track your order', 'Enter your order number and email to see delivery progress.', noindex: true),
+            'seo' => Seo::simple('Track your order', 'Enter your order number and email or phone to see delivery progress.', noindex: true),
         ]);
     }
 }

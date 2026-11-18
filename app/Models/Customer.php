@@ -32,6 +32,7 @@ class Customer extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
@@ -62,6 +63,27 @@ class Customer extends Authenticatable
         return $this->hasMany(ServiceRequest::class)->latest();
     }
 
+    /**
+     * A real account: it has a password, or its phone was proven with a WhatsApp code.
+     * Anything else is a guest record made by a checkout.
+     */
+    public function isAccount(): bool
+    {
+        return $this->password !== null || $this->phone_verified_at !== null;
+    }
+
+    /** Only real accounts (see isAccount()). */
+    public function scopeAccounts($query)
+    {
+        return $query->where(fn ($q) => $q->whereNotNull($q->qualifyColumn('password'))->orWhereNotNull($q->qualifyColumn('phone_verified_at')));
+    }
+
+    /** Only guest records made by a checkout (see isAccount()). */
+    public function scopeGuests($query)
+    {
+        return $query->whereNull($query->qualifyColumn('password'))->whereNull($query->qualifyColumn('phone_verified_at'));
+    }
+
     /** Customers who joined within a range of days; either end may be left open. Used by the admin filter. */
     public function scopeJoinedBetween($query, $from = null, $until = null)
     {
@@ -75,18 +97,9 @@ class Customer extends Authenticatable
         return explode(' ', trim((string) $this->name))[0] ?? (string) $this->name;
     }
 
-    /**
-     * Reset tokens are stored per client, not per address: two clients may each have a
-     * customer with the same email, and a token issued by one must not be usable on the
-     * other. The notification itself still goes to the plain address.
-     */
-    public function getEmailForPasswordReset(): string
+    /** No email (a customer added by phone only): mail notifications are skipped. */
+    public function routeNotificationForMail(): ?string
     {
-        return $this->client_id.':'.$this->email;
-    }
-
-    public function routeNotificationForMail(): string
-    {
-        return $this->email;
+        return $this->email ?: null;
     }
 }

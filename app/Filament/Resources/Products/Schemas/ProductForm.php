@@ -3,18 +3,28 @@
 namespace App\Filament\Resources\Products\Schemas;
 
 use App\Admin\StoreContext;
+use App\Clients\ClientAccess;
 use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
+use App\Clients\StoreFeatures;
 use App\Filament\Forms\Components\ImagePicker;
+use App\Filament\Resources\Brands\Schemas\BrandForm;
+use App\Filament\Resources\Taxes\Schemas\TaxForm;
 use App\Filament\Support\Fields;
+use App\Models\Category;
+use App\Models\Collection;
 use App\Models\Product;
+use App\Models\Tax;
 use App\Rules\WithinClientImageLimit;
 use App\Support\ColourNames;
+use App\Support\SkuGenerator;
+use App\Support\TaxPrices;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\RichEditor;
@@ -34,6 +44,7 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -52,15 +63,44 @@ class ProductForm
                             ->schema([
                                 Grid::make(2)->schema([
                                     ...Fields::nameAndSlug(),
-                                    Select::make('category_id')
-                                        ->label('Category')
-                                        ->relationship('category', 'name')
+                                    Select::make('categories')
+                                        ->label('Categories')
+                                        ->relationship('categories', 'name')
+                                        ->multiple()
                                         ->searchable()
                                         ->preload()
-                                        ->required(),
+                                        ->required()
+                                        ->live()
+                                        ->helperText(fn (Get $get) => ($main = self::mainCategoryName($get))
+                                            ? 'Listed under every category picked. Main category (card label and breadcrumb): '.$main.'.'
+                                            : 'Listed under every category picked. The first one is the main category (card label and breadcrumb).'),
+                                    // The main category: kept while it is still picked, otherwise the first one picked.
+                                    Hidden::make('category_id')
+                                        ->dehydrateStateUsing(fn ($state, Get $get) => self::mainCategoryId($state, $get('categories'))),
+                                    // Optional everywhere. Stores that order by code (Bulk Order) get the next
+                                    // free code filled in on a new product, ready to keep, change or clear. A code
+                                    // cleared and saved stays blank: editing never fills one back in. A product
+                                    // without one is still sold from the catalogue, just not typed into the pad.
                                     TextInput::make('sku')->label('SKU')->maxLength(64)
+                                        ->default(fn (Get $get) => self::requiresSku($get) ? SkuGenerator::next() : null)
+                                        ->helperText(fn (Get $get, string $operation) => self::requiresSku($get)
+                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'.($operation === 'create' ? ' The next free code is filled in; keep it, type your own or clear it.' : '')
+                                            : null)
                                         ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
-                                    TextInput::make('brand')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())->helperText('Used by the shop Brand filter.'),
+                                    // Picked from the brand master (Catalogue → Brands); a new one can be added here.
+                                    Select::make('brand_id')
+                                        ->label('Brand')
+                                        ->visible(fn () => StoreFeatures::enabled('brands'))
+                                        ->relationship('brandRecord', 'name', fn (Builder $query) => $query->ordered())
+                                        ->searchable()
+                                        ->preload()
+                                        ->createOptionForm(fn () => ClientAccess::current('brands', 'create') || app(StoreContext::class)->isSuperAdmin() ? BrandForm::fields() : null)
+                                        ->helperText('Used by the shop Brand filter.'),
+                                    // Without the Brands module the name is typed in (it still joins the brand master).
+                                    TextInput::make('brand')->maxLength(80)
+                                        ->visible(fn () => ! StoreFeatures::enabled('brands'))
+                                        ->datalist(fn () => Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())
+                                        ->helperText('Used by the shop Brand filter.'),
                                     TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
                                 ]),
                                 Textarea::make('description')
@@ -75,14 +115,25 @@ class ProductForm
                                     Textarea::make('materials')->rows(3),
                                     Textarea::make('care')->label('Care instructions')->rows(3),
                                 ]),
-                                Select::make('collections')
-                                    ->relationship('collections', 'name')
-                                    ->multiple()
+                                // One collection per product. Stored in collection_product (which also keeps the
+                                // product's place inside the collection), so it is read and written by hand.
+                                Select::make('collection')
+                                    ->label('Collection')
+                                    ->visible(fn () => StoreFeatures::enabled('collections'))
+                                    ->options(fn () => Collection::query()->orderBy('name')->pluck('name', 'id')->all())
+                                    ->searchable()
                                     ->preload()
-                                    ->searchable(),
+                                    ->placeholder('None')
+                                    ->loadStateFromRelationshipsUsing(fn (Select $component, ?Product $record) => $component->state(
+                                        $record?->collections()->orderBy('collection_product.sort_order')->value('collections.id'),
+                                    ))
+                                    ->saveRelationshipsUsing(fn (Product $record, $state) => $record->collections()->sync(filled($state) ? [(int) $state] : []))
+                                    ->dehydrated(false),
                                 Section::make('Merchandising')->columns(3)->schema([
                                     Toggle::make('is_active')->label('Visible on storefront')->default(true),
-                                    Fields::templateVisibility()->live()->columnSpan(2),
+                                    Fields::templateVisibility()->live()->columnSpan(2)
+                                        // A super admin moving a product to a store that orders by code gets one suggested.
+                                        ->afterStateUpdated(fn (Get $get, Set $set) => blank($get('sku')) && self::requiresSku($get) ? $set('sku', SkuGenerator::next()) : null),
                                     Toggle::make('is_new')->label('New arrival'),
                                     Toggle::make('is_best_seller')->label('Best seller'),
                                     // The baseline (reviews collected elsewhere); approved storefront reviews are added on top.
@@ -127,33 +178,58 @@ class ProductForm
                                 // The product's price and stock; a variant without its own price uses it.
                                 Section::make('Price & stock')
                                     ->icon('heroicon-o-banknotes')
-                                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
+                                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 6])
                                     ->schema([
-                                        TextInput::make('price')
-                                            ->label(fn (Get $get) => $get('has_variants') ? 'Default price' : 'Price')
-                                            ->numeric()->prefix('₹')->required()->minValue(0)
-                                            ->helperText(fn (Get $get) => $get('has_variants') ? 'Used for any variant without its own price (step 2 below).' : null),
+                                        // MRP, tax, price including tax, price excluding tax. The tax comes before
+                                        // the prices because either price fills in the other from its rate. Only
+                                        // one is saved, as `price`: the one the store's prices are entered as (Site
+                                        // settings → Payments & tax), so the cart and checkout read it as before.
                                         TextInput::make('compare_at_price')
-                                            ->label('Compare-at price')
+                                            ->label('MRP')
                                             ->numeric()
                                             ->prefix('₹')
                                             ->minValue(0)
-                                            // A "was" price at or below the price shows no discount, so it is refused.
+                                            // An MRP below the selling price would read as a price rise, so it is refused.
                                             ->rules([fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get) {
-                                                if (filled($value) && filled($get('price')) && (float) $value <= (float) $get('price')) {
-                                                    $fail('Set the compare-at price above the '.($get('has_variants') ? 'default price' : 'price').' ('.money((float) $get('price')).'), or leave it blank.');
+                                                $incl = $get('price_incl_tax');
+                                                if (filled($value) && filled($incl) && (float) $value < (float) $incl) {
+                                                    $fail('Set the MRP at or above the price including tax ('.money((float) $incl).'), or leave it blank.');
                                                 }
                                             }])
                                             ->helperText(fn (Get $get) => $get('has_variants')
-                                                ? 'Must be above the default price. Used for any variant without its own compare-at price (step 2 below).'
-                                                : 'Must be above the price. Shows a sale badge and strikethrough.'),
+                                                ? 'For variants without their own.'
+                                                : 'Struck through when above the price.'),
+                                        // From the tax master (Catalogue → Taxes): its rate works out the two
+                                        // prices, and is copied to tax_rate on save. Variants follow it.
+                                        Select::make('tax_id')
+                                            ->label('Tax')
+                                            ->relationship('tax', 'name', fn (Builder $query) => $query->ordered())
+                                            ->getOptionLabelFromRecordUsing(fn (Tax $record) => $record->option_label)
+                                            ->native(false)
+                                            // Required once the store has taxes; until then products carry no tax.
+                                            ->required(fn () => Tax::query()->exists())
+                                            ->placeholder('No tax (0%)')
+                                            ->helperText(fn () => Tax::query()->exists() ? null : 'Add taxes under Catalogue → Taxes.')
+                                            ->createOptionForm(fn () => ClientAccess::current('taxes', 'create') || app(StoreContext::class)->isSuperAdmin() ? TaxForm::fields() : null)
+                                            ->live()
+                                            // The saved price stays as it is; the other one is worked out again.
+                                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                                self::syncPrices($get, $set, prices_include_tax());
+                                                $set('variants', self::variantRowsWithPrices((array) $get('variants'), self::selectedTaxRate($get('tax_id'))));
+                                            }),
+                                        self::priceField(inclusive: true),
+                                        self::priceField(inclusive: false),
+                                        // The saved price: whichever of the two above the store's prices are entered as.
+                                        // Variants without their own price use it (their placeholder reads it).
+                                        Hidden::make('price'),
                                         // Selling as variant: each variant has its own stock (step 2 below),
                                         // so this is not asked twice; it is saved as their total, which the shop
                                         // uses for "in stock" and the cart.
                                         TextInput::make('stock')->numeric()->minValue(0)->default(100)->required()
                                             ->hidden(fn (Get $get) => (bool) $get('has_variants'))
                                             ->dehydratedWhenHidden()
-                                            ->dehydrateStateUsing(fn ($state, Get $get) => $get('has_variants') ? self::combinationStock($get('variants')) : $state),
+                                            ->dehydrateStateUsing(fn ($state, Get $get) => $get('has_variants') ? self::combinationStock($get('variants')) : $state)
+                                            ->columnSpan(fn (Get $get) => ['lg' => self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)($get) ? 1 : 2]),
                                         // Read-only while selling as variant: the total of the variants' stock,
                                         // shown greyed in the field's place. Not saved itself (`stock` above is).
                                         TextInput::make('variant_stock_total')
@@ -162,7 +238,8 @@ class ProductForm
                                             ->dehydrated(false)
                                             ->placeholder(fn (Get $get) => number_format(self::combinationStock($get('variants'))))
                                             ->helperText('Total of the variants (step 2 below).')
-                                            ->visible(fn (Get $get) => (bool) $get('has_variants')),
+                                            ->visible(fn (Get $get) => (bool) $get('has_variants'))
+                                            ->columnSpan(fn (Get $get) => ['lg' => self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)($get) ? 1 : 2]),
                                         TextInput::make('max_qty')
                                             ->label('Max quantity per order')
                                             ->numeric()->minValue(1)->maxValue(99)
@@ -195,7 +272,8 @@ class ProductForm
                                                         ->hiddenLabel()
                                                         ->options(fn () => self::optionPresets() + [self::OTHER_OPTION => 'Other…'])
                                                         ->placeholder('Choose')
-                                                        ->native()
+                                                        // Filament's dropdown: a plain <select> lost its shown choice when the table redrew.
+                                                        ->native(false)
                                                         ->required()
                                                         ->live()
                                                         // An option already added in another row cannot be chosen again;
@@ -331,8 +409,10 @@ class ProductForm
                                             ->table(fn (Get $get) => [
                                                 ...array_map(fn (array $attribute) => TableColumn::make($attribute['name'])->markAsRequired()->width('9rem'), self::definedAttributes($get, '')),
                                                 TableColumn::make('SKU')->width('11rem'),
-                                                TableColumn::make('Price (₹)')->width('8rem'),
-                                                TableColumn::make('Compare-at (₹)')->width('8rem'),
+                                                TableColumn::make('MRP (₹)')->width('8rem'),
+                                                TableColumn::make('Tax')->width('9rem'),
+                                                TableColumn::make('Price incl. tax (₹)')->width('9rem'),
+                                                TableColumn::make('Price excl. tax (₹)')->width('9rem'),
                                                 TableColumn::make('Stock')->markAsRequired()->width('6rem'),
                                                 TableColumn::make('Available')->alignment('center')->width('6rem'),
                                             ])
@@ -344,26 +424,34 @@ class ProductForm
                                                     fn (array $attribute) => Select::make('options.'.$attribute['name'])
                                                         ->label($attribute['name'])
                                                         ->options(array_combine($attribute['values'], $attribute['values']))
-                                                        // A plain select fits the table cell; the searchable one squeezed the value.
-                                                        ->native()
+                                                        // Filament's dropdown, not a plain <select>: a plain one lost its shown
+                                                        // choice when a live field redrew the table (as on the Details tab, which works).
+                                                        ->native(false)
                                                         ->placeholder('Choose')
                                                         ->required()
                                                         ->validationMessages(['required' => 'Choose a '.$attribute['name'].' (a value may have been removed from the option above).']),
                                                     self::definedAttributes($get, ''),
                                                 ),
                                                 TextInput::make('sku')->label('SKU')->maxLength(64)->placeholder(fn (Get $get) => $get('../../sku') ?: null),
-                                                // Blank uses the product's price, shown greyed as the placeholder.
-                                                TextInput::make('price')->label('Price')->numeric()->minValue(0)->placeholder(fn (Get $get) => filled($get('../../price')) ? number_format((float) $get('../../price')) : null),
-                                                // The "was" price shown struck through. Blank uses the product's
-                                                // compare-at price; either shows only when above this variant's price.
-                                                TextInput::make('compare_at_price')->label('Compare-at')->numeric()->minValue(0)
+                                                // The MRP, shown struck through when above the price. Blank uses the
+                                                // product's MRP, shown greyed as the placeholder.
+                                                TextInput::make('compare_at_price')->label('MRP')->numeric()->minValue(0)
                                                     ->placeholder(fn (Get $get) => filled($get('../../compare_at_price')) ? number_format((float) $get('../../compare_at_price')) : null)
                                                     ->rules([fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get) {
-                                                        $price = filled($get('price')) ? (float) $get('price') : (float) $get('../../price');
-                                                        if (filled($value) && (float) $value <= $price) {
-                                                            $fail('Set the compare-at price above this variant\'s price ('.money($price).'), or leave it blank.');
+                                                        $incl = filled($get('price_incl_tax')) ? (float) $get('price_incl_tax') : (float) $get('../../price_incl_tax');
+                                                        if (filled($value) && (float) $value < $incl) {
+                                                            $fail('Set the MRP at or above this variant\'s price including tax ('.money($incl).'), or leave it blank.');
                                                         }
                                                     }]),
+                                                // Read only: every variant takes the product's tax (Price & stock above).
+                                                // Shown as the placeholder so it follows a change of tax; never saved.
+                                                TextInput::make('tax_display')->label('Tax')
+                                                    ->disabled()->dehydrated(false)
+                                                    ->placeholder(fn (Get $get) => self::taxLabel($get('../../tax_id'))),
+                                                // Both prices use the product's tax (Price & stock above). Blank
+                                                // uses the product's price, shown greyed as the placeholder.
+                                                self::variantPriceField(inclusive: true),
+                                                self::variantPriceField(inclusive: false),
                                                 // Required: a blank stock used to copy the product's whole stock to
                                                 // every combination, so the store could sell many times what it had.
                                                 TextInput::make('stock')->label('Stock')->numeric()->integer()->minValue(0)->required()
@@ -377,6 +465,10 @@ class ProductForm
                                                 ImagePicker::make('images')
                                                     ->hidden()
                                                     ->dehydratedWhenHidden(),
+                                                // The saved price, as for the product: the one the store's prices are
+                                                // entered as. A Hidden field, not a hidden TextInput: the table counts
+                                                // a hidden TextInput as a column, pushing Stock and Available out of line.
+                                                Hidden::make('price'),
                                             ])
                                             ->reorderable()
                                             ->defaultItems(0),
@@ -472,6 +564,33 @@ class ProductForm
      * True when the product has an older colour or size list that no option in step 1
      * replaces, so it is still shown on the storefront as it is.
      */
+    /**
+     * The main category among the ones picked: the current one while it is still picked,
+     * otherwise the first one picked (or none).
+     */
+    private static function mainCategoryId(mixed $current, mixed $picked): ?int
+    {
+        $ids = array_values(array_map('intval', array_filter((array) $picked, 'filled')));
+
+        return filled($current) && in_array((int) $current, $ids, true) ? (int) $current : ($ids[0] ?? null);
+    }
+
+    private static function mainCategoryName(Get $get): ?string
+    {
+        $id = self::mainCategoryId($get('category_id'), $get('categories'));
+
+        return $id ? Category::query()->whereKey($id)->value('name') : null;
+    }
+
+    /** Does the store this product is for order by code (Template::requiresSku())? */
+    private static function requiresSku(Get $get): bool
+    {
+        $id = app(StoreContext::class)->template() ?? $get('template');
+        $templates = app(TemplateManager::class);
+
+        return filled($id) && $templates->has($id) && $templates->get($id)->requiresSku();
+    }
+
     private static function hasUncoveredLegacyList(?Product $record, Get $get, string $list): bool
     {
         if (! $record || empty($record->{$list})) {
@@ -485,6 +604,123 @@ class ProductForm
         }
 
         return true;
+    }
+
+    /**
+     * "Price incl. tax" or "Price excl. tax". Typing one fills in the other from the tax rate and
+     * sets `price` (the price the cart charges) to the one the store's prices are entered as.
+     * Both are saved (products.price_incl_tax / price_excl_tax).
+     */
+    private static function priceField(bool $inclusive): TextInput
+    {
+        $name = $inclusive ? 'price_incl_tax' : 'price_excl_tax';
+
+        return TextInput::make($name)
+            ->label(fn (Get $get) => ($get('has_variants') ? 'Default price ' : 'Price ').($inclusive ? 'incl. tax' : 'excl. tax'))
+            ->numeric()->prefix('₹')->minValue(0)->required()
+            ->live(onBlur: true)
+            // Shows the saved price; a product saved before it had one gets it worked out from `price`.
+            ->afterStateHydrated(function (TextInput $component, Get $get) use ($name) {
+                if (filled($component->getState())) {
+                    return;
+                }
+                $component->state(TaxPrices::for($get('price'), self::selectedTaxRate($get('tax_id')), prices_include_tax())[$name]);
+            })
+            ->afterStateUpdated(fn (Get $get, Set $set) => self::syncPrices($get, $set, $inclusive))
+            ->helperText(fn (Get $get) => $get('has_variants') && $inclusive === prices_include_tax()
+                ? 'For variants without their own.'
+                : null);
+    }
+
+    /**
+     * Fills in the other price from the one in `$fromInclusive` (true: incl. tax) and sets the
+     * saved `price` to the one the store's prices are entered as.
+     */
+    private static function syncPrices(Get $get, Set $set, bool $fromInclusive): void
+    {
+        $source = $get($fromInclusive ? 'price_incl_tax' : 'price_excl_tax');
+        $target = $fromInclusive ? 'price_excl_tax' : 'price_incl_tax';
+        if (blank($source) || ! is_numeric($source)) {
+            $set($target, null);
+            $set('price', null);
+
+            return;
+        }
+
+        $source = round((float) $source, 2);
+        $other = TaxPrices::convert($source, self::selectedTaxRate($get('tax_id')), toInclusive: ! $fromInclusive);
+        $set($target, $other);
+        $set('price', $fromInclusive === prices_include_tax() ? $source : $other);
+    }
+
+    /**
+     * A variant's "Price incl. tax" or "Price excl. tax", worked like the product's (priceField)
+     * at the variant's own tax rate, else the product's. Both are saved in the variant's row.
+     * Both blank: the variant uses the product's price.
+     */
+    private static function variantPriceField(bool $inclusive): TextInput
+    {
+        $name = $inclusive ? 'price_incl_tax' : 'price_excl_tax';
+
+        return TextInput::make($name)
+            ->label($inclusive ? 'Price incl. tax' : 'Price excl. tax')
+            ->numeric()->minValue(0)
+            ->live(onBlur: true)
+            ->placeholder(fn (Get $get) => filled($get('../../'.$name)) ? number_format((float) $get('../../'.$name), 2) : null)
+            ->afterStateHydrated(function (TextInput $component, Get $get) use ($name) {
+                if (filled($component->getState())) {
+                    return;
+                }
+                $row = self::variantRowsWithPrices([['price' => $get('price')]], self::selectedTaxRate($get('../../tax_id')))[0];
+                $component->state($row[$name]);
+            })
+            ->afterStateUpdated(function (Get $get, Set $set) use ($inclusive) {
+                $source = $get($inclusive ? 'price_incl_tax' : 'price_excl_tax');
+                $target = $inclusive ? 'price_excl_tax' : 'price_incl_tax';
+                if (blank($source) || ! is_numeric($source)) {
+                    $set($target, null);
+                    $set('price', null);
+
+                    return;
+                }
+                $source = round((float) $source, 2);
+                $other = TaxPrices::convert($source, self::selectedTaxRate($get('../../tax_id')), toInclusive: ! $inclusive);
+                $set($target, $other);
+                $set('price', $inclusive === prices_include_tax() ? $source : $other);
+            });
+    }
+
+    /**
+     * Variant rows with both their shown prices worked out from the saved `price` (blank when
+     * the variant uses the product's price), at the product's tax rate.
+     *
+     * @param  array<array-key, mixed>  $rows
+     * @return array<array-key, mixed>
+     */
+    private static function variantRowsWithPrices(array $rows, float $rate): array
+    {
+        return array_map(
+            fn ($row) => is_array($row) ? array_merge($row, TaxPrices::for($row['price'] ?? null, $rate, prices_include_tax())) : $row,
+            $rows,
+        );
+    }
+
+    /** "GST 18%" for the chosen tax, as listed in the Tax dropdown; "No tax (0%)" when none is chosen. */
+    private static function taxLabel(mixed $taxId): string
+    {
+        $tax = blank($taxId) ? null : Tax::query()->withTrashed()->find($taxId);
+
+        return $tax?->option_label ?? 'No tax (0%)';
+    }
+
+    /** The rate of the chosen tax; none chosen is 0%. */
+    private static function selectedTaxRate(mixed $taxId): float
+    {
+        if (blank($taxId)) {
+            return 0.0;
+        }
+
+        return (float) (Tax::query()->withTrashed()->whereKey($taxId)->value('rate') ?? 0);
     }
 
     /** "6 variants · 24 in stock · ₹1,299–₹1,499" for the Variants header. */
@@ -773,7 +1009,7 @@ class ProductForm
                 $rows[$id] = $variant;
             }
         }
-        $set('variants', $rows);
+        $set('variants', self::variantRowsWithPrices($rows, self::selectedTaxRate($get('tax_id'))));
 
         $splitNames = collect(array_keys($split))->map(fn ($id) => implode(' / ', $partial[$id]))->filter()->all();
         $body = $added ? 'New variants start with 0 in stock. Set the stock (and a price or SKU if it differs) for each one.' : null;

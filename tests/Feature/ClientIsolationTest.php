@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\Scopes\ClientOwned;
+use App\Filament\Auth\Login;
+use App\Filament\Resources\Orders\Schemas\OrderInfolist;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Customer;
@@ -12,8 +15,12 @@ use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Storefront;
 use App\Models\User;
+use Filament\Facades\Filament;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -138,7 +145,7 @@ class ClientIsolationTest extends TestCase
     {
         $theirs = $this->product($this->beta, 'Beta Coat');
         app(ClientContext::class)->resolveForIdentity($this->alphaAdmin);
-        app(\App\Admin\StoreContext::class)->resolve($this->alphaAdmin, $this->alpha->templateId());
+        app(StoreContext::class)->resolve($this->alphaAdmin, $this->alpha->templateId());
 
         $this->assertFalse($this->alphaAdmin->can('view', $theirs));
         $this->assertFalse($this->alphaAdmin->can('update', $theirs));
@@ -202,38 +209,81 @@ class ClientIsolationTest extends TestCase
         $this->get('/client')->assertRedirect('/client/login');
     }
 
+    // ---- The same email in two stores ---------------------------------------
+
+    public function test_the_same_staff_email_signs_into_the_store_whose_host_it_is_on(): void
+    {
+        $alphaStaff = ClientUser::create(['client_id' => $this->alpha->id, 'name' => 'Shared', 'email' => 'shared@example.test', 'password' => 'alpha-pass-1', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'is_active' => true]);
+        $betaStaff = ClientUser::create(['client_id' => $this->beta->id, 'name' => 'Shared', 'email' => 'shared@example.test', 'password' => 'beta-pass-1', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'is_active' => true]);
+
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        request()->headers->set('host', 'beta.'.Client::baseDomain());
+
+        // Beta's host: Alpha's password is not Beta's account, even though Alpha's row comes first.
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'shared@example.test', 'password' => 'alpha-pass-1'])
+            ->call('authenticate')
+            ->assertHasFormErrors(['email']);
+        $this->assertGuest('client');
+
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'shared@example.test', 'password' => 'beta-pass-1'])
+            ->call('authenticate')
+            ->assertHasNoFormErrors();
+        $this->assertAuthenticatedAs($betaStaff, 'client');
+        $this->assertNotSame($alphaStaff->id, auth('client')->id());
+    }
+
+    public function test_a_store_session_is_ended_on_another_stores_host(): void
+    {
+        $this->actingAs($this->alphaAdmin, 'client');
+
+        $this->get($this->beta->publicUrl().'/client')->assertRedirect();
+        $this->assertGuest('client');
+    }
+
+    public function test_a_store_session_works_on_its_own_host(): void
+    {
+        $this->actingAs($this->alphaAdmin, 'client');
+
+        $this->get($this->alpha->publicUrl().'/client')->assertSuccessful();
+        $this->assertAuthenticatedAs($this->alphaAdmin, 'client');
+    }
+
     // ---- Storefront accounts ----------------------------------------------
 
     public function test_a_customer_of_one_client_cannot_sign_in_on_another(): void
     {
-        Customer::create(['client_id' => $this->alpha->id, 'name' => 'Shopper', 'email' => 'shopper@example.test', 'password' => Hash::make('password123'), 'is_active' => true]);
+        Customer::create(['client_id' => $this->alpha->id, 'name' => 'Shopper', 'email' => 'shopper@example.test', 'phone' => '9876543210', 'password' => Hash::make('password123'), 'is_active' => true]);
 
-        // Beta's storefront: the same address and password must not be accepted.
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'beta'])
-            ->post('/login', ['email' => 'shopper@example.test', 'password' => 'password123'])
-            ->assertSessionHasErrors('email');
+        // Beta's storefront: the same phone and password must not be accepted.
+        $this->withSession([Client::SESSION_KEY => 'beta'])
+            ->post('/login', ['phone' => '9876543210', 'password' => 'password123'])
+            ->assertSessionHasErrors('phone');
         $this->assertGuest('web');
 
         // Alpha's own storefront accepts it.
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])
-            ->post('/login', ['email' => 'shopper@example.test', 'password' => 'password123'])
+        $this->withSession([Client::SESSION_KEY => 'alpha'])
+            ->post('/login', ['phone' => '9876543210', 'password' => 'password123'])
             ->assertRedirect(route('account.index'));
         $this->assertAuthenticated('web');
     }
 
     public function test_the_same_email_can_register_with_two_clients(): void
     {
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'alpha'])->post('/register', [
-            'name' => 'Shopper', 'email' => 'same@example.test',
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->post('/register', [
+            'name' => 'Shopper', 'email' => 'same@example.test', 'phone' => '9876543210',
             'password' => 'password123', 'password_confirmation' => 'password123',
-        ])->assertRedirect(route('account.index'));
+        ])->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('account.index'));
 
         $this->post('/logout');
 
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'beta'])->post('/register', [
-            'name' => 'Shopper', 'email' => 'same@example.test',
+        $this->withSession([Client::SESSION_KEY => 'beta'])->post('/register', [
+            'name' => 'Shopper', 'email' => 'same@example.test', 'phone' => '9876543210',
             'password' => 'password123', 'password_confirmation' => 'password123',
-        ])->assertRedirect(route('account.index'));
+        ])->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'beta'])->assertRedirect(route('account.index'));
 
         $this->assertSame(1, Customer::where('client_id', $this->alpha->id)->where('email', 'same@example.test')->count());
         $this->assertSame(1, Customer::where('client_id', $this->beta->id)->where('email', 'same@example.test')->count());
@@ -248,6 +298,71 @@ class ClientIsolationTest extends TestCase
         $this->get($this->beta->publicUrl().'/')->assertSuccessful();
 
         $this->assertGuest('web');
+    }
+
+    public function test_a_reset_link_from_one_store_does_not_reset_the_same_email_on_another(): void
+    {
+        Notification::fake();
+        $alphaShopper = Customer::create(['client_id' => $this->alpha->id, 'name' => 'Shopper', 'email' => 'same@example.test', 'password' => Hash::make('alpha-pass-1'), 'is_active' => true]);
+        $betaShopper = Customer::create(['client_id' => $this->beta->id, 'name' => 'Shopper', 'email' => 'same@example.test', 'password' => Hash::make('beta-pass-1'), 'is_active' => true]);
+
+        // Both stores send a link; asking the second store must not cancel the first one's.
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->post('/forgot-password', ['email' => 'same@example.test']);
+        $this->withSession([Client::SESSION_KEY => 'beta'])->post('/forgot-password', ['email' => 'same@example.test']);
+
+        $tokens = [];
+        Notification::assertSentTo($alphaShopper, ResetPassword::class, function ($n) use (&$tokens) {
+            $tokens['alpha'] = $n->token;
+
+            return true;
+        });
+        Notification::assertSentTo($betaShopper, ResetPassword::class, function ($n) use (&$tokens, $betaShopper) {
+            $tokens['beta'] = $n->token;
+            // The emailed link carries the plain address, so the reset form it opens can be submitted as filled in.
+            parse_str((string) parse_url($n->toMail($betaShopper)->actionUrl, PHP_URL_QUERY), $query);
+            $this->assertSame('same@example.test', $query['email'] ?? null);
+
+            return true;
+        });
+
+        // Beta's link opened on Alpha's storefront resets nothing.
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->post('/reset-password', [
+            'token' => $tokens['beta'], 'email' => 'same@example.test',
+            'password' => 'newpass123', 'password_confirmation' => 'newpass123',
+        ])->assertSessionHasErrors('email');
+        $this->assertTrue(Hash::check('alpha-pass-1', $alphaShopper->fresh()->password));
+
+        // Each link works on its own store, and only for that store's account.
+        $this->withSession([Client::SESSION_KEY => 'beta'])->post('/reset-password', [
+            'token' => $tokens['beta'], 'email' => 'same@example.test',
+            'password' => 'newpass123', 'password_confirmation' => 'newpass123',
+        ])->assertRedirect(route('login'));
+        $this->assertTrue(Hash::check('newpass123', $betaShopper->fresh()->password));
+        $this->assertTrue(Hash::check('alpha-pass-1', $alphaShopper->fresh()->password));
+
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->post('/reset-password', [
+            'token' => $tokens['alpha'], 'email' => 'same@example.test',
+            'password' => 'alphanew123', 'password_confirmation' => 'alphanew123',
+        ])->assertRedirect(route('login'));
+        $this->assertTrue(Hash::check('alphanew123', $alphaShopper->fresh()->password));
+    }
+
+    public function test_the_order_history_counts_only_the_orders_store(): void
+    {
+        $make = fn (Client $client, string $number) => Order::withoutGlobalScopes()->create([
+            'client_id' => $client->id, 'template' => 'fashion', 'number' => $number,
+            'email' => 'same@example.test', 'status' => 'confirmed', 'shipping_name' => 'Shopper',
+            'shipping_line1' => '1 Test Street', 'shipping_city' => 'Mumbai', 'shipping_state' => 'MH',
+            'shipping_postal_code' => '400001', 'shipping_country' => 'India', 'subtotal' => 1000, 'total' => 1000,
+        ]);
+        $order = $make($this->alpha, 'ME-TEST-0101');
+        $make($this->beta, 'ME-TEST-0102');
+        $make($this->beta, 'ME-TEST-0103');
+
+        // A platform session sees every store's orders; the history must still be Alpha's alone.
+        $history = (new \ReflectionMethod(OrderInfolist::class, 'history'))->invoke(null, $order);
+
+        $this->assertStringContainsString('First order', $history);
     }
 
     public function test_an_order_of_one_client_is_not_visible_on_another(): void
@@ -269,11 +384,43 @@ class ClientIsolationTest extends TestCase
         ]);
 
         // Beta's storefront must not confirm, or even acknowledge, Alpha's order.
-        $this->withSession([\App\Models\Client::SESSION_KEY => 'beta'])
+        $this->withSession([Client::SESSION_KEY => 'beta'])
             ->get('/order/'.$order->number.'/confirmation')
             ->assertNotFound();
 
         $this->assertSame($this->alpha->id, $order->fresh()->client_id);
         $this->assertSame($product->client_id, $order->client_id);
+    }
+
+    public function test_a_deactivated_store_says_so_when_its_team_signs_in(): void
+    {
+        $this->alpha->update(['is_active' => false]);
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        request()->headers->set('host', 'alpha.'.Client::baseDomain());
+
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'admin@alpha.test', 'password' => 'password123'])
+            ->call('authenticate')
+            ->assertHasFormErrors(['email' => 'This store has been deactivated, so its team cannot sign in. Please contact support.']);
+        $this->assertGuest('client');
+
+        // A wrong password still gets the generic message: nothing is given away.
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'admin@alpha.test', 'password' => 'wrong-password'])
+            ->call('authenticate')
+            ->assertHasFormErrors(['email' => __('filament-panels::auth/pages/login.messages.failed')]);
+    }
+
+    public function test_a_deactivated_team_member_is_told_so(): void
+    {
+        $this->alphaAdmin->update(['is_active' => false]);
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        request()->headers->set('host', 'alpha.'.Client::baseDomain());
+
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'admin@alpha.test', 'password' => 'password123'])
+            ->call('authenticate')
+            ->assertHasFormErrors(['email' => "Your account has been deactivated. Please contact your store's Client Admin."]);
+        $this->assertGuest('client');
     }
 }

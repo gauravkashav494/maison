@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Admin\PlatformModules;
 use App\Contracts\AdminIdentity;
+use App\Exceptions\LastSuperAdminException;
 use App\Models\Concerns\UsesPlatformConnection;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -69,6 +70,36 @@ class User extends Authenticatable implements AdminIdentity, FilamentUser
             // A Super Admin has every module; the list only means something for platform staff.
             $user->admin_modules = $user->is_super_admin ? null : PlatformModules::clean($user->admin_modules);
         });
+
+        // The platform must always keep one active Super Admin, whatever path the change takes
+        // (panel, bulk action, tinker, seeders). The panel already hides these moves; this is the backstop.
+        static::updating(function (User $user) {
+            $wasActiveSuperAdmin = $user->getOriginal('is_super_admin') && $user->getOriginal('is_active');
+            if ($wasActiveSuperAdmin && ! ($user->is_super_admin && $user->is_active)) {
+                $user->ensureAnotherActiveSuperAdmin($user->is_super_admin ? 'deactivate' : 'demote');
+            }
+        });
+
+        static::deleting(function (User $user) {
+            if (! $user->trashed() && $user->is_super_admin && $user->is_active) {
+                $user->ensureAnotherActiveSuperAdmin('delete');
+            }
+        });
+    }
+
+    /** @throws LastSuperAdminException when this is the only active Super Admin left. */
+    protected function ensureAnotherActiveSuperAdmin(string $action): void
+    {
+        $others = static::query()
+            ->whereKeyNot($this->getKey())
+            ->where('is_super_admin', true)
+            ->where('is_active', true)
+            ->lockForUpdate()
+            ->count();
+
+        if ($others === 0) {
+            throw new LastSuperAdminException("Cannot {$action} {$this->email}: it is the last active Super Admin.");
+        }
     }
 
     /** The platform panel only, and only while the account is active. */

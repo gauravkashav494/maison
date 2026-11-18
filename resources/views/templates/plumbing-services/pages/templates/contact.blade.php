@@ -15,6 +15,7 @@
         @if($page->image_url)<img src="{{ $page->image_url }}" alt="" loading="lazy" class="hidden aspect-[4/3] w-full rounded-3xl object-cover lg:block">@endif
     </div>
     <div class="lg:col-span-7 lg:order-1">
+        @module('messages')
         <form method="post" action="{{ route('services.contact') }}" class="card space-y-4 p-4 sm:p-6" x-data="leadForm()" @submit.prevent="submit()" novalidate>
             @csrf
             <input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
@@ -30,6 +31,7 @@
             <div><label class="label" for="message">Message<span class="req" aria-hidden="true">*</span></label><textarea id="message" name="message" rows="5" class="field @error('message') field-error @enderror" placeholder="Tell us what is happening and when you would like the plumber to visit.">{{ old('message') }}</textarea>@error('message')<p class="error">{{ $message }}</p>@enderror</div>
             <button type="submit" class="btn btn-primary btn-lg btn-block sm:w-auto" :disabled="submitting"><span x-show="!submitting">Send message</span><span x-show="submitting" x-cloak>Sending…</span></button>
         </form>
+        @endmodule
         @if($page->body)<div class="card prose-p mt-4 p-5">{!! $page->body !!}</div>@endif
         @if(!empty($faqs) && $faqs->isNotEmpty())
             <div class="mt-6"><h2 class="sec-title mb-3 text-lg">Common questions</h2><x-faq-list :faqs="$faqs" /><a href="/faq" class="sec-link mt-3 inline-flex">All FAQs <x-ico name="chevron-right" :size="14" /></a></div>

@@ -54,7 +54,13 @@ class PlanResource extends Resource
                 TextInput::make('storage_limit_mb')->label('Storage (MB)')->numeric()->minValue(0)->placeholder('Unlimited'),
             ]),
             Section::make('Default')->schema([
-                Toggle::make('is_default')->label('Use for new clients')->inline(false),
+                Toggle::make('is_default')->label('Use for new clients')->inline(false)
+                    // Only one plan is the default (Plan::booted). It cannot be switched off here,
+                    // only moved by switching it on for another plan, so there is always one.
+                    ->disabled(fn (?Plan $record) => (bool) $record?->is_default)
+                    ->helperText(fn (?Plan $record) => $record?->is_default
+                        ? 'This is the default plan. To change it, switch this on for another plan.'
+                        : 'Only one plan can be the default: switching this on takes it from '.(Plan::default()?->name ?? 'the current default').'.'),
             ]),
         ]);
     }

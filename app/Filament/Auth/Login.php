@@ -4,10 +4,13 @@ namespace App\Filament\Auth;
 
 use App\Clients\ClientContext;
 use App\Models\Client;
+use App\Models\ClientUser;
 use App\Models\Setting;
 use App\Support\Media;
 use App\Templates\Template;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Split-screen sign-in: brand visual on the left, Filament's standard login form on the right.
@@ -98,6 +101,70 @@ class Login extends BaseLogin
         $id = Client::idForHost(request()->getHost());
 
         return $id ? Client::find($id) : null;
+    }
+
+    /**
+     * The same email may hold an account in several stores (client_users is unique on
+     * client_id + email). On a store's own host the credentials are matched together with
+     * that store, so signing in on store B can never pick store A's account with the same
+     * email — whichever row happened to come first.
+     */
+    protected function getCredentialsFromFormData(#[\SensitiveParameter] array $data): array
+    {
+        $credentials = parent::getCredentialsFromFormData($data);
+
+        if (! $this->isPlatform() && ($clientId = $this->hostClientId())) {
+            $credentials['client_id'] = $clientId;
+        }
+
+        return $credentials;
+    }
+
+    /**
+     * Says why a correct email and password still cannot sign in, instead of the generic
+     * "credentials do not match". Only reached once the password has been checked, so it tells
+     * nothing to someone guessing.
+     */
+    protected function isUserAllowedToAccessPanel(Authenticatable $user): bool
+    {
+        if ($user instanceof ClientUser) {
+            if (! $user->client?->is_active) {
+                $this->failWith('This store has been deactivated, so its team cannot sign in. Please contact support.');
+            }
+            if (! $user->is_active) {
+                $this->failWith('Your account has been deactivated. Please contact your store\'s Client Admin.');
+            }
+        }
+
+        return parent::isUserAllowedToAccessPanel($user);
+    }
+
+    private function failWith(string $message): never
+    {
+        $this->userUndertakingMultiFactorAuthentication = null;
+
+        throw ValidationException::withMessages(['data.email' => $message]);
+    }
+
+    /**
+     * The client whose host this is, deactivated ones included: Client::idForHost() only knows
+     * active clients, and without the client the credentials could match a same-email account
+     * of another store.
+     */
+    private function hostClientId(): ?int
+    {
+        $host = request()->getHost();
+        if ($id = Client::idForHost($host)) {
+            return $id;
+        }
+
+        $host = strtolower(preg_replace('/:\d+$/', '', $host));
+        $suffix = '.'.Client::baseDomain();
+
+        return Client::withThemes()
+            ->where(fn ($q) => $q->where('domain', $host)
+                ->when(str_ends_with($host, $suffix), fn ($q) => $q->orWhere('subdomain', substr($host, 0, -strlen($suffix)))))
+            ->value('id');
     }
 
     private function isPlatform(): bool

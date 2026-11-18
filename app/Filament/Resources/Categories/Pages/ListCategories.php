@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Categories\Pages;
 
-use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Categories\CategoryResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListCategories extends ListRecords

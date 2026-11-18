@@ -2,12 +2,14 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
+use App\Clients\StoreFeatures;
 use App\Filament\Auth\Login;
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Models\Order;
+use App\Support\IndianStates;
 use App\Templates\Template;
 use BackedEnum;
 use Filament\Forms\Components\CheckboxList;
@@ -41,51 +43,6 @@ class SiteSettings extends Page
     protected static ?int $navigationSort = 30;
 
     protected static ?string $title = 'Site settings';
-
-    /** Tax names a store can show customers: the value is what is printed, so keys and labels match. */
-    public const TAX_NAMES = [
-        'GST' => 'GST',
-        'IGST' => 'IGST',
-        'CGST + SGST' => 'CGST + SGST',
-        'VAT' => 'VAT',
-        'Tax' => 'Tax',
-    ];
-
-    /** GST slabs (stored as the number; 0 means no tax). */
-    public const GST_RATES = [
-        '0' => '0% — no tax',
-        '0.25' => '0.25%',
-        '3' => '3%',
-        '5' => '5%',
-        '12' => '12%',
-        '18' => '18%',
-        '28' => '28%',
-        '40' => '40%',
-    ];
-
-    /** VAT rates. */
-    public const VAT_RATES = [
-        '0' => '0% — no tax',
-        '5' => '5%',
-        '12.5' => '12.5%',
-        '20' => '20%',
-    ];
-
-    /**
-     * Rates offered for a tax name: GST names get the GST slabs, VAT its own rates, and the
-     * generic "Tax" both, so a GST store cannot pick 20% by mistake.
-     */
-    public static function taxRatesFor(?string $name): array
-    {
-        $rates = match ($name) {
-            'VAT' => self::VAT_RATES,
-            'Tax' => self::GST_RATES + self::VAT_RATES,
-            default => self::GST_RATES,
-        };
-        uksort($rates, fn ($a, $b) => (float) $a <=> (float) $b);
-
-        return $rates;
-    }
 
     protected function settingGroups(): array
     {
@@ -174,8 +131,9 @@ class SiteSettings extends Page
                                     ->dehydratedWhenHidden(),
                             ]),
                         Section::make('Tax')
-                            ->description('How tax is worked out and shown on the cart, checkout and invoices.')
-                            ->columns(2)
+                            // Each product's rate comes from its tax (Catalogue → Taxes); this only says
+                            // whether the entered prices already include it.
+                            ->description('Each product\'s tax rate comes from the tax chosen on it (Catalogue → Taxes). Choose whether product prices already include that tax.')
                             ->schema([
                                 Radio::make('checkout.tax_mode')->label('Product prices are entered')
                                     ->options([
@@ -186,38 +144,38 @@ class SiteSettings extends Page
                                         'exclusive' => 'Usual for trade (B2B) buyers. A ₹1,000.00 item with 18% GST costs ₹1,180.00.',
                                         'inclusive' => 'Usual for retail shoppers. A ₹1,000.00 item costs ₹1,000.00, of which ₹152.54 is GST.',
                                     ])
-                                    ->default('exclusive')->live()->columnSpanFull(),
-                                // A fixed list, not free text: the name is printed on every cart, order and invoice.
-                                Select::make('checkout.tax_label')->label('Tax name')
-                                    ->options(self::TAX_NAMES)
-                                    ->default('GST')->required()->selectablePlaceholder(false)->native(false)
-                                    // The rates offered depend on the name; a rate the new name does not have goes back to 0%.
-                                    ->live()
-                                    ->afterStateUpdated(function ($get, $set, ?string $state) {
-                                        if (! array_key_exists((string) $get('checkout.tax_rate'), self::taxRatesFor($state))) {
-                                            $set('checkout.tax_rate', '0');
-                                        }
-                                    })
-                                    ->validationMessages([
-                                        'required' => 'Choose the tax name customers see.',
-                                        'in' => 'Choose one of the listed tax names.',
-                                    ])
-                                    ->helperText('Shown to customers on the cart, checkout and invoices.'),
-                                // Chosen from the rates for the tax name above, not typed: a mistyped rate would be charged on every order.
-                                Select::make('checkout.tax_rate')->label('Tax rate')
-                                    ->options(fn ($get) => self::taxRatesFor($get('checkout.tax_label')))
-                                    // Rates saved earlier are numbers (18, 18.0); the options are keyed "18", and the select compares strictly.
-                                    ->formatStateUsing(fn ($state) => is_numeric($state) ? (string) (float) $state : $state)
-                                    // A plain <select>: its options are rendered on the server and redrawn when the
-                                    // tax name changes. The searchable dropdown kept showing only the selected rate.
-                                    ->default('0')->required()->selectablePlaceholder(false)->native()
-                                    ->validationMessages([
-                                        'required' => 'Choose the tax rate, or 0% if you do not charge tax.',
-                                        'in' => 'Choose one of the listed tax rates.',
-                                    ])
-                                    ->helperText(fn ($get) => $get('checkout.tax_mode') === 'inclusive'
-                                        ? 'Used to show how much of each order is tax. At 0, the tax line is hidden.'
-                                        : 'Added on top of every order at checkout. At 0, no tax is charged and the tax line is hidden.'),
+                                    ->default('exclusive')->required(),
+                            ]),
+                        Section::make('Invoice')
+                            ->description('Your details as the seller, printed at the top of every order invoice (PDF).')
+                            ->columns(2)
+                            ->schema([
+                                TextInput::make('checkout.invoice_business_name')->label('Registered business name')
+                                    ->maxLength(120)->helperText('Leave blank to use the site name.'),
+                                TextInput::make('checkout.invoice_gstin')->label('GSTIN')
+                                    ->maxLength(15)->placeholder('22AAAAA0000A1Z5')
+                                    // Format: 2-digit state code, 10-character PAN, entity number, Z, check character.
+                                    ->regex('/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/')
+                                    ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
+                                    ->validationMessages(['regex' => 'Enter a valid 15-character GSTIN, e.g. 22AAAAA0000A1Z5.'])
+                                    ->helperText('Leave blank if you are not GST-registered.'),
+                                // With the shipping state, decides IGST or CGST + SGST on each order.
+                                Select::make('checkout.invoice_state')->label('State you sell from')
+                                    ->options(IndianStates::options())->searchable()->native(false)
+                                    ->placeholder(fn ($get) => ($code = IndianStates::codeFromGstin($get('checkout.invoice_gstin')))
+                                        ? 'From GSTIN: '.IndianStates::label($code) : 'Choose a state')
+                                    ->helperText('Orders shipped within this state get CGST + SGST; to another state or abroad, IGST. Blank uses your GSTIN\'s state.'),
+                                TextInput::make('checkout.invoice_prefix')->label('Invoice number prefix')
+                                    ->default('INV')->placeholder('INV')->maxLength(5)->alphaNum()
+                                    ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
+                                    ->helperText(fn ($get) => 'Up to 5 letters or numbers. Invoices are numbered in one series per financial year: '
+                                        .(strtoupper((string) $get('checkout.invoice_prefix')) ?: 'INV').'/26-27/0001, /0002 … Changing it affects new invoices only.'),
+                                Textarea::make('checkout.invoice_address')->label('Business address')->rows(3)
+                                    ->maxLength(500)->placeholder("Shop 4, Main Market\nNew Delhi 110001")
+                                    ->helperText('One line per row, as it should print.'),
+                                Textarea::make('checkout.invoice_note')->label('Note at the foot of the invoice')->rows(3)
+                                    ->maxLength(500)->placeholder('Thank you for shopping with us. Goods once sold can be returned within 7 days.')
+                                    ->helperText('Optional: terms, return policy or bank details.'),
                             ]),
                         Section::make('Gift cards')
                             ->description('Values customers can choose when buying a gift card.')
@@ -228,7 +186,7 @@ class SiteSettings extends Page
                     ]),
                     Tab::make('Reviews')->icon('heroicon-o-star')
                         // Service stores have no product reviews.
-                        ->visible(fn () => ! app(ClientContext::class)->client()?->templateObject()?->supportsServices())
+                        ->visible(fn () => ! app(ClientContext::class)->client()?->templateObject()?->supportsServices() && StoreFeatures::enabled('reviews'))
                         ->schema([
                             Section::make('Publishing reviews')
                                 ->description('Reviews shoppers write on product pages.')

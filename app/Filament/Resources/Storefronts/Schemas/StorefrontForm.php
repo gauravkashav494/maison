@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Storefronts\Schemas;
 
+use App\Models\Client;
 use App\Models\Storefront;
 use App\Templates\TemplateManager;
 use Filament\Forms\Components\Select;
@@ -24,7 +25,14 @@ class StorefrontForm
             Section::make('Store')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120)->live(onBlur: true)
                     ->afterStateUpdated(fn ($set, $get, $state) => blank($get('slug')) ? $set('slug', Str::slug($state)) : null),
-                TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true)->helperText('Used in admin links.'),
+                TextInput::make('slug')->required()->alphaDash()->unique(ignoreRecord: true)
+                    // The slug is also the store's address (<slug>.<base domain>), so no client may have it.
+                    ->rule(fn ($record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                        if (filled($value) && $value !== $record?->slug && ($client = Storefront::clientOnAddress((string) $value))) {
+                            $fail(Storefront::clientAddressMessage($client));
+                        }
+                    })
+                    ->helperText('Used in admin links and as the store\'s own address. Cannot match a client\'s subdomain.'),
                 Select::make('template')
                     ->label('Template')
                     ->options(fn () => app(TemplateManager::class)->options())
@@ -44,8 +52,14 @@ class StorefrontForm
                     : 'The store gets an address on this domain as soon as it is saved.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('domain')->label('Demo domain (optional)')->placeholder('demo.example.com')->maxLength(190)->unique(ignoreRecord: true)
-                        ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://. A client\'s own domain is set on the client.'),
+                    TextInput::make('domain')->label('Demo domain (optional)')->placeholder('demo.example.com')->maxLength(190)
+                        ->rule(fn (?Storefront $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                            if (filled($value) && ($problem = Client::domainProblem((string) $value, ignoreStore: $record))) {
+                                $fail($problem);
+                            }
+                        })
+                        ->dehydrateStateUsing(fn (?string $state) => Client::normaliseHost($state))
+                        ->helperText('Host only, no https://. A client\'s own domain is set on the client.'),
                 ]),
             Section::make('Default plan limits')
                 ->description('Starting point for a new client on this store. A client\'s own limits (or its plan) always win; leave blank for no limit.')

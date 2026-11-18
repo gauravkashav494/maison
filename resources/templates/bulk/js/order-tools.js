@@ -29,6 +29,12 @@ async function addLines(lines) {
     return { added, failed };
 }
 
+/** Whether two option sets ({Size: '1 L'}) name the same choice, whatever their order. */
+function sameOptions(a = {}, b = {}) {
+    const norm = (o) => JSON.stringify(Object.entries(o || {}).sort(([x], [y]) => x.localeCompare(y)));
+    return norm(a) === norm(b);
+}
+
 /** Quantity typed into a box, held to 0…max. */
 function clampQty(value, max) {
     let n = parseInt(value, 10);
@@ -246,15 +252,36 @@ Alpine.data('shopSearch', () => ({
 --------------------------------------------------------------------------- */
 Alpine.data('orderSheet', (lines = []) => ({
     lines: Object.fromEntries(lines.map((l) => [l.key, l])),
+    // The quantity box of each line shows how many are in the cart. Changing one marks it
+    // `dirty`; "Add all to order" then sets the cart to the typed number (0 takes the line out).
     qty: {},
+    dirty: {},
     errors: {},
     added: {},
     busy: false,
 
+    init() {
+        this.sync();
+        this.$watch('$store.cart.items', () => this.sync());
+    },
+    /** The cart's line for this product and choice, if any. */
+    cartLine(key) {
+        const line = this.lines[key];
+        return line ? Alpine.store('cart').items.find((i) => i.product.id === line.product_id && sameOptions(i.options, line.options)) : null;
+    },
+    inCart(key) { return this.cartLine(key)?.qty || 0; },
+    /** Boxes not being edited follow the cart (added from the drawer, another tab, …). */
+    sync() {
+        for (const key of Object.keys(this.lines)) {
+            if (!this.dirty[key]) this.qty[key] = this.inCart(key) || '';
+        }
+    },
+
+    /** Lines whose box now differs from the cart. */
     get filled() {
-        return Object.keys(this.qty)
-            .filter((key) => this.qty[key] > 0 && this.lines[key])
-            .map((key) => ({ ...this.lines[key], qty: this.qty[key] }));
+        return Object.keys(this.dirty)
+            .filter((key) => this.lines[key] && (parseInt(this.qty[key], 10) || 0) !== this.inCart(key))
+            .map((key) => ({ ...this.lines[key], qty: parseInt(this.qty[key], 10) || 0 }));
     },
     get units() { return this.filled.reduce((n, l) => n + l.qty, 0); },
     get estimate() { return rupees(this.filled.reduce((n, l) => n + l.qty * l.price, 0)); },
@@ -265,6 +292,7 @@ Alpine.data('orderSheet', (lines = []) => ({
         const wanted = parseInt(this.qty[key], 10) || 0;
         const n = clampQty(this.qty[key], line.max);
         this.qty[key] = n || '';
+        this.dirty[key] = true;
         delete this.added[key];
         // Held back to the most this line allows: say why, beside the row.
         if (wanted > line.max) this.errors[key] = line.limit_message;
@@ -275,20 +303,33 @@ Alpine.data('orderSheet', (lines = []) => ({
         this.qty[key] = (parseInt(this.qty[key], 10) || 0) + by;
         this.clamp(key);
     },
-    clear() { this.qty = {}; this.errors = {}; },
+    /** Puts every box back to what is in the cart. */
+    clear() { this.dirty = {}; this.errors = {}; this.sync(); },
 
     async addAll() {
         // A box typed into but never left has not been held to its limit yet.
-        Object.keys(this.qty).forEach((key) => this.clamp(key));
+        Object.keys(this.dirty).forEach((key) => this.clamp(key));
         const lines = this.filled;
         if (!lines.length || this.busy) return;
         this.busy = true;
         this.errors = {};
+        const cart = Alpine.store('cart');
+        let changed = false;
         try {
-            const { added, failed } = await addLines(lines);
-            for (const key of added) { this.added[key] = this.qty[key]; delete this.qty[key]; }
-            this.errors = failed;
-            if (added.length) Alpine.store('ui').openCart();
+            for (const line of lines) {
+                const existing = this.cartLine(line.key);
+                try {
+                    if (existing) await cart.update(existing.key, line.qty);
+                    else await cart.add(line.product_id, null, null, line.qty, false, line.options);
+                    this.added[line.key] = line.qty;
+                    delete this.dirty[line.key];
+                    changed = true;
+                } catch (e) {
+                    this.errors[line.key] = e.payload?.message || 'Could not be added. Please try again.';
+                }
+            }
+            this.sync();
+            if (changed) Alpine.store('ui').openCart();
         } finally {
             this.busy = false;
         }

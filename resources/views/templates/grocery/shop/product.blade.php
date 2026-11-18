@@ -94,7 +94,7 @@
                     <p x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-base text-mist tabular strike" x-text="'MRP ' + shown.compare_at_price_formatted">MRP {{ $base['compare_at_price_formatted'] }}</p>
                     <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="badge badge-soft" x-text="'You save ' + shown.save_formatted">You save {{ $base['save_formatted'] }}</span>
                 </div>
-                @if(price_tax_note() !== '')<p class="mt-1 text-xs text-slate">{{ price_tax_note() }}</p>@endif
+                @if(price_tax_note($product->effectiveTaxRate()) !== '')<p class="mt-1 text-xs text-slate">{{ price_tax_note($product->effectiveTaxRate()) }}</p>@endif
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
                     @if($product->in_stock)
@@ -160,6 +160,7 @@
     @endif
 
     {{-- Reviews --}}
+    @module('reviews')
     <section id="reviews" class="g-container section">
         <div class="card grid gap-8 p-5 sm:p-6 lg:grid-cols-12">
             <div class="lg:col-span-4">
@@ -216,6 +217,7 @@
             </div>
         </div>
     </section>
+    @endmodule
 
     {{-- Similar products --}}
     @if($related->isNotEmpty())

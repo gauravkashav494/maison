@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Support\RowActions;
+use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
 use App\Support\Media;
@@ -39,9 +41,14 @@ class ProductsTable
                     ->searchable()
                     ->sortable()
                     ->description(fn (Product $record) => $record->sku),
-                TextColumn::make('category.name')->sortable()->badge()->color('gray'),
-                // A product can sit in several collections; off by default, switch it on from the column menu.
-                TextColumn::make('collections.name')->label('Collections')->badge()->color('gray')
+                // Every category the product is listed under; sorting follows the main category.
+                TextColumn::make('categories.name')->label('Categories')->badge()->color('gray')
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy(
+                        Category::select('name')->whereColumn('categories.id', 'products.category_id'), $direction,
+                    )),
+                // Off by default, switch it on from the column menu.
+                TextColumn::make('collections.name')->label('Collection')->badge()->color('gray')
+                    ->visible(fn () => StoreFeatures::enabled('collections'))
                     ->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('price')
                     ->formatStateUsing(fn (float $state) => money($state))
@@ -55,10 +62,12 @@ class ProductsTable
             ])
             ->filters([
                 TrashedFilter::make(),
-                SelectFilter::make('category')->relationship('category', 'name')->preload(),
+                // Any category the product is listed under, not only its main one.
+                SelectFilter::make('categories')->label('Category')->relationship('categories', 'name')->preload(),
                 // Products in any of the chosen collections, or in none at all (not merchandised anywhere).
                 SelectFilter::make('collections')
                     ->label('Collection')
+                    ->visible(fn () => StoreFeatures::enabled('collections'))
                     ->multiple()
                     ->native(false)
                     ->options(fn () => [self::NO_COLLECTION => 'Not in any collection']

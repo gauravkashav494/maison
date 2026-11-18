@@ -19,7 +19,7 @@
         <x-card-colour-photo :product="$product" />
         <span class="bk-pcard-badges">
             @if($first && $first['list_price'] > $first['price'])
-                <span class="bk-badge bk-badge-deal">{{ (int) round(($first['list_price'] - $first['price']) * 100 / $first['list_price']) }}% off</span>
+                <span class="bk-badge bk-badge-deal">{{ (int) round($first['discount_percent']) }}% off</span>
             @endif
             @if($product->is_new)<span class="bk-badge bk-badge-new">New</span>@endif
         </span>

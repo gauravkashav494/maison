@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Coupons\Schemas;
 
+use App\Clients\ClientContext;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -17,7 +18,7 @@ class CouponForm
     {
         return $schema->columns(1)->components([
             Section::make('Code')->columns(2)->schema([
-                TextInput::make('code')->required()->maxLength(40)->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(\App\Clients\ClientContext::class)->id()))->helperText('Customers enter this at checkout. Case-insensitive.'),
+                TextInput::make('code')->required()->maxLength(40)->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id()))->helperText('Customers enter this at checkout. Case-insensitive.'),
                 TextInput::make('description')->maxLength(120)->placeholder('10% off your first order'),
                 Select::make('type')
                     ->options(['percent' => 'Percentage off', 'fixed' => 'Fixed amount off', 'free_shipping' => 'Free shipping'])

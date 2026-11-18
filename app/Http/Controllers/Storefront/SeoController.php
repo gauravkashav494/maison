@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Clients\StoreFeatures;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Collection;
@@ -50,6 +51,10 @@ class SeoController extends Controller
         foreach (Post::published()->where('noindex', false)->get() as $p) {
             $urls[] = ['loc' => $p->url, 'priority' => '0.6', 'changefreq' => 'monthly', 'lastmod' => $p->updated_at];
         }
+
+        // Nothing from a module switched off for this client (its pages answer 404).
+        $features = app(StoreFeatures::class);
+        $urls = array_filter($urls, fn (array $u) => $features->allowsUrl($u['loc']));
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
         foreach ($urls as $u) {

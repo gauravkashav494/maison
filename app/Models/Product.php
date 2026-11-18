@@ -8,6 +8,7 @@ use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\UsesClientConnection;
 use App\Support\ColourNames;
 use App\Support\Media;
+use App\Support\TaxPrices;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Product extends Model
@@ -30,6 +32,9 @@ class Product extends Model
     protected $casts = [
         'price' => 'float',
         'compare_at_price' => 'float',
+        'tax_rate' => 'float',
+        'price_incl_tax' => 'float',
+        'price_excl_tax' => 'float',
         'images' => 'array',
         'colors' => 'array',
         'sizes' => 'array',
@@ -47,14 +52,45 @@ class Product extends Model
         'variants' => 'array',
     ];
 
+    /**
+     * The main category: the breadcrumb, the card label and "related products". It is always
+     * one of categories() as well (kept so by the saved hook below).
+     */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
+    /** Every category the product is listed under, the main one included. */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class);
+    }
+
+    /** Products listed under any of these categories (not only those whose main category it is). */
+    public function scopeInCategories(Builder $q, $categoryIds): Builder
+    {
+        return $q->whereIn($q->qualifyColumn('id'), fn ($sub) => $sub->select('product_id')
+            ->from('category_product')->whereIn('category_id', $categoryIds));
+    }
+
+    /**
+     * The product's brand in the store's brand master (brand_id). Not called brand(): that is
+     * the column holding the brand's name, which every view reads as text.
+     */
+    public function brandRecord(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class, 'brand_id');
+    }
+
     public function collections(): BelongsToMany
     {
         return $this->belongsToMany(Collection::class)->withPivot('sort_order');
+    }
+
+    public function tax(): BelongsTo
+    {
+        return $this->belongsTo(Tax::class);
     }
 
     public function reviews(): HasMany
@@ -79,7 +115,19 @@ class Product extends Model
 
     public function scopeOnSale(Builder $q): Builder
     {
-        return $q->whereNotNull('compare_at_price')->whereColumn('compare_at_price', '>', 'price');
+        return $q->whereNotNull('compare_at_price')->whereRaw('compare_at_price > '.self::mrpBasisSql($q->getModel()));
+    }
+
+    /**
+     * SQL for the price an MRP is measured against (see mrpBasis()): the price including tax.
+     * Before-tax stores read the stored price_incl_tax; a database without that column yet
+     * falls back to `price`.
+     */
+    public static function mrpBasisSql(?self $model = null): string
+    {
+        $model ??= new static;
+
+        return ! prices_include_tax() && self::hasTaxPriceColumns($model) ? 'coalesce(price_incl_tax, price)' : 'price';
     }
 
     /**
@@ -101,7 +149,7 @@ class Product extends Model
                     ->orWhereLike('material', $word)
                     ->orWhereLike('sizes', $word)
                     ->orWhereLike('variants', $word)
-                    ->orWhereHas('category', fn ($c) => $c->whereLike('name', $word)));
+                    ->orWhereHas('categories', fn ($c) => $c->whereLike('name', $word)));
             }
         });
     }
@@ -168,6 +216,73 @@ class Product extends Model
         return route('products.show', $this->slug);
     }
 
+    // ---- Tax ---------------------------------------------------------------
+
+    /** Whether each connection's products table has the price incl./excl. tax columns yet. */
+    private static array $hasTaxPriceColumns = [];
+
+    /**
+     * The price an MRP ("was" price) is compared with: the price including tax, because an MRP in
+     * India always includes it. Same as $price when the store's prices include tax; otherwise
+     * $price plus this product's tax, so "% off" and "Save" are not overstated.
+     */
+    public function mrpBasis(float $price): float
+    {
+        return prices_include_tax() ? $price : TaxPrices::convert($price, $this->effectiveTaxRate(), toInclusive: true);
+    }
+
+    private static function hasTaxPriceColumns(self $model): bool
+    {
+        $connection = $model->getConnectionName() ?? 'default';
+
+        return self::$hasTaxPriceColumns[$connection] ??= Schema::connection($model->getConnectionName())->hasColumn($model->getTable(), 'price_incl_tax');
+    }
+
+    /** The product's tax rate: its tax's (copied to tax_rate on save); a product with no tax is charged 0%. */
+    public function effectiveTaxRate(): float
+    {
+        return $this->tax_id ? (float) ($this->tax_rate ?? 0) : 0.0;
+    }
+
+    /**
+     * Keeps price_incl_tax / price_excl_tax (and each variant's) in line with `price` and the tax
+     * rate, whatever saved the product (the form, an import, a seeder). `price` stays the price
+     * the cart charges: the one the store's prices are entered as.
+     */
+    private function syncTaxPrices(): void
+    {
+        if (! self::hasTaxPriceColumns($this)) {
+            return;
+        }
+
+        // The rate comes from the tax: copied here so the cart and invoices read it directly.
+        // No tax: no rate, so a rate left from an earlier tax is not charged.
+        if (! $this->tax_id) {
+            $this->tax_rate = null;
+        } elseif ($tax = Tax::withoutGlobalScopes()->withTrashed()->find($this->tax_id)) {
+            $this->tax_rate = (float) $tax->rate;
+        }
+
+        $inclusive = prices_include_tax();
+        $rate = $this->effectiveTaxRate();
+
+        $synced = TaxPrices::sync([
+            'price' => $this->price,
+            'price_incl_tax' => $this->price_incl_tax,
+            'price_excl_tax' => $this->price_excl_tax,
+        ], $rate, $inclusive);
+        $this->price_incl_tax = $synced['price_incl_tax'];
+        $this->price_excl_tax = $synced['price_excl_tax'];
+
+        // Variants follow the product's tax: one rate for all of them.
+        if (is_array($this->variants) && $this->variants !== []) {
+            $this->variants = array_map(
+                fn ($row) => is_array($row) ? TaxPrices::sync(array_diff_key($row, ['tax_rate' => true]), $rate, $inclusive) : $row,
+                $this->variants,
+            );
+        }
+    }
+
     // ---- Variants ----------------------------------------------------------
 
     protected static function booted(): void
@@ -175,8 +290,41 @@ class Product extends Model
         static::saving(function (Product $product) {
             $product->assignColourPhotos();
             $product->syncVariantData();
+            $product->syncTaxPrices();
             $product->syncReviewBaseline();
+            $product->syncBrand();
         });
+
+        // The main category is always one of the categories the product is listed under, also
+        // when only category_id is written (seeders, imports, older code).
+        static::saved(function (Product $product) {
+            if ($product->category_id && ($product->wasRecentlyCreated || $product->wasChanged('category_id'))) {
+                $product->categories()->syncWithoutDetaching([$product->category_id]);
+            }
+        });
+    }
+
+    /**
+     * Keeps brand_id (the brand master) and brand (its name, read by the shop) in step. Choosing
+     * a brand writes its name; writing only a name (seeders, older code) links, or creates, the
+     * client's brand of that name; clearing either clears both.
+     */
+    private function syncBrand(): void
+    {
+        if ($this->isDirty('brand_id')) {
+            $this->brand = $this->brand_id
+                ? Brand::withoutGlobalScopes()->withTrashed()->whereKey($this->brand_id)->value('name')
+                : null;
+
+            return;
+        }
+
+        if ($this->isDirty('brand')) {
+            $this->brand_id = filled($this->brand)
+                ? Brand::forName((string) $this->brand, $this->client_id, $this->template)?->getKey()
+                : null;
+            $this->brand = $this->brand_id ? Brand::withoutGlobalScopes()->withTrashed()->whereKey($this->brand_id)->value('name') : null;
+        }
     }
 
     /**
@@ -452,6 +600,69 @@ class Product extends Model
         return array_column($this->variantAttributes(), 'name');
     }
 
+    /**
+     * Moves stock by $delta (negative when sold, positive when an order is cancelled and the
+     * goods come back). A product sold by variant has its stock on the variant, so that is
+     * adjusted as well as the product total. Stock never goes below zero.
+     */
+    public function adjustStock(int $delta, array $options = []): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        if ($options && $this->sellsVariants()) {
+            $wanted = $this->normaliseOptions($options);
+            $variants = (array) $this->variants;
+            foreach ($variants as $index => $variant) {
+                if ($this->normaliseOptions((array) ($variant['options'] ?? [])) == $wanted) {
+                    $current = $variant['stock'] ?? $this->stock;
+                    $variants[$index]['stock'] = max(0, (int) $current + $delta);
+                    $this->update(['variants' => $variants]);
+                    break;
+                }
+            }
+        }
+
+        $delta < 0
+            ? static::whereKey($this->id)->where('stock', '>=', -$delta)->decrement('stock', -$delta)
+            : static::whereKey($this->id)->increment('stock', $delta);
+    }
+
+    /**
+     * Locks these lines' products for the rest of the current transaction and checks each line
+     * against the stock as it is now, so two sales of the last few units cannot both read the
+     * same stock. A product sold by variant is counted per variant; one that is not shares one
+     * stock across its lines (e.g. two sizes of the same plain product). Used when an order is
+     * placed (PlaceOrder) and when a cancelled order is reopened (Order::setStatus).
+     *
+     * @param  array<string|int, array{product_id:int, options:array, qty:int}>  $lines
+     *                                                                                   The result holds the locked products keyed by id, and line key => how many are left for
+     *                                                                                   each line that asks for more than that.
+     * @return array{products: \Illuminate\Database\Eloquent\Collection<int, static>, short: array<string|int, int>}
+     */
+    public static function lockForLines(array $lines): array
+    {
+        $products = static::whereIn('id', array_column($lines, 'product_id'))
+            ->lockForUpdate()->get()->keyBy('id');
+
+        $left = [];
+        $short = [];
+        foreach ($lines as $key => $line) {
+            $product = $products[$line['product_id']] ?? null;
+            $options = (array) ($line['options'] ?? []);
+            $bucket = $product?->sellsVariants() ? $product->id.'|'.json_encode($product->normaliseOptions($options)) : (string) $product?->id;
+            $left[$bucket] ??= $product ? max(0, $product->stockFor($options)) : 0;
+
+            if ((int) $line['qty'] > $left[$bucket]) {
+                $short[$key] = $left[$bucket];
+            }
+            $left[$bucket] = max(0, $left[$bucket] - (int) $line['qty']);
+        }
+
+        return ['products' => $products, 'short' => $short];
+    }
+
     /** True when this product sells per variant (price, SKU and stock come from the variant). */
     public function sellsVariants(): bool
     {
@@ -513,7 +724,7 @@ class Product extends Model
     public function pricingVariants(): array
     {
         return $this->sellsVariants()
-            ? array_map(fn (array $variant) => self::pricing($variant['price'], $variant['compare_at_price']) + $variant, $this->variantList())
+            ? array_map(fn (array $variant) => self::pricing($variant['price'], $variant['compare_at_price'], $this->mrpBasis($variant['price'])) + $variant, $this->variantList())
             : [];
     }
 
@@ -532,30 +743,33 @@ class Product extends Model
             if ($pool) {
                 usort($pool, fn (array $a, array $b) => $a['price'] <=> $b['price']);
 
-                return self::pricing($pool[0]['price'], $pool[0]['compare_at_price']);
+                return self::pricing($pool[0]['price'], $pool[0]['compare_at_price'], $this->mrpBasis($pool[0]['price']));
             }
         }
 
-        return self::pricing((float) $this->price, $this->compare_at_price ? (float) $this->compare_at_price : null);
+        return self::pricing((float) $this->price, $this->compare_at_price ? (float) $this->compare_at_price : null, $this->mrpBasis((float) $this->price));
     }
 
     /**
      * A price with its "was" price for display: the compare-at price, discount and saving are
-     * null / 0 unless the compare-at price is above the price.
+     * null / 0 unless the compare-at price is above the price. $mrpBasis is what the MRP is
+     * measured against (mrpBasis(): the price including tax); $price when not given. The price
+     * shown stays $price.
      *
      * @return array{price:float, price_formatted:string, compare_at_price:?float, compare_at_price_formatted:?string, discount_percent:int, save_formatted:?string}
      */
-    public static function pricing(float $price, ?float $compareAt): array
+    public static function pricing(float $price, ?float $compareAt, ?float $mrpBasis = null): array
     {
-        $compareAt = $compareAt !== null && $compareAt > $price ? $compareAt : null;
+        $basis = $mrpBasis ?? $price;
+        $compareAt = $compareAt !== null && $compareAt > $basis ? $compareAt : null;
 
         return [
             'price' => $price,
             'price_formatted' => money($price),
             'compare_at_price' => $compareAt,
             'compare_at_price_formatted' => $compareAt ? money($compareAt) : null,
-            'discount_percent' => $compareAt ? (int) round((1 - $price / $compareAt) * 100) : 0,
-            'save_formatted' => $compareAt ? money($compareAt - $price) : null,
+            'discount_percent' => $compareAt ? (int) round((1 - $basis / $compareAt) * 100) : 0,
+            'save_formatted' => $compareAt ? money($compareAt - $basis) : null,
         ];
     }
 

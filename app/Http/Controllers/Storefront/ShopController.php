@@ -39,7 +39,7 @@ class ShopController extends Controller
 
         return $this->listing(
             $request,
-            Product::whereIn('category_id', $ids),
+            Product::inCategories($ids),
             $category->name,
             $category->parent?->name ?? ($category->tagline ?? 'Shop'),
             Seo::forModel($category, $category->url),
@@ -62,10 +62,10 @@ class ShopController extends Controller
             $query->search($f['q']);
         }
         if ($f['category']) {
-            $query->whereIn('category_id', Category::whereIn('slug', $f['category'])->pluck('id'));
+            $query->inCategories(Category::whereIn('slug', $f['category'])->pluck('id'));
         }
         if ($f['subcategory']) {
-            $query->whereIn('category_id', Category::whereIn('slug', $f['subcategory'])->pluck('id'));
+            $query->inCategories(Category::whereIn('slug', $f['subcategory'])->pluck('id'));
         }
         if ($f['collection']) {
             $query->whereHas('collections', fn ($c) => $c->whereIn('slug', $f['collection']));
@@ -95,7 +95,8 @@ class ShopController extends Controller
             $query->where('is_veg', true); // grocery templates: vegetarian-only switch
         }
         if ($f['discount']) {
-            $query->onSale()->whereRaw('(compare_at_price - price) * 100.0 / nullif(compare_at_price, 0) >= ?', [$f['discount']]);
+            $basis = Product::mrpBasisSql();
+            $query->onSale()->whereRaw("(compare_at_price - {$basis}) * 100.0 / nullif(compare_at_price, 0) >= ?", [$f['discount']]);
         }
         foreach ($f['diet'] as $tag) {
             $query->whereLike('dietary_tags', trim(json_encode($tag), '"'));
@@ -181,13 +182,14 @@ class ShopController extends Controller
         }
         uksort($sizes, fn ($a, $b) => $this->sizeRank($a) <=> $this->sizeRank($b));
 
-        $categoryIds = $products->pluck('category_id')->unique();
+        // Every category a product in scope is listed under, not only its main one.
+        $listedIn = fn ($q) => $q->whereIn('products.id', $products->pluck('id'));
         $subcategories = $category
-            ? $category->children()->active()->whereIn('id', $categoryIds)->get()
+            ? $category->children()->active()->whereHas('products', $listedIn)->get()
             : collect();
         $categories = $category
             ? collect()
-            : Category::active()->topLevel()->where('show_in_menu', true)->whereIn('id', $categoryIds)->get();
+            : Category::active()->topLevel()->where('show_in_menu', true)->whereHas('products', $listedIn)->get();
 
         return [
             'categories' => $categories,

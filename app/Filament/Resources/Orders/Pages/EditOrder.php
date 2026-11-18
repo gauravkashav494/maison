@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Orders\Pages;
 
+use App\Exceptions\InsufficientStockException;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,10 +31,17 @@ class EditOrder extends EditRecord
         $newStatus = $data['status'] ?? $record->status;
         unset($data['status']);
 
-        $record->update($data);
+        // The status goes first: reopening a cancelled order is refused when its goods have been
+        // sold since, and then nothing on the form is saved.
         if ($newStatus !== $record->status) {
-            $record->setStatus($newStatus, $note ?: null);
+            try {
+                $record->setStatus($newStatus, $note ?: null);
+            } catch (InsufficientStockException $e) {
+                Notification::make()->danger()->title('Not enough stock')->body($e->getMessage())->persistent()->send();
+                $this->halt(shouldRollbackDatabaseTransaction: true);
+            }
         }
+        $record->update($data);
 
         return $record;
     }

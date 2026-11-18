@@ -17,7 +17,8 @@
         <a href="{{ url('/#bulk-order') }}" class="bk-btn bk-btn-outline"><x-heroicon-o-plus aria-hidden="true" />Add more items</a>
     </div>
 
-    <div class="bk-card mt-5 p-10 text-center" x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak>
+    <div class="mt-5"><x-cart-unavailable-notice :message="$unavailableNotice ?? null" /></div>
+    <div class="bk-card mt-5 p-10 text-center" x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak>
         <x-heroicon-o-shopping-cart class="mx-auto size-12 text-brand" aria-hidden="true" />
         <p class="mt-3 text-lg font-extrabold">Your cart is empty</p>
         <p class="bk-muted mt-1 text-sm">Browse the catalogue, or add your whole list at once on Bulk order.</p>
@@ -58,6 +59,7 @@
         <aside class="bk-card bk-summary p-5">
             <p class="text-lg font-extrabold">Summary</p>
 
+            @module('coupons')
             <div class="mt-4">
                 <template x-if="$store.cart.coupon">
                     <p class="flex items-center justify-between gap-2 rounded-lg bg-brand-soft p-3 text-sm">
@@ -73,6 +75,7 @@
                 </template>
                 <p class="bk-error" x-show="$store.cart.couponError" x-text="$store.cart.couponError"></p>
             </div>
+            @endmodule
 
             <label class="bk-label mt-4">Delivery
                 <select class="bk-select" @change="$store.cart.setShipping($event.target.value)">

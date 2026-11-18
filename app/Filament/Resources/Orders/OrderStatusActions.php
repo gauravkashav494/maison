@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Models\Order;
+use App\Support\Invoice;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -29,6 +30,30 @@ class OrderStatusActions
             self::cancel(),
             self::advance(),
         ];
+    }
+
+    /** Opens the order's invoice PDF in a new browser tab. */
+    public static function viewInvoice(): Action
+    {
+        return Action::make('viewInvoice')
+            ->label('View invoice')
+            ->icon('heroicon-o-document-text')
+            ->color('gray')
+            ->url(fn (Order $record) => route('filament.client.orders.invoice', ['order' => $record->getKey()]), shouldOpenInNewTab: true);
+    }
+
+    /** Downloads the order's invoice as a PDF (App\Support\Invoice). Not a status move, so always offered. */
+    public static function invoice(): Action
+    {
+        return Action::make('invoice')
+            ->label('Download invoice')
+            ->icon('heroicon-o-document-arrow-down')
+            ->color('gray')
+            ->action(function (Order $record) {
+                $invoice = Invoice::for($record);
+
+                return response()->streamDownload(fn () => print ($invoice->output()), $invoice->filename(), ['Content-Type' => 'application/pdf']);
+            });
     }
 
     public static function dispatch(): Action

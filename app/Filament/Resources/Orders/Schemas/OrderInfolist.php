@@ -91,6 +91,10 @@ class OrderInfolist
                 $row('tax')
                     ->label(fn (Order $r) => $r->taxLine())
                     ->formatStateUsing(fn (float $state) => money($state))
+                    // Products at different rates: the tax per rate, as on the invoice.
+                    ->helperText(fn (Order $r) => count($rows = $r->taxRows()) > 1
+                        ? implode(' · ', array_map(fn (array $t) => tax_line($t['label'], $t['rate'], false).' '.money($t['amount']), $rows))
+                        : null)
                     ->visible(fn (Order $r) => $r->tax > 0),
                 $row('total')
                     ->label('Total')
@@ -135,7 +139,8 @@ class OrderInfolist
      */
     private static function history(Order $order): string
     {
-        $base = Order::query()->where('email', $order->email)->where('status', '!=', Order::STATUS_CANCELLED);
+        // Same store only: the same address may also be a shopper of another store.
+        $base = Order::query()->where('client_id', $order->client_id)->where('email', $order->email)->where('status', '!=', Order::STATUS_CANCELLED);
         $count = (clone $base)->count();
         $account = $order->customer_id ? 'Has an account' : 'Guest checkout';
 

@@ -3,6 +3,7 @@
 
 <footer class="bk-foot mt-16">
     {{-- Trade updates: price-list and new-stock emails, saved to Marketing → Subscribers --}}
+    @module('subscribers')
     <div class="border-b border-white/10">
         <div class="bk-wrap flex flex-col gap-4 py-8 lg:flex-row lg:items-center lg:justify-between" x-data="newsletter('bulk-footer')">
             <div class="max-w-lg">
@@ -19,6 +20,7 @@
             </div>
         </div>
     </div>
+    @endmodule
 
     <div class="bk-wrap grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>

@@ -40,6 +40,17 @@
             </div>
             <h1 class="mt-2 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{{ $product->name }}</h1>
             <p class="bk-code mt-2">Code {{ $product->sku ?: '—' }}@if($product->brand) · {{ $product->brand }}@endif</p>
+            @module('reviews')
+                <a href="#reviews" class="mt-2 inline-flex items-center gap-1.5 text-sm no-underline">
+                    @if($product->review_count > 0)
+                        <x-rating :value="$product->rating" :size="14" style="color: var(--bk-accent)" />
+                        <span class="font-bold">{{ number_format($product->rating, 1) }}</span>
+                        <span class="bk-muted">({{ number_format($product->review_count) }} {{ Str::plural('review', $product->review_count) }})</span>
+                    @else
+                        <span class="bk-link">Be the first to review</span>
+                    @endif
+                </a>
+            @endmodule
             @if($product->description)<p class="bk-muted mt-4 leading-relaxed">{{ $product->description }}</p>@endif
 
             @if(count($lines) === 1)
@@ -49,7 +60,7 @@
                         <span class="bk-price !text-3xl">{{ $first['price_formatted'] }}</span>
                         @if($first['list_price'] > $first['price'])
                             <span class="bk-was !text-base">{{ money($first['list_price']) }}</span>
-                            <span class="bk-badge bk-badge-deal">{{ (int) round(($first['list_price'] - $first['price']) * 100 / $first['list_price']) }}% off</span>
+                            <span class="bk-badge bk-badge-deal">{{ (int) round($first['discount_percent']) }}% off</span>
                         @endif
                         @if($first['unit'])<span class="bk-muted text-sm">per {{ $first['unit'] }}</span>@endif
                     </div>
@@ -118,7 +129,7 @@
                     <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
                         <p class="text-sm">
                             <template x-if="filled.length"><span><strong x-text="units"></strong> units · about <strong x-text="estimate"></strong></span></template>
-                            <template x-if="!filled.length"><span class="bk-muted">Set a quantity against each size you need.</span></template>
+                            <template x-if="!filled.length"><span class="bk-muted">Set a quantity against each size you need. Sizes already in your cart show their quantity.</span></template>
                         </p>
                         <button type="button" class="bk-btn bk-btn-primary" :disabled="busy || !filled.length" @click="addAll()">
                             <x-heroicon-o-shopping-cart aria-hidden="true" /><span x-text="busy ? 'Adding…' : 'Add to order'">Add to order</span>
@@ -154,6 +165,91 @@
     @if($product->details)
         <section class="bk-card mt-6 p-5 leading-relaxed sm:p-7">{!! $product->details !!}</section>
     @endif
+
+    @module('reviews')
+        <section id="reviews" class="bk-card mt-6 grid gap-8 p-5 sm:p-7 lg:grid-cols-[18rem_minmax(0,1fr)]">
+            <div>
+                <h2 class="text-xl font-extrabold tracking-tight">Ratings &amp; reviews</h2>
+                <div class="mt-3 flex items-end gap-3">
+                    <p class="text-4xl font-extrabold leading-none">{{ $product->review_count ? number_format($product->rating, 1) : 'New' }}</p>
+                    <div>
+                        <x-rating :value="$product->rating" :size="16" style="color: var(--bk-accent)" />
+                        <p class="bk-muted mt-1 text-xs">{{ number_format($product->review_count) }} {{ Str::plural('review', $product->review_count) }}</p>
+                    </div>
+                </div>
+                <ul class="mt-4 space-y-1.5">
+                    @for($i = 5; $i >= 1; $i--)
+                        @php $n = $breakdown[$i] ?? 0; $pct = $breakdown->sum() ? round($n / $breakdown->sum() * 100) : 0; @endphp
+                        <li class="flex items-center gap-2 text-xs">
+                            <span class="w-5 font-bold">{{ $i }}★</span>
+                            <span class="h-2 flex-1 overflow-hidden rounded-full" style="background: var(--bk-line)"><span class="block h-full rounded-full" style="width: {{ $pct }}%; background: var(--bk-accent)"></span></span>
+                            <span class="bk-muted w-6 text-right">{{ $n }}</span>
+                        </li>
+                    @endfor
+                </ul>
+
+                <div x-data="{ open: {{ $errors->hasAny(['rating', 'name', 'email', 'title', 'body']) ? 'true' : 'false' }}, rating: {{ (int) old('rating', 5) }}, hover: 0 }" class="mt-5">
+                    <button type="button" @click="open = !open" class="bk-btn bk-btn-outline bk-btn-block">Write a review</button>
+                    @if(session('review_status'))<p class="bk-badge-ok mt-3 rounded-lg p-3 text-sm">{{ session('review_status') }}</p>@endif
+                    <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-4 grid gap-3" novalidate>
+                        @csrf
+                        <div>
+                            <span class="bk-label">Your rating<span class="bk-req">*</span></span>
+                            <div class="mt-1 flex gap-1" style="color: var(--bk-accent)">
+                                @for($i = 1; $i <= 5; $i++)
+                                    <button type="button" @click="rating = {{ $i }}" @mouseenter="hover = {{ $i }}" @mouseleave="hover = 0" aria-label="{{ $i }} {{ Str::plural('star', $i) }}"><svg width="26" height="26" viewBox="0 0 24 24" :fill="(hover || rating) >= {{ $i }} ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5l-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/></svg></button>
+                                @endfor
+                            </div>
+                            <input type="hidden" name="rating" :value="rating">
+                            @error('rating')<span class="bk-error">{{ $message }}</span>@enderror
+                        </div>
+                        <label class="bk-label">Name<span class="bk-req">*</span>
+                            <input name="name" autocomplete="name" class="bk-input" value="{{ old('name', auth()->user()?->name) }}">
+                            @error('name')<span class="bk-error">{{ $message }}</span>@enderror
+                        </label>
+                        <label class="bk-label">Email (not published)
+                            <input name="email" type="email" autocomplete="email" class="bk-input" value="{{ old('email', auth()->user()?->email) }}">
+                            @error('email')<span class="bk-error">{{ $message }}</span>@enderror
+                        </label>
+                        <label class="bk-label">Title
+                            <input name="title" class="bk-input" value="{{ old('title') }}">
+                            @error('title')<span class="bk-error">{{ $message }}</span>@enderror
+                        </label>
+                        <label class="bk-label">Review<span class="bk-req">*</span>
+                            <textarea name="body" rows="4" class="bk-textarea">{{ old('body') }}</textarea>
+                            @error('body')<span class="bk-error">{{ $message }}</span>@enderror
+                        </label>
+                        <div><button type="submit" class="bk-btn bk-btn-primary">Submit review</button></div>
+                    </form>
+                </div>
+            </div>
+
+            <div>
+                @if($reviews->isEmpty())
+                    <p class="bk-muted text-sm">No reviews yet. Bought this before? Tell other buyers how it worked out.</p>
+                @else
+                    <ul class="divide-y divide-[var(--bk-line)]">
+                        @foreach($reviews as $r)
+                            <li class="py-4 first:pt-0">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold">{{ $r->name }}</span>
+                                        @if($r->is_verified_purchase)<span class="bk-badge bk-badge-ok">Verified buyer</span>@endif
+                                    </div>
+                                    <span class="bk-muted text-xs">{{ $r->created_at->format('d M Y') }}</span>
+                                </div>
+                                <div class="mt-1.5 flex items-center gap-2">
+                                    <x-rating :value="$r->rating" :size="13" style="color: var(--bk-accent)" />
+                                    @if($r->title)<span class="text-sm font-bold">{{ $r->title }}</span>@endif
+                                </div>
+                                <p class="bk-muted mt-1.5 text-sm leading-relaxed">{{ $r->body }}</p>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        </section>
+    @endmodule
 
     @if(($related ?? collect())->isNotEmpty())
         <section class="mt-12">

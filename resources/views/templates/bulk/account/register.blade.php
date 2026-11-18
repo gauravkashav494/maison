@@ -10,11 +10,11 @@
             <input name="name" autocomplete="name" autofocus class="bk-input" value="{{ old('name') }}">
             @error('name')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
-        <label class="bk-label">Email<span class="bk-req">*</span>
+        <x-phone-field required />
+        <label class="bk-label">Email <span class="bk-muted font-normal">(optional)</span>
             <input name="email" type="email" autocomplete="email" class="bk-input" value="{{ old('email') }}">
             @error('email')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
-        <x-phone-field />
         <label class="bk-label">Password<span class="bk-req">*</span>
             <input name="password" type="password" autocomplete="new-password" class="bk-input">
             @error('password')<span class="bk-error">{{ $message }}</span>@enderror

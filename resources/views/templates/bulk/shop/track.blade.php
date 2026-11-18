@@ -1,22 +1,22 @@
 @extends('layouts.app')
 
 {{--
-    Order tracking for buyers without an account (or not signed in): order number + email.
+    Order tracking for buyers without an account (or not signed in): order number + email or phone.
     Field names and the GET form match the shared tracking controller.
 --}}
 
 @section('content')
 <div class="bk-wrap mt-6">
-    <x-page-head title="Track an order" text="Enter the order number and the email used at checkout." :crumbs="['Track order' => null]" />
+    <x-page-head title="Track an order" text="Enter the order number and the email or phone number used at checkout." :crumbs="['Track order' => null]" />
 
     <form method="get" action="{{ route('track') }}" class="bk-card mt-5 grid gap-4 p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end" novalidate>
         <label class="bk-label">Order number<span class="bk-req">*</span>
             <input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. ME-260916-XXXX" class="bk-input uppercase" autocomplete="off">
             @error('number')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
-        <label class="bk-label">Email<span class="bk-req">*</span>
-            <input name="email" type="email" value="{{ old('email', request('email')) }}" class="bk-input" autocomplete="email">
-            @error('email')<span class="bk-error">{{ $message }}</span>@enderror
+        <label class="bk-label">Email or phone<span class="bk-req">*</span>
+            <input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="bk-input" autocomplete="on">
+            @error('contact')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
         <button type="submit" class="bk-btn bk-btn-primary !py-2.5"><x-heroicon-o-magnifying-glass aria-hidden="true" />Track</button>
         @if($error)<p class="bk-error sm:col-span-3" role="alert">{{ $error }}</p>@endif

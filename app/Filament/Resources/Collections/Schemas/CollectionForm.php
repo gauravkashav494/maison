@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Collections\Schemas;
 
 use App\Filament\Support\Fields;
+use App\Models\Collection;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -51,7 +52,19 @@ class CollectionForm
                                 ->multiple()
                                 ->preload()
                                 ->searchable()
-                                ->helperText('Products shown in this collection.'),
+                                ->helperText('Products shown in this collection. A product sits in one collection, so adding it here moves it out of its current one.')
+                                // Saves the list (keeping each product's place) and takes the products out of
+                                // any other collection, so every product stays in at most one.
+                                ->saveRelationshipsUsing(function (Collection $record, $state): void {
+                                    $ids = array_map('intval', (array) $state);
+                                    $record->products()->sync($ids);
+                                    if ($ids) {
+                                        $record->products()->newPivotStatement()
+                                            ->whereIn('product_id', $ids)
+                                            ->where('collection_id', '!=', $record->getKey())
+                                            ->delete();
+                                    }
+                                }),
                         ]),
                     Fields::seoTab(),
                 ]),

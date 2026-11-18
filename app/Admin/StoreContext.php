@@ -5,6 +5,7 @@ namespace App\Admin;
 use App\Clients\ClientAccess;
 use App\Contracts\AdminIdentity;
 use App\Filament\Pages\SiteSettings;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\ContactMessage;
@@ -23,6 +24,7 @@ use App\Models\ServiceRequest;
 use App\Models\Store;
 use App\Models\Storefront;
 use App\Models\Subscriber;
+use App\Models\Tax;
 use App\Models\Testimonial;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
@@ -40,14 +42,14 @@ class StoreContext
 
     /** Models whose rows belong to one template (the `template` column; pages use storefront_template). */
     public const SCOPED_MODELS = [
-        Product::class, Category::class, Collection::class, Coupon::class, Order::class, Review::class,
+        Product::class, Category::class, Collection::class, Brand::class, Tax::class, Coupon::class, Order::class, Review::class,
         Page::class, Post::class, Faq::class, Menu::class, ContactMessage::class, Subscriber::class,
         Service::class, ServiceArea::class, Testimonial::class, Project::class, ServiceRequest::class,
         Store::class,
     ];
 
     /** Modules that only make sense for a catalogue (product) store. */
-    public const CATALOGUE_MODELS = [Product::class, Category::class, Collection::class, Coupon::class, Order::class, Review::class];
+    public const CATALOGUE_MODELS = [Product::class, Category::class, Collection::class, Brand::class, Tax::class, Coupon::class, Order::class, Review::class];
 
     /** Modules that only make sense for a service business. */
     public const SERVICE_MODELS = [Service::class, ServiceArea::class, Testimonial::class, Project::class, ServiceRequest::class];

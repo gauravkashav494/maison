@@ -59,7 +59,6 @@ return [
         // inclusive: prices already include tax.
         'tax_mode' => 'exclusive',
         'tax_rate' => 0,
-        'tax_label' => 'GST',
         'gift_card_amounts' => [500, 1000, 2500, 5000],
     ],
 

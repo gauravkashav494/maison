@@ -66,7 +66,8 @@ class PlatformActivityResource extends Resource
                     ->visible(fn () => (bool) filament()->auth()->user()?->isSuperAdmin())->searchable()->description(fn (PlatformActivity $r) => $r->actor_type),
                 TextColumn::make('action')->badge()->color(fn (string $state) => match ($state) {
                     'created' => 'success',
-                    'deleted' => 'danger',
+                    'deleted', 'deleted permanently' => 'danger',
+                    'restored' => 'warning',
                     default => 'gray',
                 }),
                 TextColumn::make('subject_type')->label('Type'),
@@ -77,7 +78,7 @@ class PlatformActivityResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('client_id')->label('Client')->relationship('client', 'name'),
-                SelectFilter::make('action')->options(['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted']),
+                SelectFilter::make('action')->options(['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted', 'restored' => 'Restored', 'deleted permanently' => 'Deleted permanently']),
             ]);
     }
 

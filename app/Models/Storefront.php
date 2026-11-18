@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesPlatformConnection;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Builder;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * A store = one website managed by its owners. Each storefront runs one template, and
@@ -17,9 +19,8 @@ use Illuminate\Support\Str;
  */
 class Storefront extends Model
 {
-    use \App\Models\Concerns\UsesPlatformConnection;
-
     use Concerns\LogsPlatformActivity;
+    use UsesPlatformConnection;
 
     protected $guarded = [];
 
@@ -27,6 +28,18 @@ class Storefront extends Model
 
     protected static function booted(): void
     {
+        // The reverse of Client's check: a store's slug is its address, so it must not be one a
+        // client (deleted ones and theme previews included) already answers on.
+        static::saving(function (Storefront $store) {
+            if ($store->isDirty('slug') && ($client = static::clientOnAddress((string) $store->slug))) {
+                throw ValidationException::withMessages(['slug' => static::clientAddressMessage($client)]);
+            }
+        });
+        static::saving(function (Storefront $store) {
+            if ($store->isDirty('domain') && filled($store->domain) && ($problem = Client::domainProblem((string) $store->domain, ignoreStore: $store))) {
+                throw ValidationException::withMessages(['domain' => $problem]);
+            }
+        });
         static::saved(fn () => Cache::forget('storefronts.hosts'));
         static::deleted(fn () => Cache::forget('storefronts.hosts'));
     }
@@ -35,6 +48,23 @@ class Storefront extends Model
     public static function baseDomain(): string
     {
         return strtolower(config('templates.base_domain') ?: (parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost'));
+    }
+
+    /** Stored as a bare lowercase host, however it was typed (https://, a path, capitals). */
+    public function setDomainAttribute(?string $value): void
+    {
+        $this->attributes['domain'] = Client::normaliseHost($value);
+    }
+
+    /** The client whose subdomain is this slug, if any. */
+    public static function clientOnAddress(string $slug): ?Client
+    {
+        return Client::withoutGlobalScopes()->withTrashed()->where('subdomain', strtolower(trim($slug)))->first();
+    }
+
+    public static function clientAddressMessage(Client $client): string
+    {
+        return '"'.$client->subdomain.'" is already the subdomain of '.($client->is_theme ? 'a theme preview' : 'the client "'.$client->name.'"').'. Choose another slug.';
     }
 
     /** Host → template id for every active store (custom domain and <slug>.<base> forms). */

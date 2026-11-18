@@ -2,8 +2,9 @@
 
 namespace App\Filament\Resources\Products\Pages;
 
-use App\Filament\Resources\Products\ProductResource;
+use App\Clients\ClientQuota;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Products\ProductResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListProducts extends ListRecords
@@ -14,7 +15,7 @@ class ListProducts extends ListRecords
 
     public function getSubheading(): ?string
     {
-        $quota = \App\Clients\ClientQuota::current();
+        $quota = ClientQuota::current();
         if (! $quota || ($quota->productLimit() === null && $quota->imageLimit() === null)) {
             return null;
         }

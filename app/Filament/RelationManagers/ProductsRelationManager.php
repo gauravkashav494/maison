@@ -3,9 +3,9 @@
 namespace App\Filament\RelationManagers;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\RowActions;
 use App\Models\Product;
 use App\Support\Media;
-use App\Filament\Support\RowActions;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationManager;

@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\ClientUsers;
 
-use App\Filament\Forms\Components\PhoneInput;
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
@@ -171,7 +171,7 @@ class ClientUserResource extends Resource
                         ->formatStateUsing(fn (?string $state) => ClientUser::ROLES[$state] ?? $state)
                         ->color(fn (ClientUser $r) => $r->isClientAdmin() ? 'info' : 'gray'),
                     TextEntry::make('clientRole.name')->label('Role')
-                        ->state(fn (ClientUser $r) => $r->isClientAdmin() ? 'Everything, including managing staff' : ($r->clientRole?->name ?? 'No role — cannot do anything yet'))
+                        ->state(fn (ClientUser $r) => $r->isClientAdmin() ? 'Every module switched on, plus managing staff' : ($r->clientRole?->name ?? 'No role — cannot do anything yet'))
                         ->color(fn (ClientUser $r) => ! $r->isClientAdmin() && ! $r->clientRole ? 'danger' : null),
                 ]),
                 Section::make('Client')->columns(2)->visible($superAdmin)->schema([
@@ -233,7 +233,13 @@ class ClientUserResource extends Resource
                     ...RowActions::trash(),
                 ]),
             ])
-            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
+            // Bulk actions follow the same per-record ClientUserPolicy rules as the row actions (by default
+            // Filament checks only deleteAny): never your own account, never a client's last active Client Admin.
+            ->checkIfRecordIsSelectableUsing(fn (ClientUser $r) => ! $r->is(filament()->auth()->user()))
+            ->toolbarActions([BulkActionGroup::make(array_map(
+                fn ($action) => $action->authorizeIndividualRecords(),
+                RowActions::trashBulk(),
+            ))]);
     }
 
     public static function getPages(): array

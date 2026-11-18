@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
@@ -97,7 +98,7 @@ class BulkOrderSettings extends Page
                             TextInput::make("$g.support_hours")->label('Hours'),
                         ]),
                         Textarea::make("$g.footer_blurb")->label('Footer blurb')->rows(2),
-                        Section::make('Newsletter')->description('The sign-up box at the top of the footer. Emails land in Marketing → Subscribers.')->schema([
+                        Section::make('Newsletter')->visible(fn () => StoreFeatures::enabled('subscribers'))->description('The sign-up box at the top of the footer. Emails land in Marketing → Subscribers.')->schema([
                             TextInput::make("$g.newsletter_heading")->label('Heading'),
                             TextInput::make("$g.newsletter_text")->label('Text'),
                         ])->columns(2),

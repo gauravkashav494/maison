@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Clients\ClientDatabase;
 use App\Models\Client;
+use App\Support\ForeignKeys;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -147,8 +148,10 @@ class ClientsProvision extends Command
 
         // Children first and explicitly: client SQLite connections have foreign keys off.
         $database->table('collection_product')->delete();
+        $database->table('category_product')->delete();
         $database->table('reviews')->delete();
         $database->table('products')->delete();
+        $database->table('brands')->delete();
         $database->table('collections')->delete();
         $database->table('categories')->delete();
         $database->table('testimonials')->delete();
@@ -166,7 +169,7 @@ class ClientsProvision extends Command
      * on client_id, so nothing belonging to another client can travel with them, and the rows
      * in the main database are left in place (delete them only once the move is verified).
      *
-     * Child tables with no client of their own (order_items, collection_product) follow their
+     * Child tables with no client of their own (order_items, collection_product, category_product) follow their
      * parent rows.
      */
     private function copyExistingRows(string $connection, Client $client): bool
@@ -174,7 +177,7 @@ class ClientsProvision extends Command
         $source = DB::connection(config('database.default'));
         $target = DB::connection($connection);
 
-        \App\Support\ForeignKeys::suspended(
+        ForeignKeys::suspended(
             $target,
             fn () => $this->copyTables($source, $target, $connection, $client),
             fn (\Throwable $e) => $this->warn('  Could not suspend foreign keys ('.$e->getMessage().') — rows are loaded in table order.'),
@@ -230,6 +233,7 @@ class ClientsProvision extends Command
         $parents = [
             'order_items' => ['orders', 'order_id'],
             'collection_product' => ['collections', 'collection_id'],
+            'category_product' => ['categories', 'category_id'],
         ];
 
         if (! isset($parents[$table]) || ! Schema::hasColumn($table, $parents[$table][1])) {

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Coupon;
 use App\Models\Product;
+use App\Support\TaxBreakdown;
 use Illuminate\Support\Facades\Session;
 
 /**
@@ -18,6 +19,17 @@ class Cart
     private const COUPON = 'cart.coupon';
 
     private const SHIPPING = 'cart.shipping';
+
+    /** Names of lines whose product (or chosen variant) is no longer sold, not yet told to the shopper in a toast. */
+    private const UNAVAILABLE = 'cart.unavailable';
+
+    /** Keys of the unavailable lines already told about, so each is said once while it stays in the cart. */
+    private const UNAVAILABLE_TOLD = 'cart.unavailable_told';
+
+    /** Messages about lines lowered or removed at checkout because the stock ran out, not yet told to the shopper. */
+    private const STOCK = 'cart.stock';
+
+    private const STOCK_PAGE = 'cart.stock_page'; // the same, for the box on the cart or checkout page
 
     /** @return array<string, array{product_id:int,options:array<string,string>,size:?string,color:?string,qty:int}> */
     public function raw(): array
@@ -166,6 +178,146 @@ class Cart
         return $methods[0];
     }
 
+    // ---- Lines no longer sold -----------------------------------------------
+
+    /**
+     * The lines that cannot be ordered now: the product was hidden or deleted, or the chosen variant
+     * switched off, since they were added ("No longer available"), or it has sold out ("Out of
+     * stock"). They stay in the cart, shown greyed with that in red, out of the totals, until the
+     * shopper removes them; no order is placed while any are left. A line that is sold again (or
+     * restocked) simply comes back.
+     *
+     * @param  array<string, array>  $lines  key => raw line with its `reason` (unavailable | out_of_stock)
+     * @return array<int, array{key:string, name:string, options_label:string, qty:int, image:?string, url:?string, reason:string, reason_label:string}>
+     */
+    private function describeUnavailable(array $lines): array
+    {
+        // Names and photos come from the products as they are now, trashed ones included.
+        $products = Product::withTrashed()->whereIn('id', array_column($lines, 'product_id'))->get()->keyBy('id');
+
+        $told = Session::get(self::UNAVAILABLE_TOLD, []);
+        $toTell = [];
+        $rows = [];
+        foreach ($lines as $key => $line) {
+            $product = $products[$line['product_id']] ?? null;
+            $options = array_filter((array) ($line['options'] ?? []), 'filled');
+            $name = $product?->name ?? 'An item';
+            $rows[] = [
+                'key' => $key,
+                'name' => $name,
+                'options_label' => implode(' / ', array_map(fn ($n, $v) => $n.': '.$v, array_keys($options), array_values($options))),
+                'qty' => (int) $line['qty'],
+                'image' => $product?->image_url,
+                'url' => $product && $product->is_active && ! $product->trashed() ? $product->url : null,
+                'reason' => $line['reason'],
+                'reason_label' => $line['reason'] === 'out_of_stock' ? 'Out of stock' : 'No longer available',
+            ];
+            // Told again if the reason changes (sold out, then hidden).
+            $toldAs = $key.':'.$line['reason'];
+            if (! in_array($toldAs, $told, true)) {
+                $toTell[] = ['name' => $options !== [] ? $name.' ('.implode(' / ', $options).')' : $name, 'reason' => $line['reason']];
+                $told[] = $toldAs;
+            }
+        }
+
+        // Each newly unavailable line is said once in a toast; it stays listed in the cart.
+        $current = array_map(fn ($key) => $key.':'.$lines[$key]['reason'], array_keys($lines));
+        Session::put(self::UNAVAILABLE_TOLD, array_values(array_intersect($told, $current)));
+        if ($toTell !== []) {
+            Session::put(self::UNAVAILABLE, [...Session::get(self::UNAVAILABLE, []), ...$toTell]);
+        }
+
+        return $rows;
+    }
+
+    /** Whether the cart holds lines no longer sold, which the shopper must remove before ordering. */
+    public function hasUnavailableItems(): bool
+    {
+        return $this->toArray()['unavailable'] !== [];
+    }
+
+    /**
+     * Lowers lines to the stock left when the order was placed (PlaceOrder), and remembers what
+     * changed until the shopper has been told. A line with none left stays as it is: the cart now
+     * lists it greyed as "Out of stock" for the shopper to remove (describeUnavailable()), and
+     * says so in its own toast.
+     *
+     * @param  array<string, int>  $available  line key => how many are left for it
+     */
+    public function limitToStock(array $available): void
+    {
+        $items = $this->raw();
+        $names = Product::withTrashed()->whereIn('id', array_column(array_intersect_key($items, $available), 'product_id'))->pluck('name', 'id');
+
+        $messages = [];
+        foreach ($available as $key => $left) {
+            if (! isset($items[$key]) || $left <= 0) {
+                continue;
+            }
+            $line = $items[$key];
+            $options = implode(' / ', array_filter((array) ($line['options'] ?? []), 'filled'));
+            $name = ($names[$line['product_id']] ?? 'An item').($options !== '' ? ' ('.$options.')' : '');
+            $messages[] = "Only {$left} of {$name} ".($left === 1 ? 'is' : 'are').' left, so your cart has been updated.';
+            $this->update($key, $left);
+        }
+
+        foreach ([self::STOCK, self::STOCK_PAGE] as $notice) {
+            Session::put($notice, [...Session::get($notice, []), ...$messages]);
+        }
+    }
+
+    /** Whether lines were lowered or removed for stock that the shopper has not been told about yet. */
+    public function hasUnavailableNotice(): bool
+    {
+        return Session::get(self::STOCK, []) !== [];
+    }
+
+    /** Stock changes from checkout ("Only 2 of X are left…"), once, for a toast; null when nothing changed. */
+    public function takeUnavailableNotice(): ?string
+    {
+        return self::joined(Session::pull(self::STOCK, []));
+    }
+
+    /**
+     * "X is no longer available. Y is out of stock. Please remove them from your cart.", once per
+     * line newly unable to be ordered, for a toast.
+     */
+    public function takeUnavailableToast(): ?string
+    {
+        $told = array_filter(Session::pull(self::UNAVAILABLE, []), 'is_array');
+        if ($told === []) {
+            return null;
+        }
+        $sentences = [];
+        foreach (['unavailable' => 'no longer available', 'out_of_stock' => 'out of stock'] as $reason => $words) {
+            $names = array_values(array_unique(array_column(array_filter($told, fn ($t) => $t['reason'] === $reason), 'name')));
+            if ($names !== []) {
+                $list = count($names) === 1 ? $names[0] : implode(', ', array_slice($names, 0, -1)).' and '.end($names);
+                $sentences[] = $list.(count($names) === 1 ? ' is ' : ' are ').$words.'.';
+            }
+        }
+        $many = count($told) > 1;
+
+        return implode(' ', $sentences).' Please remove '.($many ? 'them' : 'it').' from your cart.';
+    }
+
+    /**
+     * The stock changes for the box at the top of the cart and checkout pages, once. The toasts
+     * are marked as told too: the page says the stock changes in its box and lists the
+     * unavailable lines itself.
+     */
+    public function takePageUnavailableNotice(): ?string
+    {
+        Session::forget([self::UNAVAILABLE, self::STOCK]);
+
+        return self::joined(Session::pull(self::STOCK_PAGE, []));
+    }
+
+    private static function joined(array $messages): ?string
+    {
+        return $messages === [] ? null : implode(' ', $messages);
+    }
+
     // ---- Totals ------------------------------------------------------------
 
     /** Hydrated cart payload for the storefront JS, cart and checkout pages. */
@@ -176,14 +328,24 @@ class Cart
 
         $items = [];
         $subtotal = 0.0;
+        $unavailable = [];
         foreach ($raw as $key => $line) {
             $product = $products[$line['product_id']] ?? null;
-            if (! $product || ! $product->is_active) {
-                continue;
-            }
             // A product sold by variant is priced by the chosen combination, not by itself.
             $options = $line['options'] ?? [];
-            $variant = $product->sellsVariants() ? $product->findVariant($options) : null;
+            $variant = $product?->sellsVariants() ? $product->findVariant($options) : null;
+            // Hidden, deleted, or the chosen variant switched off since it was added, or sold out: the
+            // line stays, listed apart and out of the totals (see describeUnavailable()).
+            if (! $product || ! $product->is_active || ($product->sellsVariants() && ! $variant)) {
+                $unavailable[$key] = $line + ['reason' => 'unavailable'];
+
+                continue;
+            }
+            if ($product->stockFor($options) <= 0) {
+                $unavailable[$key] = $line + ['reason' => 'out_of_stock'];
+
+                continue;
+            }
             $unitPrice = (float) ($variant['price'] ?? $product->price);
             $lineTotal = round($unitPrice * $line['qty'], 2);
             $subtotal += $lineTotal;
@@ -192,7 +354,7 @@ class Cart
             $card['price_formatted'] = money($unitPrice);
             // The "was" price follows the chosen variant too, so the cart's strikethrough matches it.
             if ($product->sellsVariants()) {
-                $pricing = Product::pricing($unitPrice, $variant['compare_at_price'] ?? null);
+                $pricing = Product::pricing($unitPrice, $variant['compare_at_price'] ?? null, $product->mrpBasis($unitPrice));
                 $card['compare_at_price'] = $pricing['compare_at_price'];
                 $card['compare_at_price_formatted'] = $pricing['compare_at_price_formatted'];
                 $card['discount_percent'] = $pricing['discount_percent'];
@@ -207,13 +369,23 @@ class Cart
                 'variant_sku' => $variant['sku'] ?? $product->sku,
                 'unit_price' => $unitPrice,
                 'line_total' => $lineTotal,
+                // The product's own tax (Catalogue → Taxes); 0% without one.
+                'tax_rate' => $product->effectiveTaxRate(),
                 'line_total_formatted' => money($lineTotal),
                 'product' => $card,
             ];
         }
 
+        $unavailable = $this->describeUnavailable($unavailable);
+
         $coupon = $this->coupon();
         $subtotal = round($subtotal, 2);
+        // A code no longer met (items removed or quantities lowered since it was applied) is
+        // dropped, so it neither gives free delivery nor shows as applied below its minimum.
+        if ($coupon && ! $coupon->meetsMinimum($subtotal)) {
+            $this->removeCoupon();
+            $coupon = null;
+        }
         $discount = $coupon ? $coupon->discountFor($subtotal) : 0.0;
 
         $method = $this->shippingMethod();
@@ -223,19 +395,24 @@ class Cart
             $shipping = 0.0;
         }
 
-        $taxRate = (float) setting('checkout.tax_rate', 0);
-        $taxLabel = setting('checkout.tax_label', 'GST');
+        // Each line is taxed at its product's rate, on its share of what is paid after the discount.
+        // Prices that include tax already contain it (shown, not added); prices before tax get it on top.
+        // Always GST until the order is placed, when the shipping state makes it IGST or CGST + SGST.
+        $taxLabel = 'GST';
         $inclusive = prices_include_tax();
         $taxable = max(0, $subtotal - $discount);
-        if ($taxRate <= 0) {
-            $tax = 0.0;
-        } elseif ($inclusive) {
-            // Prices already contain the tax: show the part of them that is tax, add nothing.
-            $tax = round($taxable - $taxable / (1 + $taxRate / 100), 2);
-        } else {
-            // Prices are before tax (B2B): the tax is added on top.
-            $tax = round($taxable * $taxRate / 100, 2);
+        $breakdown = TaxBreakdown::for(
+            array_map(fn (array $item) => ['amount' => $item['line_total'], 'rate' => $item['tax_rate']], $items),
+            $discount,
+            $inclusive,
+        );
+        foreach ($breakdown['lines'] as $i => $line) {
+            $items[$i]['tax'] = $line['tax'];
         }
+        $tax = $breakdown['tax'];
+        // One rate when every line shares it (shown in the label); null when they differ.
+        $taxRate = $items === [] ? 0.0 : $breakdown['rate'];
+        $hasTax = $tax > 0 || array_filter($breakdown['rates'], fn (array $r) => $r['rate'] > 0) !== [];
 
         $total = round(max(0, $taxable + $shipping + ($inclusive ? 0 : $tax)), 2);
 
@@ -250,6 +427,8 @@ class Cart
 
         return [
             'items' => $items,
+            // Lines no longer sold: shown greyed for the shopper to remove, never charged.
+            'unavailable' => $unavailable,
             'count' => array_sum(array_column($items, 'qty')),
             'subtotal' => $subtotal,
             'subtotal_formatted' => money($subtotal),
@@ -263,9 +442,14 @@ class Cart
             'tax_rate' => $taxRate,
             'tax_label' => $taxLabel,
             'tax_inclusive' => $inclusive,
+            // Per rate, for a cart with products at different rates.
+            'tax_rows' => array_map(
+                fn (array $row) => $row + ['line' => tax_line($row['label'], $row['rate'], $inclusive), 'amount_formatted' => money($row['amount'])],
+                TaxBreakdown::rows($breakdown['rates'], $taxLabel),
+            ),
             'tax_line' => tax_line($taxLabel, $taxRate, $inclusive),
             // No rate: prices that include tax say so; prices before tax simply carry no tax.
-            'tax_formatted' => $taxRate > 0 || ! $inclusive ? money($tax) : 'Included',
+            'tax_formatted' => $hasTax || ! $inclusive ? money($tax) : 'Included',
             'total' => $total,
             'total_formatted' => money($total),
             'free_shipping_threshold' => $threshold,

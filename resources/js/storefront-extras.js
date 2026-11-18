@@ -162,6 +162,53 @@ export default function registerExtras(Alpine, api) {
         codFee: init.codFee,
         sameAsBilling: true,
         submitting: false,
+        gst: init.gst || { seller: null, states: {}, india: [] },
+        initialCart: init.cart || {},
+        shipState: '',
+        shipCountry: '',
+        init() {
+            // The tax is named from the shipping address as it is typed, as the order will be.
+            const read = () => {
+                this.shipState = this.$el.querySelector('[name="shipping_state"]')?.value ?? '';
+                this.shipCountry = this.$el.querySelector('[name="shipping_country"]')?.value ?? '';
+            };
+            read();
+            this.$el.addEventListener('input', (e) => { if (['shipping_state', 'shipping_country'].includes(e.target.name)) read(); });
+            this.$el.addEventListener('change', (e) => { if (['shipping_state', 'shipping_country'].includes(e.target.name)) read(); });
+        },
+        /** As IndianStates::key(): lower case, "&" as "and", letters, digits and single spaces. */
+        gstKey(value) {
+            return String(value ?? '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+        },
+        /** "CGST + SGST", "IGST", or null (stays "GST"): as GstSupply::labelFor() when the order is placed. */
+        get gstSupply() {
+            if (!this.gst.seller) return null;
+            const country = this.gstKey(this.shipCountry);
+            if (country === '') return null;
+            if (!this.gst.india.includes(country)) return 'IGST';
+            const buyer = this.gst.states[this.gstKey(this.shipState)];
+            if (!buyer) return null;
+            return buyer === this.gst.seller ? 'CGST + SGST' : 'IGST';
+        },
+        /** The checkout's tax row(s): one GST or IGST row, or a CGST and an SGST row. */
+        get taxRows() {
+            const store = Alpine.store('cart');
+            const cart = store.loaded ? store : this.initialCart;
+            const line = cart.tax_line || 'GST';
+            const supply = this.gstSupply;
+            if (!supply || !(cart.tax > 0)) return [{ label: line, amount: cart.tax_formatted }];
+            if (supply === 'IGST') return [{ label: line.replace(/\bGST\b/, 'IGST'), amount: cart.tax_formatted }];
+            // Split per rate as the order will be (half to the centre, rounded; the rest to the state).
+            const round = (n) => Math.round(n * 100) / 100;
+            const cgst = round((cart.tax_rows || []).reduce((sum, r) => sum + round(r.amount / 2), 0));
+            const sgst = round(cart.tax - cgst);
+            const pct = (r) => (r === null || r === undefined || Number(r) <= 0) ? '' : ` (${Number((Number(r) / 2).toFixed(3))}%)`;
+            const prefix = cart.tax_inclusive ? 'Includes ' : '';
+            return [
+                { label: `${prefix}CGST${pct(cart.tax_rate)}`, amount: this.fmt(cgst) },
+                { label: `${prefix}SGST${pct(cart.tax_rate)}`, amount: this.fmt(sgst) },
+            ];
+        },
         async setShipping(code) { this.shipping = code; await Alpine.store('cart').setShipping(code); },
         get codExtra() { return this.payment === 'cod' ? this.codFee : 0; },
         fmt(n) { return '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); },

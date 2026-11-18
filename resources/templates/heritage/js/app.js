@@ -53,10 +53,10 @@ Alpine.store('ui', {
         this.quickViewLoading = true;
         try { this.quickView = await api(`/api/products/${slug}`); } finally { this.quickViewLoading = false; }
     },
-    notify(message, tone = 'ok') {
+    notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.toastTimer);
         this.toast = { message, tone };
-        this.toastTimer = setTimeout(() => { this.toast = null; }, 2400);
+        this.toastTimer = setTimeout(() => { this.toast = null; }, duration ?? 2400);
     },
 });
 
@@ -68,7 +68,20 @@ Alpine.store('cart', {
     tax: 0, tax_label: 'GST', tax_formatted: 'Included',
     total: 0, total_formatted: '₹0', recommendations: [],
     loaded: false, busy: false, couponError: null, couponBusy: false,
-    apply(data) { Object.assign(this, data); this.loaded = true; },
+    removed_notice: null, noticeBox: false, // <x-cart-unavailable-notice>
+    apply(data) {
+        Object.assign(this, data);
+        this.loaded = true;
+        // A product hidden or deleted since it was added: the server took it out, say which —
+        // in the box on the cart and checkout pages (<x-cart-unavailable-notice>), else a toast.
+        if (data.unavailable_notice) {
+            this.removed_notice = data.unavailable_notice;
+            if (!this.noticeBox) Alpine.store('ui').notify(data.unavailable_notice, 'error', 8000);
+        }
+        // An item no longer sold stays in the cart, greyed, until removed (<x-cart-unavailable-notice>
+        // lists it); said once in a toast, except on the cart and checkout pages, which list it.
+        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(data.unavailable_toast, 'error', 8000);
+    },
     async load() { this.apply(await api('/cart/items')); },
     get savings() { return this.items.reduce((s, i) => s + (i.product.compare_at_price ? (i.product.compare_at_price - i.product.price) * i.qty : 0), 0) + this.discount; },
     get savings_formatted() { return inr(this.savings); },

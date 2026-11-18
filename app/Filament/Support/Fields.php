@@ -26,8 +26,8 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Str;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Validation\Rules\Unique;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /** Reusable admin form building blocks shared across resources and settings pages. */
 class Fields

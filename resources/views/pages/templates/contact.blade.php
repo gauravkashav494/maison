@@ -7,6 +7,7 @@
 <section class="container-luxe py-12 lg:py-20">
     <div class="grid gap-14 lg:grid-cols-12 lg:gap-20">
         <div class="lg:col-span-7">
+            @module('messages')
             @if(session('contact_status'))
                 <div class="border border-emerald-700/20 bg-emerald-50 p-8 text-center">
                     <p class="font-serif text-2xl">Message received</p>
@@ -26,6 +27,7 @@
                     <button type="submit" class="btn btn-primary btn-lg">Send message <x-ico name="arrow-right" :size="14" class="btn-arrow" /></button>
                 </form>
             @endif
+            @endmodule
             @if($page->body)<div class="prose-luxe mt-14 border-t border-ink/10 pt-10">{!! $page->body !!}</div>@endif
         </div>
 
@@ -43,7 +45,7 @@
                     <li><a href="/returns" class="link-underline">Returns & exchanges</a></li>
                     <li><a href="/shipping" class="link-underline">Shipping information</a></li>
                     <li><a href="/size-guide" class="link-underline">Size guide</a></li>
-                    <li><a href="/stores" class="link-underline">Boutiques</a></li>
+                    @module('stores')<li><a href="/stores" class="link-underline">Boutiques</a></li>@endmodule
                 </ul>
             </div>
             <div>

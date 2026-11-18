@@ -13,7 +13,8 @@
             </template>
         </div>
         <div class="flex-1 overflow-y-auto">
-            <template x-if="$store.cart.loaded && !$store.cart.count">
+            <x-cart-unavailable-notice in-drawer margin="1rem 1rem 0" />
+            <template x-if="$store.cart.loaded && !$store.cart.count && !$store.cart.unavailable?.length">
                 <div class="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
                     <span class="grid h-20 w-20 place-items-center rounded-full border border-gold bg-cream text-gold"><x-ico name="bag" :size="32" :stroke="1.4" /></span>
                     <p class="font-serif text-xl">Your cart is empty</p>

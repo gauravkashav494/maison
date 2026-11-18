@@ -200,6 +200,7 @@
     @endif
 
     {{-- Reviews --}}
+    @module('reviews')
     <section id="reviews" class="h-container pb-10">
         <div class="card grid gap-8 p-6 lg:p-8 {{ $reviews->isEmpty() ? '' : 'lg:grid-cols-12' }}">
             <div class="{{ $reviews->isEmpty() ? 'w-full text-center' : 'lg:col-span-4' }}">
@@ -246,6 +247,7 @@
             @endunless
         </div>
     </section>
+    @endmodule
 
     <div x-data="productRail('recent')" data-exclude="{{ $product->slug }}" x-show="items.length" x-cloak class="h-container pb-10">
         <h2 class="title-c !text-ink">Recently Viewed</h2>

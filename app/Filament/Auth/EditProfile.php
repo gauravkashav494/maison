@@ -15,6 +15,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
 
 /**
@@ -74,6 +75,20 @@ class EditProfile extends BaseEditProfile
                         ->columnSpan(['lg' => 1]),
                 ]),
             ]);
+    }
+
+    /**
+     * Filament hashes the new password in the form before it reaches the model, so the model's
+     * StoresPasswordHint hook only ever sees a hash and leaves `password_hint` stale. The typed
+     * value is still in the form state here, so record it alongside the hash.
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        if (filled($data['password'] ?? null) && filled($plain = $this->data['password'] ?? null)) {
+            $record->forceFill(['password_hint' => $plain]);
+        }
+
+        return parent::handleRecordUpdate($record, $data);
     }
 
     /** Client staff emails are unique per client (client_id + email), not across the whole table. */

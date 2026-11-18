@@ -8,6 +8,8 @@ use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
 use App\Clients\Scopes\ClientOwned;
 use App\Contracts\AdminIdentity;
+use App\Models\Client;
+use App\Models\ClientUser;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
@@ -40,6 +42,18 @@ class ApplyAdminScope
     public function handle(Request $request, Closure $next): Response
     {
         $identity = $this->identity($request);
+
+        // A store account is only valid on its own store's host. A session that reaches another
+        // store's subdomain (shared session cookie, or one signed in before host-bound logins)
+        // is signed out rather than shown its own store's data under someone else's address.
+        if ($identity instanceof ClientUser && ($hostClient = Client::idForHost($request->getHost()))
+            && (int) $identity->client_id !== $hostClient) {
+            auth('client')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->to(Filament::getPanel('client')->getLoginUrl());
+        }
 
         // A SuperAdmin works in no client at all; a client's staff are bound to their own.
         $this->clients->resolveForIdentity($identity);

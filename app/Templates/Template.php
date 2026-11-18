@@ -144,6 +144,15 @@ abstract class Template
         return [];
     }
 
+    /**
+     * Whether every product needs its own code (SKU): true where shoppers order by code, as on
+     * the Bulk Order quick-order pad. The product form then suggests the next one (still optional).
+     */
+    public function requiresSku(): bool
+    {
+        return false;
+    }
+
     /** Whether this template renders service pages (booking, service areas) instead of the catalogue. */
     public function supportsServices(): bool
     {

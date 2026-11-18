@@ -11,6 +11,7 @@
 @endphp
 <footer class="mt-8 border-t border-line bg-white">
     {{-- Newsletter --}}
+    @module('subscribers')
     <div class="g-container py-8 lg:py-10">
         <div class="flex flex-col gap-5 rounded-2xl bg-leaf-light p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8" x-data="newsletter('grocery-footer')">
             <div class="max-w-lg">
@@ -25,6 +26,7 @@
             <p x-show="error" x-cloak class="text-sm text-nonveg" x-text="error"></p>
         </div>
     </div>
+    @endmodule
 
     <div class="g-container grid gap-8 border-t border-line py-8 max-sm:gap-0 sm:grid-cols-2 lg:grid-cols-12 lg:py-10">
         {{-- Brand --}}

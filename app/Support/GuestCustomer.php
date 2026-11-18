@@ -52,7 +52,7 @@ class GuestCustomer
         // password: it was itself made by a checkout) gets a phone when it has none. A registered
         // account is never touched, as whoever typed its address may not be its owner.
         if ($existing = self::find($clientId, $email)) {
-            if ($existing->password === null && ! $existing->trashed()) {
+            if (! $existing->isAccount() && ! $existing->trashed()) {
                 self::fillMissingPhone($existing, $phone);
             }
 

@@ -6,13 +6,14 @@
     $label = 'block text-[0.625rem] uppercase tracking-[0.18em] text-smoke';
     $old = fn (string $k, $default = null) => old($k, $default);
 @endphp
-<section class="container-luxe pb-12 pt-20 lg:pb-16 lg:pt-36" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
+<section class="container-luxe pb-12 pt-20 lg:pb-16 lg:pt-36" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }}, gst: @js(\App\Support\GstSupply::checkoutConfig()), cart: @js(\Illuminate\Support\Arr::only($cart, ['tax', 'tax_rate', 'tax_inclusive', 'tax_rows', 'tax_line', 'tax_formatted'])) })">
 
     <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 pb-4">
         <h1 class="font-serif text-3xl lg:text-4xl">Checkout</h1>
         <a href="{{ route('cart') }}" class="text-xs uppercase tracking-[0.2em] text-smoke underline-offset-4 hover:underline">← Back to cart</a>
     </div>
 
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     <form method="post" action="{{ route('checkout.place') }}" class="checkout-form grid gap-8 lg:grid-cols-12 lg:gap-12" @submit="submitting = true" novalidate>
         @csrf
         <div class="space-y-6 lg:col-span-7">
@@ -23,9 +24,9 @@
                     @guest<span class="text-xs text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a></span>@endguest
                 </legend>
                 <div class="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-12">
-                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Email (optional)</span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="{{ $field }}" autocomplete="email">@error('email')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-8"><span class="{{ $label }}">Address<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="{{ $field }}" autocomplete="address-line1" placeholder="House / flat, street">@error('shipping_line1')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Landmark (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="{{ $field }}" autocomplete="address-line2">@error('shipping_line2')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="sm:col-span-3"><span class="{{ $label }}">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="{{ $field }}" autocomplete="address-level2">@error('shipping_city')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
@@ -137,12 +138,13 @@
                     <div class="flex justify-between"><dt class="text-smoke">Shipping</dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted || @js($cart['shipping_formatted'])"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-smoke">Cash on delivery fee</dt><dd class="tabular-nums" x-text="fmt(codExtra)"></dd></div>
                     @if(shows_tax_row())
-                        <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                        {{-- GST, or IGST / CGST + SGST once the state is typed (as the order will be). --}}<template x-for="row in taxRows" :key="row.label"><div class="flex justify-between"><dt class="text-smoke" x-text="row.label"></dt><dd class="tabular-nums" x-text="row.amount"></dd></div></template>
                     @endif
                     <div class="flex justify-between border-t border-ink/10 pt-3 text-lg"><dt>Total</dt><dd class="tabular-nums" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
-                <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                @guest<p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-taupe">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
                 <p class="mt-4 text-center text-[0.6875rem] leading-relaxed text-taupe">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>. 30-day returns on every piece.</p>
             </div>
         </aside>

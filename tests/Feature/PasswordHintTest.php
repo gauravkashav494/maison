@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
+use App\Filament\Auth\EditProfile;
+use App\Filament\Resources\ClientUsers\Pages\EditClientUser;
 use App\Filament\Resources\ClientUsers\Pages\ListClientUsers;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Client;
 use App\Models\ClientRole;
@@ -108,5 +111,47 @@ class PasswordHintTest extends TestCase
         $this->enterClientPanel($staff);
 
         Livewire::test(ListCustomers::class)->assertTableColumnHidden('password_hint');
+    }
+
+    public function test_changing_your_own_password_on_the_profile_page_updates_the_hint(): void
+    {
+        $this->actingAs($this->operator, 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(EditProfile::class)
+            ->fillForm(['password' => 'Operator-New-9', 'passwordConfirmation' => 'Operator-New-9', 'currentPassword' => 'operator-pass'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Operator-New-9', $this->operator->fresh()->password_hint);
+        $this->assertTrue(Hash::check('Operator-New-9', $this->operator->fresh()->password));
+
+        $this->enterClientPanel($this->clientAdmin);
+        Livewire::test(EditProfile::class)
+            ->fillForm(['password' => 'Client-New-9', 'passwordConfirmation' => 'Client-New-9', 'currentPassword' => 'admin-pass-1'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Client-New-9', $this->clientAdmin->fresh()->password_hint);
+        $this->assertTrue(Hash::check('Client-New-9', $this->clientAdmin->fresh()->password));
+    }
+
+    public function test_resetting_a_password_from_the_edit_forms_updates_the_hint(): void
+    {
+        $staff = User::create(['name' => 'Support', 'email' => 'support@platform.test', 'password' => 'support-pass', 'is_super_admin' => false, 'admin_modules' => ['plans'], 'is_active' => true]);
+        $this->actingAs($this->operator, 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(EditUser::class, ['record' => $staff->getRouteKey()])
+            ->fillForm(['password' => 'support-new-1'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame('support-new-1', $staff->fresh()->password_hint);
+
+        $member = ClientUser::create(['client_id' => $this->client->id, 'name' => 'Member', 'email' => 'member@alpha.test', 'password' => 'member-pass', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
+        $this->enterClientPanel($this->clientAdmin);
+        Livewire::test(EditClientUser::class, ['record' => $member->getRouteKey()])
+            ->fillForm(['password' => 'member-new-1'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame('member-new-1', $member->fresh()->password_hint);
     }
 }

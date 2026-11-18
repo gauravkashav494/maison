@@ -118,8 +118,9 @@ class OrderLines
         ksort($options);
 
         // The "was" price: the variant's own compare-at price (or the product's, for a product
-        // not sold by variant), only when it is above the price.
-        $listPrice = $compareAt !== null && $compareAt > $price ? $compareAt : $price;
+        // not sold by variant), only when it is above the price including tax (an MRP includes it).
+        $basis = $product->mrpBasis($price);
+        $listPrice = $compareAt !== null && $compareAt > $basis ? $compareAt : $price;
 
         return [
             'key' => $product->id.'-'.substr(md5(json_encode($options)), 0, 8),
@@ -131,7 +132,7 @@ class OrderLines
             'price' => $price,
             'price_formatted' => money($price),
             'list_price' => $listPrice,
-            'discount_percent' => $listPrice > $price ? round(($listPrice - $price) * 100 / $listPrice, 1) : null,
+            'discount_percent' => $listPrice > $price ? round(($listPrice - $basis) * 100 / $listPrice, 1) : null,
             'stock' => $stock,
             'max' => (int) min($limits),
             // Said when a quantity is held back to `max` (the same words the cart uses).

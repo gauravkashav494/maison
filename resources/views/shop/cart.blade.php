@@ -4,6 +4,7 @@
     <x-page-hero eyebrow="Your selection" title="Cart" :breadcrumbs="['Cart' => null]" />
 
     <section class="container-luxe pb-28 pt-8 lg:py-16" x-data="{ code: '' }">
+        <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
         {{-- App-style sticky checkout bar (phones) --}}
         <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
             <div class="flex items-center gap-4">
@@ -12,7 +13,7 @@
             </div>
         </div>
 
-        <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak class="py-16 text-center">
+        <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak class="py-16 text-center">
             <p class="font-serif text-3xl">Your cart is empty</p>
             <p class="mt-3 text-sm text-smoke">Discover the new season and the pieces that define it.</p>
             <a href="{{ route('shop.index') }}" class="btn btn-outline btn-lg mt-8">Continue shopping</a>
@@ -60,6 +61,7 @@
                 </ul>
 
                 {{-- Promo code --}}
+                @module('coupons')
                 <div class="border-t border-ink/10 pt-6">
                     <p class="eyebrow mb-3 text-taupe">Promo code</p>
                     <template x-if="$store.cart.coupon">
@@ -76,6 +78,7 @@
                     </template>
                     <p x-show="$store.cart.couponError" x-text="$store.cart.couponError" class="mt-2 text-sm text-rouge"></p>
                 </div>
+                @endmodule
             </div>
 
             <aside class="lg:col-span-4">

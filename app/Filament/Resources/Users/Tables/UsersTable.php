@@ -8,6 +8,7 @@ use App\Filament\Support\RowActions;
 use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -40,6 +41,12 @@ class UsersTable
                 TrashedFilter::make(),
             ])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
-            ->toolbarActions([BulkActionGroup::make([...RowActions::trashBulk()])]);
+            // Bulk actions follow the same per-record UserPolicy rules as the row actions (by default
+            // Filament checks only deleteAny): another Super Admin can go, your own account never.
+            ->checkIfRecordIsSelectableUsing(fn (User $r) => ! $r->is(Filament::auth()->user()))
+            ->toolbarActions([BulkActionGroup::make(array_map(
+                fn ($action) => $action->authorizeIndividualRecords(),
+                RowActions::trashBulk(),
+            ))]);
     }
 }

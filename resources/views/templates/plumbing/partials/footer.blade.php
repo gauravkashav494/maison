@@ -12,6 +12,7 @@
 @endphp
 <footer class="mt-10 bg-deep text-white">
     {{-- Newsletter strip --}}
+    @module('subscribers')
     <div class="border-b border-white/10">
         <div class="p-container flex flex-col gap-4 py-7 lg:flex-row lg:items-center lg:justify-between" x-data="newsletter('plumbing-footer')">
             <div class="flex items-center gap-4">
@@ -29,6 +30,7 @@
             <p x-show="error" x-cloak class="text-sm text-red-300" x-text="error"></p>
         </div>
     </div>
+    @endmodule
 
     <div class="p-container grid gap-10 py-10 lg:grid-cols-12 lg:gap-8">
         {{-- Brand + contact --}}

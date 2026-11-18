@@ -3,8 +3,8 @@
 namespace App\Filament\Resources\Products\RelationManagers;
 
 use App\Filament\Resources\Reviews\ReviewResource;
-use App\Models\Review;
 use App\Filament\Support\RowActions;
+use App\Models\Review;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\RelationManagers\RelationManager;

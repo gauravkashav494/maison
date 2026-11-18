@@ -100,7 +100,7 @@
         </table>
     </div>
 
-    {{-- Appears once any quantity is set. --}}
+    {{-- Appears once any quantity differs from what is in the cart; the boxes start at the cart's quantities. --}}
     <div class="bk-sheetbar" x-show="filled.length" x-cloak
          x-transition:enter="transition duration-200" x-transition:enter-start="translate-y-4 opacity-0" x-transition:enter-end="translate-y-0 opacity-100">
         <p>

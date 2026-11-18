@@ -44,10 +44,16 @@ class Coupon extends Model
         return true;
     }
 
+    /** Whether a cart of this subtotal reaches the coupon's minimum order (every coupon type, free shipping included). */
+    public function meetsMinimum(float $subtotal): bool
+    {
+        return $subtotal >= (float) $this->min_subtotal;
+    }
+
     /** Discount amount (in rupees and paise) for a given subtotal; 0 when the minimum is not met. */
     public function discountFor(float $subtotal): float
     {
-        if ($subtotal < $this->min_subtotal) {
+        if (! $this->meetsMinimum($subtotal)) {
             return 0.0;
         }
 

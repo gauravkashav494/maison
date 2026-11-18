@@ -4,8 +4,9 @@
 @php $old = fn (string $k, $default = null) => old($k, $default); @endphp
 <x-page-head title="Checkout" :breadcrumbs="['Cart' => route('cart'), 'Checkout' => null]" />
 
-<section class="h-container py-4" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
+<section class="h-container py-4" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }}, gst: @js(\App\Support\GstSupply::checkoutConfig()), cart: @js(\Illuminate\Support\Arr::only($cart, ['tax', 'tax_rate', 'tax_inclusive', 'tax_rows', 'tax_line', 'tax_formatted'])) })">
 
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     <form method="post" action="{{ route('checkout.place') }}" class="checkout-form grid gap-4 lg:grid-cols-12 lg:gap-6" @submit="submitting = true" novalidate>
         @csrf
         <div class="space-y-3 lg:col-span-8">
@@ -14,9 +15,9 @@
                 <legend class="sr-only">Contact and delivery address</legend>
                 <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-semibold">Contact &amp; delivery address</h2></div>@guest<p class="text-xs text-muted">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-red underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest</div>
                 <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
-                    <label class="col-span-2 sm:col-span-4"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label class="col-span-2 sm:col-span-4"><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Email (optional)</span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-8"><span class="label">House / flat, building, street<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="field @error('shipping_line1') field-error @enderror" autocomplete="address-line1">@error('shipping_line1')<span class="error-text">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="label">Landmark, area (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="field" autocomplete="address-line2">@error('shipping_line2')<span class="error-text">{{ $message }}</span>@enderror</label>
                     <label class="sm:col-span-3"><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="field @error('shipping_city') field-error @enderror" autocomplete="address-level2">@error('shipping_city')<span class="error-text">{{ $message }}</span>@enderror</label>
@@ -122,12 +123,13 @@
                     <div class="flex justify-between"><dt class="text-muted">Delivery</dt><dd class="tabular" x-text="($store.cart.loaded ? $store.cart.shipping : @js($cart['shipping'])) === 0 ? 'FREE' : ($store.cart.shipping_formatted || @js($cart['shipping_formatted']))"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-muted">COD handling fee</dt><dd class="tabular" x-text="fmt(codExtra)"></dd></div>
                     @if(shows_tax_row())
-                        <div class="flex justify-between"><dt class="text-muted" x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt><dd class="tabular" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                        {{-- GST, or IGST / CGST + SGST once the state is typed (as the order will be). --}}<template x-for="row in taxRows" :key="row.label"><div class="flex justify-between"><dt class="text-muted" x-text="row.label"></dt><dd class="tabular" x-text="row.amount"></dd></div></template>
                     @endif
                     <div class="flex justify-between border-t border-line pt-3 text-base font-semibold"><dt>To pay</dt><dd class="tabular" x-text="fmt(($store.cart.loaded ? $store.cart.total : {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-muted">Inclusive of all taxes</p>@endif
-                <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                @guest<p class="mt-2 text-center text-xs text-muted">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
                 <p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-muted">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>.</p>
             </div>
         </aside>

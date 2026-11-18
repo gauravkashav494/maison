@@ -17,7 +17,7 @@
     <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">{{ $page->title }}</h1>
     @if($page->excerpt)<p class="bk-muted mt-1 max-w-2xl">{{ $page->excerpt }}</p>@endif
 
-    <div class="mt-6 grid items-start gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
+    <div @class(['mt-6 grid items-start gap-5', 'lg:grid-cols-[20rem_minmax(0,1fr)]' => app(\App\Clients\StoreFeatures::class)->on('messages'), 'max-w-xl' => ! app(\App\Clients\StoreFeatures::class)->on('messages')])>
         <aside class="bk-card space-y-4 p-5">
             <p class="font-extrabold">Trade desk</p>
             @if($phone)
@@ -31,6 +31,7 @@
             @endif
         </aside>
 
+        @module('messages')
         <div class="bk-card p-5 sm:p-6">
             @if(session('contact_status'))
                 <div class="py-6 text-center">
@@ -65,6 +66,7 @@
                 </form>
             @endif
         </div>
+        @endmodule
     </div>
 
     @if($page->body)<div class="bk-card mt-5 p-5 leading-relaxed sm:p-6">{!! $page->body !!}</div>@endif

@@ -21,8 +21,9 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-6">
+            <x-cart-unavailable-notice in-drawer margin="1rem 0 0" />
             {{-- Empty --}}
-            <div x-show="$store.cart.loaded && !$store.cart.items.length" class="py-14 text-center">
+            <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" class="py-14 text-center">
                 <p class="font-serif text-2xl">Your cart is empty</p>
                 <p class="mt-2 text-sm text-smoke">Discover the new season and the pieces that define it.</p>
                 <a href="{{ route('shop.index') }}" class="btn btn-outline mt-8" @click="$store.ui.closeAll()">Continue shopping</a>

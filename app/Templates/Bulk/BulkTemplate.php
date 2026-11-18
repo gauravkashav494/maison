@@ -59,6 +59,12 @@ class BulkTemplate extends Template
         return [self::PRODUCT_FIELDS_ORDER_LIMIT];
     }
 
+    /** Buyers order by code on the quick-order pad and in repeat orders. */
+    public function requiresSku(): bool
+    {
+        return true;
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/bulk';

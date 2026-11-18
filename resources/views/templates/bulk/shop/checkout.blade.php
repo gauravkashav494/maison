@@ -16,6 +16,8 @@
         shipping: @js(old('shipping_method', $cart['shipping_method']['code'])),
         payment: @js(old('payment_method', array_key_first($paymentMethods))),
         codFee: {{ $codFee }},
+        gst: @js(\App\Support\GstSupply::checkoutConfig()),
+        cart: @js(\Illuminate\Support\Arr::only($cart, ['tax', 'tax_rate', 'tax_inclusive', 'tax_rows', 'tax_line', 'tax_formatted'])),
      })">
 
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -23,6 +25,7 @@
         <a href="{{ route('cart') }}" class="bk-link text-sm">← Back to your order</a>
     </div>
 
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     <form method="post" action="{{ route('checkout.place') }}" class="checkout-form mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]" @submit="submitting = true" novalidate>
         @csrf
 
@@ -35,9 +38,9 @@
                     @endguest
                 </div>
                 <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
-                    <x-checked-field name="shipping_name" label="Name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="col-span-2 sm:col-span-4" />
                     <x-phone-field :value="$user?->phone ?? $address?->phone" required class="col-span-2 sm:col-span-4" />
-                    <x-checked-field name="email" label="Email" rule="email" attribute="email address" :value="$user?->email" required type="email" autocomplete="email" class="col-span-2 sm:col-span-4" />
+                    <x-checked-field name="shipping_name" label="Name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="col-span-2 sm:col-span-4" />
+                    <x-checked-field name="email" label="Email" rule="email" attribute="email address" :value="$user?->email" type="email" autocomplete="email" class="col-span-2 sm:col-span-4" />
                     <x-checked-field name="shipping_line1" label="Address" rule="line" attribute="address" :value="$address?->line1" required autocomplete="address-line1" placeholder="Unit / building, street" class="col-span-2 sm:col-span-8" />
                     <x-checked-field name="shipping_line2" label="Area, landmark" rule="line" attribute="apartment or landmark" :value="$address?->line2" autocomplete="address-line2" class="col-span-2 sm:col-span-4" />
                     <x-checked-field name="shipping_city" label="City" rule="place" attribute="city" :value="$address?->city" required autocomplete="address-level2" class="sm:col-span-3" />
@@ -122,16 +125,17 @@
                 <template x-if="codExtra > 0"><dt>Cash on delivery fee</dt></template>
                 <template x-if="codExtra > 0"><dd x-text="fmt(codExtra)"></dd></template>
                 @if(shows_tax_row())
-                    <dt x-text="$store.cart.tax_line || @js($cart['tax_line'])"></dt>
-                    <dd x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd>
+                    {{-- GST, or IGST / CGST + SGST once the state is typed (as the order will be). --}}
+                    <template x-for="row in taxRows" :key="row.label"><div style="display: contents"><dt x-text="row.label"></dt><dd x-text="row.amount"></dd></div></template>
                 @endif
                 <dt class="is-total">Total</dt><dd class="is-total" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd>
             </dl>
             @if(prices_include_tax())<p class="mt-1 text-right text-xs bk-muted">Inclusive of all taxes</p>@endif
 
-            <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base" :disabled="submitting">
+            <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base" :disabled="submitting || $store.cart.unavailable?.length > 0">
                 <x-heroicon-o-check-circle aria-hidden="true" /><span x-text="submitting ? 'Placing order…' : 'Place order'">Place order</span>
             </button>
+            @guest<p class="bk-muted mt-3 text-center text-xs">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
             <p class="bk-muted mt-3 text-center text-xs">By placing this order you agree to our <a href="/terms" class="bk-link">terms</a> and <a href="/privacy" class="bk-link">privacy policy</a>.</p>
         </aside>
     </form>

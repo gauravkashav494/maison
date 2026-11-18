@@ -65,6 +65,56 @@ class ClientDatabase
         return $client->databaseName();
     }
 
+    /** Names the database server keeps for itself; a client must never be pointed at one. */
+    private const RESERVED_NAMES = ['mysql', 'information_schema', 'performance_schema', 'sys', 'postgres', 'template0', 'template1', 'public'];
+
+    /**
+     * Why a client cannot use this database name, or null when it can.
+     *
+     * A database belongs to exactly one client: two clients on one database would read and
+     * overwrite each other's catalogue, orders and settings. So the name is checked against what
+     * every other client resolves to — an explicit name and the generated client_<subdomain> one
+     * alike, deleted clients and theme previews included (their database is kept) — compared
+     * without case, since MySQL on Windows/macOS and table-name settings may ignore it. The
+     * platform database and the server's own are off limits, and the name must be a plain
+     * identifier because it goes into CREATE DATABASE and, on SQLite, a file path.
+     */
+    public function problemWithName(string $name, ?Client $ignore = null): ?string
+    {
+        if (! preg_match('/^[A-Za-z][A-Za-z0-9_]{0,63}$/', $name)) {
+            return 'Use letters, numbers and underscores only, starting with a letter (at most 64 characters).';
+        }
+
+        $lower = strtolower($name);
+
+        if (in_array($lower, self::RESERVED_NAMES, true) || str_starts_with($lower, 'pg_') || $lower === strtolower($this->platformDatabaseName())) {
+            return '"'.$name.'" is a system or platform database and cannot be given to a client.';
+        }
+
+        $owner = Client::withoutGlobalScopes()->withTrashed()
+            ->when($ignore?->exists, fn ($q) => $q->whereKeyNot($ignore->getKey()))
+            ->get(['id', 'name', 'subdomain', 'database', 'is_theme', 'deleted_at'])
+            ->first(fn (Client $other) => strtolower($other->databaseName()) === $lower);
+
+        if ($owner) {
+            return 'The database "'.$name.'" already belongs to '.($owner->is_theme ? 'a theme preview' : 'the client "'.$owner->name.'"')
+                .($owner->trashed() ? ' (deleted, its data is kept)' : '').'. Enter a different database name.';
+        }
+
+        return null;
+    }
+
+    /** The platform's own database name (for SQLite, the file name without .sqlite). */
+    private function platformDatabaseName(): string
+    {
+        $base = config('clients.connection') ?: config('database.default');
+        $database = (string) config("database.connections.{$base}.database");
+
+        return config("database.connections.{$base}.driver") === 'sqlite'
+            ? pathinfo($database, PATHINFO_FILENAME)
+            : $database;
+    }
+
     /** Cache key for data read from the selected client's content, so clients never share it. */
     public function cacheKey(string $key): string
     {

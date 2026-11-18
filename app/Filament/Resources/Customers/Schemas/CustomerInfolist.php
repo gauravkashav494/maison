@@ -30,7 +30,8 @@ class CustomerInfolist
                     ->schema([
                         TextEntry::make('name')->weight('bold')->size('lg')->columnSpanFull(),
                         TextEntry::make('email')->icon('heroicon-m-envelope')->copyable()
-                            ->url(fn (Customer $r) => 'mailto:'.$r->email),
+                            ->url(fn (Customer $r) => $r->email ? 'mailto:'.$r->email : null)
+                            ->placeholder('No email'),
                         TextEntry::make('phone')->icon('heroicon-m-phone')->copyable()->placeholder('—')
                             ->url(fn (Customer $r) => $r->phone ? 'tel:'.preg_replace('/[^0-9+]/', '', $r->phone) : null),
                         PasswordHintColumn::entry(),

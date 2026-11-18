@@ -9,6 +9,7 @@ use App\Clients\ClientTemplateSwitch;
 use App\Models\Client;
 use App\Models\Plan;
 use App\Models\Storefront;
+use App\Rules\AvailableClientDatabase;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ClientForm
@@ -38,7 +40,7 @@ class ClientForm
                 ->description('Allowances for products, images and storage')
                 ->schema([$sections['plan']]),
             Step::make('Modules')->icon('heroicon-o-squares-2x2')
-                ->description('What their team can use')
+                ->description('What their Client Admin can use')
                 ->schema([$sections['modules']]),
             Step::make('Address & database')->icon('heroicon-o-globe-alt')
                 ->description('Where the store lives and how it starts')
@@ -66,6 +68,12 @@ class ClientForm
                     ->regex('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/')
                     ->notIn(['exit']) // /store/exit is the "leave this store" link
                     ->rule('not_regex:/^'.preg_quote(config('templates.theme_prefix', 'theme-'), '/').'/')
+                    // A store template's slug is that store's own address.
+                    ->rule(fn (?Client $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                        if ($record === null && filled($value) && ($store = Client::storeOnAddress((string) $value))) {
+                            $fail(Client::storeAddressMessage($store));
+                        }
+                    })
                     ->validationMessages([
                         'regex' => 'Use lowercase letters, numbers and hyphens only, without a hyphen at the start or end.',
                         'not_regex' => 'Subdomains starting with "'.config('templates.theme_prefix', 'theme-').'" are kept for theme previews.',
@@ -78,7 +86,11 @@ class ClientForm
                         : 'The store\'s web address. It also names the database, so it cannot be changed later.'),
                 Select::make('storefront_id')
                     ->label('Store')
-                    ->options(fn () => Storefront::orderBy('name')->pluck('name', 'id'))
+                    // Only active stores can be chosen; an existing client keeps its own store listed even
+                    // after that store is deactivated, so editing it does not blank the field.
+                    ->options(fn (?Client $record) => self::selectableStorefronts($record))
+                    ->in(fn (?Client $record) => self::selectableStorefronts($record)->keys()->all())
+                    ->validationMessages(['in' => 'This store is not active. Choose an active store.'])
                     ->required()
                     ->native(false)
                     ->searchable()
@@ -111,21 +123,40 @@ class ClientForm
                     : 'The client gets its own subdomain, used for both the store and the client login, as soon as it is saved.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
-                        ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://.'),
+                    TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)
+                        // One host, one client: not another client's or store's domain, and not on the platform's own domain.
+                        ->rule(fn (?Client $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                            if (filled($value) && ($problem = Client::domainProblem((string) $value, ignoreClient: $record))) {
+                                $fail($problem);
+                            }
+                        })
+                        ->dehydrateStateUsing(fn (?string $state) => Client::normaliseHost($state))
+                        ->helperText('Host only, no https://. Must be the client\'s own domain, not one on '.Client::baseDomain().'.'),
                 ]),
             'modules' => Section::make('Modules')
-                ->description('What this client\'s Admin Staff can be given. A module switched off disappears for Admin Staff, whatever their role says; the Client Admin always has every module.')
+                ->description('What this client\'s Client Admin can use. A module switched off disappears for the whole team, the Client Admin included; the locked ones are core to the store and always on; what each Admin Staff member sees within these modules is set by their role.')
                 ->schema([
                     CheckboxList::make('modules')
                         ->hiddenLabel()
                         ->options(fn ($get) => ClientModules::optionsForStorefront($get('storefront_id')))
                         // A client nobody has narrowed yet has everything its store supports.
-                        ->formatStateUsing(function (?array $state, $get) {
+                        // The field hands over [] for a null column, so the record is asked directly.
+                        ->formatStateUsing(function (?array $state, $get, ?Client $record) {
                             $available = array_keys(ClientModules::optionsForStorefront($get('storefront_id')));
 
-                            return $state === null ? $available : array_values(array_intersect($state, $available));
+                            $state = $record && $record->modules === null
+                                ? $available
+                                : array_values(array_intersect($state ?? [], $available));
+
+                            return array_values(array_unique([...$state, ...ClientModules::coreAmong($available)]));
                         })
+                        // Core modules show ticked and locked; they are always on whatever is saved.
+                        ->disableOptionWhen(fn (string $value) => ClientModules::isCore($value))
+                        ->in(fn ($get) => array_keys(ClientModules::optionsForStorefront($get('storefront_id'))))
+                        ->dehydrateStateUsing(fn (?array $state, $get) => array_values(array_unique([
+                            ...($state ?? []),
+                            ...ClientModules::coreAmong(array_keys(ClientModules::optionsForStorefront($get('storefront_id')))),
+                        ])))
                         ->default([])
                         ->columns(3)
                         ->bulkToggleable(),
@@ -155,6 +186,9 @@ class ClientForm
                 ->columns(2)
                 ->schema([
                     TextInput::make('database')->label('Database name')->maxLength(64)
+                        // One database per client: never one another client (or the platform) already uses.
+                        ->rule(fn (?Client $record, $get) => new AvailableClientDatabase($record, $get('subdomain')))
+                        ->dehydrateStateUsing(fn (?string $state) => filled($state) ? trim($state) : null)
                         ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<subdomain>')
                         ->helperText('Leave blank to use the generated name. Only change it when the database already exists under another name.'),
                     Toggle::make('sample_products')->label('Add sample products and services')->default(false)->inline(false)
@@ -163,6 +197,20 @@ class ClientForm
                         ->helperText('Fills the store with its demo products, categories and collections, or services, areas and projects, which the client can edit or delete later. Menus and pages are added either way.'),
                 ]),
         ];
+    }
+
+    /**
+     * Stores a client can be put on: the active ones, plus the client's current store.
+     *
+     * @return Collection<int, string> id => name
+     */
+    public static function selectableStorefronts(?Client $record): Collection
+    {
+        return Storefront::query()
+            ->where(fn ($q) => $q->where('is_active', true)
+                ->when($record?->storefront_id, fn ($q, $id) => $q->orWhere('id', $id)))
+            ->orderBy('name')
+            ->pluck('name', 'id');
     }
 
     /** True when an existing client is being moved to a store that runs a different template. */

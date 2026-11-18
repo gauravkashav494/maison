@@ -2,7 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Admin\StoreContext;
+use App\Clients\ClientAccess;
 use App\Clients\ClientQuota;
+use App\Models\ClientUser;
 use Filament\Widgets\Widget;
 
 /**
@@ -23,9 +26,9 @@ class ClientUsage extends Widget
     public static function canView(): bool
     {
         $quota = ClientQuota::current();
-        $user = app(\App\Admin\StoreContext::class)->user();
-        $allowed = ($user instanceof \App\Models\ClientUser && $user->isClientAdmin())
-            || \App\Clients\ClientAccess::current('products', 'view');
+        $user = app(StoreContext::class)->user();
+        $allowed = ($user instanceof ClientUser && $user->isClientAdmin())
+            || ClientAccess::current('products', 'view');
 
         return $allowed && $quota && ($quota->productLimit() !== null || $quota->imageLimit() !== null || $quota->storageLimit() !== null);
     }

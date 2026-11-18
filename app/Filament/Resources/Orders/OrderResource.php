@@ -27,12 +27,10 @@ class OrderResource extends Resource
 
     protected static ?int $navigationSort = 0;
 
-    /** New orders since this admin last opened the Orders list show as a badge; opening the list clears it. */
+    /** How many orders carry the "New" tag in the list: received and not yet acted on (Order::isNew). */
     public static function getNavigationBadge(): ?string
     {
-        $seen = \App\Models\Setting::get('admin_seen.orders_'.auth()->id());
-        $since = $seen ? \Illuminate\Support\Carbon::parse($seen) : null;
-        $n = Order::when($since, fn ($q) => $q->where('created_at', '>', $since))->count();
+        $n = Order::awaitingAction()->count();
 
         return $n ? (string) $n : null;
     }
@@ -44,7 +42,7 @@ class OrderResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'New orders since you last checked';
+        return 'New orders waiting to be handled';
     }
 
     public static function form(Schema $schema): Schema

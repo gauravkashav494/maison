@@ -14,8 +14,8 @@ class CheckoutRequest extends StorefrontRequest
         $shipping = collect(app(Cart::class)->shippingMethods())->pluck('code')->filter()->all();
 
         return [
-            'email' => $this->email(),
             'phone' => $this->phone(),
+            'email' => $this->email(required: false),
             'shipping_name' => $this->personName(),
             'shipping_line1' => $this->addressLine(),
             'shipping_line2' => $this->addressLine(required: false),

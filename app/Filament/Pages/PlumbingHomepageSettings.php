@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Templates\TemplateManager;
@@ -153,7 +154,7 @@ class PlumbingHomepageSettings extends Page
                                 TextInput::make('title')->required(), TextInput::make('text')->columnSpan(2),
                             ])->columns(2)->reorderable()->collapsible()->itemLabel(fn (array $state): ?string => $state['title'] ?? null)->maxItems(6),
                         ]),
-                        Section::make('FAQ section')->description('Shows the first six FAQs from Content → FAQs when the section is enabled.')->schema([
+                        Section::make('FAQ section')->visible(fn () => StoreFeatures::enabled('faqs'))->description('Shows the first six FAQs from Content → FAQs when the section is enabled.')->schema([
                             TextInput::make("$g.faq_heading")->label('Heading'),
                         ]),
                     ]),

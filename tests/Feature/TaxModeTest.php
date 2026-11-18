@@ -9,6 +9,7 @@ use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\Storefront;
+use App\Models\Tax;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -38,15 +39,22 @@ class TaxModeTest extends TestCase
         ]);
     }
 
+    /** The store's tax mode, and the product's tax at $rate (no tax at 0). */
     private function checkoutSettings(string $mode, float $rate = 18): void
     {
         $defaults = config('client_defaults.checkout');
         Setting::updateOrCreate(['key' => 'client:'.$this->client->id.':checkout'], ['value' => [
-            'tax_mode' => $mode, 'tax_rate' => $rate, 'tax_label' => 'GST',
+            'tax_mode' => $mode,
             // Free delivery so the totals below are only goods and tax.
             'shipping_methods' => [['code' => 'standard', 'name' => 'Standard', 'cost' => 0]],
         ] + $defaults]);
         Cache::forget('settings.all');
+
+        Tax::withoutGlobalScopes()->get()->each->forceDelete();
+        $tax = $rate > 0
+            ? Tax::withoutGlobalScopes()->create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'GST '.$rate.'%', 'rate' => $rate])
+            : null;
+        $this->product->refresh()->update(['tax_id' => $tax?->id]);
     }
 
     private function addToCart(int $qty = 2)
@@ -155,6 +163,19 @@ class TaxModeTest extends TestCase
         $page()->assertSee('$store.cart.tax_line', false)->assertDontSee('Inclusive of all taxes');
         $this->checkoutSettings('exclusive', 0);
         $page()->assertDontSee('$store.cart.tax_line', false)->assertDontSee('Inclusive of all taxes');
+    }
+
+    public function test_a_product_with_no_tax_is_charged_nothing_whatever_rate_the_store_once_had(): void
+    {
+        $this->checkoutSettings('exclusive', 0);
+        // A store-wide rate saved before the tax master no longer applies.
+        Setting::set('checkout', ['tax_rate' => 18] + (Setting::get('checkout') ?? []));
+        Cache::forget('settings.all');
+
+        $cart = $this->addToCart();
+        $this->assertEquals(0, $cart->json('tax'));
+        $this->assertEquals(2000, $cart->json('total'));
+        $this->assertSame(0.0, $this->product->fresh()->effectiveTaxRate());
     }
 
     public function test_stores_default_to_prices_before_tax(): void

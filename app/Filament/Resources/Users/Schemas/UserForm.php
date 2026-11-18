@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
-use App\Filament\Forms\Components\PhoneInput;
 use App\Admin\PlatformModules;
+use App\Filament\Forms\Components\PhoneInput;
 use App\Models\User;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Collections\Pages;
 
-use App\Filament\Resources\Collections\CollectionResource;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Collections\CollectionResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListCollections extends ListRecords

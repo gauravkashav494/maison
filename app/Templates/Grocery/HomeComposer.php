@@ -25,7 +25,7 @@ class HomeComposer
         if ($slug = $home['fresh_category_slug'] ?? null) {
             if ($category = Category::active()->where('slug', $slug)->first()) {
                 $ids = [$category->id, ...$category->children()->pluck('id')->all()];
-                $fresh = Product::with('category')->active()->whereIn('category_id', $ids)
+                $fresh = Product::with('category')->active()->inCategories($ids)
                     ->orderBy('sort_order')->limit($limit('fresh_limit', 10))->get();
             }
         }

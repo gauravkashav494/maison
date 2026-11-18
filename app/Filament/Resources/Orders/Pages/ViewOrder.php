@@ -42,7 +42,9 @@ class ViewOrder extends ViewRecord
             OrderStatusActions::deliver()
                 ->visible(fn (Order $record) => $record->dispatched_at !== null && $record->canTransitionTo(Order::STATUS_DELIVERED)),
             OrderStatusActions::cancel()->outlined(),
+            OrderStatusActions::viewInvoice(),
             ActionGroup::make([
+                OrderStatusActions::invoice(),
                 OrderStatusActions::advance(),
                 EditAction::make()->label('Edit details'),
             ])->tooltip('More')->color('gray')->button()->label('More'),

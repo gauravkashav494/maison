@@ -16,6 +16,7 @@ use App\Models\Page;
 use App\Models\Plan;
 use App\Models\Post;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\Setting;
 use App\Models\Storefront;
 use App\Services\Cart;
@@ -408,7 +409,11 @@ class BulkTemplateTest extends TestCase
             'shipping_state' => 'Maharashtra', 'shipping_postal_code' => '411001', 'shipping_country' => 'India',
             'shipping_method' => app(Cart::class)->shippingMethods()[0]['code'],
             'payment_method' => 'cod', 'notes' => 'PO-2291',
-        ])->assertRedirect();
+        ])->assertRedirect(route('otp.verify'));
+
+        // The code page is in the store's own layout; entering the code places the order.
+        $this->visit('/verify')->assertSuccessful()->assertSee('bk-auth-panel', false)->assertSee('Confirm your order');
+        $placed = $this->enterOtp(session: [Client::SESSION_KEY => 'trade'])->assertRedirect();
 
         $path = parse_url($placed->headers->get('Location'), PHP_URL_PATH);
         $this->visit($path)->assertSuccessful()->assertSee('Items ordered')->assertSee('PK-CT-500')->assertSee('4 × ₹265', false);
@@ -436,7 +441,7 @@ class BulkTemplateTest extends TestCase
 
     public function test_the_sign_in_pages_use_the_store_layout_and_still_work(): void
     {
-        foreach (['/login' => '/login', '/register' => '/register', '/forgot-password' => '/forgot-password'] as $path => $action) {
+        foreach (['/login' => '/login', '/login/otp' => '/login/otp', '/register' => '/register', '/forgot-password' => '/forgot-password'] as $path => $action) {
             $html = $this->visit($path)
                 ->assertSuccessful()
                 ->assertSee('bk-auth-panel', false)       // the store's own layout, not the shared one
@@ -449,13 +454,14 @@ class BulkTemplateTest extends TestCase
 
         // Registering and signing in go through the shared controller exactly as before.
         $this->withSession([Client::SESSION_KEY => 'trade'])->post('/register', [
-            'name' => 'Hotel Saffron', 'email' => 'buyer@saffron.test',
+            'name' => 'Hotel Saffron', 'email' => 'buyer@saffron.test', 'phone' => '9876543210',
             'password' => 'secret-pass-123', 'password_confirmation' => 'secret-pass-123',
-        ])->assertRedirect(route('account.index'));
+        ])->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'trade'])->assertRedirect(route('account.index'));
         $this->assertAuthenticated();
 
         auth()->logout();
-        $this->withSession([Client::SESSION_KEY => 'trade'])->post('/login', ['email' => 'buyer@saffron.test', 'password' => 'secret-pass-123'])
+        $this->withSession([Client::SESSION_KEY => 'trade'])->post('/login', ['phone' => '+91 98765 43210', 'password' => 'secret-pass-123'])
             ->assertRedirect(route('account.index'));
         $this->assertAuthenticated();
     }
@@ -556,7 +562,7 @@ class BulkTemplateTest extends TestCase
         $line = collect(OrderLines::for($this->product('PK-CT')))->firstWhere('sku', 'PK-CT-500');
         $this->order(['product_id' => $line['product_id'], 'options' => $line['options'], 'qty' => 1])->assertSuccessful();
 
-        // Not just the phone: a missing email (or address…) shows its message too, before sending.
+        // Not just the phone: a missing name (or address…) shows its message too, before sending. Email is optional.
         $page = $this->visit('/checkout')->assertSuccessful();
         foreach (['email', 'full name', 'address', 'city', 'state', 'postal code', 'country'] as $attribute) {
             $page->assertSee('checkField(', false)->assertSee("'".$attribute."'", false);
@@ -565,9 +571,9 @@ class BulkTemplateTest extends TestCase
             $page->assertSee('name="'.$name.'"', false);
         }
 
-        // A server message still shows under its field.
+        // A server message still shows under its field; a blank email is not one.
         $this->withSession([Client::SESSION_KEY => 'trade'])->from('/checkout')->post('/checkout', ['phone' => '9876543210'])
-            ->assertSessionHasErrors(['email' => 'Please enter your email address.']);
+            ->assertSessionHasErrors(['shipping_name' => 'Please enter your full name.'])->assertSessionDoesntHaveErrors('email');
     }
 
     public function test_the_cart_checkout_and_contact_pages_render(): void
@@ -619,5 +625,34 @@ class BulkTemplateTest extends TestCase
         $this->assertStringContainsString('You can order at most 5 of this item.', $html);
         $this->assertStringNotContainsString(">= {$line['max']}\"", $html);
     }
-}
 
+    public function test_a_buyer_can_review_a_product_from_the_storefront(): void
+    {
+        $product = Product::withoutGlobalScopes()->where('client_id', $this->client->id)->where('is_active', true)->firstOrFail();
+
+        $this->visit('/product/'.$product->slug)->assertOk()
+            ->assertSee('Ratings &amp; reviews', false)
+            ->assertSee(route('products.reviews.store', $product->slug), false);
+
+        $this->withSession([Client::SESSION_KEY => 'trade'])->post('/product/'.$product->slug.'/reviews', [
+            'name' => 'Ravi Traders', 'rating' => 4, 'title' => 'Good stock', 'body' => 'Arrived on time and well packed for the shop.',
+        ])->assertRedirect();
+
+        $review = Review::withoutGlobalScopes()->latest('id')->firstOrFail();
+        $this->assertSame($product->id, $review->product_id);
+        $this->assertSame($this->client->id, $review->client_id);
+
+        $review->update(['is_approved' => true]);
+        $this->visit('/product/'.$product->slug)->assertSee('Arrived on time and well packed for the shop.');
+    }
+
+    public function test_the_review_section_goes_when_reviews_are_switched_off(): void
+    {
+        $product = Product::withoutGlobalScopes()->where('client_id', $this->client->id)->where('is_active', true)->firstOrFail();
+        $this->client->update(['modules' => ['orders']]);
+
+        $this->visit('/product/'.$product->slug)->assertOk()
+            ->assertDontSee('Ratings &amp; reviews', false)
+            ->assertDontSee(route('products.reviews.store', $product->slug), false);
+    }
+}

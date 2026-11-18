@@ -168,6 +168,7 @@
 </section>
 
 {{-- Reviews --}}
+@module('reviews')
 <section id="reviews" class="container-luxe py-20 lg:py-28" x-data="reviewForm">
     <div class="grid gap-12 lg:grid-cols-12 lg:gap-16">
         <div class="lg:col-span-4">
@@ -225,6 +226,7 @@
         </div>
     </div>
 </section>
+@endmodule
 
 {{-- Complete the look --}}
 @if($completeTheLook->isNotEmpty())

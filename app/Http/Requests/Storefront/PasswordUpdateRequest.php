@@ -8,6 +8,11 @@ class PasswordUpdateRequest extends StorefrontRequest
 
     public function rules(): array
     {
+        // An account made with a WhatsApp code has no password yet: it sets its first one here.
+        if ($this->user()?->password === null) {
+            return ['password' => $this->newPassword()];
+        }
+
         return [
             'current_password' => ['required', 'string', 'current_password'],
             'password' => [...$this->newPassword(), 'different:current_password'],

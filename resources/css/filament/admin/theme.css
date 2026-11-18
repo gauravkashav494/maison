@@ -180,14 +180,29 @@ html { font-size: 14px; }
 
 /* Sections inside a tab panel (settings pages): the panel is a white card too, so each section is a
    boxed block with a coloured top edge and a tinted header, and air between them. */
+/* No overflow: hidden here: it clipped open dropdowns (a select's list is drawn inside the section)
+   and scrolled the section to the focused option, hiding its fields. The tinted header is rounded
+   to the section's corners instead. */
 .fi-sc-tabs-tab .fi-section:not(.fi-aside) {
-  overflow: hidden;
   border: 1px solid #cfd6e1;
   border-top: 3px solid var(--primary-600, #2563eb);
   --tw-ring-color: transparent;
   box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06);
 }
-.fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-header { background: var(--thead-bg); }
+.fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-header {
+  background: var(--thead-bg);
+  border-start-start-radius: calc(0.75rem - 3px);
+  border-start-end-radius: calc(0.75rem - 3px);
+}
+.fi-sc-tabs-tab .fi-section.fi-compact:not(.fi-aside) > .fi-section-header {
+  border-start-start-radius: calc(0.5rem - 3px);
+  border-start-end-radius: calc(0.5rem - 3px);
+}
+/* A collapsed section is only its header: round its bottom corners too. */
+.fi-sc-tabs-tab .fi-section.fi-collapsed:not(.fi-aside) > .fi-section-header {
+  border-end-start-radius: calc(0.75rem - 1px);
+  border-end-end-radius: calc(0.75rem - 1px);
+}
 .fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-content-ctn { border-top-color: #cfd6e1; }
 .fi-sc-tabs-tab > .fi-sc { row-gap: 1.75rem; }
 .dark .fi-sc-tabs-tab .fi-section:not(.fi-aside) { border-color: rgba(255, 255, 255, 0.14); border-top-color: var(--primary-400, #60a5fa); }

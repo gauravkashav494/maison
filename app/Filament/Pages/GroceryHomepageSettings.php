@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Models\Category;
@@ -199,7 +200,7 @@ class GroceryHomepageSettings extends Page
                             TextInput::make("$g.promo_cta_url")->label('Button link')->placeholder('/shop/sale'),
                             Fields::image("$g.promo_image", 'Image (portrait)', 'grocery')->columnSpan(2),
                         ]),
-                        Section::make('Newsletter')->columns(2)->schema([
+                        Section::make('Newsletter')->visible(fn () => StoreFeatures::enabled('subscribers'))->columns(2)->schema([
                             TextInput::make("$g.newsletter_heading")->label('Heading'),
                             TextInput::make("$g.newsletter_text")->label('Text'),
                         ]),

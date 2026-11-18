@@ -44,7 +44,7 @@ class PlatformActivity extends Model
             'action' => $action,
             'subject_type' => class_basename($subject),
             'subject' => $subject->name ?? $subject->email ?? '#'.$subject->getKey(),
-            'client_id' => $subject instanceof Client ? ($action === 'deleted' ? null : $subject->id) : ($subject->client_id ?? null),
+            'client_id' => $subject instanceof Client ? (str_starts_with($action, 'deleted') ? null : $subject->id) : ($subject->client_id ?? null),
             'fields' => $fields ?: null,
         ]);
     }

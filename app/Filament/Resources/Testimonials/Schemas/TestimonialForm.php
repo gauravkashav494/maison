@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Testimonials\Schemas;
 
 use App\Filament\Support\Fields;
+use App\Templates\Scopes\TemplateVisibility;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +20,7 @@ class TestimonialForm
                 TextInput::make('name')->label('Customer name')->required()->maxLength(80),
                 Fields::templateVisibility(),
                 Select::make('rating')->options([5 => '5 stars', 4 => '4 stars', 3 => '3 stars', 2 => '2 stars', 1 => '1 star'])->default(5)->required()->native(false),
-                Select::make('service_id')->label('Service')->relationship('service', 'name', fn ($query) => $query->withoutGlobalScope(\App\Templates\Scopes\TemplateVisibility::NAME))->searchable()->preload()->native(false),
+                Select::make('service_id')->label('Service')->relationship('service', 'name', fn ($query) => $query->withoutGlobalScope(TemplateVisibility::NAME))->searchable()->preload()->native(false),
                 TextInput::make('location')->maxLength(80)->placeholder('Model Town, Ludhiana'),
                 Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
                 TextInput::make('sort_order')->numeric()->default(0),

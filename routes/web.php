@@ -1,13 +1,17 @@
 <?php
 
 use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Storefront\CancelOrderController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CatalogController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\InvoiceController;
 use App\Http\Controllers\Storefront\NewsletterController;
+use App\Http\Controllers\Storefront\OtpController;
 use App\Http\Controllers\Storefront\PwaController;
 use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\ShopController;
+use App\Http\Controllers\Storefront\StoreEntryController;
 use Illuminate\Support\Facades\Route;
 
 // On the main domain the Super Admin panel owns /, /login and its screens (AdminPanelProvider);
@@ -40,6 +44,8 @@ Route::post('/cart/shipping', [CartController::class, 'shipping'])->name('cart.s
 Route::get('/checkout', [CartController::class, 'checkout'])->name('checkout');
 Route::post('/checkout', [CartController::class, 'placeOrder'])->middleware('throttle:10,1')->name('checkout.place');
 Route::get('/order/{number}/confirmation', [CartController::class, 'confirmation'])->name('orders.confirmation');
+Route::post('/order/{number}/cancel', CancelOrderController::class)->middleware('throttle:10,1')->name('orders.cancel');
+Route::get('/order/{number}/invoice', InvoiceController::class)->middleware('throttle:30,1')->name('orders.invoice');
 Route::match(['get', 'post'], '/track-order', [CatalogController::class, 'track'])->name('track');
 
 // Forms
@@ -55,6 +61,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AccountController::class, 'login'])->middleware('throttle:10,1');
     Route::get('/register', [AccountController::class, 'registerForm'])->name('register');
     Route::post('/register', [AccountController::class, 'register'])->middleware('throttle:10,1');
+    // WhatsApp codes: sign in with a code, and the code step of sign-up and guest checkout.
+    Route::get('/login/otp', [OtpController::class, 'loginForm'])->name('login.otp');
+    Route::post('/login/otp', [OtpController::class, 'sendLogin'])->middleware('throttle:5,1');
+    Route::get('/verify', [OtpController::class, 'form'])->name('otp.verify');
+    Route::post('/verify', [OtpController::class, 'verify'])->middleware('throttle:10,1');
+    Route::post('/verify/resend', [OtpController::class, 'resend'])->middleware('throttle:3,1')->name('otp.resend');
     Route::get('/forgot-password', [AccountController::class, 'forgotForm'])->name('password.request');
     Route::post('/forgot-password', [AccountController::class, 'forgot'])->middleware('throttle:5,1')->name('password.email');
     Route::get('/reset-password/{token}', [AccountController::class, 'resetForm'])->name('password.reset');
@@ -91,9 +103,9 @@ Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 // Old entry links on the main domain. Anything naming a client (/store/<client>, /c/<client>, or
 // /store/<store> for a store a client runs) redirects to that client's subdomain; a store with
 // no client yet is shown as a demo on the main domain.
-Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
-Route::get('/store/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
-Route::get('/c/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
+Route::get('/store/exit', [StoreEntryController::class, 'exit'])->name('store.exit');
+Route::get('/store/{subdomain}', [StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
+Route::get('/c/{subdomain}', [StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';

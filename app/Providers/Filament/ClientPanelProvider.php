@@ -17,6 +17,7 @@ use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Filament\Pages\PlumbingSettings;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
 use App\Filament\Resources\ClientUsers\ClientUserResource;
@@ -37,12 +38,14 @@ use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
 use App\Filament\Resources\Services\ServiceResource;
 use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Subscribers\SubscriberResource;
+use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Testimonials\TestimonialResource;
 use App\Filament\Widgets\ClientUsage;
 use App\Filament\Widgets\RecentOrders;
 use App\Filament\Widgets\ServiceStats;
 use App\Filament\Widgets\StoreLink;
 use App\Filament\Widgets\StoreStats;
+use App\Http\Controllers\Admin\OrderInvoiceController;
 use App\Http\Middleware\ApplyAdminScope;
 use App\Http\Middleware\DiscourageSearchEngines;
 use Filament\Actions\Action;
@@ -62,6 +65,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
@@ -80,6 +84,8 @@ class ClientPanelProvider extends PanelProvider
         ProductResource::class,
         CategoryResource::class,
         CollectionResource::class,
+        BrandResource::class,
+        TaxResource::class,
         CouponResource::class,
         OrderResource::class,
         ReviewResource::class,
@@ -158,6 +164,9 @@ class ClientPanelProvider extends PanelProvider
                 ServiceStats::class,
                 RecentOrders::class,
             ])
+            // Opens an order's invoice PDF in a new tab (Orders → View invoice).
+            ->authenticatedRoutes(fn () => Route::get('orders/{order}/invoice', OrderInvoiceController::class)
+                ->whereNumber('order')->name('orders.invoice'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

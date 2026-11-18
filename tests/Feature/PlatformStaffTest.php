@@ -3,14 +3,18 @@
 namespace Tests\Feature;
 
 use App\Admin\PlatformModules;
+use App\Exceptions\LastSuperAdminException;
+use App\Filament\Auth\Login;
 use App\Filament\Resources\PlatformActivities\Pages\ListPlatformActivities;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
+use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Client;
 use App\Models\Plan;
 use App\Models\PlatformActivity;
 use App\Models\Storefront;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -150,5 +154,89 @@ class PlatformStaffTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertTrue($this->operator->fresh()->isSuperAdmin());
+    }
+
+    public function test_bulk_delete_removes_other_super_admins_but_never_yourself(): void
+    {
+        $other = User::create(['name' => 'Second', 'email' => 'second@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'is_active' => true]);
+        $staff = $this->staff([PlatformModules::PLANS]);
+        $this->actingAs($this->operator, 'admin');
+
+        Livewire::test(ListUsers::class)
+            ->selectTableRecords([$this->operator->id, $other->id, $staff->id])
+            ->callAction(TestAction::make('delete')->table()->bulk());
+
+        $this->assertNotSoftDeleted($this->operator);
+        $this->assertSoftDeleted($other);
+        $this->assertSoftDeleted($staff);
+    }
+
+    public function test_signing_in_skips_a_remembered_page_the_account_cannot_open(): void
+    {
+        $this->staff([PlatformModules::PLANS]);
+
+        // Session started on a Super Admin page, then platform staff sign in.
+        $this->get('/users')->assertRedirect('/login');
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'support@platform.test', 'password' => 'password123'])
+            ->call('authenticate')
+            ->assertRedirect(url('/'));
+
+        // A page they may open is still honoured.
+        auth('admin')->logout();
+        $this->flushSession();
+        $this->get('/plans')->assertRedirect('/login');
+        Livewire::test(Login::class)
+            ->fillForm(['email' => 'support@platform.test', 'password' => 'password123'])
+            ->call('authenticate')
+            ->assertRedirect(url('/plans'));
+    }
+
+    public function test_the_last_active_super_admin_cannot_be_demoted_deactivated_or_deleted(): void
+    {
+        foreach ([
+            fn () => $this->operator->fresh()->update(['is_super_admin' => false, 'admin_modules' => [PlatformModules::PLANS]]),
+            fn () => $this->operator->fresh()->update(['is_active' => false]),
+            fn () => $this->operator->fresh()->delete(),
+        ] as $change) {
+            try {
+                $change();
+                $this->fail('The last active Super Admin was changed.');
+            } catch (LastSuperAdminException) {
+            }
+        }
+
+        $this->assertTrue($this->operator->fresh()->isSuperAdmin());
+        $this->assertTrue($this->operator->fresh()->is_active);
+        $this->assertNotSoftDeleted($this->operator);
+    }
+
+    public function test_a_super_admin_can_be_demoted_or_deactivated_while_another_remains(): void
+    {
+        $other = User::create(['name' => 'Second', 'email' => 'second@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'is_active' => true]);
+        $this->actingAs($this->operator, 'admin');
+
+        Livewire::test(EditUser::class, ['record' => $other->getKey()])
+            ->fillForm(['is_super_admin' => false, 'is_active' => false, 'admin_modules' => [PlatformModules::PLANS]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertFalse($other->fresh()->isSuperAdmin());
+        $this->assertFalse($other->fresh()->is_active);
+    }
+
+    public function test_deleting_restoring_and_permanently_deleting_an_account_is_logged(): void
+    {
+        $staff = $this->staff([PlatformModules::PLANS]);
+        $this->actingAs($this->operator, 'admin');
+
+        $staff->delete();
+        $staff->restore();
+        $staff->forceDelete();
+
+        $lines = PlatformActivity::where('subject_type', 'User')->where('subject', 'Support')->orderBy('id')->get();
+
+        $this->assertSame(['deleted', 'restored', 'deleted permanently'], $lines->where('action', '!=', 'created')->pluck('action')->values()->all());
+        $this->assertTrue($lines->every(fn ($l) => $l->actor_id === $this->operator->id && $l->actor_type === 'Super admin'));
     }
 }

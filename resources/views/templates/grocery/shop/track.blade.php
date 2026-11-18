@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
-<x-page-head title="Track your order" text="Enter your order number and the email used at checkout." :breadcrumbs="['Track order' => null]" />
+<x-page-head title="Track your order" text="Enter your order number and the email or phone number used at checkout." :breadcrumbs="['Track order' => null]" />
 
 <section class="g-container py-6">
     <div class="mx-auto max-w-3xl space-y-4">
         <form method="get" action="{{ route('track') }}" class="card grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-5" novalidate>
             <label><span class="label">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. ME-2026-00123" class="field uppercase">@error('number')<span class="error-text">{{ $message }}</span>@enderror</label>
-            <label><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ old('email', request('email')) }}" class="field">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+            <label><span class="label">Email or phone<span class="req" aria-hidden="true">*</span></span><input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="field">@error('contact')<span class="error-text">{{ $message }}</span>@enderror</label>
             <button type="submit" class="btn btn-primary h-[46px]">Track</button>
             @if($error)<p class="error-text sm:col-span-3">{{ $error }}</p>@endif
         </form>
@@ -19,6 +19,7 @@
                         <p class="text-xs font-bold uppercase tracking-wider text-mist">Order {{ $order->number }}</p>
                         <p class="mt-1 text-lg font-extrabold">{{ $order->statusLabel() }}</p>
                         <p class="text-xs text-slate">Placed {{ $order->created_at->format('d M Y, H:i') }}@if($order->estimated_delivery) · Expected by {{ $order->estimated_delivery->format('d M') }}@endif</p>
+                        <a href="{{ $order->invoiceUrl() }}" class="mt-1 inline-block text-xs font-bold underline underline-offset-2">Download invoice</a>
                     </div>
                     @if($order->tracking_number)<div class="rounded-lg bg-paper px-3 py-2 text-xs"><span class="text-slate">{{ $order->carrier ?: 'Tracking' }}</span><span class="ml-2 font-bold tabular">{{ $order->tracking_number }}</span></div>@endif
                 </div>

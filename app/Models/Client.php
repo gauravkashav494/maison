@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Clients\ClientDatabase;
+use App\Clients\ClientModules;
 use App\Models\Concerns\UsesPlatformConnection;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * A client is the tenant: the business renting the platform.
@@ -43,6 +46,25 @@ class Client extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(self::HIDE_THEMES, fn (Builder $query) => $query->where($query->qualifyColumn('is_theme'), false));
+        // Backstop for every way a client is saved (form, console, seeders): never two clients on one database.
+        static::saving(function (Client $client) {
+            if ($client->isDirty(['subdomain', 'database'])
+                && ($problem = app(ClientDatabase::class)->problemWithName($client->databaseName(), $client))) {
+                throw ValidationException::withMessages(['database' => $problem]);
+            }
+        });
+        // A store template owns <slug>.<base domain> and /store/<slug> for its theme preview, and a
+        // client is matched first, so a client on that address would take it over.
+        static::saving(function (Client $client) {
+            if ($client->isDirty('subdomain') && ($store = static::storeOnAddress((string) $client->subdomain))) {
+                throw ValidationException::withMessages(['subdomain' => static::storeAddressMessage($store)]);
+            }
+        });
+        static::saving(function (Client $client) {
+            if ($client->isDirty('domain') && filled($client->domain) && ($problem = static::domainProblem((string) $client->domain, ignoreClient: $client))) {
+                throw ValidationException::withMessages(['domain' => $problem]);
+            }
+        });
         static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
         static::saved(fn () => Cache::forget('clients.hosts'));
         static::deleted(fn () => Cache::forget('clients.hosts'));
@@ -80,7 +102,9 @@ class Client extends Model
     /** Is this module switched on for the client? Null means nobody has narrowed the list yet. */
     public function hasModule(string $module): bool
     {
-        return $this->modules === null || in_array($module, $this->modules, true);
+        return $this->modules === null
+            || ClientModules::isCore($module)
+            || in_array($module, $this->modules, true);
     }
 
     public function customers(): HasMany
@@ -245,6 +269,72 @@ class Client extends Model
         $port = $portNo && ! in_array((int) $portNo, [80, 443], true) ? ':'.$portNo : '';
 
         return $scheme.'://'.$this->subdomain.'.'.static::baseDomain().$port;
+    }
+
+    /** Stored as a bare lowercase host, however it was typed (https://, a path, capitals). */
+    public function setDomainAttribute(?string $value): void
+    {
+        $this->attributes['domain'] = static::normaliseHost($value);
+    }
+
+    /** "https://Shop.Example.com/path" → "shop.example.com"; blank → null. */
+    public static function normaliseHost(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = preg_replace('#^[a-z][a-z0-9+.-]*://#', '', $value);
+        $value = rtrim(explode('/', $value, 2)[0], '.');
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * Why a custom domain cannot be used, or null when it can. Every host answers for exactly
+     * one client or store, so a custom domain may not be:
+     *  - on the platform's own domain: the main domain is the admin panel, and every
+     *    <name>.<base> is a client's subdomain or a store's own address (use the subdomain);
+     *  - another client's custom domain (deleted clients and theme previews too);
+     *  - a store's demo domain.
+     */
+    public static function domainProblem(string $host, ?Client $ignoreClient = null, ?Storefront $ignoreStore = null): ?string
+    {
+        $host = (string) static::normaliseHost($host);
+
+        if (! preg_match('/^(?=.{4,190}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $host)) {
+            return 'Enter a host name such as shop.example.com (no https://, no path).';
+        }
+
+        $base = static::baseDomain();
+        if ($host === $base || str_ends_with($host, '.'.$base)) {
+            return '"'.$host.'" is on the platform\'s own domain ('.$base.'), where every address belongs to a client or store already. Use a domain of the client\'s own.';
+        }
+
+        $client = static::withoutGlobalScopes()->withTrashed()->where('domain', $host)
+            ->when($ignoreClient?->exists, fn ($q) => $q->whereKeyNot($ignoreClient->getKey()))
+            ->first();
+        if ($client) {
+            return '"'.$host.'" is already the domain of '.($client->is_theme ? 'a theme preview' : 'the client "'.$client->name.'"')
+                .($client->trashed() ? ' (deleted)' : '').'.';
+        }
+
+        $store = Storefront::where('domain', $host)
+            ->when($ignoreStore?->exists, fn ($q) => $q->whereKeyNot($ignoreStore->getKey()))
+            ->first();
+        if ($store) {
+            return '"'.$host.'" is already the demo domain of the store "'.$store->name.'".';
+        }
+
+        return null;
+    }
+
+    /** The store template whose own address (its slug) is this subdomain, if any; inactive stores too. */
+    public static function storeOnAddress(string $subdomain): ?Storefront
+    {
+        return Storefront::where('slug', strtolower(trim($subdomain)))->first();
+    }
+
+    public static function storeAddressMessage(Storefront $store): string
+    {
+        return '"'.$store->slug.'" is the address of the store "'.$store->name.'" (its theme preview). Choose another subdomain.';
     }
 
     /** Sign-in page of the client panel, on the same host as the store. */

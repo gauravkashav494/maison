@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\Setting;
+use App\Models\Tax;
+use App\Templates\Template;
+use App\Templates\TemplateManager;
+use Illuminate\Support\HtmlString;
 
 if (! function_exists('money')) {
     /** Format rupee amounts as ₹12,900.50 (Indian digit grouping, always two decimals). */
@@ -39,13 +43,14 @@ if (! function_exists('prices_include_tax')) {
 
 if (! function_exists('shows_tax_row')) {
     /**
-     * Whether a cart or checkout lists the tax as its own row: only when a rate is set, so the
-     * row always has an amount (the order pages likewise hide a zero tax). Without a rate,
-     * prices that include tax say so under the total instead.
+     * Whether a cart or checkout lists the tax as its own row: only when the store charges tax,
+     * through any of its products' taxes (Catalogue → Taxes), so the row has an
+     * amount (the order pages likewise hide a zero tax). Without one, prices that include tax
+     * say so under the total instead.
      */
     function shows_tax_row(): bool
     {
-        return (float) setting('checkout.tax_rate', 0) > 0;
+        return Tax::query()->where('rate', '>', 0)->exists();
     }
 }
 
@@ -64,11 +69,12 @@ if (! function_exists('tax_line')) {
 if (! function_exists('price_tax_note')) {
     /**
      * Short note for under a price: "Inclusive of all taxes", "+ 18% GST, added at checkout",
-     * or '' when prices are before tax and no tax is charged.
+     * or '' when prices are before tax and no tax is charged. $rate is the product's (its tax);
+     * none is 0%.
      */
-    function price_tax_note(): string
+    function price_tax_note(float|int|null $rate = null): string
     {
-        $rate = (float) setting('checkout.tax_rate', 0);
+        $rate = (float) $rate;
         if (prices_include_tax()) {
             return 'Inclusive of all taxes';
         }
@@ -76,7 +82,7 @@ if (! function_exists('price_tax_note')) {
             return '';
         }
 
-        return '+ '.rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.').'% '.setting('checkout.tax_label', 'GST').', added at checkout';
+        return '+ '.rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.').'% GST, added at checkout';
     }
 }
 
@@ -85,21 +91,21 @@ if (! function_exists('emph')) {
      * Escape text, then turn *word* into <em>word</em> and newlines into <br>.
      * Used for editorial headings edited in the admin.
      */
-    function emph(?string $text): \Illuminate\Support\HtmlString
+    function emph(?string $text): HtmlString
     {
         $safe = e($text ?? '');
         $safe = preg_replace('/\*(.+?)\*/s', '<em>$1</em>', $safe);
         $safe = nl2br($safe, false);
 
-        return new \Illuminate\Support\HtmlString($safe);
+        return new HtmlString($safe);
     }
 }
 
 if (! function_exists('template')) {
     /** The storefront template rendering the current request. */
-    function template(): \App\Templates\Template
+    function template(): Template
     {
-        return app(\App\Templates\TemplateManager::class)->current();
+        return app(TemplateManager::class)->current();
     }
 }
 

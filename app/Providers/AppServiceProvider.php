@@ -6,6 +6,9 @@ use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
 use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
+use App\Clients\ClientPasswordBrokerManager;
+use App\Clients\StoreFeatures;
+use App\Http\Responses\LoginResponse;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
@@ -27,8 +30,8 @@ use App\Support\DatabaseMacros;
 use App\Templates\TemplateManager;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Form;
-use Filament\Support\Facades\FilamentIcon;
 use Filament\Support\Enums\Width;
+use Filament\Support\Facades\FilamentIcon;
 use Filament\Support\Facades\FilamentView;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\SelectColumn;
@@ -36,10 +39,13 @@ use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Indicator;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Filament\Tables\View\TablesRenderHook;
 use Filament\View\PanelsIconAlias;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
@@ -56,6 +62,12 @@ class AppServiceProvider extends ServiceProvider
         // read the same instance, so they cannot disagree about who is being served.
         $this->app->singleton(ClientContext::class);
         $this->app->singleton(ClientDatabase::class);
+        // Shopper reset tokens are kept per client (see ClientScopedTokenRepository). `extend`
+        // rather than a new binding: the framework's deferred provider would replace that.
+        $this->app->extend('auth.password', fn ($manager, $app) => new ClientPasswordBrokerManager($app));
+        $this->app->singleton(StoreFeatures::class);
+        // After sign-in, never send an account back to a page it is not allowed to open.
+        $this->app->bind(\Filament\Auth\Http\Responses\Contracts\LoginResponse::class, LoginResponse::class);
         $this->app->singleton(TemplateManager::class, fn () => new TemplateManager(config('templates.templates', [])));
     }
 
@@ -66,16 +78,16 @@ class AppServiceProvider extends ServiceProvider
         $this->registerTableFilterLayout();
 
         // Saved images in upload fields open large in a lightbox, and load from the browser cache.
-        \Filament\Support\Facades\FilamentView::registerRenderHook(
-            \Filament\View\PanelsRenderHook::BODY_END,
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
             fn () => view('filament.partials.image-lightbox'),
         );
 
         // Picking a module in the sidebar collapses it to icons (desktop too, not only on phones), so
         // the page gets the room; the ☰ button opens it again. Group headers do not count as a pick.
-        \Filament\Support\Facades\FilamentView::registerRenderHook(
-            \Filament\View\PanelsRenderHook::BODY_END,
-            fn () => new \Illuminate\Support\HtmlString(<<<'HTML'
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => new HtmlString(<<<'HTML'
                 <script>
                     document.addEventListener('click', (event) => {
                         const item = event.target.closest('.fi-main-sidebar a.fi-sidebar-item-btn');
@@ -87,7 +99,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         // The soft-delete filter on every table, in the same words as the "Delete" action.
-        \Filament\Tables\Filters\TrashedFilter::configureUsing(fn (\Filament\Tables\Filters\TrashedFilter $filter) => $filter
+        TrashedFilter::configureUsing(fn (TrashedFilter $filter) => $filter
             ->label('Deleted items')
             ->placeholder('Hide deleted')
             ->trueLabel('Show all')
@@ -143,14 +155,18 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
+        // @module('reviews') ... @endmodule: shown only while the client has that module switched on.
+        Blade::if('module', fn (string $module) => app(StoreFeatures::class)->on($module));
+
         // Site chrome data shared with the storefront layout and its partials. Menus are
         // resolved for the template rendering the request (alias => cached tree).
         View::composer(['layouts.app', 'partials.*'], function (ViewInstance $view) {
             $template = template();
 
+            // Links into a module switched off for this client are left out (StoreFeatures).
             $menus = [];
             foreach ($template->menuLocations() as $alias => [$location]) {
-                $menus[$alias] = Menu::tree($location);
+                $menus[$alias] = app(StoreFeatures::class)->filterMenu(Menu::tree($location));
             }
 
             $view->with([

@@ -13,12 +13,13 @@ use App\Http\Requests\Storefront\RegisterRequest;
 use App\Http\Requests\Storefront\ResetPasswordRequest;
 use App\Models\Address;
 use App\Models\Customer;
+use App\Support\CustomerOtp;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -49,12 +50,14 @@ class AccountController extends Controller
 
     public function login(LoginRequest $request): RedirectResponse
     {
-        $credentials = $request->safe()->only(['email', 'password']);
+        $credentials = $request->safe()->only(['phone', 'password']);
         $clientId = $this->clientId();
 
         // The client is part of the credentials, so an account of another client never matches.
-        if (! $clientId || ! Auth::attempt($credentials + ['client_id' => $clientId, 'is_active' => true], $request->boolean('remember'))) {
-            return back()->withInput($request->only('email'))->withErrors(['email' => 'These credentials do not match our records.']);
+        // Guest records (from checkout, no password) can share a phone, so only real accounts count.
+        $credentials += ['client_id' => $clientId, 'is_active' => true, 'account' => fn ($query) => $query->whereNotNull('password')];
+        if (! $clientId || ! Auth::attempt($credentials, $request->boolean('remember'))) {
+            return back()->withInput($request->only('phone'))->withErrors(['phone' => 'These credentials do not match our records.']);
         }
         $request->session()->regenerate();
 
@@ -66,7 +69,7 @@ class AccountController extends Controller
         return view('account.register', ['seo' => Seo::simple('Create an account', null, noindex: true)]);
     }
 
-    public function register(RegisterRequest $request): RedirectResponse
+    public function register(RegisterRequest $request, CustomerOtp $otp): RedirectResponse
     {
         $clientId = $this->clientId();
         abort_unless($clientId !== null, 404);
@@ -75,19 +78,26 @@ class AccountController extends Controller
 
         // Someone has already ordered as a guest with this address. Their orders are only shown
         // once the address is proven to be theirs, so they set the password from an emailed link.
-        $guest = Customer::withTrashed()->where('client_id', $clientId)->whereNull('password')
-            ->whereRaw('lower(email) = ?', [strtolower($data['email'])])->first();
+        $guest = filled($data['email'] ?? null) ? Customer::withTrashed()->where('client_id', $clientId)->guests()
+            ->whereRaw('lower(email) = ?', [strtolower($data['email'])])->first() : null;
         if ($guest) {
             Password::broker('customers')->sendResetLink(['email' => $guest->email, 'client_id' => $clientId, 'is_active' => true]);
 
             return redirect()->route('login')->with('status', 'You have ordered with us before. We have emailed you a link to set your password and see your orders.');
         }
 
-        $customer = Customer::create($data + ['client_id' => $clientId]);
-        Auth::login($customer);
-        $request->session()->regenerate();
+        // The account is made once the phone number is proven with a WhatsApp code (OtpController).
+        // The password waits with the code, encrypted, as it is still needed in plain form then.
+        $error = $otp->start(CustomerOtp::REGISTER, $data['phone'], [
+            'name' => $data['name'],
+            'email' => filled($data['email'] ?? null) ? $data['email'] : null,
+            'password' => Crypt::encryptString($data['password']),
+        ]);
+        if ($error) {
+            return back()->withInput($request->except('password', 'password_confirmation'))->withErrors(['phone' => $error]);
+        }
 
-        return redirect()->route('account.index')->with('status', 'Welcome to '.setting('site.name', config('app.name')).'.');
+        return redirect()->route('otp.verify');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -231,7 +241,8 @@ class AccountController extends Controller
     public function updatePassword(PasswordUpdateRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $request->user()->update(['password' => Hash::make($data['password'])]);
+        // Plain on purpose: the model's hashed cast hashes it and StoresPasswordHint keeps the readable copy.
+        $request->user()->update(['password' => $data['password']]);
 
         return back()->with('status', 'Your password has been changed.');
     }

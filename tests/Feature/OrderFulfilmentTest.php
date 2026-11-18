@@ -2,12 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
+use App\Clients\ClientContext;
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Storefront;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -182,6 +188,32 @@ class OrderFulfilmentTest extends TestCase
             ->assertSee('Placed from');     // the range filter
     }
 
+    public function test_orders_not_yet_handled_are_tagged_new_in_the_list(): void
+    {
+        $this->actingAs($this->staff, 'client');
+        $waiting = $this->order();
+        $handled = $this->order();
+        $handled->transitionTo('processing', null, $this->staff);
+
+        $this->assertTrue($waiting->isNew());
+        $this->assertFalse($handled->fresh()->isNew());
+
+        $badge = fn (Order $o) => '/'.$o->number.'\s*<span[^>]*fi-badge.*?New/s';
+
+        // Opening the list does not clear the tag: only acting on the order does.
+        $this->get('/client/orders')->assertSuccessful();
+        $html = $this->get('/client/orders')->assertSuccessful()->getContent();
+        $this->assertMatchesRegularExpression($badge($waiting), $html);
+        $this->assertDoesNotMatchRegularExpression('/'.$handled->number.'\s*<span[^>]*fi-badge/', $html);
+
+        // The sidebar count is the same set of orders.
+        $this->assertSame('1', OrderResource::getNavigationBadge());
+
+        $waiting->transitionTo(Order::STATUS_CANCELLED, 'Customer asked', $this->staff);
+        $this->assertFalse($waiting->fresh()->isNew());
+        $this->assertNull(OrderResource::getNavigationBadge());
+    }
+
     public function test_the_order_page_shows_the_status_history_as_a_timeline_newest_first(): void
     {
         $order = $this->order();
@@ -230,11 +262,11 @@ class OrderFulfilmentTest extends TestCase
     {
         $order = $this->order();
         $this->actingAs($this->staff, 'client');
-        app(\App\Clients\ClientContext::class)->resolveForIdentity($this->staff);
-        app(\App\Admin\StoreContext::class)->resolve($this->staff, $this->client->templateId());
-        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($this->staff);
+        app(StoreContext::class)->resolve($this->staff, $this->client->templateId());
+        Filament::setCurrentPanel(Filament::getPanel('client'));
 
-        \Livewire\Livewire::test(\App\Filament\Resources\Orders\Pages\ViewOrder::class, ['record' => $order->getRouteKey()])
+        Livewire::test(ViewOrder::class, ['record' => $order->getRouteKey()])
             ->assertActionVisible('dispatch')
             ->callAction('dispatch', ['carrier' => 'BlueDart', 'tracking_number' => 'AWB1234', 'note' => 'Packed'])
             ->assertHasNoActionErrors()
@@ -257,8 +289,8 @@ class OrderFulfilmentTest extends TestCase
             'subtotal' => 500, 'total' => 500,
         ]);
 
-        app(\App\Clients\ClientContext::class)->resolveForIdentity($this->staff);
-        app(\App\Admin\StoreContext::class)->resolve($this->staff, $this->client->templateId());
+        app(ClientContext::class)->resolveForIdentity($this->staff);
+        app(StoreContext::class)->resolve($this->staff, $this->client->templateId());
 
         $this->assertFalse($this->staff->can('update', $theirOrder));
     }

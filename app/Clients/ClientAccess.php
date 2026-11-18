@@ -13,11 +13,11 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * May this account use this module? Every check on a client's business data ends here.
  *
- * A platform account has no access to a client's data at all. A Client Admin holds every action
- * of every module, whatever is ticked on the client (the policies still hide modules the store
- * does not support, e.g. services on a catalogue store). Admin Staff need both: the module
- * switched on for the client and their role granting the action. Anything unknown — no
- * account, no client, no such module — is refused.
+ * A platform account has no access to a client's data at all. The modules ticked on the client
+ * are the ceiling for its whole team: a module switched off is gone for the Client Admin too
+ * (and the policies still hide modules the store does not support, e.g. services on a catalogue
+ * store). Within that ceiling the Client Admin holds every action, while Admin Staff get only
+ * what their role grants. Anything unknown — no account, no client, no such module — is refused.
  */
 class ClientAccess
 {
@@ -31,11 +31,11 @@ class ClientAccess
             return false;
         }
 
-        if ($user->isClientAdmin()) {
-            return true;
+        if (! $user->client->hasModule($module)) {
+            return false;
         }
 
-        return $user->client->hasModule($module) && $user->hasPermission($module.'.'.$action);
+        return $user->isClientAdmin() || $user->hasPermission($module.'.'.$action);
     }
 
     /** The same check for whoever is signed into the current request. */

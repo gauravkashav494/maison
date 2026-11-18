@@ -16,9 +16,17 @@ trait LogsPlatformActivity
     protected static function bootLogsPlatformActivity(): void
     {
         static::created(fn (Model $model) => PlatformActivity::record($model, 'created', static::actor()));
-        static::deleted(fn (Model $model) => PlatformActivity::record($model, 'deleted', static::actor()));
+        static::deleted(fn (Model $model) => PlatformActivity::record(
+            $model,
+            method_exists($model, 'isForceDeleting') && $model->isForceDeleting() ? 'deleted permanently' : 'deleted',
+            static::actor(),
+        ));
+        if (method_exists(static::class, 'restored')) {
+            static::restored(fn (Model $model) => PlatformActivity::record($model, 'restored', static::actor()));
+        }
         static::updated(function (Model $model) {
-            $fields = array_values(array_diff(array_keys($model->getChanges()), ['updated_at', 'remember_token', 'last_login_at']));
+            // A restore saves deleted_at; it is logged once, as "restored", above.
+            $fields = array_values(array_diff(array_keys($model->getChanges()), ['updated_at', 'remember_token', 'last_login_at', 'deleted_at']));
 
             if ($fields !== []) {
                 PlatformActivity::record($model, 'updated', static::actor(), $fields);

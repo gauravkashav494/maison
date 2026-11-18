@@ -18,6 +18,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 
 /**
  * Order list. Each row offers the fulfilment actions (OrderStatusActions), the same ones as the order page.
@@ -35,7 +37,11 @@ class OrdersTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('number')->label('Order')->searchable()->weight('bold')->copyable(),
+                TextColumn::make('number')->label('Order')->searchable()->weight('bold')->copyable()
+                    // "New" until staff act on the order (Order::isNew), so nothing waiting is ever hidden.
+                    ->formatStateUsing(fn (string $state, Order $record) => $record->isNew()
+                        ? new HtmlString(e($state).' '.Blade::render('<x-filament::badge color="success" size="sm" class="ms-1 inline-flex align-middle">New</x-filament::badge>'))
+                        : $state),
                 TextColumn::make('created_at')->label('Placed')->dateTime('d M Y, H:i')->sortable(),
                 TextColumn::make('shipping_name')->label('Customer')->searchable()->description(fn (Order $r) => $r->email),
                 TextColumn::make('items_count')->counts('items')->label('Items')->alignRight(),
@@ -86,6 +92,8 @@ class OrdersTable
             ->recordActions([RowActions::group([
                 ...OrderStatusActions::all(),
                 ViewAction::make(),
+                OrderStatusActions::viewInvoice(),
+                OrderStatusActions::invoice(),
                 EditAction::make(),
             ])])
             ->toolbarActions([

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products\Schemas;
 
 use App\Admin\StoreContext;
+use App\Clients\StoreFeatures;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -35,7 +36,10 @@ class ProductInfolist
                             ->imageHeight(140)->stacked(false)->limit(8)
                             ->placeholder('No images'),
                         TextEntry::make('name')->weight('bold')->size('lg')->columnSpanFull(),
-                        TextEntry::make('category.name')->label('Category')->badge()->color('gray')
+                        // Main category first, marked; then every other category it is listed under.
+                        TextEntry::make('categories')->label('Categories')->badge()->color('gray')
+                            ->state(fn (Product $r) => $r->categories->sortBy(fn ($c) => $c->id === $r->category_id ? 0 : 1)
+                                ->map(fn ($c) => $c->id === $r->category_id ? $c->name.' (main)' : $c->name)->values()->all())
                             ->url(fn (Product $r) => $r->category ? CategoryResource::getUrl('view', ['record' => $r->category]) : null)
                             ->placeholder('—'),
                         TextEntry::make('sku')->label('SKU')->copyable()->placeholder('—'),
@@ -144,7 +148,8 @@ class ProductInfolist
                         TextEntry::make('rating')->inlineLabel()
                             ->state(fn (Product $r) => $r->review_count ? number_format((float) $r->rating, 1).' ★ · '.$r->review_count.' review'.($r->review_count === 1 ? '' : 's') : null)
                             ->placeholder('No reviews yet'),
-                        TextEntry::make('collections.name')->label('Collections')->badge()->color('gray')->placeholder('None'),
+                        TextEntry::make('collections.name')->label('Collection')->badge()->color('gray')->placeholder('None')
+                            ->visible(fn () => StoreFeatures::enabled('collections')),
                         TextEntry::make('template')->label('Visible in')->inlineLabel()
                             ->hidden(fn () => app(StoreContext::class)->isLocked())
                             ->formatStateUsing(fn ($state) => app(TemplateManager::class)->options()[$state] ?? $state)
