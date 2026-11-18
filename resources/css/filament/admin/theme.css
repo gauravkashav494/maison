@@ -340,6 +340,11 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-foot a { color: rgba(255, 255, 255, 0.85); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.3); }
 .fi-login-foot a:hover { color: #fff; border-color: #fff; }
 .dark .fi-login-card { box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+/* Sign-in paused notice: a dark amber panel instead of the light cream one. */
+.dark .fi-login-throttle { border-color: rgba(226, 200, 135, 0.28); background: linear-gradient(135deg, rgba(226, 200, 135, 0.1), rgba(255, 255, 255, 0.03)); box-shadow: none; }
+.dark .fi-login-throttle-clock { border-color: rgba(226, 200, 135, 0.35); background: rgba(226, 200, 135, 0.12); color: #f0d58e; }
+.dark .fi-login-throttle-title { color: #f8f3e8; }
+.dark .fi-login-throttle-message { color: rgba(255, 255, 255, 0.68); }
 /* Classic in dark mode: dark --navy disappears on the dark card, so fields, focus ring, button and mark use lighter blues */
 .dark .fi-login[data-style="classic"] .fi-input-wrp { background: rgba(255, 255, 255, 0.05); --tw-ring-color: rgba(255, 255, 255, 0.14); }
 .dark .fi-login[data-style="classic"] .fi-input-wrp:focus-within { background: rgba(255, 255, 255, 0.08); --tw-ring-color: #60a5fa; box-shadow: 0 0 0 1.5px var(--tw-ring-color), 0 0 0 4px rgba(96, 165, 250, 0.18); }

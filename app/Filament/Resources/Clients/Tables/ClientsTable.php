@@ -34,7 +34,8 @@ class ClientsTable
                     ->description(fn (Client $r) => $r->subdomain.'.'.Client::baseDomain()),
                 TextColumn::make('storefront.name')->label('Store')->badge()->color('gray')->placeholder('—')->sortable(),
                 ViewColumn::make('public_url')->label('Storefront')->state(fn (Client $r) => $r->publicUrl())
-                    ->view('filament.tables.columns.link-copy')->disabledClick(),
+                    ->view('filament.tables.columns.link-copy')
+                    ->viewData(['label' => 'Open store'])->disabledClick(),
                 ViewColumn::make('login_url')->label('Client login')->state(fn (Client $r) => $r->loginUrl())
                     ->view('filament.tables.columns.link-copy')
                     ->viewData(['label' => 'Open login', 'icon' => 'heroicon-m-arrow-right-end-on-rectangle'])->disabledClick(),
