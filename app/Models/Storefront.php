@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Storefront extends Model
 {
-    use Concerns\LogsPlatformActivity;
+    use Concerns\LogsActivity;
     use UsesPlatformConnection;
 
     protected $guarded = [];

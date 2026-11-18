@@ -42,6 +42,7 @@ Route::post('/cart/coupon', [CartController::class, 'coupon'])->name('cart.coupo
 Route::delete('/cart/coupon', [CartController::class, 'removeCoupon'])->name('cart.coupon.remove');
 Route::post('/cart/shipping', [CartController::class, 'shipping'])->name('cart.shipping');
 Route::get('/checkout', [CartController::class, 'checkout'])->name('checkout');
+Route::post('/checkout/sales-customer', [CartController::class, 'salesCustomerLookup'])->middleware('throttle:30,1')->name('checkout.sales-customer');
 Route::post('/checkout', [CartController::class, 'placeOrder'])->middleware('throttle:10,1')->name('checkout.place');
 Route::get('/order/{number}/confirmation', [CartController::class, 'confirmation'])->name('orders.confirmation');
 Route::post('/order/{number}/cancel', CancelOrderController::class)->middleware('throttle:10,1')->name('orders.cancel');

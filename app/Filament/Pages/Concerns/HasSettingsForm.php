@@ -5,6 +5,7 @@ namespace App\Filament\Pages\Concerns;
 use App\Admin\StoreContext;
 use App\Filament\Support\Fields;
 use App\Models\Setting;
+use App\Support\Activity\ActivityLog;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
@@ -13,6 +14,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Js;
+use Illuminate\Support\Str;
 
 /**
  * Shared plumbing for settings pages: loads the named setting groups into the form,
@@ -105,12 +107,50 @@ trait HasSettingsForm
     public function save(): void
     {
         $state = $this->form->getState();
+        $changed = [];
         foreach ($this->settingGroups() as $group) {
             // Merge, so values of fields hidden for this store (not in the form state) are kept.
             $stored = Setting::get($group, []);
-            Setting::set($group, array_replace(is_array($stored) ? $stored : [], $state[$group] ?? []));
+            $stored = is_array($stored) ? $stored : [];
+            foreach ($state[$group] ?? [] as $key => $value) {
+                if (json_encode($stored[$key] ?? null) !== json_encode($value)) {
+                    $changed[] = $group.'.'.$key;
+                }
+            }
+            Setting::set($group, array_replace($stored, $state[$group] ?? []));
         }
 
+        $this->logSettingsChange($changed);
+
         Notification::make()->success()->title('Settings saved')->send();
+    }
+
+    /**
+     * One activity line per save, naming the fields by their form labels ("updated Site settings:
+     * store name, logo and 3 more"). Settings can hold keys and tokens, so values are never kept.
+     *
+     * @param  array<string>  $changed  "group.key" of every setting whose value changed
+     */
+    protected function logSettingsChange(array $changed): void
+    {
+        if ($changed === []) {
+            return;
+        }
+
+        $labels = [];
+        foreach ($this->form->getFlatFields(withHidden: true) as $field) {
+            $labels[Str::after($field->getStatePath(), 'data.')] = trim(strip_tags((string) $field->getLabel()));
+        }
+
+        $log = app(ActivityLog::class);
+        $title = trim(strip_tags((string) $this->getTitle()));
+        $changes = array_map(fn (string $path) => [
+            'field' => $path,
+            'label' => Str::lower($labels[$path] ?? '') ?: $log->describer()->label(Str::afterLast($path, '.')),
+            'old' => null,
+            'new' => null,
+        ], $changed);
+
+        $log->record('updated', $log->describer()->settings($title, $changes), changes: $changes, area: 'Settings', subjectName: $title, subjectType: 'Settings');
     }
 }

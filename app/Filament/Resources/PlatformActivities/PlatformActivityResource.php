@@ -3,18 +3,20 @@
 namespace App\Filament\Resources\PlatformActivities;
 
 use App\Contracts\AdminIdentity;
+use App\Filament\Support\ActivityTable;
 use App\Models\PlatformActivity;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Who changed which account or platform record. Read-only, and it never holds a value.
+ * Who did what across the platform: account and platform records, and everything client staff
+ * do in their own panel. Read-only; each line reads as a sentence (ActivityTable).
  * A Super Admin sees everyone's activity; platform staff see only their own.
  */
 class PlatformActivityResource extends Resource
@@ -58,28 +60,18 @@ class PlatformActivityResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->defaultSort('created_at', 'desc')
-            ->columns([
-                TextColumn::make('created_at')->label('When')->dateTime('d M Y, H:i')->sortable(),
-                TextColumn::make('actor')->label('Who')
-                    ->visible(fn () => (bool) filament()->auth()->user()?->isSuperAdmin())->searchable()->description(fn (PlatformActivity $r) => $r->actor_type),
-                TextColumn::make('action')->badge()->color(fn (string $state) => match ($state) {
-                    'created' => 'success',
-                    'deleted', 'deleted permanently' => 'danger',
-                    'restored' => 'warning',
-                    default => 'gray',
-                }),
-                TextColumn::make('subject_type')->label('Type'),
-                TextColumn::make('subject')->label('Record')->searchable(),
-                TextColumn::make('client.name')->label('Client')->placeholder('—'),
-                TextColumn::make('changed')->label('Changed')->placeholder('—')
-                    ->state(fn (PlatformActivity $r) => implode(', ', $r->fields ?? [])),
-            ])
-            ->filters([
-                SelectFilter::make('client_id')->label('Client')->relationship('client', 'name'),
-                SelectFilter::make('action')->options(['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted', 'restored' => 'Restored', 'deleted permanently' => 'Deleted permanently']),
-            ]);
+        return ActivityTable::configure(
+            $table,
+            showActor: (bool) filament()->auth()->user()?->isSuperAdmin(),
+            areas: fn () => static::getEloquentQuery()->whereNotNull('area')->distinct()->orderBy('area')->pluck('area', 'area')->all(),
+            showClient: true,
+            extraFilters: [SelectFilter::make('client_id')->label('Client')->relationship('client', 'name')->searchable()],
+        );
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return ActivityTable::infolist($schema);
     }
 
     public static function getPages(): array

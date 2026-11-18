@@ -130,6 +130,10 @@ class OrderInfolist
                 TextEntry::make('email')->icon('heroicon-m-envelope')->copyable()->copyMessage('Email copied'),
                 TextEntry::make('phone')->icon('heroicon-m-phone')->copyable()->copyMessage('Phone copied')
                     ->visible(fn (Order $r) => filled($r->phone)),
+                // A sales order: who placed it, and whether for themselves or for this customer.
+                TextEntry::make('salesperson')->label('Placed by sales person')->icon('heroicon-m-briefcase')
+                    ->state(fn (Order $r) => $r->salesperson?->name.((int) $r->salesperson_id === (int) $r->customer_id ? ' (for themselves)' : ''))
+                    ->visible(fn (Order $r) => $r->isSalesOrder()),
             ]);
     }
 
@@ -153,7 +157,7 @@ class OrderInfolist
 
     private static function address(): Section
     {
-        return Section::make('Shipping address')
+        return Section::make(fn (Order $r) => $r->isSalesOrder() ? 'Store address (no delivery)' : 'Shipping address')
             ->icon('heroicon-o-map-pin')
             ->schema([
                 TextEntry::make('shipping_address')->hiddenLabel()

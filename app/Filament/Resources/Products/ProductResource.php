@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products;
 
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\RelationManagers\HistoryRelationManager;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
@@ -51,6 +52,7 @@ class ProductResource extends Resource
     {
         return [
             ReviewsRelationManager::class,
+            HistoryRelationManager::class,
         ];
     }
 

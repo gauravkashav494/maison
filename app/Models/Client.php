@@ -27,7 +27,7 @@ use Illuminate\Validation\ValidationException;
  */
 class Client extends Model
 {
-    use Concerns\LogsPlatformActivity;
+    use Concerns\LogsActivity;
     use SoftDeletes;
     use UsesPlatformConnection;
 
@@ -105,6 +105,12 @@ class Client extends Model
         return $this->modules === null
             || ClientModules::isCore($module)
             || in_array($module, $this->modules, true);
+    }
+
+    /** Every activity-log line about this client: its staff's work and changes to the account. */
+    public function activity(): HasMany
+    {
+        return $this->hasMany(PlatformActivity::class);
     }
 
     public function customers(): HasMany

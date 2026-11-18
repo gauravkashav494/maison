@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\Orders\Tables;
 
+use App\Clients\ClientContext;
 use App\Filament\Resources\Orders\OrderStatusActions;
 use App\Filament\Support\RowActions;
+use App\Models\Customer;
 use App\Models\Order;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -14,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,6 +47,8 @@ class OrdersTable
                         : $state),
                 TextColumn::make('created_at')->label('Placed')->dateTime('d M Y, H:i')->sortable(),
                 TextColumn::make('shipping_name')->label('Customer')->searchable()->description(fn (Order $r) => $r->email),
+                // Orders a sales person placed (for themselves or a customer): no delivery.
+                TextColumn::make('salesperson.name')->label('Placed by')->badge()->color('info')->placeholder('—')->toggleable(),
                 TextColumn::make('items_count')->counts('items')->label('Items')->alignRight(),
                 TextColumn::make('total')->formatStateUsing(fn (float $state) => money($state))->sortable()->alignRight(),
                 TextColumn::make('payment_method')->formatStateUsing(fn ($state) => Order::PAYMENT_METHODS[$state] ?? $state)->badge()->color('gray'),
@@ -62,6 +67,17 @@ class OrdersTable
                 // Several statuses at once, so "confirmed + processing" (still to fulfil) is one view.
                 SelectFilter::make('status')->options(Order::statusOptions())->multiple()->native(false),
                 SelectFilter::make('payment_method')->options(Order::PAYMENT_METHODS)->native(false),
+                // Each sales person's orders, or every sales order at once.
+                SelectFilter::make('salesperson_id')->label('Placed by sales person')->native(false)->searchable()
+                    ->options(fn () => Customer::where('client_id', app(ClientContext::class)->id() ?? 0)
+                        ->where('is_salesperson', true)->orderBy('name')->pluck('name', 'id')->all()),
+                TernaryFilter::make('sales_order')->label('Sales orders')
+                    ->trueLabel('Sales orders only')->falseLabel('Customer orders only')
+                    ->queries(
+                        true: fn (Builder $q) => $q->whereNotNull('salesperson_id'),
+                        false: fn (Builder $q) => $q->whereNull('salesperson_id'),
+                        blank: fn (Builder $q) => $q,
+                    ),
 
                 // One exact day, for "what came in on the 14th".
                 Filter::make('placed_on')

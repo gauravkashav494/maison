@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
  * asked, the address saved to the customer's account. The cart is emptied afterwards.
  *
  * Used by the checkout form for a signed-in customer, and after the WhatsApp code for a
- * shopper who checked out without an account.
+ * shopper who checked out without an account. A sales person's order comes here prepared by
+ * SalesOrder::prepare(): the store's address, the customer it is for and `salesperson_id`.
  */
 class PlaceOrder
 {
@@ -39,7 +40,9 @@ class PlaceOrder
         if ($cart['unavailable'] !== []) {
             throw new InsufficientStockException([]);
         }
-        $codFee = $data['payment_method'] === 'cod' ? (float) setting('checkout.cod_fee', 0) : 0.0;
+        // A sales order is handed over at the store: no cash-on-delivery handling fee.
+        $salesOrder = filled($data['salesperson_id'] ?? null);
+        $codFee = $data['payment_method'] === 'cod' && ! $salesOrder ? (float) setting('checkout.cod_fee', 0) : 0.0;
 
         // Orders, items and stock live on the client connection; addresses and coupons may live on
         // the central one. Wrap both so a late failure doesn't leave a half-placed order behind.
@@ -63,12 +66,14 @@ class PlaceOrder
         // The products are locked until the order is committed, so two checkouts for the last few
         // units cannot both read the same stock: the second waits, then sees what the first left.
         $products = $this->lockAndCheckStock($cart['items']);
+        $salesOrder = filled($data['salesperson_id'] ?? null);
 
         $order = Order::create([
             'number' => Order::generateNumber(),
             'template' => template()->id(),
             // A guest's order is kept against a customer record for their email (when they give one), as on most stores.
             'customer_id' => GuestCustomer::idFor($customer, $data['email'] ?? null, $data['shipping_name'], $data['phone']),
+            'salesperson_id' => $data['salesperson_id'] ?? null,
             'status' => 'confirmed',
             'email' => filled($data['email'] ?? null) ? strtolower($data['email']) : null,
             'phone' => $data['phone'],
@@ -92,9 +97,9 @@ class PlaceOrder
             'tax_label' => GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
             'prices_include_tax' => $cart['tax_inclusive'],
             'total' => $cart['total'] + $codFee,
-            'estimated_delivery' => now()->addDays(5),
+            'estimated_delivery' => $salesOrder ? null : now()->addDays(5),
             'notes' => $data['notes'] ?? null,
-            'status_history' => [['status' => 'confirmed', 'at' => now()->toIso8601String(), 'note' => 'Order placed']],
+            'status_history' => [['status' => 'confirmed', 'at' => now()->toIso8601String(), 'note' => $salesOrder ? 'Order placed by sales' : 'Order placed']],
         ]);
 
         foreach ($cart['items'] as $line) {
@@ -125,7 +130,7 @@ class PlaceOrder
             Coupon::where('code', $cart['coupon']['code'])->increment('used_count');
         }
 
-        if ($customer && $saveAddress) {
+        if ($customer && $saveAddress && ! $salesOrder) {
             $customer->addresses()->create([
                 'name' => $data['shipping_name'],
                 'phone' => $data['phone'],

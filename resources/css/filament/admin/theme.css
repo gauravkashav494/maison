@@ -288,15 +288,18 @@ a.fi-admin-row:hover { background: var(--row-hover); }
    A floating card on a deep navy backdrop: image + serif quote on the left,
    an airy form on the right. Collapses to a single column with a short image
    banner on phones. */
-.fi-login { position: relative; display: flex; min-height: 100dvh; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; padding: 2rem 1.25rem; overflow: hidden; background: radial-gradient(120% 90% at 10% 0%, #1f3d6b 0%, #14274a 45%, #0c1830 100%); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+.fi-login { position: relative; display: flex; width: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; padding: 2rem 1.25rem; overflow: clip; background: radial-gradient(120% 90% at 10% 0%, #1f3d6b 0%, #14274a 45%, #0c1830 100%); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+@media (max-height: 700px) { .fi-login { height: auto; min-height: 100vh; min-height: 100dvh; } }
+/* overflow: clip (not hidden) so the glows never give Filament's scroll-to-error a hidden scroll range to jump through. */
+.fi-login-glows { position: absolute; inset: 0; overflow: clip; pointer-events: none; }
 .fi-login-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; opacity: 0.55; }
 .fi-login-glow-a { top: -12rem; right: -8rem; width: 34rem; height: 34rem; background: #3b6fd1; }
 .fi-login-glow-b { bottom: -14rem; left: -6rem; width: 30rem; height: 30rem; background: #c9a24a; opacity: 0.22; }
 
-.fi-login-card { position: relative; display: grid; width: 100%; max-width: 68rem; grid-template-columns: 1fr; overflow: hidden; border-radius: 1.5rem; background: var(--card-bg); box-shadow: 0 40px 90px -30px rgba(3, 10, 25, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.fi-login-card { position: relative; display: grid; width: 100%; max-width: 68rem; grid-template-columns: 1fr; overflow: clip; border-radius: 1.5rem; background: var(--card-bg); box-shadow: 0 40px 90px -30px rgba(3, 10, 25, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06); }
 @media (min-width: 1024px) { .fi-login-card { grid-template-columns: 1.1fr 1fr; min-height: 38rem; } }
 
-.fi-login-visual { position: relative; min-height: 11rem; overflow: hidden; background: #1c3557 center / cover no-repeat; color: #fff; }
+.fi-login-visual { position: relative; min-height: 11rem; overflow: clip; background: #1c3557 center / cover no-repeat; color: #fff; }
 .fi-login-visual-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 24, 48, 0.25) 0%, rgba(12, 24, 48, 0.35) 45%, rgba(12, 24, 48, 0.9) 100%); }
 .fi-login-visual-body { position: relative; display: flex; height: 100%; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
 @media (min-width: 1024px) { .fi-login-visual-body { padding: 2.5rem; } }
@@ -317,6 +320,13 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-kicker { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #b8963f; }
 .fi-login-title { margin-top: 0.4rem; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
 .fi-login-subtitle { margin-top: 0.4rem; margin-bottom: 1.75rem; font-size: 0.875rem; color: var(--ink-soft); }
+.fi-login-throttle { display: flex; align-items: center; gap: 0.8rem; margin: -0.7rem 0 1rem; padding: 0.75rem 0.85rem; border: 1px solid #ead8aa; border-radius: 0.75rem; background: linear-gradient(135deg, #fffaf0, #fff); color: var(--ink); box-shadow: 0 5px 16px rgba(30, 40, 55, 0.06); }
+.fi-login-throttle-clock { display: flex; flex: 0 0 3.15rem; flex-direction: column; align-items: center; justify-content: center; min-height: 3.15rem; border: 1px solid #ecdbaF; border-radius: 0.65rem; background: #f8efd9; color: #775714; font-variant-numeric: tabular-nums; line-height: 1; }
+.fi-login-throttle-clock strong { font-size: 1.15rem; font-weight: 800; }
+.fi-login-throttle-clock span { margin-top: 0.25rem; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.12em; }
+.fi-login-throttle-copy { display: grid; gap: 0.2rem; min-width: 0; }
+.fi-login-throttle-title { color: var(--ink); font-size: 0.8rem; font-weight: 750; }
+.fi-login-throttle-message { color: var(--ink-soft); font-size: 0.72rem; line-height: 1.4; }
 .fi-login .fi-simple-page-content { display: flex; flex-direction: column; gap: 1.1rem; }
 .fi-login .fi-fo-field-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-muted); }
 .fi-login .fi-input-wrp { border-radius: 0.7rem; background: var(--thead-bg); --tw-ring-color: var(--card-line); box-shadow: 0 0 0 1px var(--tw-ring-color); }
@@ -406,6 +416,10 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login[data-style="midnight"] .fi-btn { background: #fff !important; color: #101c30 !important; }
 .fi-login[data-style="midnight"] .fi-btn:hover { filter: none; background: #e2c887 !important; box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7); }
 .fi-login[data-style="midnight"] .fi-login-help { color: rgba(255, 255, 255, 0.5); }
+.fi-login[data-style="midnight"] .fi-login-throttle { border-color: rgba(226, 200, 135, 0.3); background: rgba(20, 27, 44, 0.82); color: #fff; }
+.fi-login[data-style="midnight"] .fi-login-throttle-clock { border-color: rgba(226, 200, 135, 0.35); background: rgba(226, 200, 135, 0.12); color: #f0d58e; }
+.fi-login[data-style="midnight"] .fi-login-throttle-title { color: #fff; }
+.fi-login[data-style="midnight"] .fi-login-throttle-message { color: rgba(255, 255, 255, 0.7); }
 .fi-login[data-style="midnight"] .fi-login-foot { color: rgba(255, 255, 255, 0.6); }
 
 /* ---- Sign-in style: Minimal --------------------------------------------------

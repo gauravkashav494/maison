@@ -13,7 +13,10 @@
             {{-- Contact & delivery address --}}
             <fieldset class="card p-4 sm:p-5">
                 <legend class="sr-only">Contact and delivery address</legend>
-                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-extrabold">Contact &amp; delivery address</h2></div>@guest<p class="text-xs text-slate">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-primary underline underline-offset-2">Log in</a> to use your saved addresses and GST details.</p>@endguest</div>
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-extrabold">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2></div>@guest<p class="text-xs text-slate">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-primary underline underline-offset-2">Log in</a> to use your saved addresses and GST details.</p>@endguest</div>
+                @if($salesOrder ?? false)
+                    @include('partials.checkout.sales-order', ['labelClass' => 'label', 'fieldClass' => 'field', 'errorClass' => 'error-text', 'radioClass' => 'check'])
+                @else
                 <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
                     <label class="col-span-2 sm:col-span-4"><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
@@ -26,10 +29,13 @@
                     <label class="sm:col-span-3"><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="field" autocomplete="country-name">@error('shipping_country')<span class="error-text">{{ $message }}</span>@enderror</label>
                 </div>
                 @auth<label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" name="save_address" value="1" class="check" checked> Save this address for next time</label>@endauth
+                @endif
             </fieldset>
 
             {{-- Delivery & payment --}}
             <div class="card divide-y divide-line">
+            {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
+            @unless($salesOrder ?? false)
             <fieldset class="p-4 sm:p-5">
                 <legend class="sr-only">Delivery option</legend>
                 <div class="flex items-center gap-3"><span class="step-num">2</span><h2 class="text-base font-extrabold">Delivery option<span class="req" aria-hidden="true">*</span></h2></div>
@@ -47,6 +53,7 @@
                     @endforeach
                 </div>
             </fieldset>
+            @endunless
 
             {{-- Payment --}}
             <fieldset class="p-4 sm:p-5">
@@ -127,6 +134,7 @@
                     @endif
                     <div class="flex justify-between border-t border-line pt-3 text-base font-extrabold"><dt>To pay</dt><dd class="tabular" x-text="fmt(($store.cart.loaded ? $store.cart.total : {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
+                @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-line pt-3', 'labelClass' => 'text-sm font-extrabold', 'inputClass' => 'field h-10 min-w-0 flex-1 uppercase', 'buttonClass' => 'btn btn-outline h-10 shrink-0', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 rounded-lg bg-sky px-3 py-2 text-sm', 'removeClass' => 'shrink-0 text-xs font-semibold text-slate hover:text-danger', 'errorClass' => 'error-text mt-2'])
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-slate">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
                 @guest<p class="mt-2 text-center text-xs text-slate">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest

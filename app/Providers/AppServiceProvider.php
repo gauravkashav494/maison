@@ -26,9 +26,12 @@ use App\Policies\PlanPolicy;
 use App\Policies\PlatformActivityPolicy;
 use App\Policies\StorefrontPolicy;
 use App\Policies\UserPolicy;
+use App\Support\Activity\ActivityLog;
+use App\Support\Activity\SignInActivity;
 use App\Support\DatabaseMacros;
 use App\Templates\TemplateManager;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Schemas\Components\Form;
 use Filament\Support\Enums\Width;
 use Filament\Support\Facades\FilamentIcon;
@@ -68,6 +71,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(StoreFeatures::class);
         // After sign-in, never send an account back to a page it is not allowed to open.
         $this->app->bind(\Filament\Auth\Http\Responses\Contracts\LoginResponse::class, LoginResponse::class);
+        // One log per request, so a bulk action's held-back lines are written together.
+        $this->app->singleton(ActivityLog::class);
         $this->app->singleton(TemplateManager::class, fn () => new TemplateManager(config('templates.templates', [])));
     }
 
@@ -140,6 +145,15 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Customer::class, CustomerPolicy::class);
         Gate::policy(ClientRole::class, ClientRolePolicy::class);
         Gate::policy(PlatformActivity::class, PlatformActivityPolicy::class);
+
+        // Activity log: sign-ins of client staff, and one line per bulk action rather than one
+        // per record ("moved 12 products to the trash: …"). Lines still held when the request
+        // ends (an action that stopped half way) are written then, one by one.
+        SignInActivity::register();
+        BulkAction::configureUsing(fn (BulkAction $action) => $action
+            ->before(fn () => app(ActivityLog::class)->startGroup())
+            ->after(fn () => app(ActivityLog::class)->flush()));
+        $this->app->terminating(fn () => app(ActivityLog::class)->flush());
 
         // Inline table edits write straight to the row without calling a policy.
         ToggleColumn::configureUsing(fn ($column) => $column->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record)));

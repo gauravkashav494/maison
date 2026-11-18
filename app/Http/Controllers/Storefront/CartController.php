@@ -14,6 +14,7 @@ use App\Models\Subscriber;
 use App\Services\Cart;
 use App\Services\PlaceOrder;
 use App\Support\CustomerOtp;
+use App\Support\SalesOrder;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -182,17 +183,33 @@ class CartController extends Controller
         $default = $user?->addresses()->where('is_default', true)->first() ?? $user?->addresses()->first();
 
         $payments = Order::checkoutPaymentMethods();
+        $salesOrder = SalesOrder::active();
 
         return view('shop.checkout', [
             'cart' => $cart,
             'shippingMethods' => $this->cart->shippingMethods(),
             'paymentMethods' => $payments,
-            'codFee' => (float) setting('checkout.cod_fee', 0),
+            'codFee' => $salesOrder ? 0.0 : (float) setting('checkout.cod_fee', 0),
             'user' => $user,
             'address' => $default,
             'unavailableNotice' => $unavailableNotice,
+            // A sales person: who the order is for instead of an address and a delivery method.
+            'salesOrder' => $salesOrder,
+            'storeAddress' => $salesOrder ? SalesOrder::storeAddress() : null,
             'seo' => Seo::simple('Checkout', null, noindex: true),
         ]);
+    }
+
+    /** Private, client-scoped lookup used to fill a known customer's name for a sales order. */
+    public function salesCustomerLookup(Request $request): JsonResponse
+    {
+        $salesperson = SalesOrder::salesperson();
+        abort_unless($salesperson, 404);
+
+        $data = $request->validate(['phone' => ['required', 'string', 'regex:/^\d{10}$/']]);
+        $customer = SalesOrder::existingCustomerByPhone((int) $salesperson->client_id, $data['phone']);
+
+        return response()->json(['name' => $customer?->name, 'email' => $customer?->email]);
     }
 
     public function placeOrder(CheckoutRequest $request, PlaceOrder $placeOrder, CustomerOtp $otp): RedirectResponse
@@ -222,8 +239,14 @@ class CartController extends Controller
             return redirect()->route('otp.verify');
         }
 
+        // A sales person: no address (the store's is used), for themselves or a customer they serve.
+        $customer = $request->user();
+        if ($salesperson = SalesOrder::salesperson()) {
+            [$data, $customer] = SalesOrder::prepare($data, $salesperson);
+        }
+
         try {
-            $order = $placeOrder($data, $request->user(), $request->boolean('save_address'));
+            $order = $placeOrder($data, $customer, ! $salesperson && $request->boolean('save_address'));
         } catch (InsufficientStockException) {
             // Bought by someone else (or in another window) meanwhile: the cart now holds what is
             // left, and the checkout page says what changed before the shopper places it again.

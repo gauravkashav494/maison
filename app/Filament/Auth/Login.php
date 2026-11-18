@@ -8,7 +8,9 @@ use App\Models\ClientUser;
 use App\Models\Setting;
 use App\Support\Media;
 use App\Templates\Template;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Notifications\Notification;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +27,28 @@ class Login extends BaseLogin
 
     /** Full-bleed layout (no centred card) so the page can split into visual + form. */
     protected static string $layout = 'filament-panels::components.layout.base';
+
+    /** Unix time when the current login throttle expires, for the visible countdown. */
+    public ?int $retryUntil = null;
+
+    /** Keep each store's failed sign-ins independent, including stores behind custom domains. */
+    protected function getRateLimitKey($method, $component = null): string
+    {
+        $method ??= debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, limit: 2)[1]['function'];
+        $component ??= static::class;
+        $scope = $this->isPlatform()
+            ? 'platform'
+            : 'client:'.($this->hostClientId() ?? request()->getHost());
+
+        return 'livewire-rate-limiter:'.sha1($component.'|'.$method.'|'.$scope.'|'.request()->ip());
+    }
+
+    protected function getRateLimitedNotification(TooManyRequestsException $exception): ?Notification
+    {
+        $this->retryUntil = now()->addSeconds($exception->secondsUntilAvailable)->timestamp;
+
+        return parent::getRateLimitedNotification($exception);
+    }
 
     public const STYLES = [
         'classic' => 'Classic — floating split card on navy',

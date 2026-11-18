@@ -3,7 +3,7 @@
 @section('content')
 <x-account-shell :title="'Welcome, ' . $user->firstName()">
     <div class="grid gap-6 sm:grid-cols-3">
-        <a href="{{ route('account.orders') }}" class="group border border-ink/10 bg-cream p-6"><p class="eyebrow text-taupe">Orders</p><p class="mt-3 font-serif text-4xl">{{ $user->orders()->count() }}</p><span class="link-underline mt-3 inline-block text-[0.625rem] uppercase tracking-[0.2em]">View all →</span></a>
+        <a href="{{ route('account.orders') }}" class="group border border-ink/10 bg-cream p-6"><p class="eyebrow text-taupe">Orders</p><p class="mt-3 font-serif text-4xl">{{ $ordersCount }}</p><span class="link-underline mt-3 inline-block text-[0.625rem] uppercase tracking-[0.2em]">View all →</span></a>
         <a href="{{ route('account.wishlist') }}" class="group border border-ink/10 bg-cream p-6" x-data><p class="eyebrow text-taupe">Wishlist</p><p class="mt-3 font-serif text-4xl" x-text="$store.wishlist.count">0</p><span class="link-underline mt-3 inline-block text-[0.625rem] uppercase tracking-[0.2em]">View →</span></a>
         <a href="{{ route('account.addresses') }}" class="group border border-ink/10 bg-cream p-6"><p class="eyebrow text-taupe">Addresses</p><p class="mt-3 font-serif text-4xl">{{ $user->addresses()->count() }}</p><span class="link-underline mt-3 inline-block text-[0.625rem] uppercase tracking-[0.2em]">Manage →</span></a>
     </div>
@@ -17,7 +17,7 @@
                 @foreach($orders as $order)
                     <li><a href="{{ route('account.order', $order->number) }}" class="flex flex-wrap items-center gap-4 py-5 hover:bg-cream/60 sm:gap-6">
                         <div class="flex -space-x-3">@foreach($order->items->take(3) as $item)<span class="relative h-14 w-11 overflow-hidden border-2 border-ivory bg-sand">@if($item->image_url)<img src="{{ $item->image_url }}" alt="" class="img-cover">@endif</span>@endforeach</div>
-                        <div class="min-w-0 flex-1"><p class="font-serif text-lg">{{ $order->number }}</p><p class="text-xs text-smoke">{{ $order->created_at->format('d M Y') }} · {{ $order->items->sum('qty') }} items</p></div>
+                        <div class="min-w-0 flex-1"><p class="font-serif text-lg">{{ $order->number }}</p><p class="text-xs text-smoke">{{ $order->created_at->format('d M Y') }} · {{ $order->items->sum('qty') }} items @if((int) $order->salesperson_id === (int) $user->id && (int) $order->customer_id !== (int) $user->id) · Placed for {{ $order->shipping_name }}@endif</p></div>
                         <span class="text-[0.625rem] uppercase tracking-[0.2em] {{ $order->status === 'delivered' ? 'text-emerald-700' : ($order->status === 'cancelled' ? 'text-rouge' : 'text-ink') }}">{{ $order->statusLabel() }}</span>
                         <span class="tabular-nums">{{ money($order->total) }}</span>
                     </a></li>

@@ -416,7 +416,9 @@ class ClientPermissionsTest extends TestCase
 
     public function test_every_client_screen_is_covered_by_the_catalogue(): void
     {
-        $accounts = ['ClientUser', 'ClientRole']; // managed by Client Admins only, by their own policies
+        // Accounts are managed by Client Admins only, by their own policies; the activity log is
+        // read-only and open to every staff member (their own lines, or the team's for an admin).
+        $accounts = ['ClientUser', 'ClientRole', 'PlatformActivity'];
 
         foreach (ClientPanelProvider::RESOURCES as $resource) {
             $model = $resource::getModel();

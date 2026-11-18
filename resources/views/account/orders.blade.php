@@ -9,7 +9,7 @@
             @foreach($orders as $order)
                 <li><a href="{{ route('account.order', $order->number) }}" class="flex flex-wrap items-center gap-4 py-5 hover:bg-cream/60 sm:gap-6">
                     <div class="flex -space-x-3">@foreach($order->items->take(3) as $item)<span class="relative h-16 w-12 overflow-hidden border-2 border-ivory bg-sand">@if($item->image_url)<img src="{{ $item->image_url }}" alt="" class="img-cover">@endif</span>@endforeach</div>
-                    <div class="min-w-0 flex-1"><p class="font-serif text-lg">{{ $order->number }}</p><p class="text-xs text-smoke">{{ $order->created_at->format('d M Y') }} · {{ $order->items->sum('qty') }} items · {{ \App\Models\Order::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method }}</p></div>
+                    <div class="min-w-0 flex-1"><p class="font-serif text-lg">{{ $order->number }}</p><p class="text-xs text-smoke">{{ $order->created_at->format('d M Y') }} · {{ $order->items->sum('qty') }} items · {{ \App\Models\Order::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method }} @if((int) $order->salesperson_id === (int) $user->id && (int) $order->customer_id !== (int) $user->id) · Placed for {{ $order->shipping_name }}@endif</p></div>
                     <span class="text-[0.625rem] uppercase tracking-[0.2em] {{ $order->status === 'delivered' ? 'text-emerald-700' : ($order->status === 'cancelled' ? 'text-rouge' : 'text-ink') }}">{{ $order->statusLabel() }}</span>
                     <span class="tabular-nums">{{ money($order->total) }}</span>
                     <x-ico name="arrow-right" :size="14" class="text-taupe" />

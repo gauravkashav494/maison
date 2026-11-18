@@ -21,7 +21,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
 {
-    use Concerns\LogsPlatformActivity, Concerns\StoresPasswordHint, HasFactory, Notifiable;
+    use Concerns\LogsActivity, Concerns\StoresPasswordHint, HasFactory, Notifiable;
     use SoftDeletes;
     use UsesPlatformConnection;
 

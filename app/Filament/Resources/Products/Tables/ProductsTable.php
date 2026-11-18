@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Products\Tables;
 
 use App\Clients\StoreFeatures;
 use App\Filament\Support\RowActions;
+use App\Filament\Resources\Products\ProductRestoreActions;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
@@ -88,9 +89,9 @@ class ProductsTable
                 TernaryFilter::make('is_new')->label('New arrival'),
                 TernaryFilter::make('is_best_seller')->label('Best seller'),
             ])
-            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
+            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash(restore: ProductRestoreActions::restore())])])
             ->toolbarActions([
-                BulkActionGroup::make(RowActions::trashBulk()),
+                BulkActionGroup::make(RowActions::trashBulk(restore: ProductRestoreActions::restoreBulk())),
             ]);
     }
 }

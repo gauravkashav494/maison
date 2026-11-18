@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Plan extends Model
 {
-    use Concerns\LogsPlatformActivity;
+    use Concerns\LogsActivity;
     use SoftDeletes;
     use UsesPlatformConnection;
 

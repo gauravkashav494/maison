@@ -17,6 +17,9 @@ use Illuminate\Support\Carbon;
  * Customers live in the platform database and are scoped by client: the same person
  * shopping with two clients has two accounts, and neither client can see the other's.
  * They have no admin access of any kind.
+ *
+ * A sales person (is_salesperson, set only in the admin) is a customer account whose orders
+ * need no delivery address: see SalesOrder.
  */
 class Customer extends Authenticatable
 {
@@ -24,7 +27,7 @@ class Customer extends Authenticatable
     use SoftDeletes;
     use UsesPlatformConnection;
 
-    protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'is_active'];
+    protected $fillable = ['client_id', 'name', 'email', 'phone', 'password', 'is_active', 'is_salesperson'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -35,6 +38,7 @@ class Customer extends Authenticatable
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_salesperson' => 'boolean',
         ];
     }
 
@@ -70,6 +74,18 @@ class Customer extends Authenticatable
     public function isAccount(): bool
     {
         return $this->password !== null || $this->phone_verified_at !== null;
+    }
+
+    /** A sales person: checks out without a delivery address, for themselves or for a customer (SalesOrder). */
+    public function isSalesperson(): bool
+    {
+        return (bool) $this->is_salesperson;
+    }
+
+    /** Orders this sales person placed, for themselves or for customers. */
+    public function salesOrders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'salesperson_id')->latest();
     }
 
     /** Only real accounts (see isAccount()). */

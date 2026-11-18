@@ -3,6 +3,7 @@
 use App\Templates\TemplateManager;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -22,3 +23,7 @@ Artisan::command('template:install {template}', function (TemplateManager $templ
     $this->info("{$t->name()} demo content installed (settings, menus, catalogue).");
 })->purpose('Seed a template\'s demo content (idempotent)');
 
+// ---- Housekeeping ----------------------------------------------------------
+
+// Activity-log lines older than PlatformActivity::KEEP_MONTHS (and anything else prunable).
+Schedule::command('model:prune')->daily();

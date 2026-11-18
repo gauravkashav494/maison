@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Categories\Schemas;
 
 use App\Filament\Support\Fields;
+use App\Models\Category;
+use App\Rules\NotOwnDescendantCategory;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -28,7 +30,9 @@ class CategoryForm
                                 ...Fields::nameAndSlug(),
                                 Select::make('parent_id')
                                     ->label('Parent category')
-                                    ->relationship('parent', 'name', fn ($query, $record) => $record ? $query->whereKeyNot($record->getKey()) : $query)
+                                    // Hide the category itself and everything below it: picking one would make a loop.
+                                    ->relationship('parent', 'name', fn ($query, ?Category $record) => $record ? $query->whereKeyNot([$record->getKey(), ...$record->descendantIds()]) : $query)
+                                    ->rule(fn (?Category $record) => new NotOwnDescendantCategory($record))
                                     ->searchable()
                                     ->preload()
                                     ->placeholder('None (top level)'),

@@ -34,6 +34,8 @@ class ClientContext
 
     private bool $resolved = false;
 
+    private bool $public = false;
+
     private string $source = 'none';
 
     /** Signed-in admin: a client's staff is locked to its own client, a SuperAdmin may choose. */
@@ -69,6 +71,7 @@ class ClientContext
         $this->resolved = true;
         $this->client = $client && $client->is_active ? $client : null;
         $this->locked = true;
+        $this->public = true;
         $this->source = $this->client ? $source : 'none';
     }
 
@@ -83,6 +86,7 @@ class ClientContext
         $this->locked = false;
         $this->superAdmin = false;
         $this->resolved = false;
+        $this->public = false;
         $this->source = 'none';
     }
 
@@ -115,6 +119,12 @@ class ClientContext
     public function isLocked(): bool
     {
         return $this->locked;
+    }
+
+    /** A storefront request: whatever happens here is a shopper's doing, never a staff member's. */
+    public function isPublic(): bool
+    {
+        return $this->public;
     }
 
     /** A platform session (Super Admin or platform staff), as opposed to a client's or a storefront's. */

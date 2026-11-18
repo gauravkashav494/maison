@@ -92,6 +92,18 @@ class Order extends Model
         return $this->belongsTo(Customer::class)->withTrashed();
     }
 
+    /** The sales person who placed this order (for themselves or for the customer), if a sales person did. */
+    public function salesperson(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'salesperson_id')->withTrashed();
+    }
+
+    /** Placed by a sales person: no delivery, the store's own address is on the order. */
+    public function isSalesOrder(): bool
+    {
+        return $this->salesperson_id !== null;
+    }
+
     /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
     public function user(): BelongsTo
     {
@@ -349,7 +361,8 @@ class Order extends Model
             $this->shipping_name,
             $this->shipping_line1,
             $this->shipping_line2,
-            trim("{$this->shipping_city}, {$this->shipping_state} {$this->shipping_postal_code}"),
+            // A store address kept on a sales order may have no city or PIN code.
+            trim(implode(', ', array_filter([$this->shipping_city, trim("{$this->shipping_state} {$this->shipping_postal_code}")]))),
             $this->shipping_country,
         ]));
     }

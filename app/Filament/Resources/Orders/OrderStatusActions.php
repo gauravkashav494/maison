@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Models\Order;
+use App\Support\Activity\ActivityLog;
 use App\Support\Invoice;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -51,6 +52,7 @@ class OrderStatusActions
             ->color('gray')
             ->action(function (Order $record) {
                 $invoice = Invoice::for($record);
+                app(ActivityLog::class)->record('downloaded', 'downloaded the invoice of '.app(ActivityLog::class)->describer()->reference($record), $record);
 
                 return response()->streamDownload(fn () => print ($invoice->output()), $invoice->filename(), ['Content-Type' => 'application/pdf']);
             });

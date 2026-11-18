@@ -30,10 +30,15 @@ class CouponForm
                     ->hidden(fn (Get $get) => $get('type') === 'free_shipping'),
             ]),
             Section::make('Rules')->columns(2)->schema([
-                TextInput::make('min_subtotal')->label('Minimum subtotal')->numeric()->prefix('₹')->default(0),
+                TextInput::make('min_subtotal')->label('Minimum subtotal')->numeric()->minValue(0)
+                    ->rule('gte:0')
+                    ->validationMessages(['min' => 'Minimum subtotal cannot be negative.', 'gte' => 'Minimum subtotal cannot be negative.'])
+                    ->extraInputAttributes(['min' => '0', 'onkeydown' => "if (event.key === '-') event.preventDefault()"])
+                    ->prefix('₹')->default(0),
                 TextInput::make('usage_limit')->label('Total uses allowed')->numeric()->minValue(1)->placeholder('Unlimited'),
-                DateTimePicker::make('starts_at')->native(false)->seconds(false),
-                DateTimePicker::make('ends_at')->native(false)->seconds(false),
+                DateTimePicker::make('starts_at')->native(false)->seconds(false)->live(),
+                DateTimePicker::make('ends_at')->native(false)->seconds(false)->afterOrEqual('starts_at')
+                    ->validationMessages(['after_or_equal' => 'The end date must be on or after the start date.']),
                 Toggle::make('is_active')->label('Active')->default(true),
             ]),
             Grid::make(1)->schema([

@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Clients\ClientModules;
-use App\Models\Concerns\LogsPlatformActivity;
+use App\Models\Concerns\LogsActivity;
 use App\Models\Concerns\UsesPlatformConnection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class ClientRole extends Model
 {
-    use LogsPlatformActivity;
+    use LogsActivity;
     use SoftDeletes;
     use UsesPlatformConnection;
 

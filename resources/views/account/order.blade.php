@@ -14,6 +14,13 @@
         </div>
     </div>
 
+    @if((int) $order->salesperson_id === (int) $user->id && (int) $order->customer_id !== (int) $user->id)
+        <div class="mt-6 border border-ink/10 bg-cream px-5 py-4 text-sm">
+            <span class="eyebrow text-taupe">Sales order</span>
+            <p class="mt-1">You placed this order for <strong>{{ $order->shipping_name }}</strong>@if($order->phone) · {{ $order->phone }}@endif.</p>
+        </div>
+    @endif
+
     <div class="py-10"><x-order-timeline :order="$order" /></div>
 
     <x-order-cancel :order="$order" class="mb-10" />

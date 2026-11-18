@@ -13,7 +13,9 @@ use App\Http\Requests\Storefront\RegisterRequest;
 use App\Http\Requests\Storefront\ResetPasswordRequest;
 use App\Models\Address;
 use App\Models\Customer;
+use App\Models\Order;
 use App\Support\CustomerOtp;
+use App\Support\PhoneNumber;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -52,6 +54,20 @@ class AccountController extends Controller
     {
         $credentials = $request->safe()->only(['phone', 'password']);
         $clientId = $this->clientId();
+
+        // New customer records use the display form (+91 95017 32031), while older records
+        // and storefront forms may use national digits. Match both saved forms of this phone.
+        $phone = $credentials['phone'];
+        $formattedPhone = PhoneNumber::format('IN', $phone);
+        $phoneForms = array_values(array_unique(array_filter([
+            $phone,
+            $formattedPhone,
+            $formattedPhone ? preg_replace('/\s+/', '', $formattedPhone) : null,
+            '91'.$phone,
+            '0'.$phone,
+            substr($phone, 0, 5).' '.substr($phone, 5),
+        ])));
+        $credentials['phone'] = fn ($query) => $query->whereIn('phone', $phoneForms);
 
         // The client is part of the credentials, so an account of another client never matches.
         // Guest records (from checkout, no password) can share a phone, so only real accounts count.
@@ -153,10 +169,12 @@ class AccountController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
+        $orders = $this->orderHistory($user);
 
         return view('account.index', [
             'user' => $user,
-            'orders' => $user->orders()->with('items')->limit(3)->get(),
+            'orders' => (clone $orders)->with('items')->latest()->limit(3)->get(),
+            'ordersCount' => (clone $orders)->count(),
             'address' => $user->addresses()->first(),
             'seo' => Seo::simple('My account', null, noindex: true),
         ]);
@@ -165,16 +183,26 @@ class AccountController extends Controller
     public function orders(Request $request): View
     {
         return view('account.orders', [
-            'orders' => $request->user()->orders()->with('items')->paginate(10),
+            'orders' => $this->orderHistory($request->user())->with('items')->latest()->paginate(10),
+            'user' => $request->user(),
             'seo' => Seo::simple('My orders', null, noindex: true),
         ]);
     }
 
     public function order(Request $request, string $number): View
     {
-        $order = $request->user()->orders()->with('items')->where('number', $number)->firstOrFail();
+        $user = $request->user();
+        $order = $this->orderHistory($user)->with('items')->where('number', $number)->firstOrFail();
 
-        return view('account.order', ['order' => $order, 'seo' => Seo::simple("Order {$order->number}", null, noindex: true)]);
+        return view('account.order', ['order' => $order, 'user' => $user, 'seo' => Seo::simple("Order {$order->number}", null, noindex: true)]);
+    }
+
+    /** The signed-in customer’s purchases plus orders they placed for another customer. */
+    private function orderHistory(Customer $customer)
+    {
+        return Order::query()->where(fn ($query) => $query
+            ->where('customer_id', $customer->id)
+            ->orWhere('salesperson_id', $customer->id));
     }
 
     public function wishlist(): View

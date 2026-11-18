@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Coupon;
 use App\Models\Product;
+use App\Support\SalesOrder;
 use App\Support\TaxBreakdown;
 use Illuminate\Support\Facades\Session;
 
@@ -145,6 +146,11 @@ class Cart
     /** @return array<int, array{code:string,name:string,description:?string,cost:float,free_over:?float,eta:?string}> */
     public function shippingMethods(): array
     {
+        // A sales person's order is not delivered: one free "method", which every total then uses.
+        if (SalesOrder::active()) {
+            return [SalesOrder::shippingMethod()];
+        }
+
         $methods = setting('checkout.shipping_methods', []);
         if (empty($methods)) {
             $methods = [['code' => 'standard', 'name' => 'Standard delivery', 'description' => 'Tracked, 3–5 business days', 'cost' => 250, 'free_over' => (float) setting('site.free_shipping_threshold', 0), 'eta' => '3–5 business days']];

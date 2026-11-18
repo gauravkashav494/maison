@@ -20,9 +20,12 @@
             {{-- Contact & shipping address --}}
             <fieldset>
                 <legend class="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">01</span><span class="font-serif text-xl">Contact &amp; shipping</span></span>
+                    <span class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">01</span><span class="font-serif text-xl">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; shipping @endif</span></span>
                     @guest<span class="text-xs text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a></span>@endguest
                 </legend>
+                @if($salesOrder ?? false)
+                    @include('partials.checkout.sales-order', ['labelClass' => 'block text-[0.625rem] uppercase tracking-[0.18em] text-smoke', 'fieldClass' => 'input-luxe', 'errorClass' => 'text-xs text-rouge', 'radioClass' => 'accent-ink'])
+                @else
                 <div class="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-12">
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
@@ -35,8 +38,11 @@
                     <label class="sm:col-span-3"><span class="{{ $label }}">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="{{ $field }}" autocomplete="country-name">@error('shipping_country')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                 </div>
                 @auth<label class="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" name="save_address" value="1" class="accent-ink" checked> Save this address to my account</label>@endauth
+                @endif
             </fieldset>
 
+            {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
+            @unless($salesOrder ?? false)
             {{-- Shipping method --}}
             <fieldset>
                 <legend class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">02</span><span class="font-serif text-xl">Delivery method<span class="req" aria-hidden="true">*</span></span></legend>
@@ -54,6 +60,7 @@
                     @endforeach
                 </div>
             </fieldset>
+            @endunless
 
             {{-- Payment --}}
             <fieldset>
@@ -142,6 +149,7 @@
                     @endif
                     <div class="flex justify-between border-t border-ink/10 pt-3 text-lg"><dt>Total</dt><dd class="tabular-nums" x-text="fmt(($store.cart.total ?? {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
+                @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-ink/10 pt-4', 'labelClass' => 'eyebrow text-taupe', 'inputClass' => 'input-luxe min-w-0 flex-1 uppercase', 'buttonClass' => 'shrink-0 border-b border-ink pb-2 text-[0.6875rem] uppercase tracking-[0.16em] hover:opacity-60 disabled:opacity-50', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 bg-cream px-3 py-2 text-sm', 'removeClass' => 'shrink-0 text-[0.625rem] uppercase tracking-widest text-smoke hover:text-ink', 'errorClass' => 'mt-2 text-sm text-rouge'])
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
                 @guest<p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-taupe">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest

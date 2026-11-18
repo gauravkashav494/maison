@@ -17,6 +17,7 @@ use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Filament\Pages\PlumbingSettings;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Resources\ActivityLog\ActivityLogResource;
 use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
@@ -104,6 +105,7 @@ class ClientPanelProvider extends PanelProvider
         CustomerResource::class,
         ClientUserResource::class,
         ClientRoleResource::class,
+        ActivityLogResource::class,
     ];
 
     /** Appearance and content settings for the templates; each page checks its own access. */

@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\Products\ProductRestoreActions;
 use App\Filament\Support\StorefrontLink;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewProduct extends ViewRecord
@@ -22,7 +22,7 @@ class ViewProduct extends ViewRecord
                 ->color('gray')
                 ->hidden(fn () => $this->getRecord()->trashed() || ! $this->getRecord()->is_active)
                 ->url(fn () => StorefrontLink::to($this->getRecord(), 'product/'.$this->getRecord()->slug), shouldOpenInNewTab: true),
-            RestoreAction::make(),
+            ProductRestoreActions::restore(),
             EditAction::make(),
         ];
     }
