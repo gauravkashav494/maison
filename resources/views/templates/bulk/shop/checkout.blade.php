@@ -47,9 +47,9 @@
                     <x-checked-field name="shipping_line1" label="Address" rule="line" attribute="address" :value="$address?->line1" required autocomplete="address-line1" placeholder="Unit / building, street" class="col-span-2 sm:col-span-8" />
                     <x-checked-field name="shipping_line2" label="Area, landmark" rule="line" attribute="apartment or landmark" :value="$address?->line2" autocomplete="address-line2" class="col-span-2 sm:col-span-4" />
                     <x-checked-field name="shipping_city" label="City" rule="place" attribute="city" :value="$address?->city" required autocomplete="address-level2" class="sm:col-span-3" />
-                    <x-checked-field name="shipping_state" label="State" rule="place" attribute="state" :value="$address?->state" required autocomplete="address-level1" class="sm:col-span-3" />
+                    <x-checked-field name="shipping_state" label="State" rule="state" attribute="state" :value="$address?->state" required autocomplete="address-level1" class="sm:col-span-3" />
                     <x-checked-field name="shipping_postal_code" label="PIN code" rule="postal" attribute="postal code" :value="$address?->postal_code" required autocomplete="postal-code" inputmode="numeric" class="sm:col-span-3" />
-                    <x-checked-field name="shipping_country" label="Country" rule="place" attribute="country" :value="$address?->country ?? 'India'" required autocomplete="country-name" class="sm:col-span-3" />
+                    <x-checked-field name="shipping_country" label="Country" rule="country" attribute="country" value="India" readonly required autocomplete="country-name" class="sm:col-span-3" />
                 </div>
                 @auth
                     <label class="mt-3 flex items-center gap-2 text-sm">

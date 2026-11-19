@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Storefront;
 
+use App\Support\IndianStates;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -23,6 +24,13 @@ abstract class StorefrontRequest extends FormRequest
     /** Lower-cases the given email fields before they are validated and stored. */
     protected array $lowercase = ['email'];
 
+    /**
+     * Address field pairs (state field => country field) on this form. Deliveries are within
+     * India only: before validation "IN" / "Bharat" is written as "India" and a state typed as
+     * "MH" or "punjab" as its full name, so the stored address always reads the same way.
+     */
+    protected array $addressFields = [];
+
     protected function prepareForValidation(): void
     {
         $merge = [];
@@ -33,6 +41,14 @@ abstract class StorefrontRequest extends FormRequest
         }
         if (is_string($this->input('phone')) && ($phone = static::normalisePhone($this->input('phone'))) !== null) {
             $merge['phone'] = $phone;
+        }
+        foreach ($this->addressFields as $stateKey => $countryKey) {
+            if (IndianStates::isIndia($this->input($countryKey))) {
+                $merge[$countryKey] = 'India';
+            }
+            if (($code = IndianStates::code($this->input($stateKey))) !== null) {
+                $merge[$stateKey] = IndianStates::STATES[$code];
+            }
         }
         $merge && $this->merge($merge);
     }
@@ -93,12 +109,26 @@ abstract class StorefrontRequest extends FormRequest
         return [$required ? 'required' : 'nullable', 'string', 'min:2', "max:{$max}", "regex:/^[\pL\pM][\pL\pM\s.'&\-]*$/u"];
     }
 
-    /** A 6-digit PIN code for India, otherwise a generic 3–10 character postal code. */
-    protected function postalCode(?string $country): array
+    /** A 6-digit Indian PIN code: deliveries are within India only. */
+    protected function postalCode(): array
     {
-        $india = in_array(mb_strtolower(trim((string) $country)), ['india', 'in', 'bharat'], true);
+        return ['required', 'string', 'regex:/^[1-9][0-9]{5}$/'];
+    }
 
-        return ['required', 'string', $india ? 'regex:/^[1-9][0-9]{5}$/' : 'regex:/^[A-Za-z0-9][A-Za-z0-9\s\-]{1,8}[A-Za-z0-9]$/'];
+    /** The country of a delivery address: India only ("India", "IN", "Bharat"). */
+    protected function indiaCountry(): array
+    {
+        return ['required', 'string', 'max:80', function (string $attribute, mixed $value, \Closure $fail) {
+            IndianStates::isIndia(is_string($value) ? $value : null) || $fail('We deliver within India only. Please enter India as the country.');
+        }];
+    }
+
+    /** The state of a delivery address: an Indian state or union territory, by name or short form. */
+    protected function indianState(): array
+    {
+        return ['required', 'string', 'max:80', function (string $attribute, mixed $value, \Closure $fail) {
+            IndianStates::code(is_string($value) ? $value : null) !== null || $fail('Please enter a state or union territory of India, e.g. Maharashtra.');
+        }];
     }
 
     protected function newPassword(): array
@@ -130,8 +160,8 @@ abstract class StorefrontRequest extends FormRequest
             'name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
             'shipping_name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
             'phone.regex' => 'Please enter a 10-digit :attribute, e.g. 9876543210.',
-            'postal_code.regex' => $this->postalMessage('country'),
-            'shipping_postal_code.regex' => $this->postalMessage('shipping_country'),
+            'postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
+            'shipping_postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
             'city.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
             'state.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
             'country.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
@@ -141,13 +171,6 @@ abstract class StorefrontRequest extends FormRequest
             // Last: the patterns above are matched in order, so this only catches the rest.
             '*.regex' => 'The :attribute format is not valid.',
         ];
-    }
-
-    private function postalMessage(string $countryField): string
-    {
-        return in_array(mb_strtolower(trim((string) $this->input($countryField))), ['india', 'in', 'bharat'], true)
-            ? 'Please enter a valid 6-digit PIN code.'
-            : 'Please enter a valid :attribute.';
     }
 
     public function attributes(): array

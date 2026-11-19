@@ -8,7 +8,7 @@
     <label class="bk-label">City<span class="bk-req">*</span><input name="city" value="{{ $v('city') }}" class="bk-input" autocomplete="address-level2">@error('city')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="bk-label">State<span class="bk-req">*</span><input name="state" value="{{ $v('state') }}" class="bk-input" autocomplete="address-level1">@error('state')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="bk-label">PIN code<span class="bk-req">*</span><input name="postal_code" value="{{ $v('postal_code') }}" class="bk-input" inputmode="numeric" autocomplete="postal-code">@error('postal_code')<span class="bk-error">{{ $message }}</span>@enderror</label>
-    <label class="bk-label">Country<span class="bk-req">*</span><input name="country" value="{{ $v('country') ?? 'India' }}" class="bk-input" autocomplete="country-name">@error('country')<span class="bk-error">{{ $message }}</span>@enderror</label>
+    <label class="bk-label">Country<span class="bk-req">*</span><input name="country" value="India" readonly aria-readonly="true" title="We deliver within India only" class="bk-input" autocomplete="country-name">@error('country')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="bk-label">Phone<input name="phone" type="tel" value="{{ $v('phone') }}" class="bk-input" autocomplete="tel">@error('phone')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="flex items-center gap-2 self-end pb-2.5 text-sm font-semibold"><input type="checkbox" name="is_default" value="1" class="size-4 accent-[var(--bk-brand)]" @checked($a?->is_default)> Use as default address</label>
 </div>

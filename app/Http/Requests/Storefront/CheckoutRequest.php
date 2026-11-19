@@ -9,6 +9,8 @@ use Illuminate\Validation\Rule;
 
 class CheckoutRequest extends StorefrontRequest
 {
+    protected array $addressFields = ['shipping_state' => 'shipping_country'];
+
     public function rules(): array
     {
         $payments = array_keys(Order::checkoutPaymentMethods());
@@ -36,9 +38,9 @@ class CheckoutRequest extends StorefrontRequest
             'shipping_line1' => $this->addressLine(),
             'shipping_line2' => $this->addressLine(required: false),
             'shipping_city' => $this->place(),
-            'shipping_state' => $this->place(),
-            'shipping_postal_code' => $this->postalCode($this->input('shipping_country')),
-            'shipping_country' => $this->place(),
+            'shipping_state' => $this->indianState(),
+            'shipping_postal_code' => $this->postalCode(),
+            'shipping_country' => $this->indiaCountry(),
             'shipping_method' => ['required', 'string', $shipping ? Rule::in($shipping) : 'max:40'],
             'payment_method' => ['required', 'string', Rule::in($payments)],
             'notes' => ['nullable', 'string', 'max:500'],

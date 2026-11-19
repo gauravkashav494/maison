@@ -212,13 +212,12 @@ class CheckoutProductTaxTest extends TestCase
         $this->assertSame('IGST (18%)', $other->taxLine());
         $this->assertSame('Maharashtra (27)', Invoice::for($other)->data()['placeOfSupply']);
 
-        $this->assertSame('IGST', $place('Ontario', 'Canada')->tax_label);
+        // (An address outside India, or a state we cannot read, is refused at checkout:
+        // StorefrontValidationTest.)
 
         // A state chosen in the settings wins over the GSTIN's.
         $this->mergeCheckout(['invoice_state' => '27']);
         $this->assertSame('CGST + SGST', $place('Maharashtra')->tax_label);
-        // A state we cannot read keeps the store's name.
-        $this->assertSame('GST', $place('Somewhere')->tax_label);
     }
 
     public function test_without_a_seller_state_the_order_says_gst(): void

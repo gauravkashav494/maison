@@ -114,7 +114,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * The message for a field, or '' when it is fine. The same rules and wording as the server
  * (StorefrontRequest), which still checks everything again.
  */
-export function fieldError(rule, value, { required = true, label = 'value', country = '' } = {}) {
+export function fieldError(rule, value, { required = true, label = 'value' } = {}) {
     const v = String(value || '').trim();
     if (!v) return required ? `Please enter your ${label}.` : '';
     switch (rule) {
@@ -128,11 +128,15 @@ export function fieldError(rule, value, { required = true, label = 'value', coun
             return PLACE.test(v) ? '' : `The ${label} may only contain letters, spaces and . ' - &.`;
         case 'line':
             return v.length < (required ? 3 : 1) ? `The ${label} must be at least 3 characters.` : '';
-        case 'postal': {
-            const india = ['india', 'in', 'bharat'].includes(String(country).trim().toLowerCase());
-            if (india) return /^[1-9][0-9]{5}$/.test(v) ? '' : 'Please enter a valid 6-digit PIN code.';
-            return /^[A-Za-z0-9][A-Za-z0-9\s\-]{1,8}[A-Za-z0-9]$/.test(v) ? '' : `Please enter a valid ${label}.`;
-        }
+        case 'postal':
+            return /^[1-9][0-9]{5}$/.test(v) ? '' : 'Please enter a valid 6-digit PIN code.';
+        case 'country':
+            return ['india', 'in', 'ind', 'bharat'].includes(v.toLowerCase().replace(/[^a-z ]+/g, '').trim())
+                ? '' : 'We deliver within India only. Please enter India as the country.';
+        case 'state':
+            // The full list (IndianStates) is checked on the server; here only its shape.
+            if (v.length < 2) return `The ${label} must be at least 2 characters.`;
+            return PLACE.test(v) ? '' : `The ${label} may only contain letters, spaces and . ' - &.`;
         default:
             return '';
     }
@@ -141,8 +145,7 @@ export function fieldError(rule, value, { required = true, label = 'value', coun
 /** A text field checked like the phone field: x-data="checkField('email', 'email address', true, '…')". */
 Alpine.data('checkField', (rule, label, required = true, serverError = '') =>
     checkedField(serverError, function (value) {
-        const country = this.$refs.input.form?.elements.namedItem('shipping_country')?.value || '';
-        return fieldError(rule, value, { required, label, country });
+        return fieldError(rule, value, { required, label });
     }));
 
 /* ---------------------------------------------------------------------------

@@ -4,12 +4,13 @@
     field and stops the form being sent, together with every other checked field on the form.
     A message from the server shows until the buyer starts editing.
 
-    rule: email | name | line | place | postal. attribute: the words used in the message,
+    rule: email | name | line | place | postal | state | country. attribute: the words used in the message,
     e.g. "email address" for "Please enter your email address.".
 --}}
 @props([
     'name', 'label', 'rule', 'attribute' => null, 'value' => null, 'required' => false,
     'type' => 'text', 'autocomplete' => null, 'placeholder' => null, 'inputmode' => null,
+    'readonly' => false,
 ])
 
 @php $id = 'bk-'.$name.'-'.\Illuminate\Support\Str::random(4); @endphp
@@ -20,6 +21,7 @@
            @if($autocomplete) autocomplete="{{ $autocomplete }}" @endif
            @if($placeholder) placeholder="{{ $placeholder }}" @endif
            @if($inputmode) inputmode="{{ $inputmode }}" @endif
+           @if($readonly) readonly aria-readonly="true" @endif
            :class="error && '!border-[var(--bk-out)]'" :aria-invalid="error ? 'true' : 'false'" aria-describedby="{{ $id }}"
            @input="clean()" @blur="touched = true; check()">
     <span id="{{ $id }}" class="bk-error" x-show="error" x-text="error" role="alert">{{ $errors->first($name) }}</span>
