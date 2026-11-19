@@ -195,7 +195,6 @@ class CartController extends Controller
             'unavailableNotice' => $unavailableNotice,
             // A sales person: who the order is for instead of an address and a delivery method.
             'salesOrder' => $salesOrder,
-            'storeAddress' => $salesOrder ? SalesOrder::storeAddress() : null,
             'seo' => Seo::simple('Checkout', null, noindex: true),
         ]);
     }

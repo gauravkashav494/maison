@@ -8,6 +8,7 @@ use App\Filament\Resources\Categories\CategoryResource;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\Inventory;
 use App\Templates\TemplateManager;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
@@ -133,7 +134,7 @@ class ProductInfolist
                             ->formatStateUsing(fn ($state, Product $r) => money((float) $state).($r->discount_percent ? " ({$r->discount_percent}% off)" : ''))
                             ->visible(fn (Product $r) => (float) $r->compare_at_price > 0),
                         TextEntry::make('stock')->inlineLabel()->badge()
-                            ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= 5 ? 'warning' : 'success'))
+                            ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= Inventory::lowStockLevel() ? 'warning' : 'success'))
                             ->formatStateUsing(fn ($state) => (int) $state <= 0 ? 'Out of stock' : $state.' in stock'),
                         TextEntry::make('max_qty')->label('Max per order')->inlineLabel()
                             ->visible(fn (Product $r) => filled($r->max_qty)),

@@ -6,6 +6,7 @@ use App\Clients\ClientContext;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Setting;
+use App\Models\User;
 use App\Support\Media;
 use App\Templates\Template;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
@@ -151,16 +152,33 @@ class Login extends BaseLogin
      */
     protected function isUserAllowedToAccessPanel(Authenticatable $user): bool
     {
-        if ($user instanceof ClientUser) {
-            if (! $user->client?->is_active) {
-                $this->failWith('This store has been deactivated, so its team cannot sign in. Please contact support.');
-            }
-            if (! $user->is_active) {
-                $this->failWith('Your account has been deactivated. Please contact your store\'s Client Admin.');
-            }
+        if ($reason = self::deactivatedMessage($user)) {
+            $this->failWith($reason);
         }
 
         return parent::isUserAllowedToAccessPanel($user);
+    }
+
+    /**
+     * Why this account may not use its panel because it (or its whole store) was switched off,
+     * or null when it is active. Also used to sign out a session that was already open.
+     */
+    public static function deactivatedMessage(Authenticatable $user): ?string
+    {
+        if ($user instanceof ClientUser) {
+            if (! $user->client?->is_active) {
+                return 'This store has been deactivated, so its team cannot sign in. Please contact support.';
+            }
+            if (! $user->is_active) {
+                return 'Your account has been deactivated. Please contact your store\'s Client Admin.';
+            }
+        }
+
+        if ($user instanceof User && ! $user->isActiveAccount()) {
+            return 'Your account has been deactivated. Please contact another super admin.';
+        }
+
+        return null;
     }
 
     private function failWith(string $message): never
@@ -178,17 +196,8 @@ class Login extends BaseLogin
     private function hostClientId(): ?int
     {
         $host = request()->getHost();
-        if ($id = Client::idForHost($host)) {
-            return $id;
-        }
 
-        $host = strtolower(preg_replace('/:\d+$/', '', $host));
-        $suffix = '.'.Client::baseDomain();
-
-        return Client::withThemes()
-            ->where(fn ($q) => $q->where('domain', $host)
-                ->when(str_ends_with($host, $suffix), fn ($q) => $q->orWhere('subdomain', substr($host, 0, -strlen($suffix)))))
-            ->value('id');
+        return Client::idForHost($host) ?? Client::anyForHost($host)?->id;
     }
 
     private function isPlatform(): bool

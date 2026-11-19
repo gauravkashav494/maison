@@ -17,6 +17,7 @@ use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
+use App\Models\StockMovement;
 use App\Models\Store;
 use App\Models\Subscriber;
 use App\Models\Tax;
@@ -58,6 +59,10 @@ return [
         'taxes' => ['label' => 'Taxes', 'group' => 'Catalogue', 'model' => Tax::class, 'core' => true],
         'reviews' => ['label' => 'Reviews', 'group' => 'Catalogue', 'model' => Review::class, 'actions' => ['view', 'update', 'delete'],
             'storefront' => ['hide' => true, 'routes' => ['products.reviews.store']]],
+
+        // Stock levels, adjustments and the stock history. Switching it off only leaves the
+        // admin: stock is still kept, and can still be set on the product form.
+        'inventory' => ['label' => 'Inventory', 'group' => 'Inventory', 'model' => StockMovement::class, 'actions' => ['view', 'update']],
 
         'services' => ['label' => 'Services', 'group' => 'Services', 'model' => Service::class, 'core' => true],
         'service_areas' => ['label' => 'Service areas', 'group' => 'Services', 'model' => ServiceArea::class,
@@ -101,7 +106,7 @@ return [
         'Catalogue' => [
             'description' => 'Keeps products or services up to date.',
             'permissions' => [
-                'products' => '*', 'categories' => '*', 'collections' => '*', 'brands' => '*', 'taxes' => '*', 'reviews' => '*',
+                'products' => '*', 'categories' => '*', 'collections' => '*', 'brands' => '*', 'taxes' => '*', 'reviews' => '*', 'inventory' => '*',
                 'services' => '*', 'service_areas' => '*', 'projects' => '*',
             ],
         ],

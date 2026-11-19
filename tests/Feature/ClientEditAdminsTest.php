@@ -65,7 +65,7 @@ class ClientEditAdminsTest extends TestCase
     {
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
 
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
@@ -135,7 +135,7 @@ class ClientEditAdminsTest extends TestCase
 
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Same Email', 'email' => 'shared@mail.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Same Email', 'email' => 'shared@mail.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
         $this->assertDatabaseHas('client_users', ['email' => 'shared@mail.test', 'client_id' => $this->client->id]);
@@ -146,8 +146,8 @@ class ClientEditAdminsTest extends TestCase
     {
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
-        $items['new-two'] = ['name' => 'Third', 'email' => 'third@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
+        $items['new-two'] = ['name' => 'Third', 'email' => 'third@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
         $this->assertSame(3, $this->client->clientAdmins()->count());
@@ -160,7 +160,7 @@ class ClientEditAdminsTest extends TestCase
         app(ClientContext::class)->resolveForIdentity($this->admin);
 
         Livewire::test(CreateClientUser::class)
-            ->fillForm(['name' => 'Co Owner', 'email' => 'co@acme.test', 'password' => 'another-pass', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true])
+            ->fillForm(['name' => 'Co Owner', 'email' => 'co@acme.test', 'password' => 'another-pass1', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true])
             ->call('create')
             ->assertHasNoFormErrors();
 

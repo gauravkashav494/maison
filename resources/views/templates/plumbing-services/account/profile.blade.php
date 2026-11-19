@@ -17,8 +17,8 @@
             @if ($user->password !== null)
             <div><label class="label" for="current_password">Current password<span class="req" aria-hidden="true">*</span></label><input id="current_password" name="current_password" type="password" class="field @error('current_password') field-error @enderror" autocomplete="current-password">@error('current_password')<p class="error">{{ $message }}</p>@enderror</div>
             @endif
-            <div><label class="label" for="password">New password<span class="req" aria-hidden="true">*</span></label><input id="password" name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password">@error('password')<p class="error">{{ $message }}</p>@enderror</div>
-            <div><label class="label" for="password_confirmation">Confirm new password<span class="req" aria-hidden="true">*</span></label><input id="password_confirmation" name="password_confirmation" type="password" class="field" autocomplete="new-password"></div>
+            <div><label class="label" for="password">New password<span class="req" aria-hidden="true">*</span></label><input id="password" name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password"><x-password-checklist />@error('password')<p class="error">{{ $message }}</p>@enderror</div>
+            <div><label class="label" for="password_confirmation">Confirm new password<span class="req" aria-hidden="true">*</span></label><input id="password_confirmation" name="password_confirmation" type="password" class="field" autocomplete="new-password"><x-password-match /></div>
             <button type="submit" class="btn btn-outline">Update password</button>
         </form>
     </div>

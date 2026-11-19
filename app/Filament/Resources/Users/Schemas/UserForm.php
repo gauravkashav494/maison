@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users\Schemas;
 use App\Admin\PlatformModules;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Models\User;
+use App\Support\PasswordRules;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -26,13 +27,9 @@ class UserForm
                 TextInput::make('name')->required()->maxLength(120),
                 TextInput::make('email')->email()->required()->unique(ignoreRecord: true),
                 PhoneInput::make('phone'),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable()
+                PasswordRules::field(TextInput::make('password'), fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password; enter a new one to reset it.')
                     ->dehydrated(fn ($state) => filled($state))
-                    ->required(fn (string $operation) => $operation === 'create')
-                    ->helperText(fn (string $operation) => $operation === 'create' ? 'Minimum 8 characters.' : 'Leave blank to keep the current password; enter a new one to reset it.')
-                    ->minLength(8),
+                    ->required(fn (string $operation) => $operation === 'create'),
             ]),
             Section::make('Platform access')->description('A Super Admin manages the whole platform. Anyone else only reaches the modules ticked below.')->columns(2)->schema([
                 Toggle::make('is_super_admin')

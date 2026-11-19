@@ -5,6 +5,7 @@ namespace App\Filament\RelationManagers;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Support\RowActions;
 use App\Models\Product;
+use App\Services\Inventory;
 use App\Support\Media;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
@@ -46,7 +47,7 @@ class ProductsRelationManager extends RelationManager
                 TextColumn::make('price')->formatStateUsing(fn (float $state) => money($state))->sortable()
                     ->description(fn (Product $r) => $r->compare_at_price ? 'was '.money($r->compare_at_price) : null),
                 TextColumn::make('stock')->sortable()->alignRight()
-                    ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= 5 ? 'warning' : null)),
+                    ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= Inventory::lowStockLevel() ? 'warning' : null)),
                 IconColumn::make('is_active')->label('Visible')->boolean(),
             ])
             ->recordActions([RowActions::group([

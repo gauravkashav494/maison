@@ -12,11 +12,11 @@
             @error('email')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
         <label class="bk-label">New password<span class="bk-req">*</span>
-            <input name="password" type="password" autofocus autocomplete="new-password" class="bk-input">
+            <input name="password" type="password" autofocus autocomplete="new-password" class="bk-input"><x-password-checklist />
             @error('password')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
         <label class="bk-label">Confirm new password<span class="bk-req">*</span>
-            <input name="password_confirmation" type="password" autocomplete="new-password" class="bk-input">
+            <input name="password_confirmation" type="password" autocomplete="new-password" class="bk-input"><x-password-match />
         </label>
         <button type="submit" class="bk-btn bk-btn-primary bk-btn-block !py-3 text-base">Save new password</button>
     </form>

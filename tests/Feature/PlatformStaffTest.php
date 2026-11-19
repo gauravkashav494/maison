@@ -66,6 +66,48 @@ class PlatformStaffTest extends TestCase
         $this->assertTrue($legacy->isSuperAdmin());
     }
 
+    public function test_platform_staff_without_a_module_are_welcomed_and_told_who_to_ask(): void
+    {
+        // Only older accounts can have no module: the form requires one.
+        $this->actingAs($this->staff([]), 'admin');
+
+        $this->get('/')->assertSuccessful()
+            ->assertSee('Hello, Support')
+            ->assertSee("haven't been given access to any section yet", false)
+            ->assertSee('Operator')->assertSee('ops@platform.test')
+            ->assertDontSee('Revenue, all clients');
+    }
+
+    public function test_the_dashboard_shows_only_the_tiles_of_the_staff_members_modules(): void
+    {
+        $this->actingAs($this->staff([PlatformModules::PLANS]), 'admin');
+
+        $this->get('/')->assertSuccessful()
+            ->assertSee('Hello, Support')->assertSee('You have access to Plans.')
+            ->assertSee('Most clients on Starter (1)')
+            ->assertDontSee('New this month')->assertDontSee('Revenue, all clients')
+            ->assertDontSee('used by a store')->assertDontSee('Recent clients');
+    }
+
+    public function test_clients_staff_no_longer_see_platform_revenue_or_stores(): void
+    {
+        $this->actingAs($this->staff([PlatformModules::CLIENTS]), 'admin');
+
+        $this->get('/')->assertSuccessful()
+            ->assertSee('New this month')
+            ->assertDontSee('Revenue, all clients')->assertDontSee('fi-admin-stat-label">Stores<', false)->assertDontSee('Most clients on');
+    }
+
+    public function test_a_super_admin_sees_every_tile(): void
+    {
+        $this->actingAs($this->operator, 'admin');
+
+        $this->get('/')->assertSuccessful()
+            ->assertSee('You are a super admin')
+            ->assertSee('New this month')->assertSee('Revenue, all clients')->assertSee('fi-admin-stat-label">Stores<', false)
+            ->assertSee('Most clients on')->assertSee('used by a store');
+    }
+
     public function test_platform_staff_reach_only_their_modules(): void
     {
         $this->actingAs($this->staff([PlatformModules::PLANS, PlatformModules::CLIENTS]), 'admin');

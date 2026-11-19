@@ -27,6 +27,7 @@ use Illuminate\View\View;
  *    an account from the checkout details (or the existing account for that number), are
  *    signed in, and the order is placed.
  *  - login:    sign in with a code instead of a password.
+ *  - reset:    forgot password; once the phone is proven the shopper chooses a new password.
  *
  * What each flow needs is kept with the pending code (CustomerOtp), never taken from this form.
  */
@@ -76,6 +77,7 @@ class OtpController extends Controller
         [$heading, $intro, $button, $back] = match ($pending['purpose']) {
             CustomerOtp::REGISTER => ['Verify your number', 'to finish creating your account.', 'Verify & create account', route('register')],
             CustomerOtp::CHECKOUT => ['Confirm your order', 'to confirm your number. We will create your account and place your order.', 'Verify & place order', route('checkout')],
+            CustomerOtp::RESET => ['Reset your password', 'to choose a new password.', 'Verify & continue', route('password.request')],
             default => ['Enter your code', 'to sign in.', 'Verify & sign in', route('login.otp')],
         };
 
@@ -85,7 +87,8 @@ class OtpController extends Controller
             'button' => $button,
             'backUrl' => $back,
             'resendIn' => $this->otp->resendIn(),
-            'validFor' => (int) ceil(config('services.otp.ttl', 300) / 60),
+            // Live countdown to when this code stops working.
+            'expiresIn' => max(0, (int) $pending['expires_at'] - now()->getTimestamp()),
             'codeLength' => (int) config('services.otp.length', 6),
             'seo' => Seo::simple($heading, null, noindex: true),
         ]);
@@ -117,6 +120,7 @@ class OtpController extends Controller
         return match ($result['purpose']) {
             CustomerOtp::REGISTER => $this->completeRegistration($request, $clientId, $result['phone'], $result['payload']),
             CustomerOtp::CHECKOUT => $this->completeCheckout($request, $placeOrder, $clientId, $result['phone'], $result['payload']),
+            CustomerOtp::RESET => $this->completeReset($clientId, $result['phone'], $result['payload']),
             default => $this->completeLogin($request, $clientId, $result['phone'], $result['payload']),
         };
     }
@@ -173,6 +177,18 @@ class OtpController extends Controller
         $this->signIn($request, $customer);
 
         return redirect()->intended(route('account.index'));
+    }
+
+    /** The number is proven: this visitor may now choose a new password for that account. */
+    private function completeReset(int $clientId, string $phone, array $data): RedirectResponse
+    {
+        $customer = $this->accountFor($clientId, $phone);
+        if (! $customer || ! $customer->is_active || $customer->id !== ($data['customer_id'] ?? null)) {
+            return redirect()->route('password.request')->withErrors(['phone' => 'We could not reset your password. Please try again.']);
+        }
+        AccountController::allowNewPassword($customer);
+
+        return redirect()->route('password.new');
     }
 
     // ---- Helpers ---------------------------------------------------------------

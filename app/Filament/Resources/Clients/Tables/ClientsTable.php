@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Clients\Tables;
 
 use App\Clients\ClientDatabase;
 use App\Clients\ClientQuota;
+use App\Filament\Support\DateRangeFilter;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Storefront;
@@ -12,16 +13,13 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Carbon;
 
 class ClientsTable
 {
@@ -54,27 +52,7 @@ class ClientsTable
             ->filters([
                 SelectFilter::make('storefront_id')->label('Store')->options(fn () => Storefront::orderBy('name')->pluck('name', 'id')),
                 TernaryFilter::make('is_active')->label('Active'),
-                Filter::make('created_at')
-                    ->schema([
-                        DatePicker::make('created_from')->label('Created from')->native(false)->displayFormat('d M Y')->maxDate(now()),
-                        DatePicker::make('created_until')->label('Created to')->native(false)->displayFormat('d M Y')->maxDate(now()),
-                    ])
-                    ->columns(2)
-                    ->query(fn ($query, array $data) => $query
-                        ->when($data['created_from'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
-                        ->when($data['created_until'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date)))
-                    ->indicateUsing(function (array $data): array {
-                        $from = filled($data['created_from'] ?? null) ? Carbon::parse($data['created_from'])->format('d M Y') : null;
-                        $until = filled($data['created_until'] ?? null) ? Carbon::parse($data['created_until'])->format('d M Y') : null;
-
-                        return match (true) {
-                            $from && $until => ['Created '.$from.' – '.$until],
-                            (bool) $from => ['Created from '.$from],
-                            (bool) $until => ['Created up to '.$until],
-                            default => [],
-                        };
-                    })
-                    ->columnSpanFull(),
+                DateRangeFilter::range('created_at', 'Created'),
                 TrashedFilter::make(),
             ])
             ->recordActions([

@@ -12,7 +12,6 @@ use App\Models\ClientUser;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Storefront;
-use App\Support\SkuGenerator;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -21,7 +20,7 @@ use Tests\TestCase;
 
 /**
  * A Bulk Order store needs a code on every product (buyers order by it), so its product form
- * requires the SKU and fills in the next free one. Other stores keep it optional and blank.
+ * keeps it optional; the field starts blank everywhere and is never filled in automatically.
  */
 class ProductSkuTest extends TestCase
 {
@@ -54,21 +53,13 @@ class ProductSkuTest extends TestCase
         ]);
     }
 
-    public function test_a_bulk_store_gets_the_next_code_in_its_own_pattern(): void
+    public function test_a_bulk_store_starts_with_a_blank_code(): void
     {
         $client = $this->client('bulk', 'Trade Supplies');
         $this->product($client, 'bulk', 'SU-1001', 'one');
-        $this->product($client, 'bulk', 'SU-1012', 'two');
         $this->signInTo($client);
 
-        Livewire::test(CreateProduct::class)->assertSet('data.sku', 'SU-1013');
-    }
-
-    public function test_a_bulk_store_without_codes_starts_from_its_initials(): void
-    {
-        $this->signInTo($this->client('bulk', 'Trade Supplies'));
-
-        $this->assertSame('TS-1001', SkuGenerator::next());
+        Livewire::test(CreateProduct::class)->assertSet('data.sku', null);
     }
 
     public function test_the_code_is_optional_on_a_bulk_store_and_can_be_changed(): void

@@ -89,7 +89,7 @@ class CustomerOtpTest extends TestCase
         $this->assertSame('otp', $this->whatsapp->sent[0]['template']);
         $this->assertMatchesRegularExpression('/^\d{6}$/', $this->whatsapp->lastCode());
 
-        $this->onStore()->get('/verify')->assertOk()->assertSee('Verify your number')->assertSee('••••••3210')->assertSee('valid for 5 minutes');
+        $this->onStore()->get('/verify')->assertOk()->assertSee('Verify your number')->assertSee('••••••3210')->assertSee('Code expires in')->assertSee('05:00');
         $this->assertSame(0, Customer::count());
     }
 
@@ -264,6 +264,72 @@ class CustomerOtpTest extends TestCase
         $this->onStore()->post('/login/otp', ['phone' => '9876543210'])->assertSessionHasErrors('phone');
         $this->onStore()->post('/login/otp', ['phone' => '9123456780'])->assertSessionHasErrors('phone');
         $this->assertSame([], $this->whatsapp->sent);
+    }
+
+    // ---- Forgot password: a WhatsApp code, then a new password ----------------------
+
+    public function test_a_forgotten_password_is_reset_with_a_whatsapp_code(): void
+    {
+        $member = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'phone' => '9876543210', 'password' => 'old-pass-1', 'is_active' => true]);
+
+        $this->onStore()->get('/forgot-password')->assertOk()->assertSee('name="phone"', false)->assertDontSee('name="email"', false);
+        $this->onStore()->post('/forgot-password', ['phone' => '98765 43210'])->assertRedirect(route('otp.verify'));
+        $this->onStore()->get('/verify')->assertOk()->assertSee('Reset your password');
+
+        // Without the code the new-password page is closed.
+        $this->onStore()->get('/new-password')->assertRedirect(route('password.request'));
+
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('password.new'));
+        $this->onStore()->get('/new-password')->assertOk()->assertSee('data-password-checklist', false)
+            ->assertSee('Time remaining')
+            ->assertSee('10:00');
+
+        // The shared password rule applies.
+        $this->onStore()->post('/new-password', ['password' => 'onlyletters', 'password_confirmation' => 'onlyletters'])->assertSessionHasErrors('password');
+
+        // Saved, signed straight in, and the permission is used up.
+        $this->onStore()->post('/new-password', ['password' => 'new-pass-2', 'password_confirmation' => 'new-pass-2'])
+            ->assertRedirect(route('account.index'))
+            ->assertSessionMissing('password_reset.allowed');
+        $this->assertTrue(Hash::check('new-pass-2', $member->fresh()->password));
+        $this->assertAuthenticatedAs($member, 'web');
+    }
+
+    public function test_the_new_password_page_closes_after_ten_minutes_and_says_why(): void
+    {
+        $member = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'phone' => '9876543210', 'password' => 'old-pass-1', 'is_active' => true]);
+        $this->onStore()->post('/forgot-password', ['phone' => '9876543210']);
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('password.new'));
+
+        $this->travel(11)->minutes();
+
+        $this->onStore()->post('/new-password', ['password' => 'new-pass-2', 'password_confirmation' => 'new-pass-2'])
+            ->assertRedirect(route('password.request'))
+            ->assertSessionHasErrors(['phone' => 'The 10 minutes to choose a new password have passed. Please verify your number again.']);
+        $this->assertTrue(Hash::check('old-pass-1', $member->fresh()->password));
+    }
+
+    public function test_no_reset_code_is_sent_for_an_unknown_disabled_or_guest_number(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Guest', 'email' => 'g@example.test', 'phone' => '9123456780', 'is_active' => true]);
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Off', 'phone' => '9000000001', 'password' => 'pass-word-1', 'is_active' => false]);
+
+        foreach (['9876543210', '9123456780', '9000000001'] as $phone) {
+            $this->onStore()->post('/forgot-password', ['phone' => $phone])->assertSessionHasErrors('phone');
+        }
+        $this->assertSame([], $this->whatsapp->sent);
+    }
+
+    public function test_a_reset_code_from_one_store_does_not_open_another_stores_new_password_page(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'phone' => '9876543210', 'password' => 'old-pass-1', 'is_active' => true]);
+
+        $this->onStore()->post('/forgot-password', ['phone' => '9876543210']);
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('password.new'));
+
+        $this->onStore('beta')->get('/new-password')->assertRedirect(route('password.request'));
+        $this->onStore('beta')->post('/new-password', ['password' => 'new-pass-2', 'password_confirmation' => 'new-pass-2'])
+            ->assertRedirect(route('password.request'));
     }
 
     public function test_an_account_made_at_checkout_sets_its_first_password_without_a_current_one(): void

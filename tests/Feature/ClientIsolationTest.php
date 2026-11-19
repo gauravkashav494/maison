@@ -20,6 +20,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -306,9 +307,10 @@ class ClientIsolationTest extends TestCase
         $alphaShopper = Customer::create(['client_id' => $this->alpha->id, 'name' => 'Shopper', 'email' => 'same@example.test', 'password' => Hash::make('alpha-pass-1'), 'is_active' => true]);
         $betaShopper = Customer::create(['client_id' => $this->beta->id, 'name' => 'Shopper', 'email' => 'same@example.test', 'password' => Hash::make('beta-pass-1'), 'is_active' => true]);
 
-        // Both stores send a link; asking the second store must not cancel the first one's.
-        $this->withSession([Client::SESSION_KEY => 'alpha'])->post('/forgot-password', ['email' => 'same@example.test']);
-        $this->withSession([Client::SESSION_KEY => 'beta'])->post('/forgot-password', ['email' => 'same@example.test']);
+        // Both stores send a link (forgot password now goes by WhatsApp; emailed links remain for
+        // a past guest who registers); asking the second store must not cancel the first one's.
+        Password::broker('customers')->sendResetLink(['email' => 'same@example.test', 'client_id' => $this->alpha->id, 'is_active' => true]);
+        Password::broker('customers')->sendResetLink(['email' => 'same@example.test', 'client_id' => $this->beta->id, 'is_active' => true]);
 
         $tokens = [];
         Notification::assertSentTo($alphaShopper, ResetPassword::class, function ($n) use (&$tokens) {
@@ -422,5 +424,41 @@ class ClientIsolationTest extends TestCase
             ->call('authenticate')
             ->assertHasFormErrors(['email' => "Your account has been deactivated. Please contact your store's Client Admin."]);
         $this->assertGuest('client');
+    }
+
+    public function test_an_open_session_is_signed_out_with_the_reason_when_the_store_is_deactivated(): void
+    {
+        $this->actingAs($this->alphaAdmin, 'client');
+        $this->alpha->update(['is_active' => false]);
+
+        $this->get($this->alpha->publicUrl().'/client')
+            ->assertRedirect(Filament::getPanel('client')->getLoginUrl())
+            ->assertSessionHas('filament.notifications', fn (array $n) => str_contains($n[0]['body'] ?? '', 'This store has been deactivated'));
+        $this->assertGuest('client');
+    }
+
+    public function test_an_open_session_is_signed_out_with_the_reason_when_the_account_is_deactivated(): void
+    {
+        $this->actingAs($this->alphaAdmin, 'client');
+        $this->alphaAdmin->update(['is_active' => false]);
+
+        $this->get($this->alpha->publicUrl().'/client')
+            ->assertRedirect(Filament::getPanel('client')->getLoginUrl())
+            ->assertSessionHas('filament.notifications', fn (array $n) => str_contains($n[0]['body'] ?? '', 'Your account has been deactivated'));
+        $this->assertGuest('client');
+    }
+
+    public function test_a_deactivated_stores_address_says_so_instead_of_leading_to_the_panel(): void
+    {
+        $this->alpha->update(['is_active' => false]);
+
+        $this->get($this->alpha->publicUrl().'/')
+            ->assertStatus(503)
+            ->assertSee('This store has been deactivated')
+            ->assertSee($this->alpha->name);
+        $this->get($this->alpha->publicUrl().'/shop')->assertStatus(503);
+
+        // An address that belongs to no client still goes to the platform panel.
+        $this->get('http://nobody.'.Client::baseDomain().'/')->assertRedirect();
     }
 }

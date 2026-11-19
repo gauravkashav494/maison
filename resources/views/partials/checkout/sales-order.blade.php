@@ -1,15 +1,12 @@
 {{--
     A sales person's checkout, in place of the contact & address fields (SalesOrder): who the
-    order is for, and for a customer their name and phone. No address is asked: the store's own
-    is put on the order. The store's state and country are sent hidden only so the checkout's
-    `checkout` component names the tax as the order will (CGST + SGST within the store's state);
-    the server takes them from the store, never from here.
+    order is for, and for a customer their name and phone. No address is asked or put on the
+    order. The seller's state and country are sent hidden only so the checkout's `checkout`
+    component names the tax as the order will (CGST + SGST within the seller's state); the
+    server never reads them from here.
 
     Styles come from the template: $labelClass, $fieldClass, $errorClass, $radioClass.
 --}}
-@php
-    $storeLine = implode(', ', array_filter([$storeAddress['line1'] ?? null, $storeAddress['line2'] ?? null, $storeAddress['city'] ?? null, trim(($storeAddress['state'] ?? '').' '.($storeAddress['postal_code'] ?? ''))]));
-@endphp
 <div x-data="{
     orderFor: @js(old('order_for', \App\Support\SalesOrder::FOR_SELF)),
     customerName: @js(old('shipping_name', '')),
@@ -63,7 +60,7 @@
         <p class="col-span-2 w-full text-xs opacity-70 sm:col-span-4">An existing customer with this phone number gets the order; otherwise a new customer is added.</p>
     </div>
 
-    <p class="mt-3 text-xs opacity-70">No delivery — this order is handed over at the store.@if($storeLine !== '') The store's address goes on the order: {{ $storeLine }}.@endif</p>
-    <input type="hidden" name="shipping_state" value="{{ $storeAddress['state'] ?? '' }}">
-    <input type="hidden" name="shipping_country" value="{{ $storeAddress['country'] ?? 'India' }}">
+    <p class="mt-3 text-xs opacity-70">No delivery — this order is handed over at the store.</p>
+    <input type="hidden" name="shipping_state" value="{{ \App\Support\SalesOrder::supplyState() }}">
+    <input type="hidden" name="shipping_country" value="India">
 </div>

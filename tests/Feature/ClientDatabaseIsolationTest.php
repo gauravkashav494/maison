@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -42,7 +43,8 @@ class ClientDatabaseIsolationTest extends TestCase
     {
         parent::setUp();
 
-        config(['clients.isolation' => 'database']);
+        config(['clients.isolation' => 'database', 'clients.prefix' => self::filePrefix().getmypid().'_']);
+        self::removeAbandonedFiles();
 
         $plan = Plan::firstOrCreate(['slug' => 'starter'], ['name' => 'Starter', 'price_label' => '₹X', 'image_limit' => 50, 'is_default' => true]);
         $store = Storefront::create(['name' => 'Fashion Store', 'slug' => 'fashion', 'template' => 'fashion', 'is_active' => true]);
@@ -81,6 +83,26 @@ class ClientDatabaseIsolationTest extends TestCase
     }
 
     /** Write a product into this client's own database, the way the panel would. */
+    /** Each run's files start with this and its process id, so two runs at once never share one. */
+    private static function filePrefix(): string
+    {
+        return 'client_test_';
+    }
+
+    /**
+     * Deletes files left by a run that stopped before tearDown (killed, crashed or timed out):
+     * any whose process is no longer running.
+     */
+    private static function removeAbandonedFiles(): void
+    {
+        foreach (File::glob(database_path(self::filePrefix().'*.sqlite')) as $file) {
+            $pid = (int) Str::between(basename($file), self::filePrefix(), '_');
+            if ($pid !== getmypid() && ! file_exists("/proc/{$pid}") && ! (function_exists('posix_kill') && posix_kill($pid, 0))) {
+                File::delete($file);
+            }
+        }
+    }
+
     private function write(Client $client, string $name): Product
     {
         return app(ClientDatabase::class)->forClient($client, fn () => Product::withoutGlobalScopes()->create([
@@ -268,7 +290,7 @@ class ClientDatabaseIsolationTest extends TestCase
         \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
             ->fillForm([
                 'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id,
-                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass'],
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -361,7 +383,7 @@ class ClientDatabaseIsolationTest extends TestCase
         \Livewire\Livewire::test(\App\Filament\Resources\Clients\Pages\CreateClient::class)
             ->fillForm([
                 'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id, 'sample_products' => $choice,
-                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass'],
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
             ])
             ->call('create')
             ->assertHasNoFormErrors();

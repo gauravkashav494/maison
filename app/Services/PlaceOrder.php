@@ -7,8 +7,10 @@ use App\Models\Coupon;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Support\GstSupply;
 use App\Support\GuestCustomer;
+use App\Support\SalesOrder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Used by the checkout form for a signed-in customer, and after the WhatsApp code for a
  * shopper who checked out without an account. A sales person's order comes here prepared by
- * SalesOrder::prepare(): the store's address, the customer it is for and `salesperson_id`.
+ * SalesOrder::prepare(): no address, the customer it is for and `salesperson_id`.
  */
 class PlaceOrder
 {
@@ -93,8 +95,11 @@ class PlaceOrder
             'coupon_code' => $cart['coupon']['code'] ?? null,
             'tax' => $cart['tax'],
             'tax_rate' => $cart['tax_rate'],
-            // GST becomes IGST or CGST + SGST by where the order is shipped.
-            'tax_label' => GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
+            // GST becomes IGST or CGST + SGST by where the order is shipped; a sales order is
+            // handed over at the counter, within the seller's own state.
+            'tax_label' => $salesOrder
+                ? GstSupply::labelFor(SalesOrder::supplyState(), 'India')
+                : GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
             'prices_include_tax' => $cart['tax_inclusive'],
             'total' => $cart['total'] + $codFee,
             'estimated_delivery' => $salesOrder ? null : now()->addDays(5),
@@ -120,7 +125,7 @@ class PlaceOrder
                 'tax_rate' => $line['tax_rate'],
                 'tax' => $line['tax'],
             ]);
-            $products[$line['product']['id']]->adjustStock(-(int) $line['qty'], $line['options'] ?? []);
+            $products[$line['product']['id']]->adjustStock(-(int) $line['qty'], $line['options'] ?? [], StockMovement::SALE, $order);
         }
 
         // The invoice number is taken with the order, so the series follows the order in which orders were placed.

@@ -248,6 +248,21 @@ class Client extends Model
         return static::hostMap()[$host] ?? null;
     }
 
+    /**
+     * The client this host belongs to, deactivated ones included (idForHost() only knows active
+     * clients). For saying "this store is deactivated" rather than treating the host as unknown.
+     */
+    public static function anyForHost(string $host): ?self
+    {
+        $host = strtolower(preg_replace('/:\d+$/', '', $host));
+        $suffix = '.'.static::baseDomain();
+
+        return static::withThemes()
+            ->where(fn ($q) => $q->where('domain', $host)
+                ->when(str_ends_with($host, $suffix), fn ($q) => $q->orWhere('subdomain', substr($host, 0, -strlen($suffix)))))
+            ->first();
+    }
+
     /** Active client with this subdomain, if any. */
     public static function idForSubdomain(?string $subdomain): ?int
     {

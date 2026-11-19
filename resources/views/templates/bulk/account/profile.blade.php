@@ -18,8 +18,8 @@
             @if ($user->password !== null)
             <label class="bk-label">Current password<span class="bk-req">*</span><input name="current_password" type="password" class="bk-input" autocomplete="current-password">@error('current_password')<span class="bk-error">{{ $message }}</span>@enderror</label>
             @endif
-            <label class="bk-label">New password<span class="bk-req">*</span><input name="password" type="password" class="bk-input" autocomplete="new-password">@error('password')<span class="bk-error">{{ $message }}</span>@enderror</label>
-            <label class="bk-label">Confirm new password<span class="bk-req">*</span><input name="password_confirmation" type="password" class="bk-input" autocomplete="new-password"></label>
+            <label class="bk-label">New password<span class="bk-req">*</span><input name="password" type="password" class="bk-input" autocomplete="new-password"><x-password-checklist />@error('password')<span class="bk-error">{{ $message }}</span>@enderror</label>
+            <label class="bk-label">Confirm new password<span class="bk-req">*</span><input name="password_confirmation" type="password" class="bk-input" autocomplete="new-password"><x-password-match /></label>
             <button type="submit" class="bk-btn bk-btn-outline">Update password</button>
         </form>
     </div>

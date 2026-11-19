@@ -11,6 +11,7 @@ use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
+use App\Support\PasswordRules;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -109,15 +110,9 @@ class ClientUserResource extends Resource
                     // Addresses are unique inside a client, not across the platform.
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $get) => $rule->where('client_id', app(ClientContext::class)->id() ?? $get('client_id') ?? 0)),
                 PhoneInput::make('phone'),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable()
+                PasswordRules::field(TextInput::make('password'), fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password.')
                     ->dehydrated(fn ($state) => filled($state))
-                    ->required(fn (string $operation) => $operation === 'create')
-                    ->minLength(8)
-                    ->hint('Minimum 8 characters')
-                    ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.')
-                    ->helperText(fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password.'),
+                    ->required(fn (string $operation) => $operation === 'create'),
             ]),
             Section::make('Access')->columns(2)->schema([
                 Select::make('role')->label('Account type')

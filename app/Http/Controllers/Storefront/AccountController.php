@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\AddressRequest;
 use App\Http\Requests\Storefront\ForgotPasswordRequest;
 use App\Http\Requests\Storefront\LoginRequest;
+use App\Http\Requests\Storefront\NewPasswordRequest;
 use App\Http\Requests\Storefront\PasswordUpdateRequest;
 use App\Http\Requests\Storefront\ProfileRequest;
 use App\Http\Requests\Storefront\RegisterRequest;
@@ -37,6 +38,12 @@ use Illuminate\View\View;
  */
 class AccountController extends Controller
 {
+    /** Session key: the account this visitor may choose a new password for (after a reset code). */
+    private const NEW_PASSWORD_KEY = 'password_reset.allowed';
+
+    /** How long after the code the new password may be chosen. */
+    private const NEW_PASSWORD_MINUTES = 10;
+
     /** The client this storefront belongs to. */
     private function clientId(): ?int
     {
@@ -118,9 +125,11 @@ class AccountController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        // Sign out the shopper only. The browser has one session for every guard, so invalidating
+        // it would also sign out a staff account open in the admin or client panel in another tab.
+        Auth::guard('web')->logout();
+        $request->session()->forget(['last_order_number', 'booking', 'customer_otp']);
+        $request->session()->regenerate();
 
         return redirect()->route('home');
     }
@@ -130,15 +139,98 @@ class AccountController extends Controller
         return view('account.forgot', ['seo' => Seo::simple('Forgot password', null, noindex: true)]);
     }
 
-    public function forgot(ForgotPasswordRequest $request): RedirectResponse
+    /**
+     * Forgot password: a WhatsApp code to the phone number on the account. Once it is entered
+     * (OtpController::completeReset) the shopper chooses a new password here.
+     */
+    public function forgot(ForgotPasswordRequest $request, CustomerOtp $otp): RedirectResponse
     {
-        if ($clientId = $this->clientId()) {
-            // Scoped to this client: a link is only ever sent to its own customer.
-            Password::broker('customers')->sendResetLink($request->only('email') + ['client_id' => $clientId, 'is_active' => true]);
+        $clientId = $this->clientId();
+        abort_unless($clientId !== null, 404);
+
+        // Same answer as "Sign in with WhatsApp", which already tells whether a number has an account.
+        $phone = $request->validated('phone');
+        $customer = Customer::where('client_id', $clientId)->where('phone', $phone)->accounts()->orderBy('id')->first();
+        if (! $customer || ! $customer->is_active) {
+            return back()->withInput()->withErrors(['phone' => 'We could not find an account with this number. Create one instead.']);
         }
 
-        // Always respond the same way so addresses cannot be enumerated.
-        return back()->with('status', 'If an account exists for that email, a reset link is on its way.');
+        if ($error = $otp->start(CustomerOtp::RESET, $phone, ['customer_id' => $customer->id])) {
+            return back()->withInput()->withErrors(['phone' => $error]);
+        }
+
+        return redirect()->route('otp.verify');
+    }
+
+    /** After a correct reset code: this session may set a new password for the account, briefly. */
+    public static function allowNewPassword(Customer $customer): void
+    {
+        session([self::NEW_PASSWORD_KEY => [
+            'customer_id' => $customer->id,
+            'client_id' => $customer->client_id,
+            'expires_at' => now()->addMinutes(self::NEW_PASSWORD_MINUTES)->getTimestamp(),
+        ]]);
+    }
+
+    /** The account this session proved its number for, while the permission lasts. */
+    private function newPasswordAccount(): ?Customer
+    {
+        $grant = session(self::NEW_PASSWORD_KEY);
+        if (! is_array($grant) || $this->newPasswordSecondsLeft() <= 0
+            || (int) ($grant['client_id'] ?? 0) !== (int) $this->clientId()) {
+            return null;
+        }
+
+        $customer = Customer::where('client_id', $grant['client_id'])->find($grant['customer_id'] ?? 0);
+
+        return $customer?->is_active ? $customer : null;
+    }
+
+    private function newPasswordSecondsLeft(): int
+    {
+        return max(0, (int) (session(self::NEW_PASSWORD_KEY)['expires_at'] ?? 0) - now()->getTimestamp());
+    }
+
+    /** Back to "Forgot password", saying whether the time ran out or the number was never proven. */
+    private function verifyAgain(): RedirectResponse
+    {
+        $message = session()->has(self::NEW_PASSWORD_KEY)
+            ? 'The '.self::NEW_PASSWORD_MINUTES.' minutes to choose a new password have passed. Please verify your number again.'
+            : 'Please verify your number to reset your password.';
+        session()->forget(self::NEW_PASSWORD_KEY);
+
+        return redirect()->route('password.request')->withErrors(['phone' => $message]);
+    }
+
+    public function newPasswordForm(): View|RedirectResponse
+    {
+        if (! $this->newPasswordAccount()) {
+            return $this->verifyAgain();
+        }
+
+        return view('account.new-password', [
+            // A live countdown on the page, so the shopper knows the time limit before typing.
+            'secondsLeft' => $this->newPasswordSecondsLeft(),
+            'seo' => Seo::simple('Choose a new password', null, noindex: true),
+        ]);
+    }
+
+    public function saveNewPassword(NewPasswordRequest $request): RedirectResponse
+    {
+        $customer = $this->newPasswordAccount();
+        if (! $customer) {
+            return $this->verifyAgain();
+        }
+
+        $customer->forceFill(['password' => $request->validated('password'), 'remember_token' => Str::random(60)])->save();
+        event(new PasswordReset($customer));
+        $request->session()->forget(self::NEW_PASSWORD_KEY);
+
+        // The number was just proven, so they are signed straight in.
+        Auth::login($customer);
+        $request->session()->regenerate();
+
+        return redirect()->route('account.index')->with('status', 'Your password has been changed.');
     }
 
     public function resetForm(Request $request, string $token): View

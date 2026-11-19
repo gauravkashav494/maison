@@ -58,7 +58,7 @@ class ClientAddressAndDatabaseTest extends TestCase
         return Livewire::test(CreateClient::class)
             ->fillForm([
                 'name' => 'Delta', 'subdomain' => $subdomain, 'database' => $database, 'storefront_id' => $this->alpha->storefront_id,
-                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass'],
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
             ])
             ->call('create');
     }

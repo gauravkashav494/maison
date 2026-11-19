@@ -197,6 +197,34 @@ class ClientPermissionsTest extends TestCase
         }
     }
 
+    public function test_staff_without_any_module_are_welcomed_and_told_who_to_ask(): void
+    {
+        $staff = ClientUser::create([
+            'client_id' => $this->alpha->id, 'name' => 'New Staff', 'email' => 'new@alpha.test',
+            'password' => 'password123', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'is_active' => true,
+        ]);
+        $this->actingAs($staff, 'client');
+
+        $this->get('/client')->assertSuccessful()
+            ->assertSee('Hello, New')
+            ->assertSee("haven't been given access to any section yet", false)
+            ->assertSee('Alpha Admin')->assertSee('admin@alpha.test');
+
+        // A role that grants nothing is the same as no role.
+        $staff->update(['client_role_id' => ClientRole::create(['client_id' => $this->alpha->id, 'name' => 'Empty', 'permissions' => []])->id]);
+        $this->get('/client')->assertSee('Hello, New');
+    }
+
+    public function test_the_welcome_goes_once_any_module_is_granted(): void
+    {
+        $this->actingAs($this->staff(['orders.view']), 'client');
+        $this->get('/client')->assertSuccessful()->assertDontSee('Hello, Alpha');
+
+        $this->flushSession();
+        $this->actingAs($this->alphaAdmin, 'client');
+        $this->get('/client')->assertSuccessful()->assertDontSee('Hello, Alpha');
+    }
+
     public function test_a_role_grants_exactly_what_it_lists(): void
     {
         $this->actingAs($this->staff(['products.view']), 'client');
@@ -294,21 +322,20 @@ class ClientPermissionsTest extends TestCase
         $new = $joined('New', now());
 
         $this->enterClientPanel($this->staff(['customers.view']));
-        $day = fn (int $ago) => now()->subDays($ago)->toDateString();
+        // The picker's state: "dd/mm/yyyy - dd/mm/yyyy".
+        $range = fn (int $from, int $until) => ['joined' => now()->subDays($from)->format('d/m/Y').' - '.now()->subDays($until)->format('d/m/Y')];
 
         Livewire::test(ListCustomers::class)
             ->assertCanSeeTableRecords([$old, $mid, $new])
             // A range, inclusive at both ends (a late-evening sign-up still counts for its day).
-            ->filterTable('joined', ['from' => $day(12), 'until' => $day(10)])
+            ->filterTable('joined', $range(12, 10))
             ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
             // One day: the same date at both ends.
-            ->filterTable('joined', ['from' => $day(10), 'until' => $day(10)])
+            ->filterTable('joined', $range(10, 10))
             ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
-            // Either end on its own.
-            ->filterTable('joined', ['from' => $day(10), 'until' => null])
+            // Up to today.
+            ->filterTable('joined', $range(10, 0))
             ->assertCanSeeTableRecords([$mid, $new])->assertCanNotSeeTableRecords([$old])
-            ->filterTable('joined', ['from' => null, 'until' => $day(10)])
-            ->assertCanSeeTableRecords([$old, $mid])->assertCanNotSeeTableRecords([$new])
             ->resetTableFilters()
             ->assertCanSeeTableRecords([$old, $mid, $new]);
     }

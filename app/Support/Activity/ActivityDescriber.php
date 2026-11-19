@@ -28,6 +28,8 @@ class ActivityDescriber
     /** Bookkeeping columns that never make a line on their own. */
     private const IGNORED = [
         'updated_at', 'created_at', 'deleted_at', 'remember_token', 'last_login_at', 'status_history',
+        // Worked out from the stock (Product::lowestStock()): the stock change itself is listed.
+        'lowest_stock',
         'client_id', 'sync_version', 'sync_acked_version', 'external_id', 'price_incl_tax', 'price_excl_tax',
         'review_count', 'rating', 'invoice_number', 'invoice_fy', 'invoice_seq', 'dispatched_at', 'delivered_at',
         'cancelled_at', 'email_verified_at', 'phone_verified_at', 'used_count', 'unsubscribe_token',
@@ -46,6 +48,7 @@ class ActivityDescriber
         'ClientUser' => 'staff account',
         'ClientRole' => 'role',
         'Faq' => 'FAQ',
+        'StockMovement' => 'stock movement',
         'User' => 'platform account',
     ];
 

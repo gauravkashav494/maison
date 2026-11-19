@@ -21,6 +21,7 @@ use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
+use App\Models\StockMovement;
 use App\Models\Store;
 use App\Models\Storefront;
 use App\Models\Subscriber;
@@ -45,11 +46,11 @@ class StoreContext
         Product::class, Category::class, Collection::class, Brand::class, Tax::class, Coupon::class, Order::class, Review::class,
         Page::class, Post::class, Faq::class, Menu::class, ContactMessage::class, Subscriber::class,
         Service::class, ServiceArea::class, Testimonial::class, Project::class, ServiceRequest::class,
-        Store::class,
+        Store::class, StockMovement::class,
     ];
 
     /** Modules that only make sense for a catalogue (product) store. */
-    public const CATALOGUE_MODELS = [Product::class, Category::class, Collection::class, Brand::class, Tax::class, Coupon::class, Order::class, Review::class];
+    public const CATALOGUE_MODELS = [Product::class, Category::class, Collection::class, Brand::class, Tax::class, Coupon::class, Order::class, Review::class, StockMovement::class];
 
     /** Modules that only make sense for a service business. */
     public const SERVICE_MODELS = [Service::class, ServiceArea::class, Testimonial::class, Project::class, ServiceRequest::class];

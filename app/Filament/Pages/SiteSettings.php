@@ -71,11 +71,11 @@ class SiteSettings extends Page
                             ->description('Shown on the storefront, in emails and in search-engine data. A template can show a different support phone or email: Appearance → its Settings page → Support.')
                             ->info(),
                         Grid::make(2)->schema([
-                            TextInput::make('site.social_instagram')->url()->label('Instagram'),
-                            TextInput::make('site.social_pinterest')->url()->label('Pinterest'),
-                            TextInput::make('site.social_facebook')->url()->label('Facebook'),
-                            TextInput::make('site.social_youtube')->url()->label('YouTube'),
-                            TextInput::make('site.social_linkedin')->url()->label('LinkedIn')
+                            TextInput::make('site.social_instagram')->url()->label('Instagram URL'),
+                            TextInput::make('site.social_pinterest')->url()->label('Pinterest URL'),
+                            TextInput::make('site.social_facebook')->url()->label('Facebook URL'),
+                            TextInput::make('site.social_youtube')->url()->label('YouTube URL'),
+                            TextInput::make('site.social_linkedin')->url()->label('LinkedIn URL')
                                 ->helperText('Shown in the footer of templates that have a LinkedIn icon (Plumbing).'),
                         ]),
                         TagsInput::make('site.payment_methods')->label('Payment method badges')->reorderable(),

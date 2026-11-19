@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
-<x-auth-shell title="Forgot your password?" text="Enter your email and we will send you a reset link.">
-    <form method="post" action="{{ route('password.email') }}" class="space-y-4" novalidate>
+<x-auth-shell title="Forgot your password?" text="Enter the phone number on your account and we will send a code on WhatsApp.">
+    <form method="post" action="{{ route('password.send-code') }}" class="space-y-4" novalidate>
         @csrf
-        <label class="block"><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" autofocus value="{{ old('email') }}" class="field @error('email') field-error @enderror">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
-        <button type="submit" class="btn btn-primary btn-lg btn-block">Send reset link</button>
+        <label class="block"><span class="label">Phone number<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" autofocus value="{{ old('phone') }}" class="field @error('phone') field-error @enderror">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Send code</button>
     </form>
     <p class="mt-5 text-center text-sm text-slate"><a href="{{ route('login') }}" class="font-bold text-primary hover:underline">Back to login</a></p>
 </x-auth-shell>

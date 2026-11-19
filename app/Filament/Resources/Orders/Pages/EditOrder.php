@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Orders\Pages;
 
-use App\Exceptions\InsufficientStockException;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use Filament\Actions\DeleteAction;
@@ -31,15 +30,15 @@ class EditOrder extends EditRecord
         $newStatus = $data['status'] ?? $record->status;
         unset($data['status']);
 
-        // The status goes first: reopening a cancelled order is refused when its goods have been
-        // sold since, and then nothing on the form is saved.
-        if ($newStatus !== $record->status) {
-            try {
-                $record->setStatus($newStatus, $note ?: null);
-            } catch (InsufficientStockException $e) {
-                Notification::make()->danger()->title('Not enough stock')->body($e->getMessage())->persistent()->send();
-                $this->halt(shouldRollbackDatabaseTransaction: true);
-            }
+        // The status goes first and only moves forward (Order::allowedTransitions()): going back a
+        // step or reopening a delivered or cancelled order is refused, and then nothing is saved.
+        if ($newStatus !== $record->status && ! $record->transitionTo($newStatus, $note ?: null)) {
+            Notification::make()->danger()
+                ->title('Status not changed')
+                ->body('This order is '.strtolower($record->statusLabel()).' and cannot move to '.strtolower(Order::statusOptions()[$newStatus] ?? $newStatus).'. An order only moves forward.')
+                ->persistent()
+                ->send();
+            $this->halt(shouldRollbackDatabaseTransaction: true);
         }
         $record->update($data);
 

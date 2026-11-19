@@ -294,6 +294,21 @@ class Product extends Model
             $product->syncTaxPrices();
             $product->syncReviewBaseline();
             $product->syncBrand();
+            $product->lowest_stock = $product->lowestStock();
+        });
+
+        // The stock history (Inventory): what a new product starts with, and every stock change
+        // made on the product form. Sales, cancellations and Inventory adjustments are written
+        // by adjustStock(), which saves quietly so they are not counted twice.
+        static::created(fn (Product $product) => $product->logStockChanges([], 0, StockMovement::OPENING));
+        static::updated(function (Product $product) {
+            if ($product->wasChanged(['stock', 'variants', 'has_variants'])) {
+                $product->logStockChanges(
+                    $product->getOriginal('has_variants') ? (array) $product->getOriginal('variants') : [],
+                    (int) $product->getOriginal('stock'),
+                    StockMovement::EDITED,
+                );
+            }
         });
 
         // The main category is always one of the categories the product is listed under, also
@@ -611,31 +626,124 @@ class Product extends Model
 
     /**
      * Moves stock by $delta (negative when sold, positive when an order is cancelled and the
-     * goods come back). A product sold by variant has its stock on the variant, so that is
-     * adjusted as well as the product total. Stock never goes below zero.
+     * goods come back) and writes the move to the stock history with $reason. A product sold by
+     * variant has its stock on the variant, so that is adjusted as well as the product total.
+     * Stock never goes below zero.
+     *
+     * The row is read again under a lock, so two moves at once cannot both start from the same
+     * stock. It is saved quietly: the movement is the record of it, and the staff action behind
+     * it (if any) writes its own activity line. Returns the stock after the move (the variant's,
+     * when one was moved).
      */
-    public function adjustStock(int $delta, array $options = []): void
+    public function adjustStock(int $delta, array $options = [], string $reason = StockMovement::EDITED, ?Order $order = null, ?string $note = null): int
     {
-        if ($delta === 0) {
-            return;
+        return $this->getConnection()->transaction(function () use ($delta, $options, $reason, $order, $note) {
+            $fresh = static::withoutGlobalScopes()->withTrashed()->lockForUpdate()->find($this->getKey()) ?? $this;
+            [$index, $variantOptions] = $fresh->variantIndex($options);
+
+            if ($index !== null) {
+                $variants = (array) $fresh->variants;
+                $before = (int) ($variants[$index]['stock'] ?? $fresh->stock);
+                $after = max(0, $before + $delta);
+                $variants[$index]['stock'] = $after;
+                $fresh->variants = $variants;
+                $fresh->stock = max(0, (int) $fresh->stock + ($after - $before));
+            } else {
+                $before = (int) $fresh->stock;
+                $after = max(0, $before + $delta);
+                $fresh->stock = $after;
+            }
+
+            if ($after !== $before) {
+                $fresh->lowest_stock = $fresh->lowestStock();
+                $fresh->saveQuietly();
+            }
+
+            StockMovement::log($fresh, $after - $before, $after, $reason, $variantOptions, $order, $note);
+
+            // This copy reads the stock as saved.
+            $keys = ['stock', 'variants', 'lowest_stock'];
+            $this->setRawAttributes(array_intersect_key($fresh->getAttributes(), array_flip($keys)) + $this->getAttributes());
+            $this->syncOriginalAttributes($keys);
+
+            return $after;
+        });
+    }
+
+    /**
+     * Where the variant with these options sits in `variants`, and its options as stored; [null,
+     * null] for a product not sold by variant or options it does not have. Inactive variants are
+     * found too: their stock can still be counted and corrected.
+     *
+     * @return array{0: ?int, 1: ?array<string, string>}
+     */
+    public function variantIndex(array $options): array
+    {
+        if (! $options || ! $this->sellsVariants()) {
+            return [null, null];
         }
 
-        if ($options && $this->sellsVariants()) {
-            $wanted = $this->normaliseOptions($options);
-            $variants = (array) $this->variants;
-            foreach ($variants as $index => $variant) {
-                if ($this->normaliseOptions((array) ($variant['options'] ?? [])) == $wanted) {
-                    $current = $variant['stock'] ?? $this->stock;
-                    $variants[$index]['stock'] = max(0, (int) $current + $delta);
-                    $this->update(['variants' => $variants]);
-                    break;
-                }
+        $wanted = $this->normaliseOptions($options);
+        foreach ((array) $this->variants as $index => $variant) {
+            $own = $this->normaliseOptions((array) ($variant['options'] ?? []));
+            if ($own && $own == $wanted) {
+                return [$index, $own];
             }
         }
 
-        $delta < 0
-            ? static::whereKey($this->id)->where('stock', '>=', -$delta)->decrement('stock', -$delta)
-            : static::whereKey($this->id)->increment('stock', $delta);
+        return [null, null];
+    }
+
+    /** The stock of the lowest variant on sale, or the product's own stock: what "low stock" goes by. */
+    public function lowestStock(): int
+    {
+        if ($this->sellsVariants()) {
+            $stocks = array_column(array_filter($this->variantList(), fn (array $v) => $v['is_active']), 'stock');
+            if ($stocks) {
+                return (int) min($stocks);
+            }
+        }
+
+        return (int) $this->stock;
+    }
+
+    /**
+     * Writes the difference between the stock before ($oldVariants / $oldStock) and now to the
+     * stock history: per variant for a product sold by variant, else on the product's stock.
+     */
+    private function logStockChanges(array $oldVariants, int $oldStock, string $reason): void
+    {
+        $now = $this->sellsVariants() ? $this->variantStocks((array) $this->variants, (int) $this->stock) : [];
+        $was = $this->variantStocks($oldVariants, $oldStock);
+
+        // Sold by variant before and after: what changed on each combination.
+        if ($now && ($was || $reason === StockMovement::OPENING)) {
+            foreach ($now + $was as $key => $row) {
+                $before = $was[$key]['stock'] ?? 0;
+                $after = $now[$key]['stock'] ?? 0;
+                StockMovement::log($this, $after - $before, $after, $reason, $row['options']);
+            }
+
+            return;
+        }
+
+        StockMovement::log($this, (int) $this->stock - $oldStock, (int) $this->stock, $reason);
+    }
+
+    /** @return array<string, array{options: array<string, string>, stock: int}> keyed by the options */
+    private function variantStocks(array $variants, int $fallback): array
+    {
+        $rows = [];
+        foreach ($variants as $variant) {
+            $options = array_filter(array_map(fn ($v) => trim((string) $v), (array) ($variant['options'] ?? [])), 'strlen');
+            if (! $options) {
+                continue;
+            }
+            $stock = $variant['stock'] ?? null;
+            $rows[json_encode($options)] = ['options' => $options, 'stock' => $stock === null || $stock === '' ? $fallback : max(0, (int) $stock)];
+        }
+
+        return $rows;
     }
 
     /**
@@ -643,7 +751,7 @@ class Product extends Model
      * against the stock as it is now, so two sales of the last few units cannot both read the
      * same stock. A product sold by variant is counted per variant; one that is not shares one
      * stock across its lines (e.g. two sizes of the same plain product). Used when an order is
-     * placed (PlaceOrder) and when a cancelled order is reopened (Order::setStatus).
+     * placed (PlaceOrder).
      *
      * @param  array<string|int, array{product_id:int, options:array, qty:int}>  $lines
      *                                                                                   The result holds the locked products keyed by id, and line key => how many are left for

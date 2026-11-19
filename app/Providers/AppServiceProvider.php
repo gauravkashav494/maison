@@ -8,6 +8,7 @@ use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
 use App\Clients\ClientPasswordBrokerManager;
 use App\Clients\StoreFeatures;
+use App\Http\Controllers\Admin\PanelLogoutController;
 use App\Http\Responses\LoginResponse;
 use App\Models\Client;
 use App\Models\ClientRole;
@@ -29,19 +30,23 @@ use App\Policies\UserPolicy;
 use App\Support\Activity\ActivityLog;
 use App\Support\Activity\SignInActivity;
 use App\Support\DatabaseMacros;
+use App\Support\PasswordRules;
 use App\Templates\TemplateManager;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Auth\Http\Controllers\LogoutController;
+use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Form;
-use Filament\Support\Enums\Width;
+use Filament\Schemas\Components\Group;
 use Filament\Support\Facades\FilamentIcon;
 use Filament\Support\Facades\FilamentView;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\ToggleColumn;
-use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Tables\Filters\Indicator;
+use Filament\Tables\Enums\FiltersResetActionPosition;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Filament\Tables\View\TablesRenderHook;
@@ -53,8 +58,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View as ViewInstance;
-use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -65,6 +70,8 @@ class AppServiceProvider extends ServiceProvider
         // read the same instance, so they cannot disagree about who is being served.
         $this->app->singleton(ClientContext::class);
         $this->app->singleton(ClientDatabase::class);
+        // Panel logout signs out the panel account only, not a shopper in the same browser.
+        $this->app->bind(LogoutController::class, PanelLogoutController::class);
         // Shopper reset tokens are kept per client (see ClientScopedTokenRepository). `extend`
         // rather than a new binding: the framework's deferred provider would replace that.
         $this->app->extend('auth.password', fn ($manager, $app) => new ClientPasswordBrokerManager($app));
@@ -78,9 +85,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // One password rule everywhere, including Filament's own profile and reset pages.
+        Password::defaults(fn () => PasswordRules::rule());
+
         $this->registerPanelIcons();
-        $this->registerTableFilterIndicators();
+        $this->hideTableFilterIndicators();
         $this->registerTableFilterLayout();
+        $this->registerSelects();
 
         // Saved images in upload fields open large in a lightbox, and load from the browser cache.
         FilamentView::registerRenderHook(
@@ -120,12 +131,11 @@ class AppServiceProvider extends ServiceProvider
         // Setting the URL here also stops resource list pages adding their default row link.
         Table::configureUsing(fn (Table $table) => $table->recordUrl(null));
 
-        // "Apply" in the filters dropdown also closes it, so the filtered rows are not hidden
-        // behind the panel; the applied filters stay visible as chips in the toolbar. close()
-        // keeps the normal apply request and adds Alpine's close. Only for the dropdown layout:
-        // the modal layout already closes, and the other layouts have nothing to close.
+        // Filters apply as soon as they change (registerTableFilterLayout()), so there is no Apply
+        // button. A table that opts back into an Apply button (deferFilters()) gets one that reads
+        // "Apply", and in a filters dropdown it also closes the dropdown.
         Table::configureUsing(fn (Table $table) => $table->filtersApplyAction(
-            fn (Action $action) => $table->getFiltersLayout() === FiltersLayout::Dropdown ? $action->close() : $action,
+            fn (Action $action) => ($table->getFiltersLayout() === FiltersLayout::Dropdown ? $action->close() : $action)->label('Apply'),
         ));
 
         // Validation is the server's job: no browser "Please fill out this field" pop-ups, every
@@ -206,71 +216,87 @@ class AppServiceProvider extends ServiceProvider
      * button or column manager has no such spot and keeps the default row.
      */
     /**
-     * Every table's filter panel lays itself out by how many filters it has, so no table sets
-     * this by hand (a table that called filtersFormColumns() or filtersFormWidth() itself would
-     * override the rule; don't):
+     * Every table shows its filters in a bar above the table that is always open (Above
+     * content), as most e-commerce admins do, so staff change a filter without opening anything
+     * first, and each filter applies as soon as it changes; the active filters also show as
+     * chips in the search row. No table sets this by hand (a
+     * table that called filtersLayout(), filtersFormColumns() or filtersFormWidth() itself
+     * would override the rule; don't).
      *
-     *   1–3 filters   one per row, the default narrow panel
-     *   4 filters     2 across, medium panel
-     *   5+ filters    3 across, wide panel
-     *
-     * Columns drop to 2 on a tablet and 1 on a phone. Counted when the panel renders, so
-     * filters that are hidden for this user (or this store) do not count.
+     * The bar is as wide as the table, so its fields sit side by side: 1 on a phone, 2 on a
+     * tablet, 3 on a laptop and 4 on a wide screen, however many filters the table has. A date
+     * filter with several fields takes two of those columns, and Reset sits at the end of the
+     * row (theme.css), so a typical bar is one line of fields.
      */
     private function registerTableFilterLayout(): void
     {
-        Table::configureUsing(function (Table $table) {
-            $count = fn () => count($table->getFilters());
+        Table::configureUsing(fn (Table $table) => $table
+            ->filtersLayout(FiltersLayout::AboveContent)
+            // A filter applies as soon as it is picked: no Apply button. The date-range picker
+            // has its own Apply in the calendar, so a range applies once both days are chosen.
+            ->deferFilters(false)
+            // Reset sits at the end of the fields, so the bar needs no heading line (theme.css hides it).
+            ->filtersResetActionPosition(FiltersResetActionPosition::Footer)
+            ->filtersFormColumns(['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4])
+            // A filter with several fields (From / Until) keeps them on one line, two columns wide,
+            // instead of stacking them in one column and making the bar twice as tall.
+            ->filtersFormSchema(fn (array $filters) => array_values(array_map(
+                function (Group $group, string $name) use ($table) {
+                    $filter = $table->getFilter($name);
+                    $fields = count($filter?->getSchemaComponents() ?? []);
+                    if ($fields < 2 || $filter->getColumnSpan() !== 1) { // a span set on the filter itself wins
+                        return $group;
+                    }
 
-            $table
-                ->filtersFormColumns(fn () => match (true) {
-                    $count() >= 5 => ['default' => 1, 'sm' => 2, 'lg' => 3],
-                    $count() === 4 => ['default' => 1, 'sm' => 2],
-                    default => 1,
-                })
-                ->filtersFormWidth(fn () => match (true) {
-                    $count() >= 5 => Width::FourExtraLarge,
-                    $count() === 4 => Width::TwoExtraLarge,
-                    default => null, // Filament's default narrow panel
-                });
-        });
+                    return $group->columns(['default' => 1, 'sm' => min($fields, 2)])->columnSpan(['default' => 1, 'sm' => 2]);
+                },
+                $filters,
+                array_keys($filters),
+            ))));
     }
 
-    private function registerTableFilterIndicators(): void
+    /** A list longer than this can be searched by typing. */
+    public const SEARCHABLE_SELECT_FROM = 8;
+
+    /**
+     * Every select in the panels (form fields, table filters and inline table selects) opens the
+     * panel's own styled list rather than the browser's, so they all look the same. A list with
+     * more than SEARCHABLE_SELECT_FROM options, or one read from the database (categories,
+     * brands, products…, which grow), can also be searched by typing; a short fixed list (status,
+     * payment method) stays a plain pick. A select that sets native(), searchable() or preload()
+     * itself keeps its own choice.
+     */
+    private function registerSelects(): void
     {
-        $drawn = [];
+        $long = fn (array $options) => count($options) > self::SEARCHABLE_SELECT_FROM;
 
-        FilamentView::registerRenderHook(TablesRenderHook::TOOLBAR_SEARCH_BEFORE, function () use (&$drawn) {
-            $component = Livewire::current();
-            if (! $component instanceof HasTable) {
-                return '';
-            }
+        Select::configureUsing(fn (Select $select) => $select
+            ->native(false)
+            // A relationship select answers first, so its options (which ask whether the
+            // select is searchable) are never read from inside this check.
+            ->searchable(fn () => $select->getRelationshipName() !== null || $long($select->getOptions()))
+            ->preload(fn () => $select->getRelationshipName() !== null));
 
-            $table = $component->getTable();
-            $indicators = $table->getFilterIndicators();
-            if (! $indicators) {
-                return '';
-            }
-            $drawn[$component->getId()] = true;
+        SelectFilter::configureUsing(fn (SelectFilter $filter) => $filter
+            ->native(false)
+            ->searchable(fn () => $filter->queriesRelationships() || $long($filter->getOptions()))
+            ->preload(fn () => $filter->queriesRelationships()));
 
-            return view('filament.partials.table-filter-indicators', [
-                'indicators' => $indicators,
-                'removeAll' => collect($indicators)->contains(fn (Indicator $indicator) => $indicator->isRemovable())
-                    ? $table->getFiltersRemoveAllAction()
-                    : null,
-            ]);
-        });
+        SelectColumn::configureUsing(fn (SelectColumn $column) => $column->native(false));
 
-        // A non-blank result replaces the default row; a blank one lets Filament draw it.
-        FilamentView::registerRenderHook(TablesRenderHook::FILTER_INDICATORS, function () use (&$drawn) {
-            $id = Livewire::current()?->getId();
-            if (! $id || ! isset($drawn[$id])) {
-                return '';
-            }
-            unset($drawn[$id]);
+        // A Yes / No filter left empty reads "All", like every other filter (Filament shows "-").
+        // The Deleted items filter keeps its own wording ("Hide deleted").
+        TernaryFilter::configureUsing(fn (TernaryFilter $filter) => $filter instanceof TrashedFilter ? $filter : $filter->placeholder('All'));
+    }
 
-            return new HtmlString('<span hidden></span>');
-        });
+    /**
+     * No "active filters" chips on any table: the filters bar above every table is always open
+     * and already shows what is picked, and Reset clears it. A non-blank result replaces
+     * Filament's chip row, so it is never drawn.
+     */
+    private function hideTableFilterIndicators(): void
+    {
+        FilamentView::registerRenderHook(TablesRenderHook::FILTER_INDICATORS, fn () => new HtmlString('<span hidden></span>'));
     }
 
     private function registerPanelIcons(): void

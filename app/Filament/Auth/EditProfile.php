@@ -5,6 +5,7 @@ namespace App\Filament\Auth;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Models\ClientUser;
 use App\Support\Initials;
+use App\Support\PasswordRules;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -64,8 +65,10 @@ class EditProfile extends BaseEditProfile
                             ->extraAttributes(['class' => 'fi-profile-section'])
                             ->columns(2)
                             ->schema([
-                                $this->getPasswordFormComponent()->prefixIcon(Heroicon::OutlinedKey),
-                                $this->getPasswordConfirmationFormComponent()->prefixIcon(Heroicon::OutlinedKey),
+                                $this->getPasswordFormComponent()->prefixIcon(Heroicon::OutlinedKey)
+                                    ->belowContent(fn () => PasswordRules::checklist()),
+                                $this->getPasswordConfirmationFormComponent()->prefixIcon(Heroicon::OutlinedKey)
+                                    ->belowContent(fn () => PasswordRules::matchHint()),
                                 $this->getCurrentPasswordFormComponent()->prefixIcon(Heroicon::OutlinedShieldCheck)->columnSpanFull(),
                             ]),
                     ])->columnSpan(['lg' => 2]),

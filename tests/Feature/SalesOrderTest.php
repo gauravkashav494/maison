@@ -17,7 +17,7 @@ use Tests\TestCase;
 
 /**
  * A sales person (Customers → Sales person) checks out with no delivery address and no delivery
- * charge, for themselves or for a customer they serve; the store's address goes on the order and
+ * charge, for themselves or for a customer they serve; no address goes on the order (for now) and
  * the order remembers which sales person placed it.
  */
 class SalesOrderTest extends TestCase
@@ -85,7 +85,7 @@ class SalesOrderTest extends TestCase
             ->assertDontSee('name="shipping_method"', false);
     }
 
-    public function test_sales_person_orders_for_themselves_with_the_store_address_and_no_delivery_charge(): void
+    public function test_sales_person_orders_for_themselves_with_no_address_and_no_delivery_charge(): void
     {
         $this->addToCart($this->salesperson);
 
@@ -97,16 +97,20 @@ class SalesOrderTest extends TestCase
         $this->assertSame($this->salesperson->id, (int) $order->salesperson_id);
         $this->assertSame('Ravi Sales', $order->shipping_name);
         $this->assertSame('9000000001', $order->phone);
-        $this->assertSame('12 Mall Road', $order->shipping_line1);
-        $this->assertSame('Ludhiana', $order->shipping_city);
-        $this->assertSame('Punjab', $order->shipping_state);
+        $this->assertSame('', $order->shipping_line1);
+        $this->assertSame('', $order->shipping_city);
+        $this->assertSame('', $order->shipping_state);
+        $this->assertSame('', $order->shipping_postal_code);
+        $this->assertSame('', $order->shipping_country);
+        $this->assertSame([$order->shipping_name], $order->shippingAddressLines());
         $this->assertSame('No delivery (sales order)', $order->shipping_method);
         // No delivery charge and no cash-on-delivery fee.
         $this->assertEquals(0, $order->shipping_cost);
         $this->assertEquals(2000, $order->total);
         $this->assertNull($order->estimated_delivery);
-        // Sold within the store's own state.
+        // Sold at the counter, within the seller's own state.
         $this->assertSame('CGST + SGST', $order->tax_label);
+        $this->assertSame('Punjab (03)', \App\Support\Invoice::for($order)->data()['placeOfSupply']);
         $this->assertTrue($order->isSalesOrder());
         $this->assertSame(0, $this->salesperson->addresses()->count());
     }
@@ -127,7 +131,7 @@ class SalesOrderTest extends TestCase
         $this->assertSame($customer->id, (int) $order->customer_id);
         $this->assertSame($this->salesperson->id, (int) $order->salesperson_id);
         $this->assertSame('Meena Kaur', $order->shipping_name);
-        $this->assertSame('12 Mall Road', $order->shipping_line1);
+        $this->assertSame('', $order->shipping_line1);
         $this->assertEquals(0, $order->shipping_cost);
     }
 
@@ -189,11 +193,10 @@ class SalesOrderTest extends TestCase
         $this->assertFalse($customer->fresh()->isSalesperson());
     }
 
-    public function test_store_address_falls_back_to_the_invoice_settings(): void
+    public function test_without_a_gst_state_the_tax_is_plain_gst(): void
     {
-        Store::withoutGlobalScopes()->delete();
         $setting = Setting::where('key', 'client:'.$this->client->id.':checkout')->firstOrFail();
-        $setting->update(['value' => ['invoice_address' => "Alpha Traders\nShop 4, GT Road"] + $setting->value]);
+        $setting->update(['value' => ['invoice_state' => '', 'invoice_gstin' => ''] + $setting->value]);
         Cache::forget('settings.all');
         $this->addToCart($this->salesperson);
 
@@ -201,9 +204,7 @@ class SalesOrderTest extends TestCase
             ->assertSessionHasNoErrors()->assertRedirect();
 
         $order = $this->latestOrder();
-        $this->assertSame('Alpha Traders', $order->shipping_line1);
-        $this->assertSame('Shop 4, GT Road', $order->shipping_line2);
-        $this->assertSame('Punjab', $order->shipping_state);
+        $this->assertSame('GST', $order->tax_label);
         $this->assertSame(SalesOrder::shippingMethod()['name'], $order->shipping_method);
     }
 }

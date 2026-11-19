@@ -16,6 +16,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -27,6 +28,9 @@ use Filament\Support\Icons\Heroicon;
 class PlumbingServicesSettings extends Page
 {
     use HasSettingsForm;
+
+    /** Social networks a footer link can point to. */
+    private const NETWORKS = ['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn', 'x' => 'X'];
 
     protected string $view = 'filament.pages.settings';
 
@@ -103,8 +107,8 @@ class PlumbingServicesSettings extends Page
                         Textarea::make("$g.footer_blurb")->label('Footer blurb')->rows(3),
                         TextInput::make("$g.footer_note")->label('Footer trust line'),
                         Repeater::make("$g.social")->label('Social links')->schema([
-                            Select::make('network')->options(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn', 'x' => 'X'])->required()->native(false),
-                            TextInput::make('url')->label('URL')->required(),
+                            Select::make('network')->options(self::NETWORKS)->required()->native(false)->live(),
+                            TextInput::make('url')->label(fn (Get $get) => trim((self::NETWORKS[$get('network')] ?? '').' URL'))->required(),
                         ])->columns(2)->maxItems(5)->helperText('Links set to "#" are hidden.'),
                     ]),
                 ]),

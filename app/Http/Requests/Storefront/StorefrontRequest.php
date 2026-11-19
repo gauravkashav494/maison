@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Storefront;
 
 use App\Support\IndianStates;
+use App\Support\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\Password;
 
 /**
  * Base for every storefront form.
@@ -133,7 +133,7 @@ abstract class StorefrontRequest extends FormRequest
 
     protected function newPassword(): array
     {
-        return ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()];
+        return ['required', 'string', 'confirmed', PasswordRules::rule()];
     }
 
     protected function message(bool $required = true, int $min = 10, int $max = 3000): array

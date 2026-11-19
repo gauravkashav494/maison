@@ -80,7 +80,10 @@ class Invoice
             'inclusive' => (bool) $order->prices_include_tax,
             'taxableValue' => $order->prices_include_tax ? max(0, (float) $order->total - $tax) : null,
             // Where the supply is made, for a GST invoice: the shipping state, e.g. "Punjab (03)".
-            'placeOfSupply' => GstSupply::placeOfSupply($order->shipping_state, $order->shipping_country),
+            // A sales order has no address: it is supplied at the counter, in the seller's state.
+            'placeOfSupply' => $order->salesperson_id
+                ? GstSupply::placeOfSupply(SalesOrder::supplyState(), 'India')
+                : GstSupply::placeOfSupply($order->shipping_state, $order->shipping_country),
             'paymentMethod' => Order::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method,
             'amountInWords' => self::rupeesInWords((float) $order->total),
         ];

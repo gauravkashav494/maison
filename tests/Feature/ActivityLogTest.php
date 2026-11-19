@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
@@ -16,8 +17,10 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\PlatformActivity;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\Storefront;
 use App\Models\User;
+use App\Services\Inventory;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Failed;
@@ -259,6 +262,43 @@ class ActivityLogTest extends TestCase
         $this->enterClientPanel($betaAdmin);
         $this->product('Beta Coat', 500, $this->beta)->update(['name' => 'Renamed By Beta']);
         $this->flushSession();
+    }
+
+    public function test_a_stock_adjustment_is_one_line_in_inventory(): void
+    {
+        $this->enterClientPanel($this->admin);
+        $before = PlatformActivity::count();
+
+        Livewire::test(StockLevels::class)
+            ->callAction(TestAction::make('adjust')->table($this->coat), ['type' => StockMovement::RECEIVED, 'quantity' => 15, 'note' => 'Invoice 553'])
+            ->assertHasNoFormErrors();
+
+        // One line: the stock movement itself adds none, and the product's own save is quiet.
+        $this->assertSame($before + 1, PlatformActivity::count());
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('received 15 units of product "Alpha Coat", stock 10 → 25', $line->description);
+        $this->assertSame('Inventory', $line->area);
+        $this->assertSame($this->coat->id, $line->subject_id);
+        $this->assertSame([['field' => 'stock', 'label' => 'stock', 'old' => '10', 'new' => '25']], $line->changes);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+
+        app(Inventory::class)->adjust($this->coat, null, StockMovement::COUNT, 25);
+        $this->assertSame('counted the stock of product "Alpha Coat", stock stays 25', $this->lastLine()->description);
+    }
+
+    public function test_changing_the_low_stock_level_is_logged(): void
+    {
+        $this->enterClientPanel($this->admin);
+
+        Livewire::test(StockLevels::class)->callAction('lowStockLevel', ['level' => 3]);
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('changed the low-stock level from 5 to 3', $line->description);
+        $this->assertSame(['Inventory', 'Settings', $this->alpha->id], [$line->area, $line->subject_type, $line->client_id]);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
     }
 
     public function test_a_client_admin_sees_the_whole_team_and_never_another_client(): void

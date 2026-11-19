@@ -143,7 +143,16 @@ html { font-size: 14px; }
 
 /* ---- Workspace ------------------------------------------------------------- */
 .fi-main { padding-top: 0; }
-.fi-page-content { gap: 1.25rem; }
+.fi-page-content { gap: 0.75rem; }
+/* Compact forms: Filament spaces schema fields 1.5rem apart. Must stay above the widget and stat-card gap rules below, which share its specificity. */
+.fi-sc.fi-sc-has-gap { gap: 1rem; }
+.fi-wi-stats-overview .fi-sc-has-gap { gap: 0.75rem; }
+.fi-wi-stats-overview-stat { padding: 1rem 1.25rem; }
+/* Widget grids (header / footer widgets, dashboard) use the schema gap of 1.5rem; match the page gap. */
+.fi-sc-has-gap:has(.fi-wi-widget) { gap: 0.75rem; }
+/* Compact page header: Filament puts 2rem above the breadcrumbs and 2rem between the title and the content; cut to 1rem and 0.5rem. */
+.fi-page-header-main-ctn { padding-block: 1rem; row-gap: 0.5rem; }
+.fi-header .fi-breadcrumbs { margin-bottom: 0.25rem; }
 .fi-header-heading { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
 .fi-header-subheading { font-size: 0.8125rem; }
 .fi-breadcrumbs-item-label { font-size: 0.75rem; }
@@ -151,18 +160,59 @@ html { font-size: 14px; }
 .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-stat, .fi-fo-tabs, .fi-admin-card {
   border-radius: 0.85rem;
   background: var(--card-bg);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  /* The 1px ring is the card outline (Filament draws it as a ring, which a plain box-shadow would wipe out). */
+  box-shadow: 0 0 0 1px var(--tw-ring-color), 0 1px 2px rgba(16, 24, 40, 0.04);
   --tw-ring-color: var(--card-line);
 }
+/* Sections that aren't drawn as a card (not contained, or aside with the card on its content) get no outline. */
+.fi-section:is(.fi-section-not-contained, .fi-aside) { --tw-ring-color: transparent; }
 .fi-section-header-heading { font-size: 0.95rem; font-weight: 700; }
+/* Compact cards: Filament pads section bodies and contained tab panels 1.5rem and headers/footers
+   1rem x 1.5rem. Tighten both; compact sections keep Filament's own smaller padding. */
+.fi-section:not(.fi-section-not-contained):not(.fi-compact):not(.fi-divided) > .fi-section-content-ctn > .fi-section-content,
+.fi-section:not(.fi-section-not-contained):not(.fi-compact).fi-divided > .fi-section-content-ctn > .fi-section-content > *,
+.fi-sc-tabs.fi-contained .fi-sc-tabs-tab.fi-active { padding: 1rem 1.25rem; }
+.fi-section:not(.fi-section-not-contained):not(.fi-aside):not(.fi-compact) > .fi-section-header,
+.fi-section:not(.fi-section-not-contained):not(.fi-compact) > .fi-section-content-ctn > .fi-section-footer { padding: 0.75rem 1.25rem; }
 .fi-ta-header-heading { font-size: 0.95rem; font-weight: 700; }
+/* Compact toolbar (search, filters, column toggle): Filament pads it 0.75rem top and bottom. */
+.fi-ta-header-toolbar { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+/* Same for the pagination bar under the table (Filament: 0.75rem). */
+.fi-ta-ctn .fi-pagination { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+/* Compact modals and slide-overs: Filament pads them 1.5rem (1.25rem on slide-over headers and
+   sticky footers). Cut to 1rem top/bottom and 1.25rem at the sides. Start-aligned windows with an icon
+   keep their wide start padding so the text still lines up with the heading. */
+.fi-modal-window > .fi-modal-header { padding-top: 1rem; padding-inline: 1.25rem; }
+.fi-modal-window > .fi-modal-content { padding-block: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-icon) > :is(.fi-modal-content, .fi-modal-footer),
+.fi-modal-window.fi-modal-window-has-icon:not(.fi-align-start):not(.fi-align-left) > :is(.fi-modal-content, .fi-modal-footer) { padding-inline: 1.25rem; }
+.fi-modal-has-sticky-header > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-header { padding-bottom: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-content):not(.fi-modal-window-has-footer) > .fi-modal-header { padding-bottom: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-content) > .fi-modal-footer { margin-top: 1rem; }
+.fi-modal:not(.fi-modal-has-sticky-footer) > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-footer { padding-bottom: 1rem; }
+.fi-modal-has-sticky-footer > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-footer { padding-block: 0.75rem; }
+.fi-modal-slide-over > .fi-modal-window-ctn > .fi-modal-window .fi-modal-close-btn { top: 1rem; inset-inline-end: 1.25rem; }
 .fi-ta-header-cell { background: var(--thead-bg); }
+/* Compact header row: Filament pads header cells 0.875rem and the select-all checkbox cell 1rem. */
+.fi-ta-table > thead .fi-ta-header-cell,
+.fi-ta-table > thead .fi-ta-selection-cell { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .fi-ta-header-cell, .fi-ta-header-cell-sort-btn { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
 .fi-ta-cell { font-size: 0.8125rem; }
 .fi-ta-row:hover { background: var(--row-hover); }
+/* Compact rows: Filament pads each column's content (and the checkbox / actions cells) 1rem top
+   and bottom. Halve that for every table in both panels. */
+.fi-ta-row :is(.fi-ta-text, .fi-ta-icon, .fi-ta-color, .fi-ta-select, .fi-ta-checkbox, .fi-ta-text-input, .fi-ta-toggle, .fi-ta-image):not(.fi-inline),
+.fi-ta-row > .fi-ta-cell:has(.fi-ta-actions),
+.fi-ta-row > .fi-ta-cell:has(.fi-ta-record-checkbox),
+.fi-ta-row > .fi-ta-selection-cell { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .fi-badge { font-size: 0.7rem; }
 .fi-btn { border-radius: 0.55rem; }
 .fi-fo-field-label { font-size: 0.8125rem; }
+/* Label sits 0.5rem above its input (forms) or value (infolists) in Filament; tighten. */
+.fi-fo-field { row-gap: 0.3rem; }
+.fi-in-entry { row-gap: 0.3rem; }
+/* Same for the input and its helper / error text below it. */
+.fi-fo-field-content-col { row-gap: 0.3rem; }
 /* Order page side cards (Customer, Delivery…): bold labels so each value is easy to find. */
 .fi-order-side .fi-in-entry-label { font-weight: 700; color: var(--ink); }
 /* Order page Payment: a rule above the total, like a receipt. */
@@ -204,7 +254,7 @@ html { font-size: 14px; }
   border-end-end-radius: calc(0.75rem - 1px);
 }
 .fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-content-ctn { border-top-color: #cfd6e1; }
-.fi-sc-tabs-tab > .fi-sc { row-gap: 1.75rem; }
+.fi-sc-tabs-tab > .fi-sc { row-gap: 1rem; }
 .dark .fi-sc-tabs-tab .fi-section:not(.fi-aside) { border-color: rgba(255, 255, 255, 0.14); border-top-color: var(--primary-400, #60a5fa); }
 .dark .fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-content-ctn { border-top-color: rgba(255, 255, 255, 0.1); }
 
@@ -447,13 +497,27 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login[data-style="minimal"] .fi-login-help { text-align: center; }
 .fi-login[data-style="minimal"] .fi-login-foot { position: absolute; bottom: 1.5rem; color: var(--ink-faint); }
 .fi-login[data-style="minimal"] .fi-login-foot a { color: var(--ink-soft); border-color: var(--card-line); }
-/* ---- Table toolbar: active filter chips beside the search field --------------
-   Drawn by AppServiceProvider::registerTableFilterIndicators(). They wrap onto
-   more lines when there are many, and never squeeze the search field. */
-.fi-ta-toolbar-filter-indicators { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.375rem; min-width: 0; flex: 1 1 auto; }
-.fi-ta-header-toolbar > div:has(> .fi-ta-toolbar-filter-indicators) { flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
-.fi-ta-header-toolbar .fi-ta-search-field { flex: 0 0 auto; }
-@media (max-width: 640px) { .fi-ta-toolbar-filter-indicators { justify-content: flex-start; flex-basis: 100%; } }
+/* ---- Filters bar above every table -------------------------------------------
+   AppServiceProvider::registerTableFilterLayout(). Kept short: no "Filters" heading
+   (the bar speaks for itself), the fields in one row, and Reset at the end of that row
+   rather than on a line of its own. Filters apply as they change, so there is no Apply
+   button. On a phone everything stacks. */
+.fi-ta-filters-above-content-ctn { padding-top: 0.875rem; padding-bottom: 0.5rem; }
+/* Navy accent along the top of every table card, curving into its corners (same stripe as sections inside tabs). */
+.fi-ta-ctn { border-top: 3px solid var(--primary-600, #1c3557); }
+.dark .fi-ta-ctn { border-top-color: var(--primary-400, #60a5fa); }
+/* Same stripe on every section card. An aside section's card is its content box, beside the label. */
+.fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section.fi-aside > .fi-section-content-ctn { border-top: 3px solid var(--primary-600, #1c3557); }
+.dark .fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.dark .fi-section.fi-aside > .fi-section-content-ctn { border-top-color: var(--primary-400, #60a5fa); }
+.fi-ta-filters-above-content-ctn .fi-ta-filters { row-gap: 0.5rem; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters-header { display: none; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters .fi-sc.fi-sc-has-gap { gap: 0.75rem; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters-actions-ctn { gap: 0.5rem; }
+@media (min-width: 640px) {
+  .fi-ta-filters-above-content-ctn .fi-ta-filters { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: end; }
+}
 
 /* ---- My profile page --------------------------------------------------------- */
 /* Header card: navy banner, large initials avatar overlapping it, role / store / status chips. */
@@ -647,3 +711,30 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-option-photos.fi-swatch-grid > * { gap: 0.4rem !important; }
 .fi-colour-card .fi-image-picker-empty { font-size: 0.75rem; }
 .dark .fi-colour-card { border-color: rgba(255, 255, 255, 0.1); }
+
+/* Role form: each module is one row of its section with a rule between rows. The section's grid
+   gap is replaced by row padding so the rule sits midway. (In Filament 4 the section content
+   element is the grid itself, hence .fi-section-content.fi-sc.) */
+.fi-role-permissions .fi-section-content.fi-sc { row-gap: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col { padding-block: 0.7rem; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col:first-child { padding-top: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col:last-child { padding-bottom: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col + .fi-grid-col { border-top: 1px solid var(--card-line); }
+.fi-role-permissions .fi-fo-field-label-content { font-weight: 700; }
+
+/* Dashboard welcome for an account with no module yet (NoAccessWelcome): a calm card, not an error. */
+.fi-welcome { padding: 1.5rem 1.75rem; border-radius: .875rem; background: linear-gradient(120deg, #0f2a4d, #1d4ed8); color: #fff; }
+.fi-welcome-kicker { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .7); }
+.fi-welcome-title { margin-top: .2rem; font-size: 1.5rem; font-weight: 700; }
+.fi-welcome-text { margin-top: .5rem; max-width: 42rem; font-size: .875rem; color: rgb(255 255 255 / .85); }
+.fi-welcome-contact { margin-top: .9rem; font-size: .875rem; color: rgb(255 255 255 / .85); }
+.fi-welcome-contact strong { color: #fff; }
+.fi-welcome-contact a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+/* Platform dashboard greeting (PlatformWelcome): a slimmer bar with a button per section. */
+.fi-welcome-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.5rem; }
+.fi-welcome-bar .fi-welcome-title { margin-top: 0; font-size: 1.25rem; }
+.fi-welcome-bar .fi-welcome-text { margin-top: .2rem; }
+.fi-welcome-bar .fi-welcome-text a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.fi-welcome-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.fi-welcome-btn { padding: .4rem .85rem; border-radius: .5rem; background: #fff; color: #0f2a4d; font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.fi-welcome-btn:hover { background: #e8eef9; }

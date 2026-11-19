@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\RateLimiter;
  * A one-time code a shopper receives on WhatsApp to prove the phone number is theirs.
  *
  * One code is pending per visitor, kept in their session with what it unlocks: the sign-up
- * details ("register"), the checkout form ("checkout") or the account to sign in to
- * ("login"). Only a keyed hash of the code is kept. A code lasts five minutes, allows a few
+ * details ("register"), the checkout form ("checkout"), the account to sign in to
+ * ("login") or the account whose password is being reset ("reset"). Only a keyed hash of the code is kept. A code lasts five minutes, allows a few
  * wrong entries, and only works on the storefront (client) it was sent from. The number of
  * codes one phone can receive is limited, whatever session asks for them.
  */
@@ -22,6 +22,9 @@ class CustomerOtp
     public const CHECKOUT = 'checkout';
 
     public const LOGIN = 'login';
+
+    /** Forgot password: once the number is proven, the shopper chooses a new password. */
+    public const RESET = 'reset';
 
     private const SESSION_KEY = 'customer_otp';
 

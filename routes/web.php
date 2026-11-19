@@ -69,7 +69,11 @@ Route::middleware('guest')->group(function () {
     Route::post('/verify', [OtpController::class, 'verify'])->middleware('throttle:10,1');
     Route::post('/verify/resend', [OtpController::class, 'resend'])->middleware('throttle:3,1')->name('otp.resend');
     Route::get('/forgot-password', [AccountController::class, 'forgotForm'])->name('password.request');
-    Route::post('/forgot-password', [AccountController::class, 'forgot'])->middleware('throttle:5,1')->name('password.email');
+    Route::post('/forgot-password', [AccountController::class, 'forgot'])->middleware('throttle:5,1')->name('password.send-code');
+    // After the WhatsApp code: choose the new password (allowed for a few minutes, see AccountController).
+    Route::get('/new-password', [AccountController::class, 'newPasswordForm'])->name('password.new');
+    Route::post('/new-password', [AccountController::class, 'saveNewPassword'])->middleware('throttle:10,1');
+    // Emailed links are only sent to a past guest who registers, to prove the address (AccountController::register).
     Route::get('/reset-password/{token}', [AccountController::class, 'resetForm'])->name('password.reset');
     Route::post('/reset-password', [AccountController::class, 'reset'])->name('password.update');
 });

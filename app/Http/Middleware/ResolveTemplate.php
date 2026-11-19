@@ -91,6 +91,11 @@ class ResolveTemplate
         if (! $client && ! $isEntryLink) {
             // The main domain is the Super Admin panel, never a store.
             if (! $hostTemplate) {
+                // A deactivated client's own address says so, instead of leading to the panel.
+                if ($inactive = Client::anyForHost($request->getHost())) {
+                    return response()->view('storefront-deactivated', ['client' => $inactive], 503);
+                }
+
                 // The panel's dashboard route carries the main domain, so this always lands there.
                 // (Panel::getUrl() falls back to url('') — this same host — which loops forever when
                 // a request arrives on a host that is neither the main domain nor a client.)

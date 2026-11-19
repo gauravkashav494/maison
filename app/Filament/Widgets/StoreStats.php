@@ -40,7 +40,8 @@ class StoreStats extends Widget
             $open = Order::whereIn('status', $toFulfil)->count();
 
             // Each card opens the orders list already filtered to the figure it shows.
-            $thisMonth = ['placed_between' => ['from' => $monthStart->toDateString(), 'until' => null]];
+            // The orders list's date-range picker reads "dd/mm/yyyy - dd/mm/yyyy".
+            $thisMonth = ['placed_between' => ['placed_between' => $monthStart->format('d/m/Y').' - '.today()->format('d/m/Y')]];
 
             $stats[] = [
                 'label' => 'Orders this month',

@@ -7,32 +7,31 @@ use App\Filament\Concerns\OpensTrashedRecords;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
+use App\Filament\Support\DateRangeFilter;
 use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
+use App\Support\PasswordRules;
 use App\Support\PhoneNumber;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 
 /**
  * Shoppers of one client. Customers live in the platform database and are scoped by client,
@@ -81,13 +80,9 @@ class CustomerResource extends Resource
                 TextInput::make('email')->email()->maxLength(190)
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0))
                     ->helperText('Optional. Needed to receive order emails and to reset a forgotten password.'),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable()
+                PasswordRules::field(TextInput::make('password'), 'Leave blank to keep the current password. Sales people need a password to sign in.')
                     ->required(fn (Get $get, ?Customer $record) => (bool) $get('is_salesperson') && blank($record?->password))
-                    ->dehydrated(fn ($state) => filled($state))
-                    ->minLength(8)
-                    ->helperText('Leave blank to keep the current password. Sales people need a password to sign in.'),
+                    ->dehydrated(fn ($state) => filled($state)),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('A disabled customer cannot sign in to the storefront.'),
                 Toggle::make('is_salesperson')->label('Sales person')->default(false)->inline(false)
@@ -140,26 +135,9 @@ class CustomerResource extends Resource
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
             ->filters([
-                // When the customer joined; either end may be left open, and the same day in both is one day.
-                Filter::make('joined')
-                    ->schema([
-                        DatePicker::make('from')->label('Joined from')->native(false)->maxDate(today()),
-                        DatePicker::make('until')->label('Joined until')->native(false)->maxDate(today())
-                            ->minDate(fn ($get) => $get('from') ?: null),
-                    ])
-                    ->query(fn (Builder $query, array $data) => $query->joinedBetween($data['from'] ?? null, $data['until'] ?? null))
-                    ->indicateUsing(function (array $data) {
-                        $from = filled($data['from'] ?? null) ? Carbon::parse($data['from'])->format('d M Y') : null;
-                        $until = filled($data['until'] ?? null) ? Carbon::parse($data['until'])->format('d M Y') : null;
-
-                        return match (true) {
-                            $from && $from === $until => "Joined on $from",
-                            $from && $until => "Joined $from – $until",
-                            (bool) $from => "Joined from $from",
-                            (bool) $until => "Joined until $until",
-                            default => null,
-                        };
-                    }),
+                // When the customer joined: one picker with ready ranges, both days included.
+                DateRangeFilter::range('joined', 'Joined',
+                    scope: fn (Builder $query, string $from, string $until) => $query->joinedBetween($from, $until)),
                 TernaryFilter::make('is_salesperson')->label('Account type')
                     ->trueLabel('Sales people')->falseLabel('Customers'),
                 TrashedFilter::make(),

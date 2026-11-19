@@ -62,12 +62,17 @@ class ClientRoleResource extends Resource
     {
         $sections = collect(self::grantableModules())
             ->groupBy('group', preserveKeys: true)
-            ->map(fn ($modules, string $group) => Section::make($group)->columns(2)->schema(
-                $modules->map(fn (array $module, string $key) => CheckboxList::make('grid.'.$key)
-                    ->label($module['label'])
-                    ->options(ClientModules::actionOptions($key))
-                    ->columns(4))->values()->all()
-            ))
+            // One module per row (name on the left, its actions in aligned columns), with a rule
+            // between rows so each module's boxes read as one set. Styled by .fi-role-permissions.
+            ->map(fn ($modules, string $group) => Section::make($group)
+                ->extraAttributes(['class' => 'fi-role-permissions'])
+                ->schema(
+                    $modules->map(fn (array $module, string $key) => CheckboxList::make('grid.'.$key)
+                        ->label($module['label'])
+                        ->inlineLabel()
+                        ->options(ClientModules::actionOptions($key))
+                        ->columns(4))->values()->all()
+                ))
             ->values()
             ->all();
 

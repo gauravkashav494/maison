@@ -19,8 +19,8 @@
             @if ($user->password !== null)
             <label class="block"><span class="{{ $label }}">Current password<span class="req" aria-hidden="true">*</span></span><input name="current_password" type="password" class="input-luxe" autocomplete="current-password">@error('current_password')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
             @endif
-            <label class="block"><span class="{{ $label }}">New password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="input-luxe" autocomplete="new-password">@error('password')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
-            <label class="block"><span class="{{ $label }}">Confirm new password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="input-luxe" autocomplete="new-password"></label>
+            <label class="block"><span class="{{ $label }}">New password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="input-luxe" autocomplete="new-password"><x-password-checklist />@error('password')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
+            <label class="block"><span class="{{ $label }}">Confirm new password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="input-luxe" autocomplete="new-password"><x-password-match /></label>
             <button type="submit" class="btn btn-outline">Update password</button>
         </form>
     </div>

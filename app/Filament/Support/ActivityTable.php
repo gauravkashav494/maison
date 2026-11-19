@@ -5,7 +5,6 @@ namespace App\Filament\Support;
 use App\Models\PlatformActivity;
 use Closure;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
@@ -17,7 +16,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -159,28 +157,8 @@ class ActivityTable
         return $change[$side] === '' ? 'empty' : trim((string) $change[$side], '"');
     }
 
-    private static function dateFilter(): Filter
+    private static function dateFilter(): DateRangeFilter
     {
-        return Filter::make('when')
-            ->schema([
-                DatePicker::make('from')->label('From')->native(false)->maxDate(today()),
-                DatePicker::make('until')->label('Until')->native(false)->maxDate(today())
-                    ->minDate(fn ($get) => $get('from') ?: null),
-            ])
-            ->query(fn (Builder $query, array $data) => $query
-                ->when($data['from'] ?? null, fn (Builder $q, $from) => $q->where('created_at', '>=', Carbon::parse($from)->startOfDay()))
-                ->when($data['until'] ?? null, fn (Builder $q, $until) => $q->where('created_at', '<=', Carbon::parse($until)->endOfDay())))
-            ->indicateUsing(function (array $data) {
-                $from = filled($data['from'] ?? null) ? Carbon::parse($data['from'])->format('d M Y') : null;
-                $until = filled($data['until'] ?? null) ? Carbon::parse($data['until'])->format('d M Y') : null;
-
-                return match (true) {
-                    $from && $from === $until => "On $from",
-                    $from && $until => "$from – $until",
-                    (bool) $from => "From $from",
-                    (bool) $until => "Until $until",
-                    default => null,
-                };
-            });
+        return DateRangeFilter::range('when', 'When');
     }
 }

@@ -214,8 +214,11 @@ class ReviewModerationTest extends TestCase
         $this->assertStringContainsString('Two-star review', $html);
         $this->assertStringNotContainsString('Four-star review', $html);
         $this->assertStringNotContainsString('Five-star review', $html);
-        $this->assertStringContainsString('fi-ta-toolbar-filter-indicators', $html);
-        // "Apply" closes the filters dropdown.
-        $this->assertMatchesRegularExpression('/wire:click="applyTableFilters"[^>]*x-on:click="close\(\)"|x-on:click="close\(\)"[^>]*wire:click="applyTableFilters"/', $html);
+        // No "active filters" chips: the open filters bar already shows what is picked.
+        $this->assertStringNotContainsString('fi-ta-toolbar-filter-indicators', $html);
+        $this->assertStringNotContainsString('fi-ta-filter-indicators', $html);
+        // The filters sit open above the table and apply as they change.
+        $this->assertStringContainsString('fi-ta-filters-above-content-ctn', $html);
+        $this->assertStringNotContainsString('wire:click="applyTableFilters"', $html);
     }
 }

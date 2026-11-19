@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Exceptions\InsufficientStockException;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\UsesClientConnection;
@@ -14,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use LogicException;
 
 class Order extends Model
 {
@@ -169,12 +169,6 @@ class Order extends Model
 
     // ---- Query scopes used by the admin list filters -----------------------
 
-    /** Orders placed on one calendar day. */
-    public function scopePlacedOn($query, $date)
-    {
-        return $query->when(filled($date), fn ($q) => $q->whereDate('created_at', Carbon::parse($date)));
-    }
-
     /** Orders placed within a range; either end may be left open. */
     public function scopePlacedBetween($query, $from = null, $until = null)
     {
@@ -289,17 +283,17 @@ class Order extends Model
             default => [],
         };
 
+        // A cancelled order is finished: its goods are already back on the shelf, so it is never
+        // reopened (Order::allowedTransitions()).
+        if ($this->isCancelled() && $status !== self::STATUS_CANCELLED) {
+            throw new LogicException("Order {$this->number} is cancelled and cannot be reopened.");
+        }
+
         $this->getConnection()->transaction(function () use ($attributes, $status) {
             $wasCancelled = $this->isCancelled();
 
-            // Cancelling puts the goods back on the shelf; reopening a cancelled order (from the
-            // edit form) takes them off again, and is refused when they have been sold since.
-            // Every status change comes through here, so the stock moves exactly once each way,
-            // whoever made the change.
-            if ($wasCancelled && $status !== self::STATUS_CANCELLED) {
-                $this->takeStockForReopening();
-            }
-
+            // Cancelling puts the goods back on the shelf. Every status change comes through
+            // here, so the stock moves back exactly once, whoever made the change.
             $this->forceFill($attributes)->save();
 
             if (! $wasCancelled && $status === self::STATUS_CANCELLED) {
@@ -312,38 +306,7 @@ class Order extends Model
     private function returnStock(): void
     {
         foreach ($this->items()->with('product')->get() as $item) {
-            $item->product?->adjustStock((int) $item->qty, (array) $item->options);
-        }
-    }
-
-    /**
-     * Takes every line's quantity off the product's stock again, with the products locked, or
-     * refuses with what is short so nothing changes. A line whose product has since been deleted
-     * has no stock to take, as before.
-     *
-     * @throws InsufficientStockException
-     */
-    private function takeStockForReopening(): void
-    {
-        $items = $this->items()->get()->keyBy('id');
-        $lines = $items->map(fn ($item) => ['product_id' => $item->product_id, 'options' => (array) $item->options, 'qty' => (int) $item->qty])->all();
-        ['products' => $products, 'short' => $short] = Product::lockForLines($lines);
-        $short = array_filter($short, fn ($left, $id) => $products->has($items[$id]->product_id), ARRAY_FILTER_USE_BOTH);
-
-        if ($short) {
-            $list = array_map(function (int $left, int $id) use ($items) {
-                $item = $items[$id];
-                $options = implode(' / ', array_filter((array) $item->options, 'filled'));
-                $name = $item->name.($options !== '' ? ' ('.$options.')' : '');
-
-                return "{$name}: {$item->qty} needed, {$left} in stock";
-            }, $short, array_keys($short));
-
-            throw new InsufficientStockException($short, 'This order cannot be reopened: some of its items have been sold since it was cancelled ('.implode('; ', $list).'). Restock them first.');
-        }
-
-        foreach ($items as $item) {
-            $products->get($item->product_id)?->adjustStock(-(int) $item->qty, (array) $item->options);
+            $item->product?->adjustStock((int) $item->qty, (array) $item->options, StockMovement::CANCELLED, $this);
         }
     }
 

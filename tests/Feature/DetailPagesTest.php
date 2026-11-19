@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Filament\RelationManagers\ProductsRelationManager;
+use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Categories\Pages\ViewCategory;
 use App\Filament\Resources\Collections\Pages\ViewCollection;
+use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Products\Pages\ViewProduct;
@@ -21,7 +23,12 @@ use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Storefront;
+use App\Support\IndianStates;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -187,8 +194,8 @@ class DetailPagesTest extends TestCase
 
     public function test_the_related_lists_do_not_show_on_the_edit_pages(): void
     {
-        $this->assertFalse(ProductsRelationManager::canViewForRecord($this->category, \App\Filament\Resources\Categories\Pages\EditCategory::class));
-        $this->assertFalse(OrdersRelationManager::canViewForRecord($this->customer, \App\Filament\Resources\Customers\Pages\EditCustomer::class));
+        $this->assertFalse(ProductsRelationManager::canViewForRecord($this->category, EditCategory::class));
+        $this->assertFalse(OrdersRelationManager::canViewForRecord($this->customer, EditCustomer::class));
     }
 
     public function test_the_products_list_filters_by_collection(): void
@@ -209,23 +216,64 @@ class DetailPagesTest extends TestCase
     }
 
     /**
-     * The filter panel lays out by filter count everywhere (AppServiceProvider): 1–3 one per
-     * row in the narrow panel, 4 two across, 5+ three across in a wide panel.
+     * Every table's filters sit in a bar above the table that is always open (AppServiceProvider),
+     * with the fields side by side; each filter applies as soon as it changes.
      */
-    public function test_every_filter_panel_lays_out_by_how_many_filters_it_has(): void
+    public function test_every_table_has_its_filters_open_above_it(): void
     {
-        foreach ([
-            '/client/products' => ['fi-width-4xl', ['default' => 1, 'sm' => 2, 'lg' => 3]], // 6 filters
-            '/client/orders' => ['fi-width-2xl', ['default' => 1, 'sm' => 2]],             // 4 filters
-            '/client/categories' => ['fi-width-xs', ['default' => 1]],                      // 2 filters
-        ] as $url => [$width, $columns]) {
+        foreach (['/client/products', '/client/orders', '/client/categories'] as $url) {
             $html = $this->page($url)->getContent();
-            $panel = substr($html, (int) strpos($html, 'fi-ta-filters-dropdown'), 8000);
+            $start = strpos($html, 'fi-ta-filters-above-content-ctn');
+            $this->assertNotFalse($start, "{$url} has its filters above the table");
+            $panel = substr($html, $start); // the bar and what follows it
 
-            $this->assertStringContainsString($width, $panel, "{$url} panel width");
-            foreach ($columns as $breakpoint => $count) {
+            $this->assertStringNotContainsString('x-show="areFiltersOpen"', $panel, "{$url} bar is always open");
+            $this->assertStringNotContainsString('fi-ta-filters-trigger-action-ctn', $panel, "{$url} has no Filters button");
+            $this->assertStringNotContainsString('fi-ta-filters-dropdown', $html, "{$url} has no filters dropdown");
+            // Filters apply as they change: no Apply button, Reset at the end of the fields.
+            $this->assertStringNotContainsString('wire:click="applyTableFilters"', $panel, "{$url} has no Apply button");
+            $this->assertStringContainsString("path: 'tableFilters.", $panel, "{$url} filters apply as they change");
+            $this->assertStringNotContainsString("path: 'tableDeferredFilters.", $panel, "{$url} no filter waits for Apply");
+            $actions = substr($panel, (int) strpos($panel, 'fi-ta-filters-actions-ctn'), 3000);
+            $this->assertStringContainsString('wire:click="resetTableFiltersForm"', $actions, "{$url} Reset at the end of the fields");
+            foreach (['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4] as $breakpoint => $count) {
                 $this->assertMatchesRegularExpression("/--cols-{$breakpoint}:\\s*repeat\\({$count},/", $panel, "{$url} {$breakpoint} columns");
             }
         }
+
+        // A date range is one picker with ready ranges (App\Filament\Support\DateRangeFilter),
+        // not a From and an Until field.
+        $html = $this->page('/client/orders')->getContent();
+        $this->assertStringContainsString('Placed between', $html);
+        $this->assertStringContainsString('dateRangeComponent', $html);
+        $this->assertStringNotContainsString('Placed until', $html);
+    }
+
+    /**
+     * Every select opens the panel's styled list; long lists and lists read from the database
+     * can be searched, a short fixed list cannot (AppServiceProvider::registerSelects()).
+     */
+    public function test_selects_are_styled_and_long_lists_are_searchable(): void
+    {
+        $short = Select::make('status')->options(['a' => 'A', 'b' => 'B', 'c' => 'C']);
+        $long = Select::make('state')->options(IndianStates::options());
+        $related = Select::make('brand_id')->relationship('brandRecord', 'name');
+        $own = Select::make('pick')->options(['a' => 'A'])->searchable()->native(true);
+
+        $this->assertFalse($short->isNative());
+        $this->assertFalse($short->isSearchable());
+        $this->assertTrue($long->isSearchable());
+        $this->assertTrue($related->isSearchable());
+        $this->assertTrue($related->isPreloaded());
+        $this->assertTrue($own->isSearchable(), 'a select that chose for itself keeps its choice');
+
+        $filter = SelectFilter::make('payment_method')->options(['upi' => 'UPI', 'cod' => 'Cash on delivery']);
+        $this->assertFalse($filter->isNative());
+        $this->assertFalse((bool) $filter->getSearchable());
+        $this->assertTrue((bool) SelectFilter::make('state')->options(IndianStates::options())->getSearchable());
+
+        // An empty Yes / No filter reads "All", not Filament's "-"; Deleted items keeps its words.
+        $this->assertSame('All', TernaryFilter::make('is_active')->getPlaceholder());
+        $this->assertSame('Hide deleted', TrashedFilter::make()->getPlaceholder());
     }
 }

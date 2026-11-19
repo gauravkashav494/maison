@@ -9,7 +9,9 @@
         @csrf
         <label class="block"><span class="text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">WhatsApp code<span class="req" aria-hidden="true">*</span></span><input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="{{ $codeLength }}" autofocus class="input-luxe text-center text-lg tracking-[0.5em]">@error('code')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
         <button type="submit" class="btn btn-primary btn-lg w-full">{{ $button }}</button>
-        <p class="text-[0.6875rem] leading-relaxed text-taupe">The code is valid for {{ $validFor }} minutes.</p>
+        <x-countdown :seconds="$expiresIn" label="Code expires in">
+            <x-slot:expired>This code has expired. Tap “Resend code” for a new one.</x-slot:expired>
+        </x-countdown>
     </form>
     <form method="post" action="{{ route('otp.resend') }}" class="mt-6 flex items-center justify-between text-sm" x-data="{ wait: {{ (int) $resendIn }} }" x-init="if (wait > 0) { const t = setInterval(() => { if (--wait <= 0) clearInterval(t) }, 1000) }">
         @csrf

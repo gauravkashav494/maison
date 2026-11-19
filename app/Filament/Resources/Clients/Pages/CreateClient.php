@@ -8,6 +8,7 @@ use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Models\ClientUser;
+use App\Support\PasswordRules;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -47,9 +48,7 @@ class CreateClient extends CreateRecord
                 TextInput::make('name')->label('Full name')->required()->maxLength(120),
                 TextInput::make('email')->label('Email')->email()->required()->maxLength(190),
                 PhoneInput::make('phone')->label('Phone (optional)'),
-                TextInput::make('password')->label('Password')->password()->revealable()->required()->minLength(8)
-                    ->hint('Minimum 8 characters')
-                    ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.'),
+                PasswordRules::field(TextInput::make('password')->label('Password'))->required(),
             ]);
     }
 

@@ -9,8 +9,8 @@
             <label class="block"><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ old('phone') }}" class="field" autocomplete="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
             <label class="block"><span class="label">Email (optional)</span><input name="email" type="email" value="{{ old('email') }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
         </div>
-        <label class="block"><span class="label">Password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password">@error('password')<span class="error-text">{{ $message }}</span>@enderror</label>
-        <label class="block"><span class="label">Confirm password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="field" autocomplete="new-password"></label>
+        <label class="block"><span class="label">Password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password"><x-password-checklist />@error('password')<span class="error-text">{{ $message }}</span>@enderror</label>
+        <label class="block"><span class="label">Confirm password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="field" autocomplete="new-password"><x-password-match /></label>
         <button type="submit" class="btn btn-primary btn-lg btn-block">Create account</button>
         <p class="text-center text-xs text-muted">By signing up you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>.</p>
     </form>

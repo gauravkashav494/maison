@@ -101,8 +101,10 @@ class AdminPanelAccessTest extends TestCase
         $this->operator->update(['is_active' => false]);
         $this->actingAs($this->operator->fresh(), 'admin');
 
-        // Filament refuses the panel itself (canAccessPanel), so the session is of no use.
-        $this->get('/')->assertForbidden();
-        $this->get('/clients')->assertForbidden();
+        // The open session is ended and the operator is sent to sign-in, told why.
+        $this->get('/')->assertRedirect('/login')
+            ->assertSessionHas('filament.notifications', fn (array $n) => str_contains($n[0]['body'] ?? '', 'Your account has been deactivated'));
+        $this->assertGuest('admin');
+        $this->get('/clients')->assertRedirect('/login');
     }
 }

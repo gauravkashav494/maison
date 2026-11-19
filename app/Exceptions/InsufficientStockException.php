@@ -5,11 +5,10 @@ namespace App\Exceptions;
 use RuntimeException;
 
 /**
- * Raised when a sale asks for more than is left, so nothing is changed:
- * - by PlaceOrder when, at the moment the order is placed, a cart line asks for more than is left
- *   (another shopper or another window bought it first). No order is made; the cart has already
- *   been lowered to what is left (Cart::limitToStock) so the shopper can check it again;
- * - by Order::setStatus when a cancelled order is reopened but its goods have since been sold.
+ * Raised by PlaceOrder when, at the moment the order is placed, a cart line asks for more than is
+ * left (another shopper or another window bought it first), so nothing is changed. No order is
+ * made; the cart has already been lowered to what is left (Cart::limitToStock) so the shopper can
+ * check it again.
  */
 class InsufficientStockException extends RuntimeException
 {

@@ -10,6 +10,7 @@ use App\Clients\Scopes\ClientOwned;
 use App\Contracts\AdminIdentity;
 use App\Models\Client;
 use App\Models\ClientUser;
+use App\Support\PanelSignOut;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
@@ -48,9 +49,7 @@ class ApplyAdminScope
         // is signed out rather than shown its own store's data under someone else's address.
         if ($identity instanceof ClientUser && ($hostClient = Client::idForHost($request->getHost()))
             && (int) $identity->client_id !== $hostClient) {
-            auth('client')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            PanelSignOut::guard($request, 'client');
 
             return redirect()->to(Filament::getPanel('client')->getLoginUrl());
         }

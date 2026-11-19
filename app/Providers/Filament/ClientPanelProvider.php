@@ -17,6 +17,7 @@ use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Filament\Pages\PlumbingSettings;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\ActivityLogResource;
 use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Categories\CategoryResource;
@@ -37,22 +38,24 @@ use App\Filament\Resources\Reviews\ReviewResource;
 use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
 use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
 use App\Filament\Resources\Services\ServiceResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Subscribers\SubscriberResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Testimonials\TestimonialResource;
 use App\Filament\Widgets\ClientUsage;
+use App\Filament\Widgets\NoAccessWelcome;
 use App\Filament\Widgets\RecentOrders;
 use App\Filament\Widgets\ServiceStats;
 use App\Filament\Widgets\StoreLink;
 use App\Filament\Widgets\StoreStats;
 use App\Http\Controllers\Admin\OrderInvoiceController;
 use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticatePanelSession;
 use App\Http\Middleware\DiscourageSearchEngines;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
@@ -89,6 +92,7 @@ class ClientPanelProvider extends PanelProvider
         TaxResource::class,
         CouponResource::class,
         OrderResource::class,
+        StockMovementResource::class,
         ReviewResource::class,
         ServiceResource::class,
         ServiceAreaResource::class,
@@ -111,6 +115,7 @@ class ClientPanelProvider extends PanelProvider
     /** Appearance and content settings for the templates; each page checks its own access. */
     public const PAGES = [
         Dashboard::class,
+        StockLevels::class,
         SiteSettings::class,
         FashionSettings::class,
         HomepageSettings::class,
@@ -146,9 +151,11 @@ class ClientPanelProvider extends PanelProvider
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-badge'))
+            // Live checklist under every new-password field (App\Support\PasswordRules).
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
-            ->navigationGroups(['Sales', 'Catalogue', 'Services', 'Content', 'Marketing', 'Appearance', 'Team', 'Settings'])
+            ->navigationGroups(['Sales', 'Catalogue', 'Inventory', 'Services', 'Content', 'Marketing', 'Appearance', 'Team', 'Settings'])
             ->colors([
                 // Sidebar navy (--navy in the admin theme) at 600, the shade buttons, toggles and checkboxes use.
                 'primary' => [
@@ -160,6 +167,7 @@ class ClientPanelProvider extends PanelProvider
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
+                NoAccessWelcome::class,
                 StoreLink::class,
                 ClientUsage::class,
                 StoreStats::class,
@@ -173,7 +181,7 @@ class ClientPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
+                AuthenticatePanelSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,

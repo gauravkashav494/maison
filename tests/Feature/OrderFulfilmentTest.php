@@ -163,9 +163,9 @@ class OrderFulfilmentTest extends TestCase
         // Status
         $this->assertSame([$delivered->id], $all()->withStatus(Order::STATUS_DELIVERED)->pluck('id')->all());
 
-        // One exact day
-        $this->assertSame([$open->id], $all()->placedOn(now()->toDateString())->pluck('id')->all());
-        $this->assertSame([$delivered->id], $all()->placedOn(now()->subDays(10)->toDateString())->pluck('id')->all());
+        // One exact day: the same date at both ends
+        $this->assertSame([$open->id], $all()->placedBetween(now()->toDateString(), now()->toDateString())->pluck('id')->all());
+        $this->assertSame([$delivered->id], $all()->placedBetween(now()->subDays(10)->toDateString(), now()->subDays(10)->toDateString())->pluck('id')->all());
 
         // A range, and each end on its own
         $this->assertSame([$delivered->id], $all()->placedBetween(now()->subDays(12)->toDateString(), now()->subDays(5)->toDateString())->pluck('id')->all());
@@ -173,7 +173,7 @@ class OrderFulfilmentTest extends TestCase
         $this->assertSame([$delivered->id], $all()->placedBetween(null, now()->subDays(5)->toDateString())->pluck('id')->all());
 
         // Nothing chosen (the state the reset button returns to) filters nothing out.
-        $this->assertCount(2, $all()->placedOn(null)->placedBetween(null, null)->withStatus(null)->get());
+        $this->assertCount(2, $all()->placedBetween(null, null)->withStatus(null)->get());
     }
 
     public function test_the_order_list_page_opens_with_the_filters_available(): void
@@ -184,8 +184,7 @@ class OrderFulfilmentTest extends TestCase
         $this->get('/client/orders')
             ->assertSuccessful()
             ->assertSee($order->number)
-            ->assertSee('Placed on')        // the single-date filter
-            ->assertSee('Placed from');     // the range filter
+            ->assertSee('Placed between');  // the date-range filter
     }
 
     public function test_orders_not_yet_handled_are_tagged_new_in_the_list(): void

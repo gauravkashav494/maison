@@ -14,14 +14,15 @@ use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Storefronts\StorefrontResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\PlatformStats;
+use App\Filament\Widgets\PlatformWelcome;
 use App\Filament\Widgets\RecentClients;
 use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticatePanelSession;
 use App\Http\Middleware\DiscourageSearchEngines;
 use App\Models\Storefront;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
@@ -86,6 +87,8 @@ class AdminPanelProvider extends PanelProvider
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
+            // Live checklist under every new-password field (App\Support\PasswordRules).
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Clients', 'Platform', 'Settings'])
@@ -101,6 +104,7 @@ class AdminPanelProvider extends PanelProvider
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
+                PlatformWelcome::class,
                 PlatformStats::class,
                 RecentClients::class,
             ])
@@ -108,7 +112,7 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
+                AuthenticatePanelSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,

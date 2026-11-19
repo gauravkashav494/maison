@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Orders\Tables;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\Orders\OrderStatusActions;
+use App\Filament\Support\DateRangeFilter;
 use App\Filament\Support\RowActions;
 use App\Models\Customer;
 use App\Models\Order;
@@ -11,16 +12,13 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 
@@ -79,29 +77,10 @@ class OrdersTable
                         blank: fn (Builder $q) => $q,
                     ),
 
-                // One exact day, for "what came in on the 14th".
-                Filter::make('placed_on')
-                    ->schema([DatePicker::make('date')->label('Placed on')->native(false)])
-                    // The date logic itself lives on the model, so it is one definition and testable.
-                    ->query(fn (Builder $query, array $data) => $query->placedOn($data['date'] ?? null))
-                    ->indicateUsing(fn (array $data) => filled($data['date'] ?? null)
-                        ? 'Placed on '.Carbon::parse($data['date'])->format('d M Y')
-                        : null),
-
-                // Or a range; either end may be left open.
-                Filter::make('placed_between')
-                    ->schema([
-                        DatePicker::make('from')->label('Placed from')->native(false),
-                        DatePicker::make('until')->label('Placed until')->native(false),
-                    ])
-                    ->query(fn (Builder $query, array $data) => $query->placedBetween($data['from'] ?? null, $data['until'] ?? null))
-                    ->indicateUsing(function (array $data) {
-                        $parts = [];
-                        filled($data['from'] ?? null) and $parts[] = 'from '.Carbon::parse($data['from'])->format('d M Y');
-                        filled($data['until'] ?? null) and $parts[] = 'until '.Carbon::parse($data['until'])->format('d M Y');
-
-                        return $parts ? 'Placed '.implode(' ', $parts) : null;
-                    }),
+                // When it was placed: one picker with ready ranges (Today, Last 7 days, This month…);
+                // pick the same day twice for one day.
+                DateRangeFilter::range('placed_between', 'Placed between',
+                    scope: fn (Builder $query, string $from, string $until) => $query->placedBetween($from, $until)),
             ])
             // Filters apply with the "Apply" button and lay out by how many there are, like every
             // table (AppServiceProvider::registerTableFilterLayout()).

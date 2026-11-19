@@ -40,7 +40,9 @@ class MenuLocationsTest extends TestCase
     {
         $html = $this->actingAs($this->admin, 'client')->get('/client/menus/create')->assertOk()->getContent();
 
-        $this->assertStringContainsString('Footer — Legal links', $html);
+        // "Footer — Legal links": the picker's options travel as escaped JSON for its script,
+        // so the dash is not plain text in the page.
+        $this->assertStringContainsString('Legal links', $html);
         // The header already has the "Main menu".
         $this->assertStringNotContainsString('Header (primary navigation)', $html);
         foreach (['Indian Grocery', 'Heritage', 'Plumbing', 'Header quick links'] as $other) {
@@ -95,7 +97,8 @@ class MenuLocationsTest extends TestCase
         $this->actingAs($this->admin, 'client')->get('/client/menus/create')->assertRedirect('/client/menus');
 
         $legal->forceDelete();
-        $this->actingAs($this->admin, 'client')->get('/client/menus/create')->assertOk()->assertSee('Footer — Legal links');
+        $html = $this->actingAs($this->admin, 'client')->get('/client/menus/create')->assertOk()->getContent();
+        $this->assertStringContainsString('Legal links', $html); // "Footer — Legal links"
     }
 
     public function test_editing_a_menu_keeps_its_own_location_in_the_list(): void
@@ -105,6 +108,6 @@ class MenuLocationsTest extends TestCase
 
         $this->actingAs($this->admin, 'client')->get('/client/menus/'.$header->id.'/edit')->assertOk()
             ->assertSee('Header (primary navigation)')
-            ->assertDontSee('Footer — Legal links');
+            ->assertDontSee('Legal links'); // "Footer — Legal links", escaped in the picker's JSON
     }
 }

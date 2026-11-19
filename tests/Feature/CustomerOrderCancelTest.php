@@ -195,8 +195,11 @@ class CustomerOrderCancelTest extends TestCase
         $this->assertFalse($order->transitionTo(Order::STATUS_CANCELLED, 'Again'));
         $this->assertSame(7, $product->refresh()->stock);
 
-        // Reopened from the edit form: the goods are taken off the shelf again.
+        // A cancelled order is never reopened, so its stock never moves again.
+        $this->assertFalse($order->transitionTo('confirmed'));
+        $this->assertSame(7, $product->refresh()->stock);
+
+        $this->expectException(\LogicException::class);
         $order->setStatus('confirmed');
-        $this->assertSame(4, $product->refresh()->stock);
     }
 }

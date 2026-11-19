@@ -7,6 +7,7 @@ use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Models\ClientUser;
+use App\Support\PasswordRules;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
@@ -61,14 +62,11 @@ class EditClient extends EditRecord
                         TextInput::make('email')->label('Email')->email()->required()->maxLength(190)->distinct()
                             ->unique(ClientUser::class, 'email', ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', $clientId())),
                         PhoneInput::make('phone')->label('Phone (optional)'),
-                        TextInput::make('password')->label('Password')->password()->revealable()->minLength(8)
+                        PasswordRules::field(TextInput::make('password')->label('Password'), fn (?ClientUser $record) => $record
+                            ? 'Leave blank to keep their current password'.(filled($record->password_hint) ? ': '.$record->password_hint : '.')
+                            : null)
                             ->required(fn (?ClientUser $record) => $record === null)
-                            ->dehydrated(fn ($state) => filled($state))
-                            ->hint('Minimum 8 characters')
-                            ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.')
-                            ->helperText(fn (?ClientUser $record) => $record
-                                ? 'Leave blank to keep their current password'.(filled($record->password_hint) ? ': '.$record->password_hint : '.')
-                                : null),
+                            ->dehydrated(fn ($state) => filled($state)),
                         Toggle::make('is_active')->label('Can sign in')->default(true)->inline(false),
                     ]),
             ]);

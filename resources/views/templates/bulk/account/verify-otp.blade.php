@@ -11,7 +11,9 @@
             @error('code')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
         <button type="submit" class="bk-btn bk-btn-primary bk-btn-block !py-3 text-base">{{ $button }}</button>
-        <p class="bk-muted text-center text-xs">The code is valid for {{ $validFor }} minutes.</p>
+        <x-countdown :seconds="$expiresIn" label="Code expires in">
+            <x-slot:expired>This code has expired. Tap “Resend code” for a new one.</x-slot:expired>
+        </x-countdown>
     </form>
     <form method="post" action="{{ route('otp.resend') }}" class="mt-6 flex items-center justify-between gap-3 text-sm" x-data="{ wait: {{ (int) $resendIn }} }" x-init="if (wait > 0) { const t = setInterval(() => { if (--wait <= 0) clearInterval(t) }, 1000) }">
         @csrf

@@ -18,7 +18,6 @@ use App\Models\Tax;
 use App\Rules\WithinClientImageLimit;
 use App\Rules\WithinProductImageCap;
 use App\Support\ColourNames;
-use App\Support\SkuGenerator;
 use App\Support\TaxPrices;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
@@ -78,14 +77,11 @@ class ProductForm
                                     // The main category: kept while it is still picked, otherwise the first one picked.
                                     Hidden::make('category_id')
                                         ->dehydrateStateUsing(fn ($state, Get $get) => self::mainCategoryId($state, $get('categories'))),
-                                    // Optional everywhere. Stores that order by code (Bulk Order) get the next
-                                    // free code filled in on a new product, ready to keep, change or clear. A code
-                                    // cleared and saved stays blank: editing never fills one back in. A product
-                                    // without one is still sold from the catalogue, just not typed into the pad.
+                                    // Optional everywhere and always starts blank: staff type their own code.
+                                    // A product without one is still sold from the catalogue, just not typed into the pad.
                                     TextInput::make('sku')->label('SKU')->maxLength(64)
-                                        ->default(fn (Get $get) => self::requiresSku($get) ? SkuGenerator::next() : null)
-                                        ->helperText(fn (Get $get, string $operation) => self::requiresSku($get)
-                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'.($operation === 'create' ? ' The next free code is filled in; keep it, type your own or clear it.' : '')
+                                        ->helperText(fn (Get $get) => self::requiresSku($get)
+                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'
                                             : null)
                                         ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
                                     // Picked from the brand master (Catalogue → Brands); a new one can be added here.
@@ -132,9 +128,7 @@ class ProductForm
                                     ->dehydrated(false),
                                 Section::make('Merchandising')->columns(3)->schema([
                                     Toggle::make('is_active')->label('Visible on storefront')->default(true),
-                                    Fields::templateVisibility()->live()->columnSpan(2)
-                                        // A super admin moving a product to a store that orders by code gets one suggested.
-                                        ->afterStateUpdated(fn (Get $get, Set $set) => blank($get('sku')) && self::requiresSku($get) ? $set('sku', SkuGenerator::next()) : null),
+                                    Fields::templateVisibility()->live()->columnSpan(2),
                                     Toggle::make('is_new')->label('New arrival'),
                                     Toggle::make('is_best_seller')->label('Best seller'),
                                     // The baseline (reviews collected elsewhere); approved storefront reviews are added on top.
