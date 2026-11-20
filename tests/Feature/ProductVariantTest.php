@@ -566,6 +566,75 @@ class ProductVariantTest extends TestCase
         $this->assertSame(['Camel' => '#B8916A', 'Ink' => '#1F2A44'], $swatches);
     }
 
+    public function test_renaming_a_value_keeps_its_swatch_photos_and_combinations(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $colour = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Colour');
+        $page->set("data.variant_attributes.{$colour}.images.Camel", ['products/shirt.jpg']);
+
+        // A chip edited in place: same position, new text.
+        $page->set("data.variant_attributes.{$colour}.values", ['Sand', 'Ink'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $attribute = collect($saved->variant_attributes)->firstWhere('name', 'Colour');
+        $this->assertSame(['Sand', 'Ink'], $attribute['values']);
+        $this->assertSame('#B8916A', $attribute['swatches']['Sand']);
+        $this->assertArrayNotHasKey('Camel', $attribute['swatches']);
+        $this->assertSame(['products/shirt.jpg'], $attribute['images']['Sand']);
+        $this->assertSame(['Sand', 'Ink', 'Sand'], array_map(fn ($v) => $v['options']['Colour'], $saved->variants));
+        $this->assertSame('SHIRT-M-CAMEL-LINEN', $saved->variants[0]['sku'], 'The combination itself is kept, not recreated.');
+    }
+
+    public function test_removing_and_adding_a_value_is_not_a_rename(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $size = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Size');
+
+        // Adding a value leaves the combinations alone.
+        $page->set("data.variant_attributes.{$size}.values", ['S', 'M', 'L']);
+        $this->assertSame(['M', 'S', 'S'], array_values(array_map(fn ($v) => $v['options']['Size'], $page->get('data.variants'))));
+
+        // Two values changed at once is not one rename: both count as removed, with their combinations.
+        $page->set("data.variant_attributes.{$size}.values", ['XS', 'XL', 'L']);
+        $this->assertSame([], $page->get('data.variants'));
+    }
+
+    public function test_removing_a_value_removes_the_variants_that_chose_it(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        $page = Livewire::test(EditProduct::class, ['record' => $product->getRouteKey()]);
+        $colour = collect($page->get('data.variant_attributes'))->search(fn ($a) => $a['name'] === 'Colour');
+
+        $page->set("data.variant_attributes.{$colour}.values", ['Camel'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = Product::withoutGlobalScopes()->findOrFail($product->id);
+        $this->assertSame(['Camel', 'Camel'], array_map(fn ($v) => $v['options']['Colour'], $saved->variants));
+        $this->assertSame('SHIRT-M-CAMEL-LINEN', $saved->variants[0]['sku']);
+    }
+
+    public function test_the_values_box_carries_how_many_variants_use_each_value(): void
+    {
+        $product = $this->editableVariantProduct();
+        $this->actAsClientAdmin();
+
+        // The × warning reads these counts; values no variant uses are not listed.
+        $html = $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()->getContent();
+        $this->assertStringContainsString('data-value-uses="'.rawurlencode(json_encode(['Camel' => 2, 'Ink' => 1])).'"', $html);
+        $this->assertStringContainsString('data-value-uses="'.rawurlencode(json_encode(['Linen' => 2, 'Silk' => 1])).'"', $html);
+    }
+
     // ---- Options kept in step with what the storefront renders ------------
 
     /** A product the admin form can save (it requires a category and an image). */
@@ -877,7 +946,7 @@ class ProductVariantTest extends TestCase
         $this->get('/client/products/'.$product->id.'/edit')->assertSuccessful()
             ->assertSee('XXL')            // Size suggestions
             ->assertSee('Multicolour')    // Colour suggestions
-            ->assertSee('Add a value', false);
+            ->assertSee('Type a value, press Enter', false);
     }
 
     public function test_an_option_already_added_cannot_be_chosen_again_in_another_row(): void

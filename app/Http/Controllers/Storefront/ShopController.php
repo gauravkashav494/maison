@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
@@ -33,9 +34,49 @@ class ShopController extends Controller
         };
     }
 
+    /** Every brand with something on sale, A to Z (or in the order set on the brand master). */
+    public function brands(): View
+    {
+        return view('shop.brands', [
+            'brands' => Brand::query()
+                ->withCount(['products' => fn (Builder $q) => $q->active()])
+                ->whereHas('products', fn (Builder $q) => $q->active())
+                ->ordered()
+                ->get(),
+            'seo' => Seo::simple('Brands', 'Shop by brand: every brand we stock, in one place.'),
+        ]);
+    }
+
+    /** A brand's page: the shop listing of its products, with the brand's logo and description. */
+    public function brand(Request $request, string $slug): View|RedirectResponse
+    {
+        $brand = Brand::where('slug', $slug)->first();
+        // Links can outlive a brand (renamed slug, removed); send them to the shop.
+        if (! $brand) {
+            return to_route('shop.index');
+        }
+
+        return $this->listing(
+            $request,
+            Product::where('brand_id', $brand->getKey()),
+            $brand->name,
+            'Brand',
+            Seo::forModel($brand, $brand->url, jsonLd: [array_filter([
+                '@context' => 'https://schema.org',
+                '@type' => 'Brand',
+                'name' => $brand->name,
+                'url' => $brand->url,
+                'logo' => $brand->logo_url,
+                'description' => $brand->description,
+            ])]),
+            brand: $brand,
+        );
+    }
+
     private function categoryListing(Request $request, Category $category): View
     {
-        $ids = [$category->id, ...$category->children()->pluck('id')->all()];
+        // Men lists Men › Shirts and Men › Shirts › Formal too, at any depth.
+        $ids = [$category->id, ...$category->descendantIds()];
 
         return $this->listing(
             $request,
@@ -47,13 +88,16 @@ class ShopController extends Controller
         );
     }
 
-    private function listing(Request $request, Builder $base, string $title, string $eyebrow, Seo $seo, ?Category $category = null): View
+    private function listing(Request $request, Builder $base, string $title, string $eyebrow, Seo $seo, ?Category $category = null, ?Brand $brand = null): View
     {
         $base->active();
 
         // Facet options are computed from the unfiltered scope so users can widen a filter.
         $scope = (clone $base)->with('category')->get(['id', 'category_id', 'price', 'sizes', 'colors', 'material', 'brand', 'rating', 'stock', 'dietary_tags']);
         $facets = $this->facets($scope, $category);
+        if ($brand) {
+            $facets['brands'] = collect(); // every product here is that brand
+        }
 
         $f = $this->filtersFrom($request);
         $query = (clone $base)->with('category');
@@ -122,10 +166,18 @@ class ShopController extends Controller
             $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'], $f['veg'], $f['diet'], $f['discount'],
         ]));
 
+        // The department being browsed (Men, for Men › Shirts). Inside one, the collections that
+        // hold products on this page ("Summer") are offered as shortcuts.
+        $department = $category?->root();
+
         return view('shop.index', [
+            'department' => $department,
+            'departmentCollections' => $department ? $facets['collections'] : collect(),
             'title' => $title,
             'eyebrow' => $eyebrow,
             'category' => $category,
+            // On a brand's page (/brands/{slug}): its logo and description head the listing.
+            'brand' => $brand,
             'categories' => Category::active()->topLevel()->where('show_in_menu', true)->get(),
             'products' => $query->paginate(24)->withQueryString(),
             'facets' => $facets,

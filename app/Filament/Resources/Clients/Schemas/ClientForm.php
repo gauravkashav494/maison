@@ -188,9 +188,23 @@ class ClientForm
                     TextInput::make('database')->label('Database name')->maxLength(64)
                         // One database per client: never one another client (or the platform) already uses.
                         ->rule(fn (?Client $record, $get) => new AvailableClientDatabase($record, $get('subdomain')))
-                        ->dehydrateStateUsing(fn (?string $state) => filled($state) ? trim($state) : null)
-                        ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<subdomain>')
-                        ->helperText('Leave blank to use the generated name. Only change it when the database already exists under another name.'),
+                        // Editing: the field starts empty and only takes a NEW name; the one in use is the hint.
+                        ->formatStateUsing(fn (?string $state, ?Client $record) => $record ? null : $state)
+                        ->dehydrateStateUsing(fn (?string $state, ?Client $record) => match (true) {
+                            // Left empty while editing: keep the database the client has now, never move it.
+                            blank($state) => $record?->database,
+                            // The client's own generated name typed in stays generated, not frozen in.
+                            $record && blank($record->database) && trim($state) === $record->databaseName() => null,
+                            default => trim($state),
+                        })
+                        ->placeholder(config('clients.prefix', 'client_').'<subdomain>')
+                        // Editing: the database in use now stays in sight while a new name is typed.
+                        ->hint(fn (?Client $record) => $record ? 'Currently: '.$record->databaseName() : null)
+                        ->hintIcon(fn (?Client $record) => $record ? 'heroicon-m-circle-stack' : null)
+                        ->hintColor('primary')
+                        ->helperText(fn (?Client $record) => $record
+                            ? 'Leave empty to keep it. A new name renames the database, keeping all its data. If a database with the new name already exists, the client uses that one instead.'
+                            : 'Leave blank to use the generated name.'),
                     Toggle::make('sample_products')->label('Add sample products and services')->default(false)->inline(false)
                         ->dehydrated(false)
                         ->visible(fn (?Client $record) => $record === null && app(ClientDatabase::class)->isolated())

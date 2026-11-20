@@ -42,8 +42,7 @@ class CollectionInfolist
                 Section::make('Storefront')
                     ->icon('heroicon-o-building-storefront')
                     ->schema([
-                        IconEntry::make('is_active')->label('Visible')->inlineLabel()->boolean(),
-                        IconEntry::make('is_featured')->label('Featured')->inlineLabel()->boolean(),
+                        IconEntry::make('is_active')->label('Visible on storefront')->inlineLabel()->boolean(),
                         TextEntry::make('products_total')->label('Products')->inlineLabel()
                             ->state(fn (Collection $r) => $r->products()->count()),
                         TextEntry::make('template')->label('Visible in')->inlineLabel()
@@ -57,13 +56,10 @@ class CollectionInfolist
                     ->icon('heroicon-o-clock')
                     ->collapsed()
                     ->schema([
-                        TextEntry::make('sort_order')->label('Sort order')->inlineLabel(),
                         TextEntry::make('created_at')->label('Created')->inlineLabel()->dateTime('d M Y, H:i'),
                         TextEntry::make('updated_at')->label('Updated')->inlineLabel()->since(),
                         TextEntry::make('deleted_at')->label('Deleted')->inlineLabel()->dateTime('d M Y, H:i')->color('danger')
                             ->visible(fn (Collection $r) => $r->trashed()),
-                        TextEntry::make('meta_title')->label('SEO title')->placeholder('Uses the collection name'),
-                        TextEntry::make('meta_description')->label('SEO description')->placeholder('Uses the description'),
                     ]),
             ]),
         ]);

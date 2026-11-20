@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Create a trade account" intro="Takes a minute. Next time, checkout fills in your details and any past order can be repeated.">
-    <form method="post" action="{{ route('register') }}" class="grid gap-4 sm:grid-cols-2" novalidate>
+    <form method="post" action="{{ route('register') }}" class="grid gap-3 sm:grid-cols-2" novalidate>
         @csrf
         <label class="bk-label sm:col-span-2">Your name or business<span class="bk-req">*</span>
             <input name="name" autocomplete="name" autofocus class="bk-input" value="{{ old('name') }}">

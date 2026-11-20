@@ -26,6 +26,7 @@ class Order extends Model
 
     protected $casts = [
         'status_history' => 'array',
+        'seller' => 'array',
         'shipping_cost' => 'float',
         'subtotal' => 'float',
         'discount' => 'float',
@@ -35,6 +36,7 @@ class Order extends Model
         'total' => 'float',
         'estimated_delivery' => 'date',
         'dispatched_at' => 'datetime',
+        'invoiced_at' => 'datetime',
         'delivered_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
@@ -55,6 +57,12 @@ class Order extends Model
 
     /** Cancelled sits outside the pipeline and ends the order. */
     public const STATUS_CANCELLED = 'cancelled';
+
+    /**
+     * The goods have left the store: reaching any of these issues the tax invoice (GST: at or
+     * before removal of the goods). Before dispatch the customer has an order, not a bill.
+     */
+    public const INVOICED_STATUSES = [self::STATUS_DISPATCHED, 'out_for_delivery', self::STATUS_DELIVERED];
 
     /** Every status an order can be in, for filters and labels. */
     public static function statusOptions(): array
@@ -299,6 +307,11 @@ class Order extends Model
             if (! $wasCancelled && $status === self::STATUS_CANCELLED) {
                 $this->returnStock();
             }
+
+            // Dispatched (or moved straight past it): the tax invoice is issued now.
+            if (in_array($status, self::INVOICED_STATUSES, true)) {
+                $this->assignInvoiceNumber();
+            }
         });
     }
 
@@ -341,13 +354,27 @@ class Order extends Model
     }
 
     /**
-     * Gives the order the next invoice number in its store's series, once; later calls return
-     * the number it already has.
+     * Whether this order has a tax invoice to show: once it is dispatched (or a sales order,
+     * handed over at the counter). An order cancelled before dispatch never gets one. Orders
+     * numbered when they were placed, before invoices waited for dispatch, keep theirs.
+     */
+    public function hasInvoice(): bool
+    {
+        return filled($this->invoice_number)
+            || $this->isSalesOrder()
+            || $this->dispatched_at !== null
+            || in_array($this->status, self::INVOICED_STATUSES, true);
+    }
+
+    /**
+     * Issues the order's tax invoice, once: the next number in its store's series and the
+     * invoice date. Later calls return the number it already has.
      *
-     * One unbroken series per store and Indian financial year (April–March), as GST asks:
+     * Called on dispatch (Order::setStatus) and when a sales order is placed. One unbroken
+     * series per store and Indian financial year (April–March) of the invoice date, as GST asks:
      * "<prefix>/<yy-yy>/<0001>", e.g. INV/26-27/0001, at most 16 characters. The prefix is the
-     * store's (Site settings → Checkout → Invoice). New orders are numbered as they are placed;
-     * an older order gets its number the first time its invoice is opened.
+     * store's (Site settings → Checkout → Invoice). A dispatched order from before this was
+     * automatic gets its number the first time its invoice is opened, dated its dispatch.
      */
     public function assignInvoiceNumber(): string
     {
@@ -355,12 +382,12 @@ class Order extends Model
             return $this->invoice_number;
         }
 
-        $placed = $this->created_at ?? now();
-        $start = $placed->month >= 4 ? $placed->year : $placed->year - 1;
+        $issued = $this->dispatched_at ?? now();
+        $start = $issued->month >= 4 ? $issued->year : $issued->year - 1;
         $fy = sprintf('%02d-%02d', $start % 100, ($start + 1) % 100);
         $prefix = strtoupper((string) setting('checkout.invoice_prefix', 'INV')) ?: 'INV';
 
-        return $this->getConnection()->transaction(function () use ($fy, $prefix) {
+        return $this->getConnection()->transaction(function () use ($fy, $prefix, $issued) {
             // Re-read under a lock: another request may have numbered this order, or taken the
             // next number, a moment ago. The unique index backs this up.
             $fresh = static::withoutGlobalScopes()->lockForUpdate()->find($this->getKey());
@@ -373,9 +400,10 @@ class Order extends Model
                 ->lockForUpdate()->max('invoice_seq');
             $number = $prefix.'/'.$fy.'/'.str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
 
-            static::withoutGlobalScopes()->whereKey($this->getKey())
-                ->update(['invoice_number' => $number, 'invoice_fy' => $fy, 'invoice_seq' => $seq]);
-            $this->forceFill(['invoice_number' => $number, 'invoice_fy' => $fy, 'invoice_seq' => $seq])->syncOriginalAttributes(['invoice_number', 'invoice_fy', 'invoice_seq']);
+            // Bookkeeping that follows the dispatch, which is the logged change (ActivityDescriber::IGNORED).
+            $columns = ['invoice_number' => $number, 'invoice_fy' => $fy, 'invoice_seq' => $seq, 'invoiced_at' => $issued];
+            static::withoutGlobalScopes()->whereKey($this->getKey())->update($columns);
+            $this->forceFill($columns)->syncOriginalAttributes(array_keys($columns));
 
             return $number;
         });

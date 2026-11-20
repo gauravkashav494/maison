@@ -1,5 +1,5 @@
 {{--
-    Store header: announcement, brand bar (logo, product search, trade desk, account, cart) and
+    Store header: announcement, brand bar (logo, product search, trade desk, account, saved items, cart) and
     the menu bar with the Bulk order link at its head. A bare x-data gives Alpine a scope for
     the cart count.
 --}}
@@ -19,8 +19,8 @@
     @endif
 
     <div class="bk-top">
-        <div class="bk-wrap flex flex-wrap items-center gap-x-3 gap-y-3 py-3 sm:gap-x-4 lg:flex-nowrap lg:py-4">
-            <a href="{{ url('/') }}" class="bk-logo order-1 min-w-0 flex-1 basis-0 lg:flex-none lg:basis-auto">
+        <div class="bk-wrap flex flex-wrap items-center gap-x-3 gap-y-2 py-2 sm:gap-x-4 lg:flex-nowrap lg:py-2">
+            <a data-store-logo href="{{ url('/') }}" class="bk-logo order-1 min-w-0 flex-1 basis-0 lg:flex-none lg:basis-auto">
                 <span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span>
                 <span class="min-w-0 truncate">{{ $storeName }}<small class="truncate">Trade supplies</small></span>
             </a>
@@ -49,6 +49,11 @@
                         <strong>{{ auth()->check() ? 'My account' : 'Account' }}</strong>
                     </span>
                 </x-account-menu>
+                <a href="{{ route('account.wishlist') }}" class="bk-top-action bk-cart-pill" aria-label="Saved items">
+                    <x-heroicon-o-heart aria-hidden="true" />
+                    <span class="bk-cart-count" x-show="$store.wishlist.count" x-text="$store.wishlist.count" x-cloak></span>
+                    <span class="hidden xl:block" aria-hidden="true"><span class="opacity-75">Saved</span><strong>Items</strong></span>
+                </a>
                 <button type="button" class="bk-top-action bk-cart-pill" @click="$store.ui.openCart()" aria-label="Open cart">
                     <x-heroicon-o-shopping-cart aria-hidden="true" />
                     <span class="bk-cart-count" x-text="$store.cart.count">0</span>
@@ -76,7 +81,7 @@
                     <a href="{{ route('collections.index') }}" @class(['is-on' => request()->routeIs('collections.*')])>Collections</a>
                 @endif
             </div>
-            <div class="bk-catbar-side">
+            <div class="bk-catbar-side" data-menu-area="header">
                 @foreach($menus['header'] ?? [] as $item)
                     {{-- A link is current when its path is the page's path (or a page under it), on this host. --}}
                     @php

@@ -45,6 +45,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -61,29 +62,13 @@ class ProductForm
                         Tab::make('Details')
                             ->icon('heroicon-o-tag')
                             ->schema([
+                                // One row: Category, Child category (and a Type box when the child category has
+                                // types under it), then two extra places. Grid::make() alone means 2 columns on
+                                // large screens, which would win over these.
+                                Grid::make(null)
+                                    ->columns(fn (Get $get) => ['default' => 1, 'md' => $count = self::shownCategoryLevels($get) + count(self::EXTRA_CATEGORIES), 'lg' => $count])
+                                    ->schema(self::categoryFields()),
                                 Grid::make(2)->schema([
-                                    ...Fields::nameAndSlug(),
-                                    Select::make('categories')
-                                        ->label('Categories')
-                                        ->relationship('categories', 'name')
-                                        ->multiple()
-                                        ->searchable()
-                                        ->preload()
-                                        ->required()
-                                        ->live()
-                                        ->helperText(fn (Get $get) => ($main = self::mainCategoryName($get))
-                                            ? 'Listed under every category picked. Main category (card label and breadcrumb): '.$main.'.'
-                                            : 'Listed under every category picked. The first one is the main category (card label and breadcrumb).'),
-                                    // The main category: kept while it is still picked, otherwise the first one picked.
-                                    Hidden::make('category_id')
-                                        ->dehydrateStateUsing(fn ($state, Get $get) => self::mainCategoryId($state, $get('categories'))),
-                                    // Optional everywhere and always starts blank: staff type their own code.
-                                    // A product without one is still sold from the catalogue, just not typed into the pad.
-                                    TextInput::make('sku')->label('SKU')->maxLength(64)
-                                        ->helperText(fn (Get $get) => self::requiresSku($get)
-                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'
-                                            : null)
-                                        ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
                                     // Picked from the brand master (Catalogue → Brands); a new one can be added here.
                                     Select::make('brand_id')
                                         ->label('Brand')
@@ -98,6 +83,17 @@ class ProductForm
                                         ->visible(fn () => ! StoreFeatures::enabled('brands'))
                                         ->datalist(fn () => Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())
                                         ->helperText('Used by the shop Brand filter.'),
+                                    // Picked in this order: category, brand, then the product's own name.
+                                    TextInput::make('name')->required()->maxLength(255)
+                                        // The URL slug is made from it on save (GeneratesSlug) and kept when renamed.
+                                        ->helperText(fn (?Model $record) => $record?->slug ? 'Page address: /product/'.$record->slug : 'The page address is made from the name when saved.'),
+                                    // Optional everywhere and always starts blank: staff type their own code.
+                                    // A product without one is still sold from the catalogue, just not typed into the pad.
+                                    TextInput::make('sku')->label('SKU')->maxLength(64)
+                                        ->helperText(fn (Get $get) => self::requiresSku($get)
+                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'
+                                            : null)
+                                        ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
                                     TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
                                 ]),
                                 Textarea::make('description')
@@ -315,13 +311,33 @@ class ProductForm
                                                         ->hiddenLabel()
                                                         ->required()
                                                         ->live()
-                                                        // A new colour value named like a colour ("Red", "Navy") starts with that swatch.
-                                                        ->afterStateUpdated(fn (Get $get, Set $set, $state) => self::fillNamedSwatches($get, $set, $get('name'), $state))
+                                                        // Enter or a comma adds a value (as does leaving the box); pasting "S, M, L" adds three.
+                                                        // Not Tab: Filament swallows it even when the box is empty, trapping keyboard users.
+                                                        ->splitKeys([','])
+                                                        // Click a chip to rename it (editable-tags script); the class turns that on.
+                                                        // The counts let × warn before removing a value variants use.
+                                                        ->extraAttributes(fn (Get $get) => [
+                                                            'class' => 'fi-editable-tags',
+                                                            // URL-encoded: Filament escapes quotes in attributes as \", which would cut the JSON short.
+                                                            'data-value-uses' => rawurlencode(json_encode((object) self::valueUses($get('../../variants'), $get('name')))),
+                                                        ])
+                                                        ->afterStateUpdated(function (Get $get, Set $set, $old, $state) {
+                                                            // A chip renamed in place keeps its swatch, photos and combinations.
+                                                            if ($renamed = self::renamedValue($old, $state)) {
+                                                                self::renameValueInOption($get, $set, $get('name'), ...$renamed);
+                                                            } else {
+                                                                // A removed value takes the combinations that chose it with it
+                                                                // (the × asked first); otherwise they block the save.
+                                                                self::dropCombinationsWithout($get, $set, $get('name'), $old, $state);
+                                                            }
+                                                            // A new colour value named like a colour ("Red", "Navy") starts with that swatch.
+                                                            self::fillNamedSwatches($get, $set, $get('name'), $state);
+                                                        })
                                                         // Common values for the chosen option, offered while typing; any
                                                         // other value can still be typed in.
                                                         ->suggestions(fn (Get $get) => self::optionValues(self::presetFor($get('name')))['all'])
                                                         ->reorderable()
-                                                        ->placeholder('Add a value'),
+                                                        ->placeholder('Type a value, press Enter. Click a value to rename it.'),
                                                     // A colour option gets one compact card per value: its swatch (written
                                                     // to swatches.<Value>, so the saved shape is still {Value: hex}; clear
                                                     // it to show the name instead) and its photos, picked from the Media
@@ -544,8 +560,6 @@ class ProductForm
                                         Textarea::make('installation_notes')->label('Installation / usage notes')->rows(3),
                                     ]),
                             ]),
-
-                        Fields::seoTab(),
                     ]),
             ]);
     }
@@ -560,21 +574,236 @@ class ProductForm
      * replaces, so it is still shown on the storefront as it is.
      */
     /**
-     * The main category among the ones picked: the current one while it is still picked,
-     * otherwise the first one picked (or none).
+     * The product's own place, one box per level: a category (Men), then one of its
+     * sub-categories (Shirts), then a type under that if there is one. The deepest pick is the
+     * main category (breadcrumb and card label).
      */
-    private static function mainCategoryId(mixed $current, mixed $picked): ?int
-    {
-        $ids = array_values(array_map('intval', array_filter((array) $picked, 'filled')));
+    public const CATEGORY_LEVELS = ['Category', 'Child category', 'Type', 'Sub-type'];
 
-        return filled($current) && in_array((int) $current, $ids, true) ? (int) $current : ($ids[0] ?? null);
+    /** The extra places, each any category or sub-category ("Winter Wear", "Women › Shirts"). */
+    public const EXTRA_CATEGORIES = ['extra_category_1' => 'Category tag 1', 'extra_category_2' => 'Category tag 2'];
+
+    /**
+     * The whole category row: the level boxes, then the two extra places.
+     *
+     * @return list<Component>
+     */
+    private static function categoryFields(): array
+    {
+        $levels = count(self::CATEGORY_LEVELS);
+        $fields = [];
+
+        foreach (self::CATEGORY_LEVELS as $level => $label) {
+            $field = Select::make('category_level_'.$level)
+                ->label($label)
+                ->searchable()
+                ->live()
+                ->dehydrated(false)
+                ->afterStateHydrated(fn (Select $component, ?Product $record) => $component->state(
+                    self::categoryPath($record?->category_id)[$level] ?? null,
+                ))
+                // A new pick clears the levels below it: they belonged to the old one.
+                ->afterStateUpdated(function (Set $set) use ($level, $levels) {
+                    for ($below = $level + 1; $below < $levels; $below++) {
+                        $set('category_level_'.$below, null);
+                    }
+                });
+
+            $fields[] = $level === 0
+                ? $field->options(fn () => self::treeOptions())->required()->validationAttribute('category')->placeholder('Pick a category')
+                : $field->options(fn (Get $get) => self::childOptions(self::pickedPath($get)[$level - 1] ?? 0))
+                    // Child category always shows, so the row keeps its four sections; a Type box only
+                    // when the child category picked has categories under it.
+                    ->visible(fn (Get $get) => $level === 1 || self::shownCategoryLevels($get) > $level)
+                    ->disabled(fn (Get $get) => self::childOptions(self::pickedPath($get)[$level - 1] ?? 0) === [])
+                    ->placeholder(fn (Get $get) => match (true) {
+                        ! isset(self::pickedPath($get)[$level - 1]) => 'Pick a category first',
+                        self::childOptions(self::pickedPath($get)[$level - 1]) === [] => 'No child categories',
+                        default => 'Optional',
+                    });
+        }
+
+        $fields[] = Hidden::make('category_id')->dehydrateStateUsing(fn (Get $get) => self::pickedCategoryId($get));
+
+        foreach (self::EXTRA_CATEGORIES as $name => $label) {
+            $other = $name === 'extra_category_1' ? 'extra_category_2' : 'extra_category_1';
+            $fields[] = Select::make($name)
+                ->label($label)
+                ->searchable()
+                ->live()
+                ->dehydrated(false)
+                ->placeholder('Optional')
+                // Each option shows the categories above it on the right ("New Shirts   Men › Shirts"),
+                // so two of the same name are told apart.
+                ->allowHtml()
+                // Any category or sub-category, but not one already picked in the boxes before it.
+                ->options(fn (Get $get) => self::allCategoryOptions([...self::pickedPath($get), (int) $get($other)]))
+                ->afterStateHydrated(fn (Select $component, ?Product $record) => $component->state(
+                    self::otherCategories($record)[$name === 'extra_category_1' ? 0 : 1] ?? null,
+                ));
+        }
+
+        // A product listed in more extra places than there are boxes keeps the rest.
+        // It also saves the whole row: the level and extra boxes are not columns of the product.
+        $fields[] = Hidden::make('extra_categories_more')
+            ->dehydrated(false)
+            ->afterStateHydrated(fn (Hidden $component, ?Product $record) => $component->state(array_slice(self::otherCategories($record), 2)))
+            ->saveRelationshipsUsing(fn (Product $record, Get $get) => self::saveCategories($record, $get));
+
+        return $fields;
     }
 
-    private static function mainCategoryName(Get $get): ?string
+    /** Saves every category the product is listed under: its main one and the extra places. */
+    private static function saveCategories(Product $record, Get $get): void
     {
-        $id = self::mainCategoryId($get('category_id'), $get('categories'));
+        $record->listUnder(
+            [
+                ...array_map('intval', array_filter([$get('extra_category_1'), $get('extra_category_2')], 'filled')),
+                ...array_map('intval', (array) $get('extra_categories_more')),
+            ],
+            self::pickedCategoryId($get),
+        );
+    }
 
-        return $id ? Category::query()->whereKey($id)->value('name') : null;
+    /** The level boxes on show: the first, then one more for each pick that has categories under it. */
+    private static function shownCategoryLevels(Get $get): int
+    {
+        $path = self::pickedPath($get);
+        // The child category box is always on show, with or without a pick before it.
+        $shown = 2;
+        while ($shown < count(self::CATEGORY_LEVELS) && isset($path[$shown - 1]) && self::childOptions($path[$shown - 1]) !== []) {
+            $shown++;
+        }
+
+        return $shown;
+    }
+
+    /**
+     * The levels picked, from the top, stopping at the first gap or at a pick that is not under
+     * the one before it (left over from an earlier pick).
+     *
+     * @return list<int>
+     */
+    private static function pickedPath(Get $get): array
+    {
+        $path = [];
+        foreach (array_keys(self::CATEGORY_LEVELS) as $level) {
+            $id = (int) $get('category_level_'.$level);
+            if (! $id) {
+                break;
+            }
+            $parentOk = $level === 0
+                // Any category can be the first pick, a sub-category included ("shirts").
+                ? Category::query()->whereKey($id)->exists()
+                : Category::query()->whereKey($id)->where('parent_id', $path[$level - 1])->exists();
+            if (! $parentOk) {
+                break;
+            }
+            $path[] = $id;
+        }
+
+        return $path;
+    }
+
+    /** The main category: the deepest level picked. */
+    private static function pickedCategoryId(Get $get): ?int
+    {
+        $path = self::pickedPath($get);
+
+        return $path === [] ? null : end($path);
+    }
+
+    /**
+     * Every category by its own name, in tree order: each one straight after its parent
+     * (Men, Shirts, T-shirts & Polos, shirts, Women, …), so two "Shirts" are told apart by
+     * where they sit.
+     *
+     * @return array<int, string>
+     */
+    private static function treeOptions(): array
+    {
+        $byParent = Category::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'parent_id'])->groupBy(fn (Category $c) => (int) $c->parent_id);
+        $options = [];
+        $add = function (int $parentId) use (&$add, &$options, $byParent) {
+            foreach ($byParent[$parentId] ?? [] as $category) {
+                // Seen already: the data holds a loop, so stop there.
+                if (! isset($options[$category->getKey()])) {
+                    $options[$category->getKey()] = $category->name;
+                    $add((int) $category->getKey());
+                }
+            }
+        };
+        $add(0);
+
+        return $options;
+    }
+
+    /** @return array<int, string> the categories directly under this one (top level for null) */
+    private static function childOptions(?int $parentId): array
+    {
+        return Category::query()
+            ->when($parentId === null, fn (Builder $q) => $q->whereNull('parent_id'), fn (Builder $q) => $q->where('parent_id', $parentId))
+            ->orderBy('sort_order')->orderBy('name')
+            ->pluck('name', 'id')->all();
+    }
+
+    /**
+     * Every category by its own name ("Shirts"), in alphabetical order, with the categories above
+     * it shown muted on the right ("Men › T-shirts & Polos"). The labels are HTML (the select
+     * allows it), so names are escaped.
+     *
+     * @param  list<int>  $except
+     * @return array<int, string>
+     */
+    private static function allCategoryOptions(array $except = []): array
+    {
+        $all = Category::query()->get(['id', 'name', 'parent_id'])->keyBy('id')->toBase(); // a base collection: an Eloquent one's except() drops the id keys
+
+        return $all->except(array_filter($except))
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->map(function (Category $category) use ($all) {
+                $above = [];
+                $seen = [$category->id];
+                for ($at = $all->get($category->parent_id); $at && ! in_array($at->id, $seen, true); $at = $all->get($at->parent_id)) {
+                    array_unshift($above, $at->name);
+                    $seen[] = $at->id;
+                }
+
+                return Fields::categoryOption($category->name, $above);
+            })
+            ->all();
+    }
+
+    /**
+     * The categories a saved product is listed under besides its main one and the categories
+     * above that: what the extra boxes hold.
+     *
+     * @return list<int>
+     */
+    private static function otherCategories(?Product $record): array
+    {
+        if (! $record?->exists) {
+            return [];
+        }
+        $path = self::categoryPath($record->category_id);
+
+        return $record->categories()->orderBy('category_product.category_id')->pluck('categories.id')
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => in_array($id, $path, true))
+            ->values()->all();
+    }
+
+    /** @return list<int> the ids from the top-level category down to this one */
+    private static function categoryPath(mixed $categoryId): array
+    {
+        $path = [];
+        $category = filled($categoryId) ? Category::query()->find($categoryId) : null;
+        while ($category && ! in_array($category->getKey(), $path, true)) {
+            array_unshift($path, (int) $category->getKey());
+            $category = $category->parent;
+        }
+
+        return $path;
     }
 
     /** Does the store this product is for order by code (Template::requiresSku())? */
@@ -1063,6 +1292,108 @@ class ProductForm
             }
         }
         $set('../../variants', $variants);
+    }
+
+    /**
+     * The value renamed by an edit of the values list, as [old, new]: the list kept its length and
+     * order and exactly one entry changed text (a chip edited in place). Null for any other edit.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private static function renamedValue(mixed $old, mixed $new): ?array
+    {
+        $old = array_values(array_map(fn ($v) => trim((string) $v), (array) $old));
+        $new = array_values(array_map(fn ($v) => trim((string) $v), (array) $new));
+        if ($old === [] || count($old) !== count($new)) {
+            return null;
+        }
+        $changed = array_keys(array_diff_assoc($old, $new));
+        if (count($changed) !== 1) {
+            return null;
+        }
+        [$from, $to] = [$old[$changed[0]], $new[$changed[0]]];
+        if ($from === '' || $to === '' || in_array($from, $new, true)) {
+            return null;
+        }
+
+        return [$from, $to];
+    }
+
+    /**
+     * Renaming a value keeps what hangs off it: its swatch, the photos picked or uploaded for it,
+     * and the combinations that chose it, all move to the new name.
+     */
+    private static function renameValueInOption(Get $get, Set $set, mixed $optionName, string $from, string $to): void
+    {
+        $optionName = trim((string) $optionName);
+        // A full stop would split the swatch/photo path; such values have no swatch or photos.
+        if (! str_contains($from, '.') && ! str_contains($to, '.')) {
+            foreach (['swatches', 'images', 'uploads'] as $key) {
+                $map = (array) $get($key);
+                if (! array_key_exists($from, $map)) {
+                    continue;
+                }
+                $renamed = [];
+                foreach ($map as $value => $entry) {
+                    $renamed[$value === $from ? $to : $value] = $entry;
+                }
+                $set($key, $renamed);
+            }
+        }
+
+        if ($optionName === '') {
+            return;
+        }
+        $variants = (array) $get('../../variants');
+        foreach ($variants as $key => $variant) {
+            if (trim((string) ($variant['options'][$optionName] ?? '')) === $from) {
+                $variants[$key]['options'][$optionName] = $to;
+            }
+        }
+        $set('../../variants', $variants);
+    }
+
+    /**
+     * How many combinations chose each value of an option, for the × warning.
+     *
+     * @return array<string, int>
+     */
+    private static function valueUses(mixed $variants, mixed $optionName): array
+    {
+        $optionName = trim((string) $optionName);
+        $uses = [];
+        if ($optionName === '') {
+            return $uses;
+        }
+        foreach ((array) $variants as $variant) {
+            $value = trim((string) ($variant['options'][$optionName] ?? ''));
+            if ($value !== '') {
+                $uses[$value] = ($uses[$value] ?? 0) + 1;
+            }
+        }
+
+        return $uses;
+    }
+
+    /** Removes the combinations that chose a value no longer in the option's list. */
+    private static function dropCombinationsWithout(Get $get, Set $set, mixed $optionName, mixed $old, mixed $new): void
+    {
+        $optionName = trim((string) $optionName);
+        $removed = array_diff(
+            array_map(fn ($v) => trim((string) $v), (array) $old),
+            array_map(fn ($v) => trim((string) $v), (array) $new),
+        );
+        if ($optionName === '' || $removed === []) {
+            return;
+        }
+        $variants = (array) $get('../../variants');
+        $kept = array_filter(
+            $variants,
+            fn ($variant) => ! in_array(trim((string) ($variant['options'][$optionName] ?? '')), $removed, true),
+        );
+        if (count($kept) !== count($variants)) {
+            $set('../../variants', $kept);
+        }
     }
 
     /**

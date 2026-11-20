@@ -159,6 +159,16 @@ abstract class Template
         return false;
     }
 
+    /**
+     * Whether the template lists hand-picked categories in its header menus or homepage, so the
+     * category form's "Feature in menu & homepage" switch means something. False where every
+     * visible category is always listed (Bulk Order's All products sidebar).
+     */
+    public function featuresCategories(): bool
+    {
+        return true;
+    }
+
     /** Called once per request when this template renders it (register composers, etc.). */
     public function boot(): void {}
 

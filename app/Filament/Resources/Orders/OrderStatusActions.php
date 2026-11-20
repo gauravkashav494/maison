@@ -33,23 +33,25 @@ class OrderStatusActions
         ];
     }
 
-    /** Opens the order's invoice PDF in a new browser tab. */
+    /** Opens the order's invoice PDF in a new browser tab, once it has one (issued on dispatch). */
     public static function viewInvoice(): Action
     {
         return Action::make('viewInvoice')
             ->label('View invoice')
             ->icon('heroicon-o-document-text')
             ->color('gray')
+            ->visible(fn (Order $record) => $record->hasInvoice())
             ->url(fn (Order $record) => route('filament.client.orders.invoice', ['order' => $record->getKey()]), shouldOpenInNewTab: true);
     }
 
-    /** Downloads the order's invoice as a PDF (App\Support\Invoice). Not a status move, so always offered. */
+    /** Downloads the order's invoice as a PDF (App\Support\Invoice), once it has one (issued on dispatch). */
     public static function invoice(): Action
     {
         return Action::make('invoice')
             ->label('Download invoice')
             ->icon('heroicon-o-document-arrow-down')
             ->color('gray')
+            ->visible(fn (Order $record) => $record->hasInvoice())
             ->action(function (Order $record) {
                 $invoice = Invoice::for($record);
                 app(ActivityLog::class)->record('downloaded', 'downloaded the invoice of '.app(ActivityLog::class)->describer()->reference($record), $record);

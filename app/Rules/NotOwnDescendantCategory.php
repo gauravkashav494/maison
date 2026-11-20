@@ -23,7 +23,7 @@ class NotOwnDescendantCategory implements ValidationRule
 
         $parentId = (int) $value;
         if ($parentId === $this->category->getKey() || in_array($parentId, $this->category->descendantIds(), true)) {
-            $fail("A category can't be placed under itself or one of its own sub-categories.");
+            $fail("A category can't be placed under itself or one of its own child categories.");
         }
     }
 }

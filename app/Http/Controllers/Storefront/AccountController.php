@@ -15,10 +15,12 @@ use App\Http\Requests\Storefront\ResetPasswordRequest;
 use App\Models\Address;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\Product;
 use App\Support\CustomerOtp;
 use App\Support\PhoneNumber;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -297,9 +299,42 @@ class AccountController extends Controller
             ->orWhere('salesperson_id', $customer->id));
     }
 
-    public function wishlist(): View
+    /**
+     * The wishlist page. The list itself lives on the device (localStorage), so a template that
+     * draws saved items on the server (Bulk: the order list) asks again with ?ids=… and gets just
+     * the list back. Only a template with an `account.wishlist-items` view answers that.
+     */
+    public function wishlist(Request $request): View
     {
+        if ($request->has('ids') && view()->exists('account.wishlist-items')) {
+            $ids = collect(explode(',', (string) $request->query('ids')))
+                ->map(fn ($id) => (int) $id)->filter()->unique()->take(100)->values();
+            $products = $ids->isEmpty() ? collect() : Product::with('category')->active()->whereIn('id', $ids)->get()
+                ->sortBy(fn (Product $p) => $ids->search($p->id))->values();
+
+            return view('account.wishlist-items', ['products' => $products]);
+        }
+
         return view('account.wishlist', ['seo' => Seo::simple('Wishlist', null, noindex: true)]);
+    }
+
+    /**
+     * Saves a signed-in buyer's Saved items to the account: the whole list, newest first, as the
+     * storefront's wishlist store sends it after every change. Only this store's products are kept.
+     */
+    public function saveWishlist(Request $request): JsonResponse
+    {
+        $data = $request->validate(['ids' => ['present', 'array', 'max:200'], 'ids.*' => ['integer', 'min:1']]);
+        $ids = collect($data['ids'])->map(fn ($id) => (int) $id)->unique()->values();
+        $known = $ids->isEmpty() ? collect() : Product::whereIn('id', $ids)->pluck('id')->flip();
+        $ids = $ids->filter(fn ($id) => $known->has($id))->values()->all();
+
+        $customer = $request->user();
+        if ($customer->wishlist !== $ids) {
+            $customer->forceFill(['wishlist' => $ids])->save();
+        }
+
+        return response()->json(['ids' => $ids]);
     }
 
     // ---- Addresses ---------------------------------------------------------

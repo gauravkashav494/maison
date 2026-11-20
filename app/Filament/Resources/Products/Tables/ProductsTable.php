@@ -3,8 +3,9 @@
 namespace App\Filament\Resources\Products\Tables;
 
 use App\Clients\StoreFeatures;
-use App\Filament\Support\RowActions;
 use App\Filament\Resources\Products\ProductRestoreActions;
+use App\Filament\Support\CategoryFilter;
+use App\Filament\Support\RowActions;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
@@ -30,6 +31,8 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // The categories column shows each with its parents ("Men › Shirts").
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('categories.'.Category::PATH))
             ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->columns([
@@ -43,7 +46,9 @@ class ProductsTable
                     ->sortable()
                     ->description(fn (Product $record) => $record->sku),
                 // Every category the product is listed under; sorting follows the main category.
+                // Shown with the categories above them ("Men › Shirts").
                 TextColumn::make('categories.name')->label('Categories')->badge()->color('gray')
+                    ->state(fn (Product $record) => $record->categories->map(fn (Category $c) => $c->pathName())->all())
                     ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy(
                         Category::select('name')->whereColumn('categories.id', 'products.category_id'), $direction,
                     )),
@@ -58,34 +63,16 @@ class ProductsTable
                 TextColumn::make('stock')->sortable()->alignRight(),
                 IconColumn::make('is_new')->label('New')->boolean()->toggleable(),
                 IconColumn::make('is_best_seller')->label('Best seller')->boolean()->toggleable(),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
                 TextColumn::make('updated_at')->since()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TrashedFilter::make(),
                 // Any category the product is listed under, not only its main one.
-                SelectFilter::make('categories')->label('Category')->relationship('categories', 'name')->preload(),
-                // Products in any of the chosen collections, or in none at all (not merchandised anywhere).
-                SelectFilter::make('collections')
-                    ->label('Collection')
-                    ->visible(fn () => StoreFeatures::enabled('collections'))
-                    ->multiple()
-                    ->native(false)
-                    ->options(fn () => [self::NO_COLLECTION => 'Not in any collection']
-                        + Collection::query()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id')->all())
-                    ->query(function (Builder $query, array $data) {
-                        $values = array_filter((array) ($data['values'] ?? []), 'filled');
-                        if ($values === []) {
-                            return $query;
-                        }
-                        $ids = array_values(array_diff($values, [self::NO_COLLECTION]));
-                        $none = in_array(self::NO_COLLECTION, $values, true);
-
-                        return $query->where(fn (Builder $q) => $q
-                            ->when($ids, fn (Builder $q) => $q->orWhereHas('collections', fn (Builder $c) => $c->whereKey($ids)))
-                            ->when($none, fn (Builder $q) => $q->orWhereDoesntHave('collections')));
-                    }),
-                TernaryFilter::make('is_active')->label('Visible'),
+                // Also finds the products in the categories below the one picked.
+                CategoryFilter::make(),
+                self::collectionFilter(),
+                TernaryFilter::make('is_active')->label('Visible on storefront'),
                 TernaryFilter::make('is_new')->label('New arrival'),
                 TernaryFilter::make('is_best_seller')->label('Best seller'),
             ])
@@ -93,5 +80,29 @@ class ProductsTable
             ->toolbarActions([
                 BulkActionGroup::make(RowActions::trashBulk(restore: ProductRestoreActions::restoreBulk())),
             ]);
+    }
+
+    /** Products in any of the chosen collections, or in none at all (not merchandised anywhere). Also used by SEO → Search listings. */
+    public static function collectionFilter(): SelectFilter
+    {
+        return SelectFilter::make('collections')
+            ->label('Collection')
+            ->visible(fn () => StoreFeatures::enabled('collections'))
+            ->multiple()
+            ->native(false)
+            ->options(fn () => [self::NO_COLLECTION => 'Not in any collection']
+                + Collection::query()->orderBy('sort_order')->orderBy('name')->pluck('name', 'id')->all())
+            ->query(function (Builder $query, array $data) {
+                $values = array_filter((array) ($data['values'] ?? []), 'filled');
+                if ($values === []) {
+                    return $query;
+                }
+                $ids = array_values(array_diff($values, [self::NO_COLLECTION]));
+                $none = in_array(self::NO_COLLECTION, $values, true);
+
+                return $query->where(fn (Builder $q) => $q
+                    ->when($ids, fn (Builder $q) => $q->orWhereHas('collections', fn (Builder $c) => $c->whereKey($ids)))
+                    ->when($none, fn (Builder $q) => $q->orWhereDoesntHave('collections')));
+            });
     }
 }

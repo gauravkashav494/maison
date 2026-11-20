@@ -4,10 +4,11 @@
 @php
     $crumbs = ['Shop' => route('shop.index')];
     if ($category?->parent) $crumbs[$category->parent->name] = $category->parent->url;
+    if ($brand ?? null) { $crumbs['Brands'] = route('brands.index'); }
     $crumbs[$title] = null;
     $init = $filters + ['view' => $view];
 @endphp
-<x-page-hero :eyebrow="$eyebrow" :title="$title" :description="$category?->description" :breadcrumbs="$crumbs" />
+<x-page-hero :eyebrow="$eyebrow" :title="$title" :description="$category?->description ?? ($brand ?? null)?->description" :breadcrumbs="$crumbs" />
 
 <section class="container-luxe py-10 lg:py-14" x-data="shopFilters(@js($init))" @open-filters.window="open = true">
     {{-- Category strip --}}

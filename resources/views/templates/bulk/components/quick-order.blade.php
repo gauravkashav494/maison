@@ -10,30 +10,30 @@
 @props(['index'])
 
 <div id="paste-list" x-data="quickOrder(@js($index))">
-    <p class="font-extrabold">{{ tsetting('site.pad_heading', 'Paste a list') }}</p>
-    <p class="bk-muted mt-1 text-sm">{{ tsetting('site.pad_help') }}</p>
+    <p class="text-sm font-extrabold">{{ tsetting('site.pad_heading', 'Paste a list') }}</p>
+    <p class="bk-muted mt-0.5 text-xs">{{ tsetting('site.pad_help') }}</p>
 
     <label class="sr-only" for="bk-pad">Product codes and quantities</label>
-    <textarea id="bk-pad" class="bk-pad mt-3" x-model="text" spellcheck="false" autocomplete="off"
+    <textarea id="bk-pad" class="bk-pad mt-2" x-model="text" spellcheck="false" autocomplete="off"
               placeholder="{{ tsetting('site.pad_example', 'CODE, QTY') }}"
               @keydown.ctrl.enter.prevent="check()" @keydown.meta.enter.prevent="check()"></textarea>
 
-    <div class="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" class="bk-btn bk-btn-primary" :disabled="!text.trim()" @click="check()"><x-heroicon-o-check-circle aria-hidden="true" />Check codes</button>
-        <label class="bk-btn bk-btn-outline bk-file">
+    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <button type="button" class="bk-btn bk-btn-primary !py-1.5 text-sm" :disabled="!text.trim()" @click="check()"><x-heroicon-o-check-circle aria-hidden="true" />Check codes</button>
+        <label class="bk-btn bk-btn-outline bk-file !py-1.5 text-sm">
             <x-heroicon-o-arrow-up-tray aria-hidden="true" />Upload CSV
             <input type="file" accept=".csv,.txt,text/csv,text/plain" @change="readFile($event)" aria-label="Upload a CSV of codes and quantities">
         </label>
-        <button type="button" class="bk-btn bk-btn-ghost" @click="downloadSample()" title="A CSV with this store's codes, ready to edit and upload">
+        <button type="button" class="bk-btn bk-btn-ghost !py-1.5 text-sm" @click="downloadSample()" title="A CSV with this store's codes, ready to edit and upload">
             <x-heroicon-o-arrow-down-tray aria-hidden="true" />Download sample CSV
         </button>
-        <button type="button" class="bk-btn bk-btn-ghost" x-show="text || rows.length" x-cloak @click="reset()">Clear</button>
+        <button type="button" class="bk-btn bk-btn-ghost !py-1.5 text-sm" x-show="text || rows.length" x-cloak @click="reset()">Clear</button>
     </div>
 
-    <p class="bk-ok mt-3" role="status" x-show="message" x-text="message" x-cloak></p>
+    <p class="bk-ok mt-2" role="status" x-show="message" x-text="message" x-cloak></p>
 
-    <div class="mt-4" x-show="checked && rows.length" x-cloak>
-        <table class="bk-table is-stack">
+    <div class="mt-3" x-show="checked && rows.length" x-cloak>
+        <table class="bk-table bk-quick is-stack">
             <thead>
                 <tr>
                     <th scope="col">Code</th>
@@ -49,16 +49,16 @@
                         <td class="bk-code" data-label="Code" x-text="row.code"></td>
                         <td data-label="Product">
                             <template x-if="row.line">
-                                <span class="block text-sm font-bold">
+                                <span class="font-bold">
                                     <span x-text="row.line.name"></span>
                                     <span class="bk-muted font-normal" x-show="row.line.label || row.line.unit" x-text="' · ' + (row.line.label || row.line.unit)"></span>
                                 </span>
                             </template>
-                            <span class="bk-badge mt-1" :class="row.error ? 'bk-badge-out' : (row.note ? 'bk-badge-low' : 'bk-badge-ok')"
+                            <span class="bk-badge ml-1.5 align-middle" :class="row.error ? 'bk-badge-out' : (row.note ? 'bk-badge-low' : 'bk-badge-ok')"
                                   x-text="row.error || row.note || 'Ready'"></span>
                         </td>
                         <td data-label="Qty">
-                            <input type="number" inputmode="numeric" min="1" class="bk-input !w-20 !py-1.5 text-right"
+                            <input type="number" inputmode="numeric" min="1" class="bk-input !w-16 !py-1 text-right text-sm"
                                    x-model.number="row.qty" :disabled="!row.line || row.error === 'Out of stock'"
                                    @change="row.line && fit(row)" :aria-label="'Quantity for ' + row.code">
                         </td>
@@ -72,8 +72,8 @@
             </tbody>
         </table>
 
-        <div class="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--bk-line)] pt-4">
-            <button type="button" class="bk-btn bk-btn-primary" :disabled="busy || !ready.length" @click="addAll()">
+        <div class="mt-2 flex flex-wrap items-center gap-3 border-t border-[var(--bk-line)] pt-3">
+            <button type="button" class="bk-btn bk-btn-primary !py-1.5 text-sm" :disabled="busy || !ready.length" @click="addAll()">
                 <x-heroicon-o-shopping-cart aria-hidden="true" />
                 <span x-text="busy ? 'Adding…' : 'Add ' + ready.length + (ready.length === 1 ? ' line' : ' lines') + ' to order'"></span>
             </button>

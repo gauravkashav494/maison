@@ -8,7 +8,7 @@
 @if(session('order_cancelled'))
     <p {{ $attributes->class('bk-notice') }} role="status"><x-heroicon-o-check-circle aria-hidden="true" />{{ session('order_cancelled') }}</p>
 @elseif($order->customerCanCancel())
-    <div x-data x-init="@if($errors->has('reason')) $nextTick(() => $refs.dialog.showModal()) @endif" {{ $attributes->class('bk-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between') }}>
+    <div x-data x-init="@if($errors->has('reason')) $nextTick(() => $refs.dialog.showModal()) @endif" {{ $attributes->class('bk-card flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between') }}>
         <p class="text-sm"><strong>Need to cancel?</strong> <span class="bk-muted">This order can be cancelled until it is dispatched.</span></p>
         <button type="button" @click="$refs.dialog.showModal()" class="bk-btn bk-btn-outline shrink-0"><x-heroicon-o-x-circle aria-hidden="true" />Cancel order</button>
         @error('cancel')<p class="bk-error sm:order-last">{{ $message }}</p>@enderror
@@ -27,5 +27,5 @@
         </dialog>
     </div>
 @elseif($errors->has('cancel'))
-    <p {{ $attributes->class('bk-card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between') }}>{{ $errors->first('cancel') }}</p>
+    <p {{ $attributes->class('bk-card flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between') }}>{{ $errors->first('cancel') }}</p>
 @endif

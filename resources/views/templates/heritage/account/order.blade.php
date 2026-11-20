@@ -9,7 +9,7 @@
                 <div class="flex gap-2">
                     @if($order->tracking_number)<span class="rounded-lg bg-cream px-3 py-2 text-xs"><span class="text-muted">{{ $order->carrier ?: 'Tracking' }}</span> <strong class="tabular">{{ $order->tracking_number }}</strong></span>@endif
                     <a href="{{ route('track') }}?number={{ $order->number }}&email={{ urlencode($order->email) }}" class="btn btn-ghost btn-sm">Track</a>
-                    <a href="{{ $order->invoiceUrl() }}" class="btn btn-ghost btn-sm">Invoice</a>
+                    @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="btn btn-ghost btn-sm">Invoice</a>@endif
                 </div>
             </div>
             <div class="mt-6"><x-order-timeline :order="$order" /></div>

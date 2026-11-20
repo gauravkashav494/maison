@@ -24,7 +24,16 @@ class Store extends Model
 
     public function scopeActive(Builder $q): Builder
     {
-        return $q->where('is_active', true)->orderBy('sort_order');
+        return $q->where('is_active', true)->ordered();
+    }
+
+    /**
+     * The "Our stores" page order: as dragged in the store locations list, then A to Z for those
+     * sharing a place (every new location starts at 0).
+     */
+    public function scopeOrdered(Builder $q): Builder
+    {
+        return $q->orderBy('sort_order')->orderBy('name');
     }
 
     public function getImageUrlAttribute(): ?string

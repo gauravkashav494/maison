@@ -5,6 +5,7 @@
     $hs = tsetting('site');
     $crumbs = [];
     if ($category?->parent) { $crumbs[$category->parent->name] = $category->parent->url; }
+    if ($brand ?? null) { $crumbs['Brands'] = route('brands.index'); }
     $crumbs[$title] = null;
     $init = $filters + ['view' => $view];
     $sorts = ['' => 'Best selling', 'price-asc' => 'Price, low to high', 'price-desc' => 'Price, high to low', 'newest' => 'Date, new to old', 'rating' => 'Top rated'];
@@ -16,7 +17,9 @@
 <div x-data="shopFilters(@js($init))" class="h-container pt-5" @open-filters.window="open = true">
     <x-breadcrumbs :items="$crumbs" />
     <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <div><h1 class="display text-2xl text-red lg:text-3xl">{{ $title }}</h1>@if($category?->description)<p class="mt-1 max-w-2xl text-sm text-muted">{{ $category->description }}</p>@endif</div>
+        @php $intro = $category?->description ?? ($brand ?? null)?->description; @endphp
+        <div><h1 class="display text-2xl text-red lg:text-3xl">{{ $title }}</h1>@if($intro)<p class="mt-1 max-w-2xl text-sm text-muted">{{ $intro }}</p>@endif</div>
+        @if(($brand ?? null)?->logo_url)<img src="{{ $brand->logo_url }}" alt="{{ $brand->name }}" class="h-12 w-auto max-w-32 object-contain">@endif
     </div>
 
     {{-- Sub-categories --}}

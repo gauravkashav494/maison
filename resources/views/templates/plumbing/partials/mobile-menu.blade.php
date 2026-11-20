@@ -37,7 +37,7 @@
 
             @if($links->isNotEmpty())
                 <p class="px-4 pb-1 pt-4 text-xs font-bold uppercase tracking-wider text-mist">Quick links</p>
-                <ul class="px-2">
+                <ul class="px-2" data-menu-area="header">
                     @foreach($links as $item)<li><a href="{{ $item->href }}" class="flex items-center gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold {{ $item->is_accent ? 'text-accent-dark' : '' }}">@if($item->is_accent)<x-ico name="percent" :size="16" />@endif{{ $item->label }}</a></li>@endforeach
                 </ul>
             @endif

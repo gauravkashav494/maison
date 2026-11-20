@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\GeneratesSlug;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
@@ -16,13 +17,16 @@ class Collection extends Model
 {
     use BelongsToClient;
     use BelongsToTemplate;
+
+    // After BelongsToClient: its saving hook fills client_id, which the unique slug needs.
+    use GeneratesSlug;
     use HasSeo;
     use SoftDeletes;
     use UsesClientConnection;
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'is_featured' => 'boolean', 'noindex' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'noindex' => 'boolean'];
 
     public function products(): BelongsToMany
     {
@@ -31,7 +35,16 @@ class Collection extends Model
 
     public function scopeActive(Builder $q): Builder
     {
-        return $q->where('is_active', true)->orderBy('sort_order');
+        return $q->where('is_active', true)->ordered();
+    }
+
+    /**
+     * The storefront order: as dragged in the collections list, then newest first for those
+     * sharing a place (every new collection starts at 0).
+     */
+    public function scopeOrdered(Builder $q): Builder
+    {
+        return $q->orderBy('sort_order')->orderByDesc('id');
     }
 
     public function getImageUrlAttribute(): ?string

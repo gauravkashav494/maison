@@ -22,9 +22,9 @@ class TestimonialForm
                 Select::make('rating')->options([5 => '5 stars', 4 => '4 stars', 3 => '3 stars', 2 => '2 stars', 1 => '1 star'])->default(5)->required()->native(false),
                 Select::make('service_id')->label('Service')->relationship('service', 'name', fn ($query) => $query->withoutGlobalScope(TemplateVisibility::NAME))->searchable()->preload()->native(false),
                 TextInput::make('location')->maxLength(80)->placeholder('Model Town, Ludhiana'),
-                Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
-                TextInput::make('sort_order')->numeric()->default(0),
+                Toggle::make('is_active')->label('Visible on storefront')->default(true)->inline(false),
             ]),
+            // The order is set by dragging rows in the testimonials list (then newest first).
             Textarea::make('body')->label('Review')->rows(4)->required()->maxLength(1000),
             Fields::image('image', 'Customer photo (optional)', 'plumbing-services'),
         ]);

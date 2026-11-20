@@ -35,7 +35,9 @@ class CouponForm
                     ->validationMessages(['min' => 'Minimum subtotal cannot be negative.', 'gte' => 'Minimum subtotal cannot be negative.'])
                     ->extraInputAttributes(['min' => '0', 'onkeydown' => "if (event.key === '-') event.preventDefault()"])
                     ->prefix('₹')->default(0),
-                TextInput::make('usage_limit')->label('Total uses allowed')->numeric()->minValue(1)->placeholder('Unlimited'),
+                TextInput::make('usage_limit')->label('Total uses allowed')->numeric()->integer()->minValue(1)->placeholder('Unlimited'),
+                TextInput::make('per_customer_limit')->label('Uses per customer')->numeric()->integer()->minValue(1)->placeholder('Unlimited')
+                    ->helperText('Counted by account and phone number. Cancelled orders do not count.'),
                 DateTimePicker::make('starts_at')->native(false)->seconds(false)->live(),
                 DateTimePicker::make('ends_at')->native(false)->seconds(false)->afterOrEqual('starts_at')
                     ->validationMessages(['after_or_equal' => 'The end date must be on or after the start date.']),

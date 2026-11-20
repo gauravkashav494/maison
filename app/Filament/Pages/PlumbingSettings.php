@@ -18,7 +18,7 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Header, search, support, bulk-quote and footer settings for the Plumbing template.
- * Brand contact details, social links, SEO and checkout stay in Site settings.
+ * Brand contact details, social links and checkout stay in Site settings; SEO in SEO settings.
  */
 class PlumbingSettings extends Page
 {

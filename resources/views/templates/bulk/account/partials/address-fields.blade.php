@@ -1,6 +1,6 @@
 {{-- The address form's fields; names match what the shared account controller validates. --}}
 @php $v = fn ($k) => old($k, $a?->{$k}); @endphp
-<div class="grid gap-4 sm:grid-cols-2">
+<div class="grid gap-3 sm:grid-cols-2">
     <label class="bk-label">Label<input name="label" value="{{ $v('label') }}" placeholder="Kitchen, Head office…" class="bk-input">@error('label')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="bk-label">Contact name<span class="bk-req">*</span><input name="name" value="{{ $v('name') ?? auth()->user()->name }}" class="bk-input" autocomplete="name">@error('name')<span class="bk-error">{{ $message }}</span>@enderror</label>
     <label class="bk-label sm:col-span-2">Address<span class="bk-req">*</span><input name="line1" value="{{ $v('line1') }}" class="bk-input" autocomplete="address-line1">@error('line1')<span class="bk-error">{{ $message }}</span>@enderror</label>

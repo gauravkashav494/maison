@@ -2,7 +2,6 @@
 
 namespace App\Templates\Bulk;
 
-use App\Clients\ClientDatabase;
 use App\Filament\Pages\BulkOrderSettings;
 use App\Models\Category;
 use App\Models\Setting;
@@ -79,6 +78,7 @@ class BulkTemplate extends Template
     {
         return [
             'header' => ['bulk_header', 'Header — Links beside the categories'],
+            'footer_shop' => ['bulk_footer_shop', 'Footer — Shop'],
             'footer' => ['bulk_footer', 'Footer — Help'],
             'legal' => ['bulk_legal', 'Footer — Policies'],
         ];
@@ -119,13 +119,10 @@ class BulkTemplate extends Template
         View::composer('home.index', HomeComposer::class);
     }
 
-    /** Category navigation for the header, on every page. */
-    public function viewData(): array
+    /** No header menu or homepage grid of categories: All products lists every visible one. */
+    public function featuresCategories(): bool
     {
-        return [
-            'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('bulk.nav_categories'), 600, fn () => Category::active()
-                ->topLevel()->where('show_in_menu', true)->get()),
-        ];
+        return false;
     }
 
     public function defaults(): array

@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Clients\ClientDatabase;
 use App\Clients\ClientModules;
+use App\Clients\ClientSetup;
 use App\Models\Concerns\UsesPlatformConnection;
+use App\Support\Activity\ActivityLog;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * A client is the tenant: the business renting the platform.
@@ -37,6 +40,9 @@ class Client extends Model
     public const SESSION_KEY = 'storefront.client';
 
     protected $guarded = [];
+
+    /** Set by the last save when it moved this client's database: [old name, new name]. Not a column. */
+    public ?array $movedDatabase = null;
 
     protected $casts = ['is_active' => 'boolean', 'is_theme' => 'boolean', 'modules' => 'array'];
 
@@ -63,6 +69,42 @@ class Client extends Model
         static::saving(function (Client $client) {
             if ($client->isDirty('domain') && filled($client->domain) && ($problem = static::domainProblem((string) $client->domain, ignoreClient: $client))) {
                 throw ValidationException::withMessages(['domain' => $problem]);
+            }
+        });
+        // A new database name (typed in, or generated from a new subdomain) moves the client's
+        // database, data and all, rather than leaving it behind and starting an empty one. It runs
+        // before the row is written, so a move that fails stops the save and nothing changes.
+        static::updating(function (Client $client) {
+            $client->movedDatabase = null;
+            if (! $client->isDirty(['subdomain', 'database'])) {
+                return;
+            }
+
+            $databases = app(ClientDatabase::class);
+            $from = $client->originalDatabaseName();
+            $to = $client->databaseName();
+            if (! $databases->isolated() || strcasecmp($from, $to) === 0) {
+                return;
+            }
+
+            if (ClientSetup::isRunning($client)) {
+                throw ValidationException::withMessages(['database' => 'This client\'s database is still being set up. Change its name once that has finished.']);
+            }
+
+            try {
+                $moved = $databases->rename($client, $from, $to, 'client_'.str_replace('-', '_', (string) $client->getOriginal('subdomain')));
+            } catch (Throwable $e) {
+                report($e);
+
+                throw ValidationException::withMessages(['database' => 'The database "'.$from.'" could not be moved to "'.$to.'": '.$e->getMessage()]);
+            }
+
+            $client->movedDatabase = $moved ? [$from, $to] : null;
+
+            if ($moved) {
+                $log = app(ActivityLog::class);
+                $log->record('updated', 'moved the database of '.$log->describer()->reference($client).' from '.$from.' to '.$to, $client,
+                    [['field' => 'database', 'label' => 'database', 'old' => $from, 'new' => $to]]);
             }
         });
         static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
@@ -150,6 +192,13 @@ class Client extends Model
     public function databaseName(): string
     {
         return $this->database ?: config('clients.prefix', 'client_').$this->key();
+    }
+
+    /** The database name as it was before the unsaved changes (a new subdomain or name). */
+    public function originalDatabaseName(): string
+    {
+        return $this->getOriginal('database')
+            ?: config('clients.prefix', 'client_').str_replace('-', '_', (string) $this->getOriginal('subdomain'));
     }
 
     /**

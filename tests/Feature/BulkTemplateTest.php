@@ -5,12 +5,15 @@ namespace Tests\Feature;
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Filament\Pages\BulkOrderSettings;
+use App\Filament\Resources\Categories\Pages\CreateCategory;
+use App\Filament\Resources\Categories\Pages\ListCategories;
 use App\Http\Requests\Storefront\StorefrontRequest;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Collection;
 use App\Models\Customer;
+use App\Models\Menu;
 use App\Models\Order;
 use App\Models\Page;
 use App\Models\Plan;
@@ -24,6 +27,7 @@ use App\Templates\Bulk\OrderLines;
 use App\Templates\TemplateManager;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -90,6 +94,35 @@ class BulkTemplateTest extends TestCase
         }
 
         $this->visit('/cookies')->assertSee('Your cookie choices')->assertSee('$store.cookies.save', false);
+    }
+
+    public function test_the_footer_shop_column_is_an_editable_menu(): void
+    {
+        $this->assertArrayHasKey('bulk_footer_shop', $this->client->templateObject()->locationLabels());
+
+        $html = $this->visit('/')->assertOk()->getContent();
+        $shop = Str::between($html, '<h3>Shop</h3>', '<h3>Help</h3>');
+        foreach (['Bulk order', 'All products', 'Brands', 'Cleaning Chemicals', 'Office Supplies'] as $label) {
+            $this->assertStringContainsString(e($label), $shop);
+        }
+
+        // Edited in Content → Navigation: the footer follows the menu, not the category list.
+        $menu = Menu::where('location', 'bulk_footer_shop')->firstOrFail();
+        $menu->allItems()->where('label', 'Office Supplies')->delete();
+        $menu->allItems()->create(['label' => 'Trade price list', 'url' => '/price-list', 'sort_order' => 99]);
+        Menu::flush();
+
+        $shop = Str::between($this->visit('/')->getContent(), '<h3>Shop</h3>', '<h3>Help</h3>');
+        $this->assertStringNotContainsString('Office Supplies', $shop);
+        $this->assertStringContainsString('Trade price list', $shop);
+        // No links (or no menu): no Shop column at all.
+        $menu->allItems()->delete();
+        Menu::flush();
+        $this->visit('/')->assertOk()->assertDontSee('<h3>Shop</h3>', false)->assertSee('<h3>Help</h3>', false);
+
+        $menu->forceDelete();
+        Menu::flush();
+        $this->visit('/')->assertOk()->assertDontSee('<h3>Shop</h3>', false);
     }
 
     public function test_every_active_variant_becomes_a_line_with_its_own_code_price_and_stock(): void
@@ -181,6 +214,30 @@ class BulkTemplateTest extends TestCase
             $code = mb_strtolower(preg_split('/[\s,;]+/', trim($line))[0]);
             $this->assertArrayHasKey($code, $codes, "The pad example's {$code} must be orderable.");
         }
+    }
+
+    public function test_the_order_form_category_filter_lists_the_tree_with_each_parent_covering_its_children(): void
+    {
+        $sanitiser = $this->product('CL-HS-5L');
+        $parent = $sanitiser->category;
+        $child = Category::withoutGlobalScopes()->create([
+            'client_id' => $this->client->id, 'parent_id' => $parent->id, 'name' => 'Hospital Grade', 'slug' => 'hospital-grade', 'is_active' => true,
+        ]);
+        $sanitiser->update(['category_id' => $child->id]);
+
+        $tree = null;
+        $this->visit('/')->assertSuccessful()->assertViewHas('categoryTree', function ($rows) use (&$tree) {
+            $tree = collect($rows)->keyBy('id');
+
+            return true;
+        });
+
+        $this->assertSame(0, $tree[$parent->id]['depth']);
+        $this->assertSame(1, $tree[$child->id]['depth']);
+        $this->assertContains($sanitiser->id, $tree[$child->id]['products']);
+        $this->assertContains($sanitiser->id, $tree[$parent->id]['products']); // choosing the parent shows its children's items
+        $ids = $tree->keys()->all();
+        $this->assertLessThan(array_search($child->id, $ids), array_search($parent->id, $ids)); // parent listed first
     }
 
     public function test_the_home_page_is_a_storefront_with_the_bulk_order_form(): void
@@ -439,6 +496,36 @@ class BulkTemplateTest extends TestCase
         $this->assertSame('#7a1f5c', Setting::get('bulk_site.brand_color'));
     }
 
+    public function test_the_all_products_sidebar_lists_every_visible_category_whatever_its_menu_switch(): void
+    {
+        $cleaning = Category::withoutGlobalScopes()->where('client_id', $this->client->id)->where('slug', 'cleaning')->firstOrFail();
+        $cleaning->update(['show_in_menu' => false]);
+        $sidebar = fn () => (string) str($this->visit('/shop')->assertSuccessful()->getContent())->after('aria-label="Categories"')->before('</aside>');
+
+        $this->assertStringContainsString('/shop/cleaning', $sidebar());
+
+        $cleaning->update(['is_active' => false]);
+        $this->assertStringNotContainsString('/shop/cleaning', $sidebar());
+    }
+
+    public function test_the_category_admin_has_no_menu_and_homepage_switch_in_a_bulk_store(): void
+    {
+        $this->assertFalse(Category::featurableIn('bulk'));
+        $this->assertTrue(Category::featurableIn('fashion'));
+        $this->assertTrue(Category::featurableIn(null));
+
+        $admin = ClientUser::create([
+            'client_id' => $this->client->id, 'name' => 'Owner', 'email' => 'owner@trade.test', 'password' => 'secret-pass',
+            'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+        ]);
+        $this->actingAs($admin, 'client');
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(StoreContext::class)->resolve($admin);
+
+        Livewire::test(CreateCategory::class)->assertFormFieldHidden('show_in_menu')->assertFormFieldVisible('is_active');
+        Livewire::test(ListCategories::class)->assertTableColumnHidden('show_in_menu');
+    }
+
     public function test_the_sign_in_pages_use_the_store_layout_and_still_work(): void
     {
         foreach (['/login' => '/login', '/login/otp' => '/login/otp', '/register' => '/register', '/forgot-password' => '/forgot-password'] as $path => $action) {
@@ -517,8 +604,8 @@ class BulkTemplateTest extends TestCase
             $this->assertStoreDesign($this->visit($path), $path);
         }
 
-        // The account has no wishlist link: this store has no wishlist.
-        $this->visit('/account')->assertSee('Order again')->assertDontSee('Wishlist');
+        // The account links to Saved items (the wishlist) and counts them.
+        $this->visit('/account')->assertSee('Order again')->assertSee('Saved items')->assertSee('$store.wishlist.count', false);
         $this->visit('/account/orders/ME-9002')->assertSee('GL-NT-M')->assertSee('Dispatched');
     }
 
@@ -530,6 +617,70 @@ class BulkTemplateTest extends TestCase
         foreach (['container-luxe', 'input-luxe', 'prose-luxe', 'display-md', 'btn btn-primary'] as $fashion) {
             $this->assertStringNotContainsString($fashion, $html, "{$path} uses the Fashion design ({$fashion}).");
         }
+    }
+
+    public function test_products_can_be_saved_for_later_from_the_card_list_product_page_and_header(): void
+    {
+        $product = $this->product('GL-NT');
+
+        // A heart on every product row (once per product, not per size) and in the header.
+        $shop = $this->visit('/shop')->assertSuccessful()
+            ->assertSee('$store.wishlist.toggle('.$product->id.')', false)
+            ->assertSee(route('account.wishlist'), false)
+            ->assertSee('Saved items', false);
+        $this->assertSame(1, substr_count($shop->getContent(), '$store.wishlist.toggle('.$product->id.')'));
+
+        $this->visit('/product/'.$product->slug)->assertSee('$store.wishlist.toggle('.$product->id.')', false);
+    }
+
+    public function test_the_saved_items_page_lists_saved_products_as_the_order_list(): void
+    {
+        $gloves = $this->product('GL-NT');
+        $cleaner = $this->product('CL-FC-5L');
+
+        // The page itself: works for guests, uses the store design and loads the list from the device.
+        $page = $this->visit('/account/wishlist')->assertSuccessful()->assertSee('savedList(', false)->assertSee('Nothing saved yet');
+        $this->assertStoreDesign($page, '/account/wishlist');
+        $page->assertDontSee('Sign out');
+
+        // The list it asks for: the saved products in the order saved, every size a row with a quantity box.
+        $list = $this->visit('/account/wishlist?ids='.$cleaner->id.','.$gloves->id.',999999')->assertSuccessful()
+            ->assertSee('orderSheet(', false)->assertSee('GL-NT-M')->assertSee('CL-FC-5L')->assertSee('Add all to order')
+            ->assertDontSee('<html', false);
+        $html = $list->getContent();
+        $this->assertLessThan(strpos($html, 'GL-NT-M'), strpos($html, 'CL-FC-5L'), 'Saved items keep the order they were saved in.');
+
+        // A product of another client is never shown, nor an inactive one.
+        $cleaner->update(['is_active' => false]);
+        $this->visit('/account/wishlist?ids='.$cleaner->id)->assertSuccessful()->assertDontSee('CL-FC-5L');
+        $this->assertSame('', trim($this->visit('/account/wishlist?ids=')->getContent()));
+    }
+
+    public function test_a_signed_in_buyers_saved_items_are_kept_on_the_account(): void
+    {
+        $gloves = $this->product('GL-NT');
+        $cleaner = $this->product('CL-FC-5L');
+        $url = $this->client->publicUrl().'/account/wishlist';
+
+        // A guest's list stays on the device: nothing to save to, and no account list on the page.
+        $this->putJson($url, ['ids' => [$gloves->id]])->assertUnauthorized();
+        $this->visit('/shop')->assertDontSee('account-wishlist', false);
+
+        $customer = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha Rao', 'email' => 'asha@example.test', 'password' => 'secret-pass', 'is_active' => true]);
+        $this->actingAs($customer);
+
+        // Saved in the order sent; repeats and ids that are not this store's products are dropped.
+        $this->putJson($url, ['ids' => [$cleaner->id, $gloves->id, $cleaner->id, 999999]])
+            ->assertOk()->assertExactJson(['ids' => [$cleaner->id, $gloves->id]]);
+        $this->assertSame([$cleaner->id, $gloves->id], $customer->fresh()->wishlist);
+
+        // Every page hands the account's list to the wishlist store, to merge with the device's.
+        $this->visit('/shop')->assertSee('<meta name="account-wishlist" content="['.$cleaner->id.','.$gloves->id.']" data-account="'.$customer->id.'">', false);
+
+        // Emptied too.
+        $this->putJson($url, ['ids' => []])->assertOk()->assertExactJson(['ids' => []]);
+        $this->assertSame([], $customer->fresh()->wishlist);
+        $this->putJson($url, ['ids' => 'nope'])->assertUnprocessable();
     }
 
     public function test_phone_numbers_are_ten_digits(): void

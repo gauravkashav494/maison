@@ -18,7 +18,7 @@
                     <p class="eyebrow text-taupe">Order {{ $order->number }}</p>
                     <h2 class="mt-2 font-serif text-4xl">{{ $order->statusLabel() }}</h2>
                     <p class="mt-2 text-sm text-smoke">Placed {{ $order->created_at->format('d F Y') }}@if($order->estimated_delivery && $order->status !== 'delivered') · Estimated delivery {{ $order->estimated_delivery->format('l, d F') }}@endif</p>
-                    <a href="{{ $order->invoiceUrl() }}" class="link-underline eyebrow mt-3 inline-block">Download invoice →</a>
+                    @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="link-underline eyebrow mt-3 inline-block">Download invoice →</a>@endif
                 </div>
                 @if($order->tracking_number)
                     <div class="text-sm sm:text-right"><p class="eyebrow text-taupe">{{ $order->carrier ?: 'Tracking number' }}</p><p class="mt-1 font-mono">{{ $order->tracking_number }}</p></div>

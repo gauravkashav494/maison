@@ -88,7 +88,7 @@ class ProductTaxPricingTest extends TestCase
 
         Livewire::test(CreateProduct::class)
             ->assertSet('data.tax_id', null) // no tax is picked for you
-            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'tax_id' => $accessories->id, 'price_excl_tax' => 1000, 'compare_at_price' => 1500])
+            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'tax_id' => $accessories->id, 'price_excl_tax' => 1000, 'compare_at_price' => 1500])
             ->assertSet('data.price_incl_tax', 1180.0)
             ->call('create')
             ->assertHasNoFormErrors();
@@ -108,7 +108,7 @@ class ProductTaxPricingTest extends TestCase
         $apparel = $this->tax('Apparel', 5);
 
         Livewire::test(CreateProduct::class)
-            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'tax_id' => $apparel->id, 'price_incl_tax' => 1050])
+            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'tax_id' => $apparel->id, 'price_incl_tax' => 1050])
             ->assertSet('data.price_excl_tax', 1000.0)
             ->call('create')
             ->assertHasNoFormErrors();
@@ -125,7 +125,7 @@ class ProductTaxPricingTest extends TestCase
         $this->tax('Apparel', 5);
 
         Livewire::test(CreateProduct::class)
-            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'tax_id' => null, 'price_excl_tax' => 1000])
+            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'tax_id' => null, 'price_excl_tax' => 1000])
             ->call('create')
             ->assertHasFormErrors(['tax_id' => 'required']);
     }
@@ -167,7 +167,7 @@ class ProductTaxPricingTest extends TestCase
         $accessories = $this->tax('Accessories', 18);
 
         Livewire::test(CreateProduct::class)
-            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'tax_id' => $accessories->id, 'price_excl_tax' => 1000, 'compare_at_price' => 1100])
+            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'tax_id' => $accessories->id, 'price_excl_tax' => 1000, 'compare_at_price' => 1100])
             ->call('create')
             ->assertHasFormErrors(['compare_at_price']);
     }

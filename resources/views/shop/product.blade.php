@@ -58,7 +58,7 @@
         {{-- Purchase panel --}}
         <div class="lg:col-span-5">
             <div class="lg:sticky lg:top-28">
-                <p class="eyebrow text-taupe">{{ $product->brand ?: $product->category?->name }}@if($product->brand && $product->category) <span class="text-taupe/60">·</span> {{ $product->category->name }}@endif</p>
+                <p class="eyebrow text-taupe">@if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="hover:text-ink">{{ $product->brand }}</a>@else{{ $product->category?->name }}@endif@if($product->brand && $product->category) <span class="text-taupe/60">·</span> {{ $product->category->name }}@endif</p>
                 <h1 class="mt-3 font-serif text-4xl leading-tight lg:text-5xl">{{ $product->name }}</h1>
                 <div class="mt-4 flex items-center gap-4">
                     <a href="#reviews" class="flex items-center gap-2"><x-rating :value="$product->rating" :count="$product->review_count" :size="11" /></a>

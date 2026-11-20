@@ -12,7 +12,7 @@
             <button type="button" @click="$store.ui.closeAll()" aria-label="Close" class="-mr-2 grid h-10 w-10 place-items-center"><x-ico name="close" :size="20" /></button>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-5">
+        <div class="flex-1 overflow-y-auto px-5" data-menu-area="header">
             @foreach($headerItems as $item)
                 @if($item->children->isNotEmpty())
                     @php

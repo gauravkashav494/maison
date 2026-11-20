@@ -76,7 +76,7 @@ class ServicesController extends Controller
         return view('services.show', [
             'service' => $service,
             'faqs' => $faqs,
-            'related' => Service::active()->where('id', '!=', $service->id)->orderByDesc('is_popular')->limit(6)->get(),
+            'related' => Service::active()->where('id', '!=', $service->id)->popularFirst()->limit(6)->get(),
             'testimonials' => Testimonial::with('service')->active()->where('service_id', $service->id)->limit(6)->get()
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'projects' => Project::with('service')->active()->where('service_id', $service->id)->limit(4)->get(),
@@ -133,7 +133,7 @@ class ServicesController extends Controller
 
         return view('services.area', [
             'area' => $area,
-            'services' => Service::active()->orderByDesc('is_popular')->limit(9)->get(),
+            'services' => Service::active()->popularFirst()->limit(9)->get(),
             'testimonials' => Testimonial::with('service')->active()->whereLike('location', $area->name)->limit(6)->get()
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'others' => ServiceArea::active()->where('id', '!=', $area->id)->get(),

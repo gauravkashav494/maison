@@ -50,6 +50,7 @@ class MenuSeeder extends Seeder
                 ['group' => 'Tiles', 'label' => 'Signature Collection', 'eyebrow' => 'Campaign', 'url' => '/collections/signature', 'image' => Media::unsplash('1610652492500-ded49ceeb378', 700, '&h=900')],
                 ['group' => 'Tiles', 'label' => 'Timepieces', 'eyebrow' => 'Watches', 'url' => '/collections/timepieces', 'image' => Media::unsplash('1619134778706-7015533a6150', 700, '&h=900')],
             ]],
+            ['label' => 'Brands', 'url' => '/brands'],
             ['label' => 'About', 'url' => '/about'],
         ]);
 

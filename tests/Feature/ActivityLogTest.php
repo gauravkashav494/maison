@@ -4,12 +4,16 @@ namespace Tests\Feature;
 
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
+use App\Clients\ClientDatabase;
+use App\Filament\Pages\SearchListings;
+use App\Filament\Pages\SeoSettings;
 use App\Filament\Pages\SiteSettings;
 use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\ActivityTable;
+use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
@@ -26,6 +30,8 @@ use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -233,6 +239,59 @@ class ActivityLogTest extends TestCase
         $this->assertSame($this->alpha->id, $line->client_id);
     }
 
+    public function test_editing_a_search_listing_is_logged_against_the_record(): void
+    {
+        $this->enterClientPanel($this->admin);
+
+        Livewire::test(SearchListings::class)
+            ->callAction(TestAction::make('editSeo')->table($this->coat), ['meta_title' => 'Wool coats for winter', 'noindex' => true])
+            ->assertHasNoFormErrors();
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertStringContainsString('product "Alpha Coat"', $line->description);
+        $this->assertStringContainsString('SEO title', $line->description);
+        $this->assertSame($this->coat->id, $line->subject_id);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+    }
+
+    public function test_hiding_listings_in_bulk_is_one_line(): void
+    {
+        $scarf = $this->product('Alpha Scarf', 300);
+        $this->enterClientPanel($this->admin);
+        $before = PlatformActivity::count();
+
+        Livewire::test(SearchListings::class)
+            ->callTableBulkAction('hideFromSearch', [$this->coat, $scarf])
+            ->assertHasNoErrors();
+
+        $this->assertSame($before + 1, PlatformActivity::count());
+        $line = $this->lastLine();
+        $this->assertStringContainsString('Alpha Coat', $line->description);
+        $this->assertStringContainsString('Alpha Scarf', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertTrue($scarf->fresh()->noindex);
+    }
+
+    public function test_saving_seo_settings_is_logged(): void
+    {
+        $this->enterClientPanel($this->admin);
+
+        Livewire::test(SeoSettings::class)
+            ->set('data.seo.default_title', 'Alpha Atelier — Coats')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('Settings', $line->area);
+        $this->assertStringContainsString('SEO settings', $line->description);
+        $this->assertStringContainsString('homepage title', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+    }
+
     public function test_sign_ins_and_failed_attempts_are_logged_for_the_client(): void
     {
         event(new Login('client', $this->staff, false));
@@ -301,6 +360,43 @@ class ActivityLogTest extends TestCase
         $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
     }
 
+    public function test_changing_the_other_categories_of_a_product_is_logged(): void
+    {
+        $category = fn (string $name) => Category::withoutGlobalScopes()->create(['client_id' => $this->alpha->id, 'template' => 'fashion', 'name' => $name, 'slug' => str($name)->slug()->value(), 'is_active' => true]);
+        $coats = $category('Coats');
+        $gifts = $category('Gifts');
+        $this->coat->update(['category_id' => $coats->id]);
+        $this->enterClientPanel($this->admin);
+
+        $this->coat->listUnder([$gifts->id]);
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('changed the other categories of product "Alpha Coat" from none to Gifts', $line->description);
+        $this->assertSame([$this->coat->id, $this->alpha->id], [$line->subject_id, $line->client_id]);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+
+        // The main category is always kept, and a save with nothing changed adds no line.
+        $before = PlatformActivity::count();
+        $this->coat->listUnder([$gifts->id]);
+        $this->assertSame($before, PlatformActivity::count());
+        $this->assertEqualsCanonicalizing([$coats->id, $gifts->id], $this->coat->categories()->pluck('categories.id')->all());
+    }
+
+    public function test_taking_a_category_out_of_the_menu_and_homepage_reads_well(): void
+    {
+        $men = Category::withoutGlobalScopes()->create(['client_id' => $this->alpha->id, 'template' => 'fashion', 'name' => 'Men', 'slug' => 'men', 'is_active' => true, 'show_in_menu' => true]);
+        $this->enterClientPanel($this->admin);
+
+        $men->update(['show_in_menu' => false]);
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('turned off "feature in menu & homepage" for category "Men"', $line->description);
+        $this->assertSame([$men->id, $this->alpha->id], [$line->subject_id, $line->client_id]);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+    }
+
     public function test_a_client_admin_sees_the_whole_team_and_never_another_client(): void
     {
         $this->seedLines();
@@ -366,6 +462,35 @@ class ActivityLogTest extends TestCase
         $this->actingAs($operator, 'admin');
         $this->get('/clients/'.$this->alpha->id)->assertSuccessful()->assertDontSee('No activity yet');
         $this->get(PlatformActivityResource::getUrl('index'))->assertSuccessful();
+    }
+
+    public function test_moving_a_clients_database_to_a_new_name_is_logged_for_that_client(): void
+    {
+        config(['clients.isolation' => 'database', 'clients.prefix' => 'client_logtest_'.getmypid().'_']);
+        $databases = app(ClientDatabase::class);
+        $from = $this->alpha->databaseName();
+        $to = 'client_logtest_'.getmypid().'_alpha_moved';
+        $this->artisan('clients:provision', ['subdomain' => 'alpha', '--no-seed' => true])->assertSuccessful();
+
+        try {
+            $this->actingAs(User::create([
+                'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
+                'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
+            ]), 'admin');
+            Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+            $this->alpha->update(['database' => $to]);
+
+            $line = PlatformActivity::where('description', 'like', 'moved the database%')->sole();
+            $this->assertSame('updated', $line->action);
+            $this->assertSame('moved the database of client "Alpha" from '.$from.' to '.$to, $line->description);
+            $this->assertSame($this->alpha->id, $line->client_id);
+            $this->assertSame([['field' => 'database', 'label' => 'database', 'old' => $from, 'new' => $to]], $line->changes);
+            $this->assertSame(0, PlatformActivity::where('client_id', $this->beta->id)->where('description', 'like', 'moved the database%')->count());
+        } finally {
+            DB::purge($databases->connectionNameFor($this->alpha));
+            File::delete([database_path($from.'.sqlite'), database_path($to.'.sqlite')]);
+        }
     }
 
     public function test_lines_older_than_a_year_are_pruned(): void

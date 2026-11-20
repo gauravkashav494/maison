@@ -30,7 +30,7 @@
             <button type="button" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60 lg:hidden {{ request()->routeIs('home') ? '-ml-2' : '' }}" @click="$store.ui.openMenu()" aria-label="Open menu">
                 <x-ico name="menu" :size="22" />
             </button>
-            <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary">
+            <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary" data-menu-area="header">
                 @foreach($headerItems as $item)
                     @php
                         $hasMega = $item->children->isNotEmpty();
@@ -47,7 +47,7 @@
         </div>
 
         {{-- Center: wordmark --}}
-        <a href="{{ route('home') }}" aria-label="{{ $site['name'] ?? config('app.name') }} — home"
+        <a data-store-logo href="{{ route('home') }}" aria-label="{{ $site['name'] ?? config('app.name') }} — home"
            class="text-center font-serif leading-none tracking-[0.12em] transition-all duration-500"
            :class="scrolled ? 'text-[1.35rem]' : 'text-[1.6rem] lg:text-[1.85rem]'">
             {{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span>

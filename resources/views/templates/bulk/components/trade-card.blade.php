@@ -1,5 +1,5 @@
 {{--
-    A product as a trade buyer sees it: picture, name, code, price, stock, and — right on the
+    A product as a trade buyer sees it: picture (with a heart to save it), name, code, price, stock, and — right on the
     card — a pack-size picker when it comes in several, a quantity stepper and Add. What is
     added is one of the product's order lines (App\Templates\Bulk\OrderLines), so the price,
     code and stock shown always belong to the size chosen.
@@ -14,6 +14,7 @@
 @endphp
 
 <article class="bk-card bk-pcard" x-data="tradeCard(@js($state), @js($first['key'] ?? null))">
+    <div class="relative">
     <a href="{{ $product->url }}" class="relative block" tabindex="-1" aria-hidden="true">
         <x-art :category="$product->category" :image="$product->image_url" :alt="$product->name" />
         <x-card-colour-photo :product="$product" />
@@ -24,6 +25,8 @@
             @if($product->is_new)<span class="bk-badge bk-badge-new">New</span>@endif
         </span>
     </a>
+    <x-wishlist-button :product="$product" class="bk-heart-corner" />
+    </div>
 
     <div class="bk-pcard-body">
         <div>

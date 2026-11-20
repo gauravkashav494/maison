@@ -10,10 +10,13 @@ use App\Models\User;
 use App\Support\Media;
 use App\Templates\Template;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 /**
  * Split-screen sign-in: brand visual on the left, Filament's standard login form on the right.
@@ -31,6 +34,36 @@ class Login extends BaseLogin
 
     /** Unix time when the current login throttle expires, for the visible countdown. */
     public ?int $retryUntil = null;
+
+    /**
+     * Site settings → Sign-in page → "View sign-in page": a signed-in team member sees their store's
+     * sign-in page instead of being sent to the dashboard. The form does nothing in this preview.
+     */
+    #[Locked]
+    public bool $settingsPreview = false;
+
+    public function mount(): void
+    {
+        if (request()->query('settings_preview') === 'login' && ! $this->isPlatform() && Filament::auth()->check()) {
+            $this->settingsPreview = true;
+            $this->form->fill();
+
+            return;
+        }
+
+        parent::mount();
+    }
+
+    public function authenticate(): ?LoginResponse
+    {
+        if ($this->settingsPreview) {
+            Notification::make()->title('This is a preview')->body('You are already signed in, so nothing was sent.')->warning()->send();
+
+            return null;
+        }
+
+        return parent::authenticate();
+    }
 
     /** Keep each store's failed sign-ins independent, including stores behind custom domains. */
     protected function getRateLimitKey($method, $component = null): string

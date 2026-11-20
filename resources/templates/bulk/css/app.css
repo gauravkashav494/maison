@@ -119,14 +119,14 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-announce { background: var(--bk-brand-ink); color: #fff; font-size: .8125rem; }
 .bk-top { background: var(--bk-brand); color: #fff; }
 .bk-logo { display: flex; align-items: center; gap: .6rem; color: #fff; text-decoration: none; font-weight: 800; font-size: 1.125rem; letter-spacing: -.01em; line-height: 1.1; }
-.bk-logo-mark { width: 2.25rem; height: 2.25rem; border-radius: .55rem; background: var(--bk-accent); color: #1d1300; display: grid; place-items: center; flex: none; }
-.bk-logo-mark svg { width: 1.3rem; height: 1.3rem; }
+.bk-logo-mark { width: 2rem; height: 2rem; border-radius: .55rem; background: var(--bk-accent); color: #1d1300; display: grid; place-items: center; flex: none; }
+.bk-logo-mark svg { width: 1.15rem; height: 1.15rem; }
 .bk-logo small { display: block; font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
 .bk-search { position: relative; flex: 1 1 auto; }
-.bk-search input { width: 100%; border: 0; border-radius: .6rem; padding: .75rem 3rem .75rem 1rem; font-size: .9375rem; color: var(--bk-ink); background: #fff; }
+.bk-search input { width: 100%; border: 0; border-radius: .6rem; padding: .5rem 2.75rem .5rem .9rem; font-size: .875rem; color: var(--bk-ink); background: #fff; }
 .bk-search input:focus { outline: 3px solid var(--bk-accent); outline-offset: 0; }
-.bk-search button { position: absolute; right: .3rem; top: .3rem; bottom: .3rem; width: 2.6rem; border-radius: .45rem; background: var(--bk-accent); color: #1d1300; display: grid; place-items: center; }
-.bk-search button svg { width: 1.15rem; height: 1.15rem; }
+.bk-search button { position: absolute; right: .25rem; top: .25rem; bottom: .25rem; width: 2.25rem; border-radius: .45rem; background: var(--bk-accent); color: #1d1300; display: grid; place-items: center; }
+.bk-search button svg { width: 1rem; height: 1rem; }
 /* In-page search (shop listing): an input with the magnifier drawn inside it. */
 .bk-find { position: relative; }
 .bk-find svg { position: absolute; left: .7rem; top: 50%; width: 1.05rem; height: 1.05rem; transform: translateY(-50%); color: var(--bk-muted); pointer-events: none; }
@@ -139,6 +139,15 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 /* Sort: label and menu side by side; on phones an icon button with the menu laid over it. */
 .bk-sort { display: flex; align-items: center; gap: .5rem; flex: none; }
 .bk-sort-icon { display: none; }
+/* The shop's search and sort, kept small beside the heading on wider screens. */
+@media (min-width: 640px) {
+  .bk-find .bk-input { padding-block: .35rem; padding-left: 2rem; font-size: .8125rem; }
+  .bk-find svg { left: .6rem; width: .95rem; height: .95rem; }
+  .bk-find .bk-find-clear { width: 1.5rem; height: 1.5rem; }
+  .bk-sort { gap: .4rem; }
+  .bk-sort-label { font-size: .75rem; }
+  .bk-sort .bk-select { padding-block: .35rem !important; padding-left: .6rem; font-size: .8125rem; }
+}
 @media (max-width: 639px) {
   .bk-sort { position: relative; width: 2.6rem; height: 2.6rem; }
   .bk-sort-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -156,9 +165,9 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-chip.is-on { background: var(--bk-brand); border-color: var(--bk-brand); color: #fff; }
 #bk-shop-results { transition: opacity .15s; }
 #bk-shop-results.is-loading { opacity: .5; }
-.bk-top-action { display: inline-flex; align-items: center; gap: .5rem; color: #fff; text-decoration: none; font-size: .8125rem; line-height: 1.15; border-radius: .55rem; padding: .4rem .55rem; }
+.bk-top-action { display: inline-flex; align-items: center; gap: .5rem; color: #fff; text-decoration: none; font-size: .8125rem; line-height: 1.15; border-radius: .55rem; padding: .3rem .5rem; }
 .bk-top-action:hover { background: rgb(255 255 255 / .1); }
-.bk-top-action svg { width: 1.5rem; height: 1.5rem; flex: none; }
+.bk-top-action svg { width: 1.35rem; height: 1.35rem; flex: none; }
 .bk-top-action strong { display: block; font-size: .875rem; }
 /* Phones: logo and the three icons share one row, so both are a little tighter. */
 @media (max-width: 639px) {
@@ -222,6 +231,15 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-pcard:hover { border-color: var(--bk-brand-line); box-shadow: 0 10px 24px rgb(15 30 25 / .07); }
 .bk-pcard .bk-art { border-radius: 0; aspect-ratio: 5 / 4; }
 .bk-pcard-badges { position: absolute; top: .6rem; left: .6rem; z-index: 3; display: flex; gap: .3rem; flex-wrap: wrap; }
+/* Heart that saves a product to Saved items (components/wishlist-button): just the icon, in the
+   cart count's colour once saved. */
+.bk-heart { flex: none; display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; padding: 0; border: 0;
+  background: none; color: var(--bk-muted); cursor: pointer; transition: color .15s; }
+.bk-heart svg { width: 1rem; height: 1rem; }
+.bk-heart:hover, .bk-heart.is-on { color: var(--bk-accent); }
+.bk-heart.is-on svg { fill: currentColor; }
+/* On a picture: white with a soft shadow so it shows on any photo. */
+.bk-heart-corner { position: absolute; top: .4rem; right: .4rem; z-index: 3; color: #fff; filter: drop-shadow(0 1px 2px rgb(0 0 0 / .45)); }
 .bk-pcard-body { display: flex; flex-direction: column; gap: .5rem; flex: 1; padding: .85rem; }
 .bk-pcard-name { font-size: .9375rem; font-weight: 700; line-height: 1.3; color: var(--bk-ink); text-decoration: none; }
 .bk-pcard-name:hover { color: var(--bk-brand); }
@@ -239,8 +257,17 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-shop { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
 .bk-shop > * { min-width: 0; }
 .bk-scroll-x > * { flex: none; white-space: nowrap; }
-@media (min-width: 64rem) { .bk-shop { grid-template-columns: 15rem minmax(0, 1fr); } }
-.bk-side a { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem .7rem; border-radius: .5rem; font-size: .875rem; color: var(--bk-ink); text-decoration: none; }
+@media (min-width: 64rem) { .bk-shop { grid-template-columns: 13rem minmax(0, 1fr); } }
+.bk-side a { display: flex; justify-content: space-between; gap: .5rem; padding: .3rem .6rem; border-radius: .375rem; font-size: .8125rem; line-height: 1.35; color: var(--bk-ink); text-decoration: none; }
+.bk-side a { position: relative; }
+/* The category tree: departments in semibold; the categories under them indented one step per
+   level, with a thin guide line per level so it is clear what belongs to what. */
+.bk-side a.is-top { font-weight: 600; }
+.bk-side a.is-top:not(:first-of-type) { margin-top: .15rem; }
+.bk-side a.is-sub { font-size: .8125rem; color: var(--bk-ink); padding-left: calc(1.05rem + var(--d) * .85rem); }
+.bk-side a.is-sub::before { content: ""; position: absolute; top: 0; bottom: 0; left: .85rem; width: calc((var(--d) - 1) * .85rem + 1px);
+  background: repeating-linear-gradient(to right, var(--bk-line) 0 1px, transparent 1px .85rem); }
+.bk-side a.is-sub.is-on::before { display: none; }
 .bk-side a:hover { background: var(--bk-brand-soft); }
 .bk-side a.is-on { background: var(--bk-brand); color: #fff; font-weight: 700; }
 .bk-crumbs { display: flex; flex-wrap: wrap; gap: .4rem; font-size: .8125rem; color: var(--bk-muted); }
@@ -250,17 +277,17 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 
 /* ---- Bulk order form ------------------------------------------------------- */
 .bk-tabs { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: .65rem; background: #e8ebe9; }
-.bk-tabs button { display: inline-flex; align-items: center; gap: .4rem; border-radius: .5rem; padding: .5rem .9rem; font-size: .875rem; font-weight: 700; color: var(--bk-muted); }
-.bk-tabs button svg { width: 1.05rem; height: 1.05rem; }
+.bk-tabs button { display: inline-flex; align-items: center; gap: .4rem; border-radius: .5rem; padding: .35rem .75rem; font-size: .8125rem; font-weight: 700; color: var(--bk-muted); }
+.bk-tabs button svg { width: .95rem; height: .95rem; }
 .bk-tabs button[aria-selected="true"] { background: #fff; color: var(--bk-brand); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
 
-.bk-lines { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .9375rem; border: 1px solid var(--bk-line); border-radius: .6rem; }
+.bk-lines { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .875rem; border: 1px solid var(--bk-line); border-radius: .6rem; }
 .bk-lines thead th { background: var(--bk-brand-soft); text-align: left; font-size: .6875rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--bk-brand-ink); padding: .7rem .75rem; border-bottom: 1px solid var(--bk-line); white-space: nowrap; }
+  color: var(--bk-brand-ink); padding: .45rem .75rem; border-bottom: 1px solid var(--bk-line); white-space: nowrap; }
 .bk-lines thead th:first-child { border-top-left-radius: .6rem; }
 .bk-lines thead th:last-child { border-top-right-radius: .6rem; }
 .bk-lines thead th + th, .bk-lines tbody td + td { border-left: 1px solid var(--bk-line); }
-.bk-lines tbody td { border-top: 1px solid var(--bk-line); padding: .3rem .75rem; vertical-align: middle; background: #fff; }
+.bk-lines tbody td { border-top: 1px solid var(--bk-line); padding: .15rem .75rem; vertical-align: middle; background: #fff; }
 .bk-lines tbody tr:first-child td { border-top: 0; }
 .bk-lines tbody tr:last-child td:first-child { border-bottom-left-radius: .6rem; }
 .bk-lines tbody tr:last-child td:last-child { border-bottom-right-radius: .6rem; }
@@ -269,9 +296,9 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-lines .is-icon { width: 3rem; text-align: center; }
 .bk-lines-item { min-width: 15rem; }
 .bk-lines tr.has-error td { background: #fff7f7; }
-.bk-cell-select { width: 100%; border: 1px solid transparent; border-radius: .45rem; margin-inline: -.55rem; padding: .55rem 2rem .55rem .55rem;
+.bk-cell-select { width: 100%; border: 1px solid transparent; border-radius: .45rem; margin-inline: -.55rem; padding: .35rem 2rem .35rem .55rem;
   background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%235d6a64'%3E%3Cpath d='M5.2 7.2a.75.75 0 0 1 1.06.04L10 11.2l3.74-3.96a.75.75 0 1 1 1.1 1.02l-4.3 4.55a.75.75 0 0 1-1.1 0L5.16 8.26a.75.75 0 0 1 .04-1.06Z'/%3E%3C/svg%3E") no-repeat right .4rem center / 1.1rem;
-  appearance: none; font-size: .9375rem; color: var(--bk-ink); cursor: pointer; }
+  appearance: none; font-size: .875rem; color: var(--bk-ink); cursor: pointer; }
 .bk-cell-select:hover { background-color: var(--bk-page); }
 .bk-cell-select:focus { outline: 2px solid var(--bk-brand); background-color: #fff; }
 .bk-cell-select.is-empty { color: var(--bk-muted); }
@@ -284,31 +311,34 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-combo-list { position: absolute; left: 0; right: 0; top: calc(100% + .25rem); z-index: 30; max-height: 20rem; overflow-y: auto; padding: .3rem;
   background: var(--bk-card); border: 1px solid var(--bk-line); border-radius: .6rem; box-shadow: 0 12px 28px rgb(0 0 0 / .12); list-style: none; margin: 0; }
 .bk-lines .bk-combo-list { left: -.55rem; right: auto; min-width: max(100%, 24rem); }
-.bk-combo-group { padding: .5rem .6rem .25rem; font-size: .6875rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--bk-muted); }
-.bk-combo-opt { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem .6rem; border-radius: .4rem; font-size: .9rem; font-weight: 400; cursor: pointer; }
+.bk-combo-group { padding: .45rem .6rem .15rem; font-size: .625rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--bk-muted); }
+.bk-combo-opt { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem .6rem; border-radius: .4rem; font-size: .8125rem; font-weight: 400; cursor: pointer; }
 .bk-combo-opt.is-hi { background: var(--bk-brand-soft); }
+/* Order form Category filter: the tree, children indented under their parent. */
+.bk-cat-opt { padding-left: calc(.6rem + var(--d, 0) * .9rem); }
+.bk-cat-opt.is-top { font-weight: 600; }
 .bk-combo-opt.is-on { font-weight: 700; color: var(--bk-brand); }
 .bk-combo-opt.is-off { color: var(--bk-muted); cursor: not-allowed; }
-.bk-combo-meta { flex-shrink: 0; font-size: .8rem; color: var(--bk-muted); font-variant-numeric: tabular-nums; }
+.bk-combo-meta { flex-shrink: 0; font-size: .75rem; color: var(--bk-muted); font-variant-numeric: tabular-nums; }
 .bk-combo-meta.is-out { color: var(--bk-out); font-weight: 600; }
 /* "Out of stock" is always red text, wherever it is written. */
 .bk-out-text { color: var(--bk-out); font-weight: 600; }
 .bk-btn.bk-btn-out:disabled { opacity: 1; color: var(--bk-out); border-color: #f6c9cc; background: #fff5f5; }
 .bk-combo-empty { padding: .5rem .6rem; font-size: .85rem; font-weight: 400; color: var(--bk-muted); }
-.bk-lines-qty { width: 4rem; border: 1px solid transparent; border-radius: .45rem; padding: .45rem .4rem; text-align: right; background: transparent;
+.bk-lines-qty { width: 4rem; border: 1px solid transparent; border-radius: .45rem; padding: .3rem .4rem; text-align: right; background: transparent;
   font-size: .9375rem; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .bk-lines-qty::-webkit-outer-spin-button, .bk-lines-qty::-webkit-inner-spin-button { appearance: none; margin: 0; }
 .bk-lines-qty:focus { outline: 2px solid var(--bk-brand); background: #fff; }
 .bk-lines-qty:disabled { opacity: .35; }
-.bk-del { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: .4rem; color: var(--bk-out); }
+.bk-del { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: .4rem; color: var(--bk-out); }
 .bk-del:hover { background: #fde7e8; }
-.bk-del svg { width: 1.1rem; height: 1.1rem; }
+.bk-del svg { width: 1rem; height: 1rem; }
 /* Phone-only parts of an order row (card header, "Remove item" label). */
 .bk-lines-head, .bk-del-label { display: none; }
 .bk-totals { display: grid; grid-template-columns: 1fr auto; gap: .55rem 1rem; padding: 1rem; font-size: .9375rem; background: var(--bk-page); border: 1px solid var(--bk-line); border-radius: .6rem; }
 .bk-totals dd { text-align: right; font-variant-numeric: tabular-nums; }
 .bk-totals .is-total { font-size: 1.0625rem; font-weight: 800; border-top: 1px solid var(--bk-line); padding-top: .6rem; }
-.bk-pad { width: 100%; min-height: 9rem; resize: vertical; border: 1px solid var(--bk-line); border-radius: .6rem; padding: .75rem .85rem; background: #fff;
+.bk-pad { width: 100%; min-height: 6rem; resize: vertical; border: 1px solid var(--bk-line); border-radius: .6rem; padding: .5rem .7rem; background: #fff;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875rem; line-height: 1.6; }
 .bk-pad:focus { outline: 2px solid var(--bk-brand); }
 .bk-file { position: relative; overflow: hidden; cursor: pointer; }
@@ -325,13 +355,13 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 
 /* ---- Account, orders, content pages ------------------------------------------ */
 .bk-kicker { display: block; margin-bottom: .25rem; font-size: .6875rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--bk-muted); }
-.bk-notice { display: flex; align-items: center; gap: .5rem; border-radius: .6rem; padding: .7rem .9rem; font-size: .875rem; font-weight: 600; background: #e2f5ec; color: var(--bk-ok); }
+.bk-notice { display: flex; align-items: center; gap: .5rem; border-radius: .6rem; padding: .5rem .8rem; font-size: .875rem; font-weight: 600; background: #e2f5ec; color: var(--bk-ok); }
 .bk-notice svg { width: 1.2rem; height: 1.2rem; flex: none; }
 .bk-notice.is-bad { background: #fde7e8; color: var(--bk-out); }
 .bk-account-nav { display: flex; gap: .15rem; overflow-x: auto; scrollbar-width: none; padding: .35rem; }
-.bk-account-nav a, .bk-account-nav button { display: flex; align-items: center; gap: .55rem; white-space: nowrap; border-radius: .45rem; padding: .55rem .7rem;
-  font-size: .875rem; font-weight: 600; color: var(--bk-ink); text-decoration: none; width: 100%; text-align: left; }
-.bk-account-nav svg { width: 1.15rem; height: 1.15rem; color: var(--bk-muted); flex: none; }
+.bk-account-nav a, .bk-account-nav button { display: flex; align-items: center; gap: .55rem; white-space: nowrap; border-radius: .375rem; padding: .35rem .6rem;
+  font-size: .8125rem; font-weight: 600; color: var(--bk-ink); text-decoration: none; width: 100%; text-align: left; }
+.bk-account-nav svg { width: 1rem; height: 1rem; color: var(--bk-muted); flex: none; }
 .bk-account-nav a:hover, .bk-account-nav button:hover { background: var(--bk-page); }
 .bk-account-nav a.is-on { background: var(--bk-brand-soft); color: var(--bk-brand); }
 .bk-account-nav a.is-on svg { color: var(--bk-brand); }
@@ -339,12 +369,40 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
   .bk-account-nav { flex-direction: column; position: sticky; top: 1rem; }
   .bk-account-nav form { margin-top: .25rem; padding-top: .25rem; border-top: 1px solid var(--bk-line); }
 }
-.bk-stat { display: flex; align-items: center; gap: .85rem; padding: 1rem; text-decoration: none; color: inherit; transition: border-color .15s; }
+.bk-stat { display: flex; align-items: center; gap: .7rem; padding: .65rem .8rem; text-decoration: none; color: inherit; transition: border-color .15s; }
 .bk-stat:hover, .bk-tile-link:hover { border-color: var(--bk-brand-line); }
-.bk-stat-num { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bk-stat-num { display: block; font-size: 1.25rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .bk-tile-link { display: block; overflow: hidden; text-decoration: none; color: inherit; transition: border-color .15s; }
+/* Compact pages (account, product, cart, checkout, sign-in): smaller fields, buttons, icon tiles
+   and table rows, to match the shop list. */
+.bk-account .bk-icon-tile { width: 2rem; height: 2rem; border-radius: .5rem; }
+.bk-account .bk-icon-tile svg { width: 1.05rem; height: 1.05rem; }
+:is(.bk-account, .bk-compact) .bk-input, :is(.bk-account, .bk-compact) .bk-select { padding: .4rem .7rem; font-size: .875rem; }
+:is(.bk-account, .bk-compact) .bk-textarea { padding: .45rem .7rem; font-size: .875rem; }
+:is(.bk-account, .bk-compact) .bk-label > .bk-input, :is(.bk-account, .bk-compact) .bk-label > .bk-select, :is(.bk-account, .bk-compact) .bk-label > .bk-textarea { margin-top: .25rem; }
+:is(.bk-account, .bk-compact) .bk-btn { padding: .45rem .9rem; font-size: .8125rem; }
+:is(.bk-account, .bk-compact) .bk-table { font-size: .875rem; }
+:is(.bk-account, .bk-compact) .bk-totals { gap: .4rem 1rem; padding: .75rem; font-size: .875rem; }
+:is(.bk-account, .bk-compact) .bk-totals .is-total { font-size: 1rem; padding-top: .45rem; }
+.bk-compact .bk-option { padding: .55rem .85rem; font-size: .875rem; }
+.bk-compact .bk-step-no { width: 1.4rem; height: 1.4rem; font-size: .75rem; }
+@media (min-width: 768px) {
+  :is(.bk-account, .bk-compact) .bk-table thead th { padding-top: .45rem; padding-bottom: .45rem; }
+  :is(.bk-account, .bk-compact) .bk-table tbody td { padding-top: .45rem; padding-bottom: .45rem; }
+}
+/* Order progress, smaller. */
+:is(.bk-account, .bk-compact) .bk-progress-dot { width: 1.6rem; height: 1.6rem; }
+:is(.bk-account, .bk-compact) .bk-progress-dot svg { width: .95rem; height: .95rem; }
+:is(.bk-account, .bk-compact) .bk-progress li { grid-template-columns: 1.6rem 1fr; }
+:is(.bk-account, .bk-compact) .bk-progress-label { font-size: .8125rem; }
+@media (min-width: 640px) {
+  :is(.bk-account, .bk-compact) .bk-progress li { grid-template-columns: 1fr; row-gap: .25rem; }
+  :is(.bk-account, .bk-compact) .bk-progress li + li::before { top: .8rem; }
+}
 .bk-done-mark { display: grid; place-items: center; width: 3rem; height: 3rem; flex: none; border-radius: 999px; background: var(--bk-ok); color: #fff; }
 .bk-done-mark svg { width: 1.6rem; height: 1.6rem; }
+.bk-compact .bk-done-mark { width: 2.25rem; height: 2.25rem; }
+.bk-compact .bk-done-mark svg { width: 1.25rem; height: 1.25rem; }
 
 /* Order progress: numbered steps joined by a line; a column on phones. */
 .bk-progress { display: grid; gap: .75rem; list-style: none; margin: 0; padding: 0; }
@@ -393,7 +451,7 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 
 /* ---- Footer ---------------------------------------------------------------- */
 .bk-foot { background: #10201b; color: #c9d3cf; font-size: .875rem; }
-.bk-foot h3 { color: #fff; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .75rem; }
+.bk-foot h3 { color: #fff; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .5rem; }
 .bk-foot a { color: #c9d3cf; text-decoration: none; }
 .bk-foot a:hover { color: #fff; }
 
@@ -461,7 +519,11 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 }
 
 /* ---- Category list: rows to order down, with a bar to add them all ----------- */
+/* Checked paste-a-list lines: one short row each. */
+.bk-quick thead th { padding-top: .45rem; padding-bottom: .45rem; }
+.bk-quick tbody td { padding-top: .3rem; padding-bottom: .3rem; font-size: .875rem; }
 .bk-list tbody tr { transition: background .15s; }
+.bk-list tbody td { padding-top: .35rem; padding-bottom: .35rem; }
 .bk-list tbody tr:hover { background: var(--bk-page); }
 .bk-list tbody tr.is-filled { background: var(--bk-brand-soft); }
 .bk-list thead th { background: var(--bk-page); }

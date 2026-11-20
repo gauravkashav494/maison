@@ -60,7 +60,7 @@
         <div class="lg:col-span-7">
             <div class="flex items-center gap-2 text-xs font-semibold text-slate">
                 @if($product->is_veg !== null)<span class="veg-mark {{ $product->is_veg ? '' : 'nonveg' }}"></span> <span>{{ $product->is_veg ? 'Vegetarian' : 'Non-vegetarian' }}</span> <span class="text-mist">·</span>@endif
-                @if($product->brand)<a href="{{ route('shop.index', ['brand' => $product->brand]) }}" class="text-leaf hover:underline">{{ $product->brand }}</a>@endif
+                @if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="text-leaf hover:underline">{{ $product->brand }}</a>@endif
             </div>
             <h1 class="mt-1.5 text-xl font-extrabold leading-tight lg:text-3xl">{{ $product->name }}</h1>
             <div class="mt-2 flex flex-wrap items-center gap-3">

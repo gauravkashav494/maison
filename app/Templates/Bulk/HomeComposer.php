@@ -2,8 +2,10 @@
 
 namespace App\Templates\Bulk;
 
+use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -22,8 +24,59 @@ class HomeComposer
 
         $view->with([
             'quickIndex' => OrderLines::index(OrderLines::forMany($all)),
+            'categoryTree' => $this->categoryTree($all),
             'recentOrders' => $this->recentOrders(),
         ]);
+    }
+
+    /**
+     * The order form's Category filter: every active category in menu order, each child under its
+     * parent (depth for the indent), with the ids of the products listed in it or anywhere below
+     * it — so choosing Men shows Shirts, Pants and the rest. Empty categories are listed too.
+     *
+     * @return list<array{id:int, parent:?int, name:string, depth:int, products:list<int>}>
+     */
+    private function categoryTree($products): array
+    {
+        $productIds = $products->pluck('id')->all();
+        // Every category a product is listed under (the main one is always among them).
+        $listed = [];
+        foreach ($products as $product) {
+            if ($product->category_id) {
+                $listed[$product->category_id][$product->id] = true;
+            }
+        }
+        $pivot = $products->first()?->categories()->getTable();
+        if ($pivot && $productIds !== []) {
+            foreach (DB::table($pivot)->whereIn('product_id', $productIds)->get(['category_id', 'product_id']) as $row) {
+                $listed[$row->category_id][$row->product_id] = true;
+            }
+        }
+
+        $byParent = Category::active()->ordered()->get(['id', 'parent_id', 'name'])
+            ->groupBy(fn ($c) => (int) $c->parent_id);
+        $rows = [];
+        $seen = [];
+        // Returns the product ids in this category's subtree, adding its row before its children.
+        $walk = function (int $parentId, int $depth) use (&$walk, &$rows, &$seen, $byParent, $listed): void {
+            foreach ($byParent[$parentId] ?? [] as $c) {
+                if (isset($seen[$c->id]) || $depth > 5) {
+                    continue; // a loop in the data, or deeper than any store goes
+                }
+                $seen[$c->id] = true;
+                $at = count($rows);
+                $rows[] = ['id' => $c->id, 'parent' => $parentId ?: null, 'name' => $c->name, 'depth' => $depth, 'products' => array_keys($listed[$c->id] ?? [])];
+                $walk((int) $c->id, $depth + 1);
+                // Fold the children's products into this row.
+                for ($i = $at + 1; $i < count($rows) && $rows[$i]['depth'] > $depth; $i++) {
+                    $rows[$at]['products'] = array_merge($rows[$at]['products'], $rows[$i]['products']);
+                }
+                $rows[$at]['products'] = array_values(array_unique($rows[$at]['products']));
+            }
+        };
+        $walk(0, 0);
+
+        return $rows;
     }
 
     /**

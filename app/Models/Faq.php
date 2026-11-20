@@ -24,6 +24,15 @@ class Faq extends Model
 
     public function scopeActive(Builder $q): Builder
     {
-        return $q->where('is_active', true)->orderBy('sort_order');
+        return $q->where('is_active', true)->ordered();
+    }
+
+    /**
+     * The storefront order: as dragged in the FAQs list, then in the order they were written for
+     * those sharing a place (every new question starts at 0).
+     */
+    public function scopeOrdered(Builder $q): Builder
+    {
+        return $q->orderBy('sort_order')->orderBy('id');
     }
 }

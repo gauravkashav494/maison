@@ -170,9 +170,33 @@ class ClientAddressAndDatabaseTest extends TestCase
         $this->edit($beta, ['database' => 'client_alpha'])->assertHasFormErrors(['database']);
         $this->assertNull($beta->fresh()->database);
 
-        // Its own (generated) name, typed in, is fine.
+        // Its own (generated) name, typed in, is fine, and stays generated.
         $this->edit($beta, ['database' => 'client_beta'])->assertHasNoFormErrors();
-        $this->assertSame('client_beta', $beta->fresh()->database);
+        $this->assertNull($beta->fresh()->database);
+        $this->assertSame('client_beta', $beta->fresh()->databaseName());
+    }
+
+    public function test_the_edit_form_starts_empty_and_hints_the_database_in_use(): void
+    {
+        $beta = $this->beta(['database' => 'client_beta_shop']);
+        ClientUser::create([
+            'client_id' => $this->alpha->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test', 'password' => 'password123',
+            'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+        ]);
+        ClientUser::create([
+            'client_id' => $beta->id, 'name' => 'Beta Admin', 'email' => 'admin@beta.test', 'password' => 'password123',
+            'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+        ]);
+
+        // The field starts empty; the database in use is the hint, generated or typed.
+        Livewire::test(EditClient::class, ['record' => $this->alpha->getRouteKey()])->assertSchemaStateSet(['database' => null])->assertSee('Currently: client_alpha');
+        Livewire::test(EditClient::class, ['record' => $beta->getRouteKey()])->assertSchemaStateSet(['database' => null])->assertSee('Currently: client_beta_shop');
+
+        // Saving with it left empty keeps each database as it was: nothing is renamed or reset.
+        Livewire::test(EditClient::class, ['record' => $this->alpha->getRouteKey()])->call('save')->assertHasNoFormErrors();
+        Livewire::test(EditClient::class, ['record' => $beta->getRouteKey()])->call('save')->assertHasNoFormErrors();
+        $this->assertNull($this->alpha->fresh()->database);
+        $this->assertSame('client_beta_shop', $beta->fresh()->database);
     }
 
     public function test_a_custom_domain_on_the_platforms_own_domain_is_refused(): void

@@ -6,6 +6,7 @@ use App\Clients\ClientAccess;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
+use App\Filament\Support\CategoryFilter;
 use App\Filament\Support\DateRangeFilter;
 use App\Models\Product;
 use App\Models\StockMovement;
@@ -72,6 +73,8 @@ class StockMovementResource extends Resource
             ->filters([
                 SelectFilter::make('product_id')->label('Product')->searchable()
                     ->options(fn () => Product::query()->orderBy('name')->pluck('name', 'id')->all()),
+                // Movements of products in this category or any below it.
+                CategoryFilter::through('product'),
                 SelectFilter::make('reason')->label('Why')->options(StockMovement::REASONS)->multiple(),
                 DateRangeFilter::range('when', 'When'),
             ])

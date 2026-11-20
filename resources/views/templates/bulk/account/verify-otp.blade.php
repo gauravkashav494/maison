@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card :heading="$heading" :intro="$intro">
-    <form method="post" action="{{ route('otp.verify') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('otp.verify') }}" class="space-y-3" novalidate>
         @csrf
         <label class="bk-label">WhatsApp code<span class="bk-req">*</span>
             <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="{{ $codeLength }}" autofocus class="bk-input text-center text-lg tracking-[0.5em]">

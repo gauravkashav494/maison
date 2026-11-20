@@ -59,7 +59,7 @@ class ProductImageLimitTest extends TestCase
         $files = array_map(fn (int $i) => UploadedFile::fake()->image("red-{$i}.jpg"), range(1, $colourUploads));
 
         return [
-            'name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'price_excl_tax' => 1000,
+            'name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'price_excl_tax' => 1000,
             'images' => $gallery,
             'variant_attributes' => [['preset' => 'Colour', 'name' => 'Colour', 'values' => ['Red'], 'uploads' => ['Red' => $files]]],
         ];

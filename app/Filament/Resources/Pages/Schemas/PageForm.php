@@ -33,7 +33,7 @@ class PageForm
                         ->icon('heroicon-o-document-text')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'storefront_template'),
+                                Fields::nameWithAddress('/', 'title', 'Title'),
                                 Fields::templateVisibility('storefront_template')->live(),
                                 Select::make('template')
                                     ->label('Layout')
@@ -137,8 +137,6 @@ class PageForm
                                 ->description('This template pulls its content from FAQs / Boutiques / cookie preferences automatically.')
                                 ->schema([]),
                         ]),
-
-                    Fields::seoTab(),
                 ]),
             ]);
     }

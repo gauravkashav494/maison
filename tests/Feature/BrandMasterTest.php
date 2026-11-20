@@ -73,7 +73,7 @@ class BrandMasterTest extends TestCase
         $this->signInTo($this->alpha);
 
         Livewire::test(CreateBrand::class)
-            ->fillForm(['name' => 'Acme Mills', 'slug' => 'acme-mills'])
+            ->fillForm(['name' => 'Acme Mills'])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -92,11 +92,82 @@ class BrandMasterTest extends TestCase
         $this->signInTo($this->alpha);
 
         Livewire::test(CreateBrand::class)
-            ->fillForm(['name' => 'Acme', 'slug' => 'acme'])
+            ->fillForm(['name' => 'Acme'])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $this->assertSame(2, Brand::withoutGlobalScopes()->where('slug', 'acme')->count());
+    }
+
+    public function test_the_brand_form_has_no_slug_box_and_the_slug_is_made_from_the_name(): void
+    {
+        $this->brand($this->alpha, 'Acme');
+        $this->signInTo($this->alpha);
+
+        Livewire::test(CreateBrand::class)
+            ->assertFormFieldDoesNotExist('slug')
+            ->fillForm(['name' => 'Acme'])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        // The store already has "acme", so the new one gets the next free address.
+        $this->assertSame(['acme', 'acme-2'], Brand::withoutGlobalScopes()->where('client_id', $this->alpha->id)->orderBy('id')->pluck('slug')->all());
+    }
+
+    public function test_brands_are_in_the_dragged_order_then_a_to_z(): void
+    {
+        $this->signInTo($this->alpha);
+        // No sort order box: the order is set by dragging rows in the brands list.
+        Livewire::test(CreateBrand::class)->assertFormFieldDoesNotExist('sort_order');
+
+        $zara = $this->brand($this->alpha, 'Zara');
+        $first = $this->brand($this->alpha, 'Placed');
+        $first->update(['sort_order' => 1]);
+        $acme = $this->brand($this->alpha, 'Acme');
+
+        // Acme and Zara both sit at 0 (never dragged): A to Z, then the one placed at 1.
+        $this->assertSame([$acme->id, $zara->id, $first->id], Brand::withoutGlobalScopes()->where('client_id', $this->alpha->id)->ordered()->pluck('id')->all());
+    }
+
+    public function test_the_homepage_brands_strip_follows_the_brand_order(): void
+    {
+        $this->signInTo($this->alpha);
+        $zara = $this->brand($this->alpha, 'Zara');
+        $acme = $this->brand($this->alpha, 'Acme');
+        $placed = $this->brand($this->alpha, 'Placed');
+        $placed->update(['sort_order' => 1]);
+        $this->brand($this->alpha, 'Nothing On Sale');
+        $this->product(['name' => 'Zara Shirt', 'slug' => 'zara-shirt', 'brand_id' => $zara->id]);
+        $this->product(['name' => 'Acme Shirt', 'slug' => 'acme-shirt', 'brand_id' => $acme->id]);
+        foreach (['one', 'two', 'three'] as $n) {
+            $this->product(['name' => 'Placed '.$n, 'slug' => 'placed-'.$n, 'brand_id' => $placed->id]);
+        }
+
+        // As set in the brands list (A to Z at 0, then the one at 1), not by most products; a
+        // brand with nothing on sale is left out.
+        $strip = Brand::strip();
+        $this->assertSame(['Acme', 'Zara', 'Placed'], $strip->pluck('brand')->all());
+        $this->assertSame([1, 1, 3], $strip->pluck('products')->all());
+
+        // Without the Brands module there is no list to follow: the most products first.
+        $this->alpha->update(['modules' => []]);
+        $this->signInTo($this->alpha->fresh());
+        $this->assertSame(['brand' => 'Placed', 'products' => 3], (array) Brand::strip()->first());
+    }
+
+    public function test_renaming_a_brand_keeps_its_page_address(): void
+    {
+        $acme = $this->brand($this->alpha, 'Acme');
+        $this->signInTo($this->alpha);
+
+        Livewire::test(EditBrand::class, ['record' => $acme->getRouteKey()])
+            ->assertFormFieldDoesNotExist('slug')
+            ->assertSee('Page address: /brands/acme')
+            ->fillForm(['name' => 'Acme Mills'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('acme', $acme->fresh()->slug, 'Links to the brand page keep working.');
     }
 
     public function test_a_product_picks_its_brand_from_the_master(): void
@@ -107,7 +178,7 @@ class BrandMasterTest extends TestCase
         Livewire::test(CreateProduct::class)
             ->assertFormFieldVisible('brand_id')
             ->assertFormFieldHidden('brand')
-            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'categories' => [$this->category->id], 'brand_id' => $acme->id, 'price_incl_tax' => 2000])
+            ->fillForm(['name' => 'Linen Shirt', 'slug' => 'linen-shirt', 'category_level_0' => $this->category->id, 'brand_id' => $acme->id, 'price_incl_tax' => 2000])
             ->call('create')
             ->assertHasNoFormErrors();
 

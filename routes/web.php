@@ -22,6 +22,8 @@ Route::get('/', HomeController::class)->name('home');
 // Catalogue
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop/{slug}', [ShopController::class, 'category'])->name('shop.category');
+Route::get('/brands', [ShopController::class, 'brands'])->name('brands.index');
+Route::get('/brands/{slug}', [ShopController::class, 'brand'])->name('brands.show');
 Route::get('/collections', [CatalogController::class, 'collections'])->name('collections.index');
 Route::get('/collections/{slug}', [CatalogController::class, 'collection'])->name('collections.show');
 Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('products.show');
@@ -91,6 +93,8 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::put('/password', [AccountController::class, 'updatePassword'])->name('password.update');
 });
 Route::get('/account/wishlist', [AccountController::class, 'wishlist'])->name('account.wishlist'); // works for guests too (device wishlist)
+// A signed-in buyer's Saved items, kept on the account (the device list is merged in on sign-in).
+Route::put('/account/wishlist', [AccountController::class, 'saveWishlist'])->middleware(['auth', 'throttle:60,1'])->name('account.wishlist.save');
 
 // Storefront JSON used by the search overlay, quick view, wishlist and recently viewed
 Route::get('/api/search', [CatalogController::class, 'searchJson'])->name('api.search');

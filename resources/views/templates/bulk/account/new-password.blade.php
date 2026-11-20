@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Choose a new password">
-    <form method="post" action="{{ route('password.new') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('password.new') }}" class="space-y-3" novalidate>
         @csrf
         <x-countdown :seconds="$secondsLeft">
             <x-slot:expired>Time is up. <a href="{{ route('password.request') }}">Verify your number again</a> to reset your password.</x-slot:expired>

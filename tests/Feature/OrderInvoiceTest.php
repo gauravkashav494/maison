@@ -54,7 +54,7 @@ class OrderInvoiceTest extends TestCase
         $this->customer = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha Rao', 'email' => 'asha@example.test', 'password' => 'password123', 'is_active' => true]);
         $this->order = Order::withoutGlobalScopes()->create([
             'client_id' => $this->client->id, 'template' => 'fashion', 'customer_id' => $this->customer->id, 'number' => 'ME-261117-ABCD',
-            'email' => 'asha@example.test', 'phone' => '9999999999', 'status' => 'confirmed', 'payment_method' => 'cod', 'payment_status' => 'cod',
+            'email' => 'asha@example.test', 'phone' => '9999999999', 'status' => 'shipped', 'dispatched_at' => now(), 'payment_method' => 'cod', 'payment_status' => 'cod',
             'shipping_name' => 'Asha Rao', 'shipping_line1' => '1 Test Street', 'shipping_city' => 'Mumbai',
             'shipping_state' => 'MH', 'shipping_postal_code' => '400001', 'shipping_country' => 'India', 'shipping_method' => 'Standard',
             'subtotal' => 2000, 'discount' => 0, 'shipping_cost' => 50, 'tax' => 360, 'tax_rate' => 18, 'tax_label' => 'CGST + SGST',
@@ -111,6 +111,22 @@ class OrderInvoiceTest extends TestCase
             'Rupees Two Thousand Four Hundred Ten Only'] as $text) {
             $this->assertStringContainsString(e($text), $html, $text);
         }
+    }
+
+    public function test_an_order_placed_before_seller_details_were_kept_reads_todays_settings(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+        $this->assertNull($this->order->seller);
+
+        $this->assertSame('Alpha Retail Pvt Ltd', Invoice::for($this->order)->data()['seller']['name']);
+
+        $this->order->update(['seller' => ['name' => 'Alpha Old Name', 'address' => ['Old Address'], 'gstin' => '27OLDGSTIN0000Z', 'state' => 'Maharashtra', 'email' => null, 'phone' => null, 'note' => null]]);
+        $html = view('invoices.order', Invoice::for($this->order->refresh())->data())->render();
+        foreach (['Alpha Old Name', 'Old Address', '27OLDGSTIN0000Z'] as $text) {
+            $this->assertStringContainsString(e($text), $html, $text);
+        }
+        $this->assertStringNotContainsString('Alpha Retail Pvt Ltd', $html);
+        $this->assertStringNotContainsString('Returns accepted within 7 days.', $html);
     }
 
     public function test_a_cancelled_order_keeps_its_invoice_marked_cancelled(): void
@@ -222,11 +238,12 @@ class OrderInvoiceTest extends TestCase
         $this->actingAs($other, 'client')->get($url)->assertNotFound();
     }
 
-    private function orderPlacedAt(string $number, string $date, ?Client $client = null): Order
+    /** A copy of the order, dispatched on $dispatched (placed then too, unless $placed says otherwise). */
+    private function orderDispatchedAt(string $number, string $dispatched, ?Client $client = null, ?string $placed = null): Order
     {
-        $order = $this->order->replicate(['invoice_number', 'invoice_fy', 'invoice_seq']);
+        $order = $this->order->replicate(['invoice_number', 'invoice_fy', 'invoice_seq', 'invoiced_at']);
         $order->forceFill(['number' => $number, 'client_id' => ($client ?? $this->client)->id])->saveQuietly();
-        Order::withoutGlobalScopes()->whereKey($order->id)->update(['created_at' => $date]);
+        Order::withoutGlobalScopes()->whereKey($order->id)->update(['created_at' => $placed ?? $dispatched, 'dispatched_at' => $dispatched]);
 
         return Order::withoutGlobalScopes()->findOrFail($order->id);
     }
@@ -237,20 +254,22 @@ class OrderInvoiceTest extends TestCase
 
         $this->assertSame('INV/26-27/0001', $this->order->assignInvoiceNumber());
         $this->assertSame('INV/26-27/0001', $this->order->fresh()->assignInvoiceNumber(), 'A number is given once.');
-        $this->assertSame('INV/26-27/0002', $this->orderPlacedAt('ME-2', '2027-03-31 23:00:00')->assignInvoiceNumber());
-        // 1 April starts a new financial year, and a new series.
-        $this->assertSame('INV/27-28/0001', $this->orderPlacedAt('ME-3', '2027-04-01 09:00:00')->assignInvoiceNumber());
-        $this->assertSame('INV/25-26/0001', $this->orderPlacedAt('ME-4', '2026-01-15 09:00:00')->assignInvoiceNumber());
+        $this->assertSame('INV/26-27/0002', $this->orderDispatchedAt('ME-2', '2027-03-31 23:00:00')->assignInvoiceNumber());
+        // 1 April starts a new financial year, and a new series. The year is the invoice's
+        // (dispatch), not the order's: placed on 31 March, dispatched on 1 April.
+        $this->assertSame('INV/27-28/0001', $this->orderDispatchedAt('ME-3', '2027-04-01 09:00:00', placed: '2027-03-31 20:00:00')->assignInvoiceNumber());
+        $this->assertSame('INV/25-26/0001', $this->orderDispatchedAt('ME-4', '2026-01-15 09:00:00')->assignInvoiceNumber());
 
         // Another store keeps its own series and prefix.
         $beta = Client::create(['name' => 'Beta', 'subdomain' => 'beta', 'storefront_id' => $this->client->storefront_id, 'plan_id' => $this->client->plan_id, 'is_active' => true]);
         Setting::updateOrCreate(['key' => 'client:'.$beta->id.':checkout'], ['value' => ['invoice_prefix' => 'BT'] + config('client_defaults.checkout')]);
         Cache::forget('settings.all');
         app(ClientContext::class)->resolveForPublic($beta);
-        $this->assertSame('BT/26-27/0001', $this->orderPlacedAt('ME-5', '2026-11-17 10:00:00', $beta)->assignInvoiceNumber());
+        $this->assertSame('BT/26-27/0001', $this->orderDispatchedAt('ME-5', '2026-11-17 10:00:00', $beta)->assignInvoiceNumber());
     }
 
-    public function test_a_new_order_is_numbered_when_it_is_placed(): void
+    /** Places an order at checkout as a guest, after the shared order took INV/26-27/0001. */
+    private function placeOrderAtCheckout(): Order
     {
         $this->order->update(['invoice_number' => 'INV/26-27/0001', 'invoice_fy' => '26-27', 'invoice_seq' => 1]);
         $product = Product::withoutGlobalScopes()->create([
@@ -270,6 +289,65 @@ class OrderInvoiceTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect(route('otp.verify'));
         $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertSessionHasNoErrors()->assertRedirect();
 
-        $this->assertSame('INV/26-27/0002', Order::withoutGlobalScopes()->latest('id')->first()->invoice_number);
+        return Order::withoutGlobalScopes()->latest('id')->first();
+    }
+
+    public function test_a_new_order_has_no_invoice_until_it_is_dispatched(): void
+    {
+        $order = $this->placeOrderAtCheckout();
+        $this->assertNull($order->invoice_number);
+        $this->assertNull($order->invoiced_at);
+        $this->assertFalse($order->hasInvoice());
+
+        // No link on the confirmation page, and the invoice itself is not found.
+        $session = [Client::SESSION_KEY => 'alpha', 'last_order_number' => $order->number];
+        $this->withSession($session)->get('/order/'.$order->number.'/confirmation')
+            ->assertSuccessful()->assertDontSee('/order/'.$order->number.'/invoice', false);
+        $this->withSession($session)->get('/order/'.$order->number.'/invoice')->assertNotFound();
+        $this->withSession([Client::SESSION_KEY => 'alpha'])->get($order->invoiceUrl())->assertNotFound();
+
+        // Dispatched two days later: the next number in the series, dated the day of dispatch.
+        $this->travelTo('2026-11-19 15:00:00');
+        app(ClientContext::class)->resolveForPublic($this->client);
+        $this->assertTrue($order->transitionTo(Order::STATUS_DISPATCHED));
+        $order->refresh();
+        $this->assertSame('INV/26-27/0002', $order->invoice_number);
+        $this->assertSame('2026-11-19', $order->invoiced_at->toDateString());
+
+        $html = view('invoices.order', Invoice::for($order)->data())->render();
+        $this->assertMatchesRegularExpression('#Invoice date</td><td class="right">19 Nov 2026#', $html);
+        $this->assertMatchesRegularExpression('#Order date</td><td class="right">17 Nov 2026#', $html);
+
+        $this->withSession($session)->get('/order/'.$order->number.'/confirmation')
+            ->assertSuccessful()->assertSee('/order/'.$order->number.'/invoice', false);
+        $this->withSession($session)->get('/order/'.$order->number.'/invoice')->assertSuccessful()->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_an_order_cancelled_before_dispatch_never_gets_an_invoice(): void
+    {
+        $order = $this->placeOrderAtCheckout();
+        app(ClientContext::class)->resolveForPublic($this->client);
+        $this->assertTrue($order->transitionTo(Order::STATUS_CANCELLED, 'Out of stock'));
+
+        $order->refresh();
+        $this->assertNull($order->invoice_number);
+        $this->assertFalse($order->hasInvoice());
+        $this->expectException(\LogicException::class);
+        Invoice::for($order);
+    }
+
+    public function test_the_store_admin_sees_the_invoice_actions_only_once_dispatched(): void
+    {
+        $admin = ClientUser::create([
+            'client_id' => $this->client->id, 'name' => 'Alpha Admin', 'email' => 'admin@alpha.test',
+            'password' => 'password123', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true,
+        ]);
+        Order::withoutGlobalScopes()->whereKey($this->order->id)->update(['status' => 'processing', 'dispatched_at' => null]);
+        $this->actingAs($admin, 'client')->get('/client/orders/'.$this->order->id)->assertSuccessful();
+        $this->actingAs($admin, 'client')->get('/client/orders/'.$this->order->id.'/invoice')->assertNotFound();
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+
+        Livewire::test(ViewOrder::class, ['record' => $this->order->getRouteKey()])
+            ->assertActionHidden('invoice')->assertActionHidden('viewInvoice');
     }
 }

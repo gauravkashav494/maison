@@ -23,9 +23,10 @@ class HomeController extends Controller
 
         $bestSellers = Product::with('category')->active()->bestSellers()->orderBy('sort_order')->limit(10)->get();
 
+        // The banner collection is the one picked in Homepage settings → Featured collection.
         $featured = ! empty($home['featured_collection_id'])
             ? Collection::active()->find($home['featured_collection_id'])
-            : Collection::active()->where('is_featured', true)->first();
+            : null;
 
         $fragrance = ! empty($home['fragrance_product_id'])
             ? Product::with('category')->active()->find($home['fragrance_product_id'])

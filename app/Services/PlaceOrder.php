@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\CouponUnavailableException;
 use App\Exceptions\InsufficientStockException;
 use App\Models\Coupon;
 use App\Models\Customer;
@@ -10,6 +11,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Support\GstSupply;
 use App\Support\GuestCustomer;
+use App\Support\Invoice;
 use App\Support\SalesOrder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +58,11 @@ class PlaceOrder
             $this->cart->limitToStock($e->available);
 
             throw $e;
+        } catch (CouponUnavailableException $e) {
+            // The code ran out (or this customer's uses did) since it was applied.
+            $this->cart->dropCoupon($e->getMessage());
+
+            throw $e;
         }
 
         $this->cart->clear();
@@ -68,6 +75,7 @@ class PlaceOrder
         // The products are locked until the order is committed, so two checkouts for the last few
         // units cannot both read the same stock: the second waits, then sees what the first left.
         $products = $this->lockAndCheckStock($cart['items']);
+        $coupon = $this->lockAndCheckCoupon($this->cart->appliedCouponCode(), $cart['coupon'] !== null, $customer, $data['phone'] ?? null);
         $salesOrder = filled($data['salesperson_id'] ?? null);
 
         $order = Order::create([
@@ -101,6 +109,8 @@ class PlaceOrder
                 ? GstSupply::labelFor(SalesOrder::supplyState(), 'India')
                 : GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
             'prices_include_tax' => $cart['tax_inclusive'],
+            // Who sold it, as the invoice prints it: a later change of GSTIN or address leaves this order's invoice as it was.
+            'seller' => Invoice::sellerDetails(),
             'total' => $cart['total'] + $codFee,
             'estimated_delivery' => $salesOrder ? null : now()->addDays(5),
             'notes' => $data['notes'] ?? null,
@@ -128,11 +138,14 @@ class PlaceOrder
             $products[$line['product']['id']]->adjustStock(-(int) $line['qty'], $line['options'] ?? [], StockMovement::SALE, $order);
         }
 
-        // The invoice number is taken with the order, so the series follows the order in which orders were placed.
-        $order->assignInvoiceNumber();
+        // A sales order is handed over at the counter, so its invoice is issued now; any other
+        // order's invoice is issued when it is dispatched (Order::setStatus).
+        if ($salesOrder) {
+            $order->assignInvoiceNumber();
+        }
 
-        if (! empty($cart['coupon']['code'])) {
-            Coupon::where('code', $cart['coupon']['code'])->increment('used_count');
+        if ($coupon) {
+            Coupon::whereKey($coupon->getKey())->increment('used_count');
         }
 
         if ($customer && $saveAddress && ! $salesOrder) {
@@ -150,6 +163,38 @@ class PlaceOrder
         }
 
         return $order;
+    }
+
+    /**
+     * Locks the cart's coupon until the order is committed and checks it again as it is now, so
+     * two checkouts cannot both take its last use: the second waits, then sees the count the first
+     * left. Also checks this customer's own uses (Coupon::isUsableBy).
+     *
+     * Starts from the code the shopper applied, not the cart totals: a code used up or expired
+     * since it was applied has already dropped out of the totals, and the order must not quietly
+     * go through at full price. Returns null when the code is fine but the cart is below its
+     * minimum (the checkout page shows that as the cart changes), so no use is counted.
+     *
+     * @throws CouponUnavailableException
+     */
+    private function lockAndCheckCoupon(?string $code, bool $inTotals, ?Customer $customer, ?string $phone): ?Coupon
+    {
+        if (blank($code)) {
+            return null;
+        }
+
+        $coupon = Coupon::whereRaw('lower(code) = ?', [strtolower($code)])->lockForUpdate()->first();
+        if (! $coupon || ! $coupon->isUsable()) {
+            throw new CouponUnavailableException("The code {$code} is no longer available, so it has been removed and your total updated.");
+        }
+        if (! $inTotals) {
+            return null;
+        }
+        if (! $coupon->isUsableBy($customer?->getKey(), $phone)) {
+            throw new CouponUnavailableException("You have already used the code {$coupon->code}, so it has been removed and your total updated.");
+        }
+
+        return $coupon;
     }
 
     /**

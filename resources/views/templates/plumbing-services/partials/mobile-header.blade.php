@@ -12,7 +12,7 @@
 <header class="app-bar sticky top-0 z-40 border-b border-line-soft bg-white/95 backdrop-blur lg:hidden" x-data>
     <div class="flex h-[3.75rem] items-center gap-1 px-2">
         <button type="button" @click="$store.ui.openMenu()" class="icon-btn" aria-label="Open menu"><x-ico name="menu" :size="24" /></button>
-        <a href="{{ route('home') }}" class="flex min-w-0 flex-1 items-center gap-2" aria-label="{{ $biz['name'] }} home">
+        <a data-store-logo href="{{ route('home') }}" class="flex min-w-0 flex-1 items-center gap-2" aria-label="{{ $biz['name'] }} home">
             <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-white"><x-ico name="droplet" :size="20" :stroke="2" /></span>
             <span class="truncate font-display text-lg font-extrabold text-deep">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-bright">{{ $p['logo_accent'] ?? 'Care' }}</span></span>
         </a>

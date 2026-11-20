@@ -64,7 +64,7 @@
         {{-- Buy box --}}
         <div class="lg:col-span-7">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate">
-                @if($product->brand)<a href="{{ route('shop.index', ['brand' => $product->brand]) }}" class="font-bold uppercase tracking-wider text-primary">{{ $product->brand }}</a>@endif
+                @if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="font-bold uppercase tracking-wider text-primary">{{ $product->brand }}</a>@endif
                 @if($product->sku)<span>SKU: <span class="font-semibold text-ink">{{ $product->sku }}</span></span>@endif
                 @if($product->category)<span>· <a href="{{ $product->category->url }}" class="hover:text-primary">{{ $product->category->name }}</a></span>@endif
             </div>

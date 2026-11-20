@@ -26,7 +26,7 @@ class ServicesTable
                 TextColumn::make('name')->searchable()->sortable()->description(fn (Service $r) => str($r->excerpt)->limit(70)),
                 IconColumn::make('is_emergency')->label('Emergency')->boolean()->trueIcon('heroicon-o-exclamation-triangle')->trueColor('danger')->falseIcon('')->alignCenter(),
                 ToggleColumn::make('is_popular')->label('Popular'),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])

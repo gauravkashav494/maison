@@ -6,39 +6,39 @@
 --}}
 
 @section('content')
-<div class="bk-wrap mt-6" x-data="{ code: '' }">
+<div class="bk-compact bk-wrap mt-6" x-data="{ code: '' }">
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Cart</h1>
-            <p class="bk-muted mt-1 text-sm" x-show="$store.cart.items.length" x-cloak>
+            <h1 class="text-2xl font-extrabold tracking-tight">Cart</h1>
+            <p class="bk-muted mt-0.5 text-sm" x-show="$store.cart.items.length" x-cloak>
                 <span x-text="$store.cart.items.length"></span> lines · <span x-text="$store.cart.count"></span> units
             </p>
         </div>
         <a href="{{ url('/#bulk-order') }}" class="bk-btn bk-btn-outline"><x-heroicon-o-plus aria-hidden="true" />Add more items</a>
     </div>
 
-    <div class="mt-5"><x-cart-unavailable-notice :message="$unavailableNotice ?? null" /></div>
-    <div class="bk-card mt-5 p-10 text-center" x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak>
-        <x-heroicon-o-shopping-cart class="mx-auto size-12 text-brand" aria-hidden="true" />
-        <p class="mt-3 text-lg font-extrabold">Your cart is empty</p>
+    <div class="mt-3"><x-cart-unavailable-notice :message="$unavailableNotice ?? null" /></div>
+    <div class="bk-card mt-4 p-8 text-center" x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak>
+        <x-heroicon-o-shopping-cart class="mx-auto size-10 text-brand" aria-hidden="true" />
+        <p class="mt-2 font-extrabold">Your cart is empty</p>
         <p class="bk-muted mt-1 text-sm">Browse the catalogue, or add your whole list at once on Bulk order.</p>
-        <p class="mt-5 flex flex-wrap justify-center gap-3">
+        <p class="mt-4 flex flex-wrap justify-center gap-2">
             <a href="{{ route('shop.index') }}" class="bk-btn bk-btn-outline">Browse products</a>
             <a href="{{ url('/#bulk-order') }}" class="bk-btn bk-btn-primary">Bulk order</a>
         </p>
     </div>
 
-    <div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]" x-show="$store.cart.items.length" x-cloak>
+    <div class="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" x-show="$store.cart.items.length" x-cloak>
         <div class="bk-card divide-y divide-[var(--bk-line)]">
             <template x-for="item in $store.cart.items" :key="item.key">
-                <div class="flex gap-4 p-4">
-                    <a :href="item.product.url" class="bk-art bk-thumb !size-20" data-tone="0">
+                <div class="flex gap-3 px-4 py-2.5">
+                    <a :href="item.product.url" class="bk-art bk-thumb !size-12" data-tone="0">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
                         <template x-if="item.product.images && item.product.images.length"><img :src="item.product.images[0]" alt=""></template>
                     </a>
-                    <div class="grid min-w-0 flex-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_7rem] sm:items-center">
+                    <div class="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_7rem] sm:items-center">
                         <div class="min-w-0">
-                            <a :href="item.product.url" class="block font-bold leading-snug hover:text-brand" x-text="item.product.name"></a>
+                            <a :href="item.product.url" class="block text-sm font-bold leading-snug hover:text-brand" x-text="item.product.name"></a>
                             <p class="bk-code mt-0.5"><span x-text="item.variant_sku || '—'"></span><span x-show="item.options_label" x-text="' · ' + item.options_label"></span></p>
                             <p class="bk-muted mt-0.5 text-xs" x-text="item.product.price_formatted + ' each'"></p>
                         </div>
@@ -56,28 +56,28 @@
             </template>
         </div>
 
-        <aside class="bk-card bk-summary p-5">
-            <p class="text-lg font-extrabold">Summary</p>
+        <aside class="bk-card bk-summary p-4">
+            <p class="text-base font-extrabold">Summary</p>
 
             @module('coupons')
-            <div class="mt-4">
+            <div class="mt-3">
                 <template x-if="$store.cart.coupon">
-                    <p class="flex items-center justify-between gap-2 rounded-lg bg-brand-soft p-3 text-sm">
+                    <p class="flex items-center justify-between gap-2 rounded-lg bg-brand-soft px-3 py-2 text-sm">
                         <span><strong x-text="$store.cart.coupon.code"></strong> <span class="bk-muted" x-text="$store.cart.coupon.label"></span></span>
                         <button type="button" class="bk-link text-xs" @click="$store.cart.removeCoupon()">Remove</button>
                     </p>
                 </template>
                 <template x-if="!$store.cart.coupon">
                     <form @submit.prevent="$store.cart.applyCoupon(code)" class="flex gap-2" novalidate>
-                        <input x-model="code" class="bk-input !py-2" placeholder="Promo code" aria-label="Promo code">
-                        <button type="submit" class="bk-btn bk-btn-outline !py-2" :disabled="$store.cart.couponBusy">Apply</button>
+                        <input x-model="code" class="bk-input" placeholder="Promo code" aria-label="Promo code">
+                        <button type="submit" class="bk-btn bk-btn-outline" :disabled="$store.cart.couponBusy">Apply</button>
                     </form>
                 </template>
                 <p class="bk-error" x-show="$store.cart.couponError" x-text="$store.cart.couponError"></p>
             </div>
             @endmodule
 
-            <label class="bk-label mt-4">Delivery
+            <label class="bk-label mt-3">Delivery
                 <select class="bk-select" @change="$store.cart.setShipping($event.target.value)">
                     @foreach(app(\App\Services\Cart::class)->shippingMethods() as $method)
                         <option value="{{ $method['code'] }}" :selected="$store.cart.shipping_method.code === @js($method['code'])">{{ $method['name'] }} — {{ $method['cost'] <= 0 ? 'free' : money($method['cost']) }}</option>
@@ -85,7 +85,7 @@
                 </select>
             </label>
 
-            <dl class="bk-totals mt-4">
+            <dl class="bk-totals mt-3">
                 <dt>Subtotal</dt><dd x-text="$store.cart.subtotal_formatted"></dd>
                 <template x-if="$store.cart.discount > 0"><dt>Discount</dt></template>
                 <template x-if="$store.cart.discount > 0"><dd x-text="'− ' + $store.cart.discount_formatted"></dd></template>
@@ -97,7 +97,7 @@
             </dl>
             @if(prices_include_tax())<p class="mt-1 text-right text-xs bk-muted">Inclusive of all taxes</p>@endif
 
-            <a href="{{ route('checkout') }}" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base">Checkout <x-heroicon-o-chevron-right aria-hidden="true" /></a>
+            <a href="{{ route('checkout') }}" class="bk-btn bk-btn-primary bk-btn-block mt-3 !py-2.5 text-sm">Checkout <x-heroicon-o-chevron-right aria-hidden="true" /></a>
         </aside>
     </div>
 </div>

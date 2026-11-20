@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Exceptions\CouponUnavailableException;
 use App\Exceptions\InsufficientStockException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\CheckoutRequest;
@@ -123,6 +124,13 @@ class CartController extends Controller
         if (! $coupon) {
             return response()->json(['message' => 'That code is not valid or has expired.'], 422);
         }
+        // A signed-in shopper hears now when their own uses are spent; anyone else when the order is placed.
+        $customer = SalesOrder::active() ? null : $request->user();
+        if ($customer && ! $coupon->isUsableBy($customer->getKey(), $customer->phone)) {
+            $this->cart->removeCoupon();
+
+            return response()->json(['message' => 'You have already used this code.'], 422);
+        }
         $subtotal = $this->cart->toArray()['subtotal'];
         if (! $coupon->meetsMinimum($subtotal) || ($coupon->discountFor($subtotal) <= 0 && $coupon->type !== 'free_shipping')) {
             $this->cart->removeCoupon();
@@ -173,6 +181,13 @@ class CartController extends Controller
     public function checkout(Request $request): View|RedirectResponse
     {
         $cart = $this->cart->toArray();
+        // Site settings → Checkout → "View on storefront": staff have no bag of their own, so the
+        // page shows a sample one (nothing saved; components/app-head stops the order being placed).
+        $preview = $request->query('settings_preview') === 'checkout' ? $this->cart->preview() : null;
+        if ($preview) {
+            $cart = $preview;
+            view()->share('settingsPreviewCart', $preview);
+        }
         if (empty($cart['items'])) {
             return redirect()->route('cart');
         }
@@ -187,6 +202,7 @@ class CartController extends Controller
 
         return view('shop.checkout', [
             'cart' => $cart,
+            'previewCart' => $preview,
             'shippingMethods' => $this->cart->shippingMethods(),
             'paymentMethods' => $payments,
             'codFee' => $salesOrder ? 0.0 : (float) setting('checkout.cod_fee', 0),
@@ -246,9 +262,10 @@ class CartController extends Controller
 
         try {
             $order = $placeOrder($data, $customer, ! $salesperson && $request->boolean('save_address'));
-        } catch (InsufficientStockException) {
-            // Bought by someone else (or in another window) meanwhile: the cart now holds what is
-            // left, and the checkout page says what changed before the shopper places it again.
+        } catch (InsufficientStockException|CouponUnavailableException) {
+            // Bought by someone else (or in another window) meanwhile, or the coupon ran out: the
+            // cart now holds what is left, and the checkout page says what changed before the
+            // shopper places it again.
             return redirect()->route('checkout')->withInput();
         }
         session(['last_order_number' => $order->number]);

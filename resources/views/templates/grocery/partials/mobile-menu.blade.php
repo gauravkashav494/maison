@@ -8,7 +8,7 @@
             <button type="button" @click="$store.ui.closeAll()" class="grid h-9 w-9 place-items-center rounded-lg hover:bg-paper" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
         <div class="flex-1 overflow-y-auto p-3">
-            <ul class="space-y-1">
+            <ul class="space-y-1" data-menu-area="header">
                 @foreach($quickLinks as $item)<li><a href="{{ $item->href }}" class="block rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-paper {{ $item->is_accent ? 'text-berry' : '' }}">{{ $item->label }}</a></li>@endforeach
             </ul>
             @if($help->isNotEmpty())

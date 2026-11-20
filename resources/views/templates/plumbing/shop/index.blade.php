@@ -4,6 +4,7 @@
 @php
     $crumbs = [];
     if ($category?->parent) { $crumbs[$category->parent->name] = $category->parent->url; }
+    if ($brand ?? null) { $crumbs['Brands'] = route('brands.index'); }
     $crumbs[$title] = null;
     $init = $filters + ['view' => $view];
     $sorts = ['' => 'Relevance', 'price-asc' => 'Price: low to high', 'price-desc' => 'Price: high to low', 'newest' => 'Newest first', 'rating' => 'Top rated'];
@@ -17,10 +18,12 @@
             <div class="min-w-0">
                 <x-breadcrumbs :items="$crumbs" />
                 <h1 class="mt-1 font-display text-xl font-bold lg:text-3xl">{{ $title }}</h1>
-                @if($category?->description)<p class="mt-1 max-w-2xl text-sm text-slate">{{ $category->description }}</p>@endif
+                @php $intro = $category?->description ?? ($brand ?? null)?->description; @endphp
+                @if($intro)<p class="mt-1 max-w-2xl text-sm text-slate">{{ $intro }}</p>@endif
                 <p class="mt-2 text-xs font-semibold text-slate"><span class="text-ink">{{ number_format($products->total()) }}</span> {{ Str::plural('product', $products->total()) }}@if($category?->parent) in {{ $category->parent->name }}@endif</p>
             </div>
-            @if($category?->image_url)<img src="{{ $category->image_url }}" alt="" class="hidden h-24 w-36 shrink-0 rounded-xl object-cover lg:block">@endif
+            @if($category?->image_url)<img src="{{ $category->image_url }}" alt="" class="hidden h-24 w-36 shrink-0 rounded-xl object-cover lg:block">
+            @elseif(($brand ?? null)?->logo_url)<img src="{{ $brand->logo_url }}" alt="{{ $brand->name }}" class="hidden h-24 w-36 shrink-0 rounded-xl bg-white object-contain p-2 lg:block">@endif
         </div>
         @if($chips->isNotEmpty())
             <div class="p-container">

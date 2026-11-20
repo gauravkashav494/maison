@@ -162,4 +162,21 @@ class CategoryParentLoopTest extends TestCase
 
         $this->assertSame($other->id, $a->fresh()->parent_id);
     }
+
+    public function test_the_parent_picker_shows_the_categories_above_each_option_on_the_right(): void
+    {
+        $men = $this->category('Men');
+        $shirts = $this->category('Shirts', $men);
+        $formal = $this->category('Formal', $shirts);
+        $own = $this->category('Own');
+        $this->signIn();
+
+        $options = Livewire::test(EditCategory::class, ['record' => $own->getRouteKey()])
+            ->instance()->form->getComponent('parent_id')->getOptions();
+
+        // A top-level category is just its name; one below shows the path on the right.
+        $this->assertSame('Men', $options[$men->id]);
+        $this->assertSame('<span class="fi-cat-option">Shirts<span class="fi-cat-option-path">Men</span></span>', $options[$shirts->id]);
+        $this->assertSame('<span class="fi-cat-option">Formal<span class="fi-cat-option-path">Men › Shirts</span></span>', $options[$formal->id]);
+    }
 }

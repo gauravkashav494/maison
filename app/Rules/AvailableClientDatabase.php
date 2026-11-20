@@ -27,7 +27,8 @@ class AvailableClientDatabase implements ValidationRule
             return; // nothing to resolve yet; the subdomain field reports that it is required
         }
 
-        $client = new Client(['subdomain' => $subdomain, 'database' => filled($value) ? trim((string) $value) : null]);
+        // Left empty while editing keeps the database the client has now.
+        $client = new Client(['subdomain' => $subdomain, 'database' => filled($value) ? trim((string) $value) : $this->record?->database]);
 
         if ($problem = app(ClientDatabase::class)->problemWithName($client->databaseName(), $this->record)) {
             $fail($problem);

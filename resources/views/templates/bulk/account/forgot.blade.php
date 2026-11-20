@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Reset your password" intro="Enter the phone number on your account and we'll send a code on WhatsApp to choose a new password.">
-    <form method="post" action="{{ route('password.send-code') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('password.send-code') }}" class="space-y-3" novalidate>
         @csrf
         <label class="bk-label">Phone number<span class="bk-req">*</span>
             <input name="phone" type="tel" inputmode="tel" autocomplete="tel" autofocus class="bk-input" value="{{ old('phone') }}">

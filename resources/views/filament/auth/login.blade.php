@@ -78,5 +78,12 @@
         </main>
     </div>
 
+    @if ($this->settingsPreview)
+        {{-- Site settings → Sign-in page → "View sign-in page": a signed-in team member's preview. --}}
+        <div role="status" style="position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 9999; max-width: min(92vw, 640px); text-align: center; background: #0f172a; color: #fff; font: 600 13px/1.4 system-ui, sans-serif; padding: 9px 14px; border-radius: 18px; box-shadow: 0 8px 24px rgb(0 0 0 / .25);">
+            Preview of your team's sign-in page, as set in Site settings → Sign-in page. You are signed in, so this form does nothing here.
+        </div>
+    @endif
+
     <p class="fi-login-foot">© {{ date('Y') }} {{ $siteName }}@if(filament()->getCurrentPanel()?->getId() !== 'admin') · <a href="{{ url('/') }}" target="_blank" rel="noopener">Visit the storefront</a>@endif</p>
 </div>

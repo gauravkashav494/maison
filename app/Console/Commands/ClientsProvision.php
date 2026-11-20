@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Clients\ClientDatabase;
 use App\Models\Client;
+use App\Models\Menu;
 use App\Support\ForeignKeys;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +85,10 @@ class ClientsProvision extends Command
 
                 return true;
             });
+
+            // A schema migration can change menus (a link added to every store's header), and
+            // Menu::tree() keeps them cached forever, so drop this client's cached copies.
+            $databases->forClient($client, fn () => Menu::flush());
 
             if ($this->option('copy')) {
                 $this->components->task('  copy existing rows', fn () => $this->copyExistingRows($connection, $client));

@@ -29,7 +29,7 @@
                 @endforeach
             </ul>
             @if($links->isNotEmpty())
-                <ul class="mt-4 border-t border-line px-5 py-3">
+                <ul class="mt-4 border-t border-line px-5 py-3" data-menu-area="header">
                     @foreach($links as $item)<li><a href="{{ $item->href }}" class="block py-2 text-sm font-semibold {{ $item->is_accent ? 'text-red' : '' }}">{{ $item->label }}</a></li>@endforeach
                 </ul>
             @endif

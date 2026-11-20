@@ -22,26 +22,27 @@
         @if($product->category)<span>/</span><a href="{{ $product->category->url }}">{{ $product->category->name }}</a>@endif
     </nav>
 
-    <div class="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+    <div class="bk-compact mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
         <div class="bk-card overflow-hidden">
             <div class="relative">
                 <x-art :category="$product->category" :image="$product->image_url" :alt="$product->name" class="!aspect-square !rounded-none" />
                 {{-- The chosen colour's photo (Variants → Colour photos), over the product's own. --}}
                 <x-card-colour-photo :product="$product" />
+                <x-wishlist-button :product="$product" class="bk-heart-corner" />
             </div>
             {{-- Always on the product page (with or without photos); a colour with photos can be clicked to show them. --}}
             <x-card-colours :product="$product" :select="true" :with-photos-only="false" :max="12" class="is-large border-t border-[var(--bk-line)] p-4" />
         </div>
 
-        <div class="bk-card p-5 sm:p-7">
+        <div class="bk-card p-4 sm:p-5">
             <div class="flex flex-wrap gap-2">
                 @if($product->is_new)<span class="bk-badge bk-badge-new">New</span>@endif
                 @if($product->is_best_seller)<span class="bk-badge bk-badge-ok">Most ordered</span>@endif
             </div>
-            <h1 class="mt-2 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{{ $product->name }}</h1>
-            <p class="bk-code mt-2">Code {{ $product->sku ?: '—' }}@if($product->brand) · {{ $product->brand }}@endif</p>
+            <h1 class="mt-1.5 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">{{ $product->name }}</h1>
+            <p class="bk-code mt-1">Code {{ $product->sku ?: '—' }}@if($product->brand) · <a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="hover:underline">{{ $product->brand }}</a>@endif</p>
             @module('reviews')
-                <a href="#reviews" class="mt-2 inline-flex items-center gap-1.5 text-sm no-underline">
+                <a href="#reviews" class="mt-1 inline-flex items-center gap-1.5 text-sm no-underline">
                     @if($product->review_count > 0)
                         <x-rating :value="$product->rating" :size="14" style="color: var(--bk-accent)" />
                         <span class="font-bold">{{ number_format($product->rating, 1) }}</span>
@@ -51,13 +52,13 @@
                     @endif
                 </a>
             @endmodule
-            @if($product->description)<p class="bk-muted mt-4 leading-relaxed">{{ $product->description }}</p>@endif
+            @if($product->description)<p class="bk-muted mt-3 text-sm leading-relaxed">{{ $product->description }}</p>@endif
 
             @if(count($lines) === 1)
                 {{-- One pack: price, stock and the same stepper as the card. --}}
-                <div class="mt-6 border-t border-[var(--bk-line)] pt-6" x-data="tradeCard(@js($lines), @js($first['key']))">
+                <div class="mt-4 border-t border-[var(--bk-line)] pt-4" x-data="tradeCard(@js($lines), @js($first['key']))">
                     <div class="flex flex-wrap items-baseline gap-x-3">
-                        <span class="bk-price !text-3xl">{{ $first['price_formatted'] }}</span>
+                        <span class="bk-price !text-2xl">{{ $first['price_formatted'] }}</span>
                         @if($first['list_price'] > $first['price'])
                             <span class="bk-was !text-base">{{ money($first['list_price']) }}</span>
                             <span class="bk-badge bk-badge-deal">{{ (int) round($first['discount_percent']) }}% off</span>
@@ -68,13 +69,13 @@
                         <p class="mt-2"><span class="bk-badge {{ $first['stock'] <= 0 ? 'bk-badge-out' : ($first['stock'] <= 10 ? 'bk-badge-low' : 'bk-badge-ok') }}">{{ $first['stock'] <= 0 ? 'Out of stock' : number_format($first['stock']).' in stock' }}</span></p>
                     @endif
                     @if($first['max'] > 0)
-                        <div class="mt-5 flex flex-wrap gap-3">
-                            <span class="bk-step !h-12">
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <span class="bk-step !h-9">
                                 <button type="button" @click="step(-1)" :disabled="qty <= 1" aria-label="Decrease quantity"><x-heroicon-o-minus /></button>
                                 <input type="number" inputmode="numeric" min="1" max="{{ $first['max'] }}" x-model.number="qty" @change="step(0)" aria-label="Quantity">
                                 <button type="button" @click="step(1)" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
                             </span>
-                            <button type="button" class="bk-btn bk-btn-primary flex-1 !py-3 text-base" :disabled="busy" @click="add()">
+                            <button type="button" class="bk-btn bk-btn-primary flex-1" :disabled="busy" @click="add()">
                                 <x-heroicon-o-shopping-cart aria-hidden="true" /><span x-text="busy ? 'Adding…' : 'Add to order'">Add to order</span>
                             </button>
                         </div>
@@ -86,9 +87,9 @@
                 </div>
             @elseif(count($lines) > 1)
                 {{-- Several sizes: one row each, ordered together. --}}
-                <div class="mt-6 border-t border-[var(--bk-line)] pt-6" x-data="orderSheet(@js($sheet))">
-                    <p class="font-extrabold">Choose sizes and quantities</p>
-                    <table class="bk-table is-stack mt-3">
+                <div class="mt-4 border-t border-[var(--bk-line)] pt-4" x-data="orderSheet(@js($sheet))">
+                    <p class="text-sm font-extrabold">Choose sizes and quantities</p>
+                    <table class="bk-table is-stack mt-2">
                         <thead>
                             <tr>
                                 <th scope="col">Size</th>
@@ -126,7 +127,7 @@
                             @endforeach
                         </tbody>
                     </table>
-                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft px-3 py-2">
                         <p class="text-sm">
                             <template x-if="filled.length"><span><strong x-text="units"></strong> units · about <strong x-text="estimate"></strong></span></template>
                             <template x-if="!filled.length"><span class="bk-muted">Set a quantity against each size you need. Sizes already in your cart show their quantity.</span></template>
@@ -138,19 +139,19 @@
                 </div>
             @else
                 {{-- Too many combinations to list: choose them with the shared picker. --}}
-                <div class="mt-6 grid gap-4 border-t border-[var(--bk-line)] pt-6" x-data="productPage(@js($product->toCard()))"
+                <div class="mt-4 grid gap-3 border-t border-[var(--bk-line)] pt-4" x-data="productPage(@js($product->toCard()))"
                      {{-- Choosing a colour in the picker shows its photo in the picture above. --}}
                      x-effect="const c = Object.entries(options).find(([k, v]) => /^colou?rs?$/i.test(k) && v); $dispatch('card-colour', { id: {{ $product->id }}, src: c ? (@js(collect($product->cardColours())->pluck('image', 'name')->filter())[c[1]] ?? null) : null })">
-                    <span class="bk-price !text-3xl">{{ money($product->price) }}</span>
+                    <span class="bk-price !text-2xl">{{ money($product->price) }}</span>
                     <x-variant-options :product="$product" />
                     @if($product->stock > 0)
-                        <div class="flex flex-wrap gap-3">
-                            <span class="bk-step !h-12">
+                        <div class="flex flex-wrap gap-2">
+                            <span class="bk-step !h-9">
                                 <button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-heroicon-o-minus /></button>
                                 <input type="number" min="1" @if($product->max_qty) max="{{ $product->max_qty }}" @endif x-model.number="qty" aria-label="Quantity">
                                 <button type="button" @click="incQty()" aria-label="Increase quantity"><x-heroicon-o-plus /></button>
                             </span>
-                            <button type="button" class="bk-btn bk-btn-primary flex-1 !py-3" :disabled="$store.cart.busy" @click="add()">Add to order</button>
+                            <button type="button" class="bk-btn bk-btn-primary flex-1" :disabled="$store.cart.busy" @click="add()">Add to order</button>
                         </div>
                         <p class="bk-muted text-xs">Choose every option above before adding.</p>
                     @else
@@ -163,21 +164,21 @@
     </div>
 
     @if($product->details)
-        <section class="bk-card mt-6 p-5 leading-relaxed sm:p-7">{!! $product->details !!}</section>
+        <section class="bk-card mt-4 p-4 text-sm leading-relaxed sm:p-5">{!! $product->details !!}</section>
     @endif
 
     @module('reviews')
-        <section id="reviews" class="bk-card mt-6 grid gap-8 p-5 sm:p-7 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <section id="reviews" class="bk-compact bk-card mt-4 grid gap-5 p-4 sm:p-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
             <div>
-                <h2 class="text-xl font-extrabold tracking-tight">Ratings &amp; reviews</h2>
-                <div class="mt-3 flex items-end gap-3">
-                    <p class="text-4xl font-extrabold leading-none">{{ $product->review_count ? number_format($product->rating, 1) : 'New' }}</p>
+                <h2 class="text-base font-extrabold tracking-tight">Ratings &amp; reviews</h2>
+                <div class="mt-2 flex items-end gap-3">
+                    <p class="text-3xl font-extrabold leading-none">{{ $product->review_count ? number_format($product->rating, 1) : 'New' }}</p>
                     <div>
                         <x-rating :value="$product->rating" :size="16" style="color: var(--bk-accent)" />
                         <p class="bk-muted mt-1 text-xs">{{ number_format($product->review_count) }} {{ Str::plural('review', $product->review_count) }}</p>
                     </div>
                 </div>
-                <ul class="mt-4 space-y-1.5">
+                <ul class="mt-3 space-y-1">
                     @for($i = 5; $i >= 1; $i--)
                         @php $n = $breakdown[$i] ?? 0; $pct = $breakdown->sum() ? round($n / $breakdown->sum() * 100) : 0; @endphp
                         <li class="flex items-center gap-2 text-xs">
@@ -188,7 +189,7 @@
                     @endfor
                 </ul>
 
-                <div x-data="{ open: {{ $errors->hasAny(['rating', 'name', 'email', 'title', 'body']) ? 'true' : 'false' }}, rating: {{ (int) old('rating', 5) }}, hover: 0 }" class="mt-5">
+                <div x-data="{ open: {{ $errors->hasAny(['rating', 'name', 'email', 'title', 'body']) ? 'true' : 'false' }}, rating: {{ (int) old('rating', 5) }}, hover: 0 }" class="mt-4">
                     <button type="button" @click="open = !open" class="bk-btn bk-btn-outline bk-btn-block">Write a review</button>
                     @if(session('review_status'))<p class="bk-badge-ok mt-3 rounded-lg p-3 text-sm">{{ session('review_status') }}</p>@endif
                     <form x-show="open" x-collapse x-cloak method="post" action="{{ route('products.reviews.store', $product->slug) }}" class="mt-4 grid gap-3" novalidate>
@@ -230,7 +231,7 @@
                 @else
                     <ul class="divide-y divide-[var(--bk-line)]">
                         @foreach($reviews as $r)
-                            <li class="py-4 first:pt-0">
+                            <li class="py-3 text-sm first:pt-0">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold">{{ $r->name }}</span>

@@ -30,7 +30,7 @@ class CategoryInfolist
                         TextEntry::make('tagline')->columnSpanFull()->placeholder('—'),
                         TextEntry::make('parent.name')->label('Parent')->badge()->color('gray')->placeholder('Top level')
                             ->url(fn (Category $r) => $r->parent ? CategoryResource::getUrl('view', ['record' => $r->parent]) : null),
-                        TextEntry::make('children.name')->label('Sub-categories')->badge()->color('gray')->placeholder('None'),
+                        TextEntry::make('children.name')->label('Child categories')->badge()->color('gray')->placeholder('None'),
                         TextEntry::make('description')->columnSpanFull()->placeholder('—'),
                         TextEntry::make('content')->label('Page content')->html()->columnSpanFull()
                             ->visible(fn (Category $r) => filled(strip_tags((string) $r->content))),
@@ -41,8 +41,9 @@ class CategoryInfolist
                 Section::make('Storefront')
                     ->icon('heroicon-o-building-storefront')
                     ->schema([
-                        IconEntry::make('is_active')->label('Visible')->inlineLabel()->boolean(),
-                        IconEntry::make('show_in_menu')->label('On homepage')->inlineLabel()->boolean(),
+                        IconEntry::make('is_active')->label('Visible on storefront')->inlineLabel()->boolean(),
+                        IconEntry::make('show_in_menu')->label('In menu & homepage')->inlineLabel()->boolean()
+                            ->visible(fn (Category $r) => Category::featurableIn($r->template ?? app(StoreContext::class)->template())),
                         TextEntry::make('products_total')->label('Products')->inlineLabel()
                             ->state(fn (Category $r) => $r->products()->count()),
                         TextEntry::make('products_visible')->label('Visible products')->inlineLabel()
@@ -58,13 +59,10 @@ class CategoryInfolist
                     ->icon('heroicon-o-clock')
                     ->collapsed()
                     ->schema([
-                        TextEntry::make('sort_order')->label('Sort order')->inlineLabel(),
                         TextEntry::make('created_at')->label('Created')->inlineLabel()->dateTime('d M Y, H:i'),
                         TextEntry::make('updated_at')->label('Updated')->inlineLabel()->since(),
                         TextEntry::make('deleted_at')->label('Deleted')->inlineLabel()->dateTime('d M Y, H:i')->color('danger')
                             ->visible(fn (Category $r) => $r->trashed()),
-                        TextEntry::make('meta_title')->label('SEO title')->placeholder('Uses the category name'),
-                        TextEntry::make('meta_description')->label('SEO description')->placeholder('Uses the description'),
                     ]),
             ]),
         ]);

@@ -2,6 +2,7 @@
     Products as a list (the shop and every category): one row per orderable item — each size of a product on its own
     row with its own code, price and stock — and a −/+ quantity box on every row. The buyer sets
     quantities down the list and adds them all at once from the bar that appears at the bottom.
+    A heart on each product's first row saves it to Saved items (the wishlist).
     Rows come from App\Templates\Bulk\OrderLines, so what is added is exactly what is shown.
 --}}
 @props(['products', 'showStock' => true, 'group' => false])
@@ -37,17 +38,18 @@
                         <tr class="bk-group"><th colspan="{{ $columns }}" scope="rowgroup">{{ $name }}</th></tr>
                     @endif
                     @forelse($row['lines'] as $line)
-                        @php $key = $line['key']; @endphp
+                        @php $key = $line['key']; $firstRow = $loop->first; @endphp
                         <tr :class="qty[@js($key)] > 0 && 'is-filled'">
                             <td>
                                 <span class="flex items-center gap-3">
-                                    <x-art :category="$product->category" :image="$product->image_url" class="bk-thumb !size-11" />
-                                    <span class="min-w-0">
+                                    <x-art :category="$product->category" :image="$product->image_url" class="bk-thumb !size-9" />
+                                    <span class="min-w-0 flex-1">
                                         <a href="{{ $product->url }}" class="block font-bold leading-snug hover:text-brand">{{ $product->name }}</a>
                                         @if($line['label'] || $line['unit'])
                                             <span class="bk-muted block text-xs">{{ $line['label'] ?? $line['unit'] }}</span>
                                         @endif
                                     </span>
+                                    @if($firstRow)<x-wishlist-button :product="$product" />@endif
                                 </span>
                             </td>
                             <td class="bk-code" data-label="Code">{{ $line['sku'] ?: '—' }}</td>
@@ -85,8 +87,9 @@
                         <tr>
                             <td>
                                 <span class="flex items-center gap-3">
-                                    <x-art :category="$product->category" :image="$product->image_url" class="bk-thumb !size-11" />
-                                    <a href="{{ $product->url }}" class="font-bold hover:text-brand">{{ $product->name }}</a>
+                                    <x-art :category="$product->category" :image="$product->image_url" class="bk-thumb !size-9" />
+                                    <a href="{{ $product->url }}" class="flex-1 font-bold hover:text-brand">{{ $product->name }}</a>
+                                    <x-wishlist-button :product="$product" />
                                 </span>
                             </td>
                             <td class="bk-code" data-label="Code">{{ $product->sku ?: '—' }}</td>

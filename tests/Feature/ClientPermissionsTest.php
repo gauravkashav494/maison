@@ -347,7 +347,8 @@ class ClientPermissionsTest extends TestCase
         $this->enterClientPanel($this->staff(['products.view']));
 
         Livewire::test(ListProducts::class)
-            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false);
+            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false)
+            ->assertNotNotified();
 
         $this->assertTrue((bool) $this->alphaProduct->fresh()->is_active);
     }
@@ -356,8 +357,10 @@ class ClientPermissionsTest extends TestCase
     {
         $this->enterClientPanel($this->staff(['products.view', 'products.update']));
 
+        // A toast confirms the switch.
         Livewire::test(ListProducts::class)
-            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false);
+            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false)
+            ->assertNotified('Product "'.$this->alphaProduct->name.'" is now hidden from the storefront.');
 
         $this->assertFalse((bool) $this->alphaProduct->fresh()->is_active);
     }

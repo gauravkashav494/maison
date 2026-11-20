@@ -25,8 +25,7 @@ class CollectionsTable
                 ImageColumn::make('image')->label('')->state(fn (Collection $r) => Media::url($r->image))->square()->imageSize(44),
                 TextColumn::make('name')->searchable()->sortable()->description(fn (Collection $r) => $r->season),
                 TextColumn::make('products_count')->counts('products')->label('Products')->alignRight(),
-                ToggleColumn::make('is_featured')->label('Featured'),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])

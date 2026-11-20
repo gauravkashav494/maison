@@ -3,7 +3,7 @@
     $promos = array_values(array_filter((array) ($h['promo_messages'] ?? [])));
     $links = $menus['header'] ?? collect();
     $cats = $navCategories ?? collect();
-    $needs = \Illuminate\Support\Facades\Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('heritage.nav_needs'), 600, fn () => \App\Models\Collection::active()->orderBy('sort_order')->get(['id', 'name', 'slug', 'description']));
+    $needs = \Illuminate\Support\Facades\Cache::remember(app(\App\Clients\ClientDatabase::class)->cacheKey('heritage.nav_needs'), 600, fn () => \App\Models\Collection::active()->get(['id', 'name', 'slug', 'description']));
 @endphp
 
 {{-- Announcement ticker --}}
@@ -29,7 +29,7 @@
         @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-cream lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         <button type="button" @click="$store.ui.openMenu()" class="grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-cream lg:hidden {{ request()->routeIs('home') ? '-ml-2' : '' }}" aria-label="Open menu"><x-ico name="menu" :size="22" /></button>
 
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2 lg:gap-3" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2 lg:gap-3" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-10 w-10 place-items-center rounded-full border-2 border-gold bg-cream text-red lg:h-[85px] lg:w-[85px]">
                 <span class="flex flex-col items-center leading-none"><x-ico name="diamond" :size="14" :stroke="1.8" class="max-lg:hidden" /><x-ico name="diamond" :size="20" :stroke="1.6" class="lg:hidden" /><span class="mt-1 hidden font-serif text-[0.5rem] font-semibold uppercase tracking-[0.1em] lg:flex lg:text-[0.7rem]">{{ Str::substr($h['logo_primary'] ?? 'Annapurna', 0, 9) }}</span><span class="hidden text-[0.42rem] uppercase tracking-[0.2em] text-gold lg:block lg:text-[0.55rem]">{{ $h['logo_sub'] ?? '' }}</span></span>
             </span>
@@ -58,7 +58,7 @@
             <a href="{{ route('shop.index') }}" @mouseenter="openMega('categories')" class="nav-link flex items-center gap-1.5" :class="mega === 'categories' && 'is-open'">{{ $h['nav_category_label'] ?? 'Shop By Category' }} <x-ico name="chevron-down" :size="14" class="text-gold" /></a>
             @if($needs->isNotEmpty())<a href="{{ route('collections.index') }}" @mouseenter="openMega('needs')" class="nav-link flex items-center gap-1.5" :class="mega === 'needs' && 'is-open'">{{ $h['nav_need_label'] ?? 'Shop By Need' }} <x-ico name="chevron-down" :size="14" class="text-gold" /></a>@endif
             @foreach($links->take(3) as $item)
-                <a href="{{ $item->href }}" @mouseenter="scheduleClose()" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="nav-link {{ $loop->index >= 2 ? 'hidden xl:block' : '' }} {{ $item->is_accent ? 'text-red' : '' }}">{{ $item->label }}</a>
+                <a href="{{ $item->href }}" data-menu-area="header" @mouseenter="scheduleClose()" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="nav-link {{ $loop->index >= 2 ? 'hidden xl:block' : '' }} {{ $item->is_accent ? 'text-red' : '' }}">{{ $item->label }}</a>
             @endforeach
         </div>
 

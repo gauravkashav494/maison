@@ -13,7 +13,6 @@
                     <div class="relative aspect-[16/10] overflow-hidden bg-cream">
                         @if($c->image_url)<img src="{{ $c->image_url }}" alt="" class="img-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">@endif
                         <span class="badge badge-soft absolute left-3 top-3 bg-white">{{ $c->products_count }} {{ Str::plural('item', $c->products_count) }}</span>
-                        @if($c->is_featured)<span class="badge badge-off absolute right-3 top-3">Popular</span>@endif
                     </div>
                     <div class="p-4">
                         <h2 class="text-lg font-semibold group-hover:text-red">{{ $c->name }}</h2>

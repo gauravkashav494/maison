@@ -13,10 +13,12 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\Setting;
 use App\Support\Media;
 use App\Support\ReviewModeration;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -50,6 +52,22 @@ class EthnicFashionDemoSeeder extends Seeder
             $this->orders($products, $customers);
             $this->reviews($products, $customers);
         });
+    }
+
+    /**
+     * The collection on the homepage banner (Homepage settings → Featured collection), unless
+     * this store already picked one. Saved in its own copy of the homepage settings, which starts
+     * from the platform's when it has none.
+     */
+    private function homepageBanner(int $collectionId): void
+    {
+        $home = Setting::forClient($this->clientId, 'home') ?? (Setting::query()->find('home')?->value ?? []);
+        if (! empty($home['featured_collection_id'])) {
+            return;
+        }
+
+        Setting::query()->updateOrCreate(['key' => 'client:'.$this->clientId.':home'], ['value' => ['featured_collection_id' => $collectionId] + $home]);
+        Cache::forget('settings.all');
     }
 
     /** @return array<string,Product> */
@@ -167,13 +185,16 @@ class EthnicFashionDemoSeeder extends Seeder
             ['modern-fusion', 'Modern Fusion', null, 'Pre-draped sarees, maxis and Indo-Western pieces.', 'maxi_teal', ['red-pre-draped-saree-gown', 'teal-georgette-maxi', 'tissue-silk-saree-mint', 'kundan-cocktail-ring'], false],
             ['his-edit', 'His Edit', null, 'Jodhpuris, bandhgalas and festive shirts.', 'men_navy', ['navy-jodhpuri-suit', 'checked-bandhgala-tuxedo', 'cotton-festive-shirt', 'shibori-dyed-shirt'], false],
         ];
-        foreach ($collections as $i => [$slug, $name, $season, $desc, $photo, $slugs, $featured]) {
+        foreach ($collections as $i => [$slug, $name, $season, $desc, $photo, $slugs, $banner]) {
             $collection = Collection::withTrashed()->updateOrCreate(['slug' => $slug], [
                 'name' => $name, 'season' => $season, 'description' => $desc, 'image' => $wide($ph[$photo]),
-                'is_active' => true, 'is_featured' => $featured, 'sort_order' => $i,
+                'is_active' => true, 'sort_order' => $i,
                 'template' => self::TEMPLATE, 'client_id' => $this->clientId, 'deleted_at' => null,
             ]);
             $collection->products()->sync(collect($slugs)->mapWithKeys(fn ($s, $k) => [$models[$s]->id => ['sort_order' => $k]])->all());
+            if ($banner) {
+                $this->homepageBanner($collection->id);
+            }
         }
 
         return $models;

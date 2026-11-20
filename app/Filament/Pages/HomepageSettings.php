@@ -111,7 +111,7 @@ class HomepageSettings extends Page
                     Tab::make('Featured collection')->icon('heroicon-o-rectangle-stack')->visible(fn () => StoreFeatures::enabled('collections'))->schema([
                         Select::make('home.featured_collection_id')
                             ->label('Collection')
-                            ->options(fn () => Collection::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                            ->options(fn () => Collection::active()->pluck('name', 'id'))
                             ->searchable()
                             ->helperText('Uses the collection’s hero/card image, name and description.'),
                         TextInput::make('home.featured_eyebrow')->label('Eyebrow'),

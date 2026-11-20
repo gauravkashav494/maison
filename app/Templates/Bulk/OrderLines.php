@@ -142,6 +142,7 @@ class OrderLines
             // A combination with photos of its own shows its first one.
             'image' => $image ?? $product->image_url,
             'category' => $product->category?->name,
+            'category_id' => $product->category_id,
         ];
     }
 

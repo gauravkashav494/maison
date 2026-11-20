@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Menus\RelationManagers;
 
 use App\Filament\Support\Fields;
 use App\Filament\Support\RowActions;
+use App\Filament\Support\ToggleToast;
 use App\Models\MenuItem;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -37,47 +38,72 @@ class ItemsRelationManager extends RelationManager
     public function reorderTable(array $order, int|string|null $draggedRecordKey = null): void
     {
         MenuItem::renumber((int) $this->getOwnerRecord()->getKey(), $order);
+        $this->itemsChanged();
     }
 
+    /**
+     * The item editor: a panel that slides in from the right (see the actions in table()), one
+     * column of three sections. Every field is offered for every menu; the hints say where the store
+     * draws them (only the Fashion header opens mega menus with columns, tiles and badges).
+     */
     public function form(Schema $schema): Schema
     {
         $menuId = $this->getOwnerRecord()->getKey();
+        $megaMenu = $this->getOwnerRecord()->location === 'header';
 
-        return $schema->components([
-            Grid::make(2)->schema([
-                TextInput::make('label')->required()->maxLength(80),
-                TextInput::make('url')
-                    ->label('Link')
-                    ->maxLength(255)
-                    ->placeholder('/shop/clothing or https://…')
-                    ->helperText('Relative paths keep visitors on this site.'),
-                Select::make('parent_id')
-                    ->label('Parent item')
-                    ->options(fn (?MenuItem $record) => MenuItem::where('menu_id', $menuId)
-                        ->whereNull('parent_id')
-                        ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))
-                        ->orderBy('sort_order')
-                        ->pluck('label', 'id'))
-                    ->placeholder('None (top level)')
-                    ->helperText('Children of a header item appear in its mega menu.'),
-                TextInput::make('group')
-                    ->label('Mega-menu column')
-                    ->maxLength(40)
-                    ->placeholder('Categories, Featured, Tiles…')
-                    ->helperText('Child items sharing a column name are listed together. Use "Tiles" for image tiles.'),
-            ]),
-            Section::make('Image tile (mega menu only)')
-                ->collapsed()
+        return $schema->columns(1)->components([
+            Section::make('Link')
+                ->icon('heroicon-o-link')
                 ->schema([
-                    Fields::image('image', 'Tile image (portrait 3:4)', 'menus'),
-                    TextInput::make('eyebrow')->maxLength(40)->placeholder('Just in'),
+                    TextInput::make('label')->label('Label')->required()->maxLength(80)
+                        ->placeholder('Privacy policy')
+                        ->helperText('What shoppers see.'),
+                    TextInput::make('url')->label('Link')->maxLength(255)
+                        ->placeholder('/privacy or https://…')
+                        ->helperText('A page of this store starts with / (e.g. /shop). Another website: the full address.'),
                 ]),
-            Grid::make(4)->schema([
-                TextInput::make('badge')->maxLength(20)->helperText('Small text beside the label, e.g. a count.'),
-                Toggle::make('is_accent')->label('Highlight (rouge)')->inline(false),
-                Toggle::make('opens_in_new_tab')->label('New tab')->inline(false),
-                Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
-            ]),
+
+            Section::make('Options')
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->schema([
+                    Toggle::make('is_active')->label('Visible on storefront')->default(true)
+                        ->helperText('Off: hidden on the store, kept here.'),
+                    Toggle::make('opens_in_new_tab')->label('Open in a new tab')
+                        ->helperText('For links to other websites.'),
+                    Toggle::make('is_accent')->label('Highlight')
+                        ->helperText('In the accent colour, e.g. for Offers. Shown in header menus.'),
+                ]),
+
+            Section::make('Sub-items & mega menu')
+                ->icon('heroicon-o-squares-2x2')
+                ->description($megaMenu
+                    ? 'Optional. Sub-items open in a large drop-down under a top item of the header.'
+                    : 'Optional. Used by the header’s drop-down (mega) menu; most footer and policy menus show only their top items.')
+                ->schema([
+                    Select::make('parent_id')
+                        ->label('Show under')
+                        ->options(fn (?MenuItem $record) => MenuItem::where('menu_id', $menuId)
+                            ->whereNull('parent_id')
+                            ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))
+                            ->orderBy('sort_order')
+                            ->pluck('label', 'id'))
+                        ->placeholder('Nothing (a top item)')
+                        ->helperText('Pick a top item to list this in its drop-down.'),
+                    Grid::make(2)->schema([
+                        TextInput::make('group')
+                            ->label('Column')
+                            ->maxLength(40)
+                            ->placeholder('Categories, Featured, Tiles…')
+                            ->helperText('Sub-items with the same column name are listed together. "Tiles" shows image tiles.'),
+                        TextInput::make('badge')->maxLength(20)
+                            ->placeholder('New')
+                            ->helperText('Small text beside the item, e.g. "New" or a count.'),
+                    ]),
+                    TextInput::make('eyebrow')->label('Tile small heading')->maxLength(40)
+                        ->placeholder('Just in')
+                        ->helperText('Above the tile\'s name, for "Tiles" only.'),
+                    Fields::image('image', 'Tile image (portrait 3:4), for "Tiles" only', 'menus'),
+                ]),
         ]);
     }
 
@@ -103,7 +129,12 @@ class ItemsRelationManager extends RelationManager
                 TextColumn::make('group')->label('Column')->badge()->color('info')->placeholder('—'),
                 TextColumn::make('url')->label('Link')->limit(40)->color('gray'),
                 IconColumn::make('image')->label('Tile')->boolean()->getStateUsing(fn (MenuItem $r) => filled($r->image)),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront')
+                    // Replaces the global after-switch callback, so it sends the toast itself.
+                    ->afterStateUpdated(function (ToggleColumn $column, $state): void {
+                        ToggleToast::send($column, $state);
+                        $this->itemsChanged();
+                    }),
             ])
             ->filters([
                 SelectFilter::make('parent_id')
@@ -111,17 +142,23 @@ class ItemsRelationManager extends RelationManager
                     ->options(fn () => MenuItem::where('menu_id', $this->getOwnerRecord()->getKey())->whereNull('parent_id')->pluck('label', 'id')),
             ])
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()->slideOver()->modalWidth('lg')->after(fn () => $this->itemsChanged()),
             ])
             ->recordAction(null) // no click-to-edit on the row; Edit is in the ⋮ menu
             ->recordActions([RowActions::group([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()->slideOver()->modalWidth('lg')->after(fn () => $this->itemsChanged()),
+                DeleteAction::make()->after(fn () => $this->itemsChanged()),
             ])])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()->after(fn () => $this->itemsChanged()),
                 ]),
             ]);
+    }
+
+    /** Tells "Where it shows" on the page to reload, so the store section shows the new links. */
+    private function itemsChanged(): void
+    {
+        $this->dispatch('menu-items-changed');
     }
 }

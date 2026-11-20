@@ -159,7 +159,7 @@ class StoreContext
         }
         $template = $this->templateObject();
 
-        // Site settings (brand, contact, checkout, SEO) apply to every store; a client's save
+        // Site settings (brand, contact, checkout) apply to every store; a client's save
         // stays its own, because settings are stored per client.
         $forThisStore = $pageClass === SiteSettings::class
             || ($template && in_array($pageClass, $template->adminPages(), true));

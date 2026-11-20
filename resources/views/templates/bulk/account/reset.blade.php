@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Choose a new password">
-    <form method="post" action="{{ route('password.update') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('password.update') }}" class="space-y-3" novalidate>
         @csrf
         <input type="hidden" name="token" value="{{ $token }}">
         <label class="bk-label">Email<span class="bk-req">*</span>

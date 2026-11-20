@@ -124,9 +124,9 @@ class BulkCatalogSeeder extends Seeder
     private function collections(array $client, array $bySku): void
     {
         $collections = [
-            ['slug' => 'restaurant-kitchen', 'name' => 'Restaurant kitchen essentials', 'description' => 'What a busy kitchen reorders every week: wash-up, wraps, gloves and towels.', 'is_featured' => true,
+            ['slug' => 'restaurant-kitchen', 'name' => 'Restaurant kitchen essentials', 'description' => 'What a busy kitchen reorders every week: wash-up, wraps, gloves and towels.',
                 'products' => ['CL-DW-5L', 'KT-CF-300', 'PK-AF-72', 'KT-BP-4575', 'GL-NT', 'GL-HN-W', 'GL-AP-PE', 'KT-KR-2P']],
-            ['slug' => 'takeaway-packing', 'name' => 'Takeaway & delivery packing', 'description' => 'Containers, bags, cups and napkins for outlets that pack orders to go.', 'is_featured' => true,
+            ['slug' => 'takeaway-packing', 'name' => 'Takeaway & delivery packing', 'description' => 'Containers, bags, cups and napkins for outlets that pack orders to go.',
                 'products' => ['PK-CT', 'PK-KB-M', 'PK-PC-200', 'KT-TN-30', 'PK-AF-72']],
             ['slug' => 'housekeeping', 'name' => 'Housekeeping & cleaning crew', 'description' => 'Floor, surface, washroom and glass care for facility teams, hotels and clinics.',
                 'products' => ['CL-FC-5L', 'CL-HS-5L', 'CL-TB-1L', 'CL-GC-500', 'PK-GB-L', 'GL-NT']],

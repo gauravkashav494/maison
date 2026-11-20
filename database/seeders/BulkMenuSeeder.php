@@ -16,8 +16,21 @@ class BulkMenuSeeder extends Seeder
     {
         // Shown at the right of the category bar; the categories themselves come from the catalogue.
         $this->menu('bulk_header', 'Bulk — Header links', [
+            ['label' => 'Brands', 'url' => '/brands'],
             ['label' => 'Track order', 'url' => '/track-order'],
             ['label' => 'Contact', 'url' => '/contact'],
+        ]);
+
+        // The footer's Shop column.
+        $this->menu('bulk_footer_shop', 'Bulk — Footer shop', [
+            ['label' => 'Bulk order', 'url' => '/#bulk-order'],
+            ['label' => 'All products', 'url' => '/shop'],
+            ['label' => 'Brands', 'url' => '/brands'],
+            ['label' => 'Cleaning Chemicals', 'url' => '/shop/cleaning'],
+            ['label' => 'Packaging & Disposables', 'url' => '/shop/disposables'],
+            ['label' => 'Gloves & Hygiene', 'url' => '/shop/hygiene'],
+            ['label' => 'Kitchen Consumables', 'url' => '/shop/kitchen'],
+            ['label' => 'Office Supplies', 'url' => '/shop/office'],
         ]);
 
         // The footer's Help column.

@@ -19,7 +19,7 @@
                         <p class="text-xs font-bold uppercase tracking-wider text-mist">Order {{ $order->number }}</p>
                         <p class="mt-1 font-display text-lg font-bold">{{ $order->statusLabel() }}</p>
                         <p class="text-xs text-slate">Placed {{ $order->created_at->format('d M Y, H:i') }}@if($order->estimated_delivery) · Expected by {{ $order->estimated_delivery->format('d M') }}@endif</p>
-                        <a href="{{ $order->invoiceUrl() }}" class="mt-1 inline-block text-xs font-bold underline underline-offset-2">Download invoice</a>
+                        @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="mt-1 inline-block text-xs font-bold underline underline-offset-2">Download invoice</a>@endif
                     </div>
                     @if($order->tracking_number)<div class="rounded-lg bg-canvas px-3 py-2 text-xs"><span class="text-slate">{{ $order->carrier ?: 'Tracking' }}</span><span class="ml-2 font-bold tabular">{{ $order->tracking_number }}</span></div>@endif
                 </div>

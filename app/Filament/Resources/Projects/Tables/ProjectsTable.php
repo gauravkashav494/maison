@@ -25,7 +25,7 @@ class ProjectsTable
                 TextColumn::make('title')->searchable()->sortable()->description(fn (Project $r) => $r->location),
                 TextColumn::make('service.name')->label('Service')->badge()->color('gray'),
                 TextColumn::make('completed_on')->date('d M Y')->sortable(),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])

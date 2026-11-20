@@ -157,6 +157,7 @@ class CheckoutProductTaxTest extends TestCase
         $this->assertEquals([500, 500, 2000, 2000], array_column($rows, 'taxable'));
 
         app(ClientContext::class)->resolveForPublic($this->client);
+        $order->transitionTo(Order::STATUS_DISPATCHED);
         $html = view('invoices.order', Invoice::for($order)->data())->render();
         foreach (['CGST (2.5%)', 'SGST (2.5%)', 'CGST (9%)', 'SGST (9%)', money(12.5), money(180), money(2885), '18%', '5%'] as $text) {
             $this->assertStringContainsString(e($text), $html, $text);
@@ -197,6 +198,8 @@ class CheckoutProductTaxTest extends TestCase
         $place = function (string $state, string $country = 'India') {
             $this->addToCart($this->cleaner, 1);
             $order = $this->placeOrder($state, $country);
+            // The invoice is issued on dispatch.
+            $order->transitionTo(Order::STATUS_DISPATCHED);
 
             return $order;
         };
@@ -242,4 +245,3 @@ class CheckoutProductTaxTest extends TestCase
         $page()->assertSee('\\u0022seller\\u0022:\\u002203\\u0022', false)->assertSee('\\u0022pb\\u0022:\\u002203\\u0022', false);
     }
 }
-

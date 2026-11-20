@@ -22,8 +22,8 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * The Bulk Order store's look and wording: brand colour, announcement, home banner,
- * Bulk order section and the support details. Store name, logo text, checkout, tax and SEO
- * stay in Site settings.
+ * Bulk order section and the support details. Store name, logo text, checkout and tax
+ * stay in Site settings; SEO in SEO settings.
  */
 class BulkOrderSettings extends Page
 {

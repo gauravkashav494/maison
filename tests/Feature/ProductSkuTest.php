@@ -69,13 +69,13 @@ class ProductSkuTest extends TestCase
         $category = Category::create(['client_id' => $client->id, 'template' => 'bulk', 'name' => 'Cleaning', 'slug' => 'cleaning', 'is_active' => true]);
 
         Livewire::test(CreateProduct::class)
-            ->fillForm(['name' => 'Hand wash', 'slug' => 'hand-wash', 'categories' => [$category->id], 'price_excl_tax' => 120, 'sku' => ''])
+            ->fillForm(['name' => 'Hand wash', 'slug' => 'hand-wash', 'category_level_0' => $category->id, 'price_excl_tax' => 120, 'sku' => ''])
             ->call('create')
             ->assertHasNoFormErrors();
         $this->assertNull(Product::withoutGlobalScopes()->where('slug', 'hand-wash')->value('sku'));
 
         Livewire::test(CreateProduct::class)
-            ->fillForm(['name' => 'Floor cleaner', 'slug' => 'floor-cleaner', 'categories' => [$category->id], 'price_excl_tax' => 250, 'sku' => 'FLOOR-5L'])
+            ->fillForm(['name' => 'Floor cleaner', 'slug' => 'floor-cleaner', 'category_level_0' => $category->id, 'price_excl_tax' => 250, 'sku' => 'FLOOR-5L'])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -93,7 +93,7 @@ class ProductSkuTest extends TestCase
 
         Livewire::test(EditProduct::class, ['record' => $blank->getRouteKey()])
             ->assertSet('data.sku', null)
-            ->fillForm(['categories' => [$category->id]])
+            ->fillForm(['category_level_0' => $category->id])
             ->call('save')
             ->assertHasNoFormErrors();
 

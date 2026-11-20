@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Clients\StoreFeatures;
 use App\Http\Controllers\Controller;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Page;
@@ -40,6 +41,11 @@ class SeoController extends Controller
             }
             foreach (Collection::active()->where('noindex', false)->get() as $c) {
                 $urls[] = ['loc' => $c->url, 'priority' => '0.8', 'changefreq' => 'weekly', 'lastmod' => $c->updated_at];
+            }
+            $urls[] = ['loc' => route('brands.index'), 'priority' => '0.6', 'changefreq' => 'weekly'];
+            // A brand page with nothing on sale is an empty listing: leave it out.
+            foreach (Brand::where('noindex', false)->whereHas('products', fn ($q) => $q->active())->get() as $b) {
+                $urls[] = ['loc' => $b->url, 'priority' => '0.7', 'changefreq' => 'weekly', 'lastmod' => $b->updated_at];
             }
             foreach (Product::active()->where('noindex', false)->get() as $p) {
                 $urls[] = ['loc' => $p->url, 'priority' => '0.7', 'changefreq' => 'weekly', 'lastmod' => $p->updated_at];

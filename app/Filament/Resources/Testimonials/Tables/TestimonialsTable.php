@@ -23,7 +23,7 @@ class TestimonialsTable
                 TextColumn::make('rating')->state(fn (Testimonial $r) => str_repeat('★', $r->rating))->color('warning'),
                 TextColumn::make('service.name')->label('Service')->badge()->color('gray'),
                 TextColumn::make('body')->label('Review')->limit(60)->wrap(),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])

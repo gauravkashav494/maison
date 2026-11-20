@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Setting;
 use App\Models\Store;
 use App\Models\Storefront;
+use App\Support\Invoice;
 use App\Support\SalesOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -110,7 +111,7 @@ class SalesOrderTest extends TestCase
         $this->assertNull($order->estimated_delivery);
         // Sold at the counter, within the seller's own state.
         $this->assertSame('CGST + SGST', $order->tax_label);
-        $this->assertSame('Punjab (03)', \App\Support\Invoice::for($order)->data()['placeOfSupply']);
+        $this->assertSame('Punjab (03)', Invoice::for($order)->data()['placeOfSupply']);
         $this->assertTrue($order->isSalesOrder());
         $this->assertSame(0, $this->salesperson->addresses()->count());
     }
@@ -191,6 +192,34 @@ class SalesOrderTest extends TestCase
         $this->as($customer)->patch('/account', ['name' => 'Asha', 'email' => 'asha@example.test', 'phone' => '9000000002', 'is_salesperson' => 1]);
 
         $this->assertFalse($customer->fresh()->isSalesperson());
+    }
+
+    public function test_the_order_keeps_the_sellers_details_when_the_settings_change_later(): void
+    {
+        $setting = Setting::where('key', 'client:'.$this->client->id.':checkout')->firstOrFail();
+        $setting->update(['value' => ['invoice_business_name' => 'Alpha Retail Pvt Ltd', 'invoice_gstin' => '03AAACA1234A1Z5',
+            'invoice_address' => "12 Mall Road\nLudhiana 141001", 'invoice_note' => 'Thank you.'] + $setting->value]);
+        Cache::forget('settings.all');
+        $this->addToCart($this->salesperson);
+
+        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'payment_method' => 'cod'])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $order = $this->latestOrder();
+        $this->assertSame('Alpha Retail Pvt Ltd', $order->seller['name']);
+        $this->assertSame(['12 Mall Road', 'Ludhiana 141001'], $order->seller['address']);
+        $this->assertSame('03AAACA1234A1Z5', $order->seller['gstin']);
+        $this->assertSame('Punjab', $order->seller['state']);
+
+        // The store moves to another state with a new GSTIN and name: the old invoice is unchanged.
+        $setting->refresh()->update(['value' => ['invoice_business_name' => 'Alpha Holdings', 'invoice_gstin' => '27AAACA9999A1Z5',
+            'invoice_state' => '27', 'invoice_address' => '1 New Street, Pune', 'invoice_note' => 'New note.'] + $setting->value]);
+        Cache::forget('settings.all');
+
+        $data = Invoice::for($order->refresh())->data();
+        $this->assertSame('Alpha Retail Pvt Ltd', $data['seller']['name']);
+        $this->assertSame('03AAACA1234A1Z5', $data['seller']['gstin']);
+        $this->assertSame('Thank you.', $data['seller']['note']);
+        $this->assertSame('Punjab (03)', $data['placeOfSupply']);
     }
 
     public function test_without_a_gst_state_the_tax_is_plain_gst(): void

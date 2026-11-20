@@ -25,7 +25,7 @@ class StoresTable
                 TextColumn::make('name')->searchable()->weight('bold')->description(fn (Store $r) => $r->address),
                 TextColumn::make('city')->sortable(),
                 TextColumn::make('phone')->color('gray'),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])

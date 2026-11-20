@@ -1,9 +1,9 @@
 @php
     $columns = [
-        ['title' => 'Shop', 'items' => $menus['footer_shop']],
-        ['title' => 'Collections', 'items' => $menus['footer_collections']],
-        ['title' => 'About', 'items' => $menus['footer_about']],
-        ['title' => 'Customer Service', 'items' => $menus['footer_service']],
+        ['title' => 'Shop', 'area' => 'footer_shop', 'items' => $menus['footer_shop']],
+        ['title' => 'Collections', 'area' => 'footer_collections', 'items' => $menus['footer_collections']],
+        ['title' => 'About', 'area' => 'footer_about', 'items' => $menus['footer_about']],
+        ['title' => 'Customer Service', 'area' => 'footer_service', 'items' => $menus['footer_service']],
     ];
     $socials = [
         ['instagram', $site['social_instagram'] ?? null, 'Instagram'],
@@ -36,11 +36,11 @@
         {{-- Link columns: accordions on phones (app-style), four open columns from md up --}}
         <div class="grid grid-cols-1 py-2 md:grid-cols-4 md:gap-10 md:py-14">
             @foreach($columns as $col)
-                <div class="border-b border-ivory/10 md:border-0" x-data="{ o: false }">
+                <div class="border-b border-ivory/10 md:border-0" x-data="{ o: false }" data-menu-area="{{ $col['area'] }}">
                     <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-4 text-left md:pointer-events-none md:mb-5 md:py-0" :aria-expanded="o"><span class="eyebrow text-ivory/50">{{ $col['title'] }}</span><span class="text-ivory/50 md:hidden"><x-ico name="plus" :size="14" x-show="!o" /><x-ico name="minus" :size="14" x-show="o" x-cloak /></span></button>
                     <ul class="space-y-2.5 pb-5 md:pb-0" :class="o ? '' : 'max-md:hidden'">
                         @foreach($col['items'] as $l)
-                            <li><a href="{{ $l->href }}" class="link-underline text-[0.8125rem] text-ivory/80 hover:text-ivory">{{ $l->label }}</a></li>
+                            <li><a href="{{ $l->href }}" @if($l->opens_in_new_tab) target="_blank" rel="noopener" @endif class="link-underline text-[0.8125rem] text-ivory/80 hover:text-ivory">{{ $l->label }}</a></li>
                         @endforeach
                     </ul>
                 </div>
@@ -61,9 +61,9 @@
 
         <div class="flex flex-col gap-4 border-t border-ivory/10 py-6 text-[0.6875rem] text-ivory/50 md:flex-row md:items-center md:justify-between">
             <p>© {{ date('Y') }} {{ $site['name'] ?? config('app.name') }}. All rights reserved.</p>
-            <ul class="flex flex-wrap gap-x-5 gap-y-2">
+            <ul class="flex flex-wrap gap-x-5 gap-y-2" data-menu-area="legal">
                 @foreach($menus['legal'] as $l)
-                    <li><a href="{{ $l->href }}" class="hover:text-ivory">{{ $l->label }}</a></li>
+                    <li><a href="{{ $l->href }}" @if($l->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-ivory">{{ $l->label }}</a></li>
                 @endforeach
             </ul>
         </div>

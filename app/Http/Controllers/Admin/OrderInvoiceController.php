@@ -20,6 +20,7 @@ class OrderInvoiceController extends Controller
     {
         $order = Order::with('items')->findOrFail($order);
         abort_unless(OrderResource::canView($order), 403);
+        abort_unless($order->hasInvoice(), 404);
         app(ActivityLog::class)->record('viewed', 'opened the invoice of '.app(ActivityLog::class)->describer()->reference($order), $order);
 
         return Invoice::for($order)->stream();

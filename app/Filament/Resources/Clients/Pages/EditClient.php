@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\Clients\Pages;
 
+use App\Clients\ClientDatabase;
+use App\Clients\ClientProvisioner;
 use App\Clients\ClientTemplateSwitch;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
+use App\Models\Client;
 use App\Models\ClientUser;
 use App\Support\PasswordRules;
 use Filament\Actions\Action;
@@ -112,6 +115,42 @@ class EditClient extends EditRecord
         }
 
         $this->previousTemplate = $this->getRecord()->templateId();
+        $this->previousDatabase = $this->getRecord()->databaseName();
+    }
+
+    /** The database name before this save, to say what happened when it changed. */
+    protected ?string $previousDatabase = null;
+
+    /** A new database name: say whether the client's database moved there or it now uses one that was already there. */
+    protected function notifyDatabaseChange(Client $client): void
+    {
+        $from = $this->previousDatabase;
+        $to = $client->databaseName();
+        if (! $from || strcasecmp($from, $to) === 0 || ! app(ClientDatabase::class)->isolated()) {
+            return;
+        }
+
+        if ($client->movedDatabase) {
+            // Its own look (theme.css, .fi-status-database-moved) and it stays until closed:
+            // a client's whole store just moved, so it must not slip by unnoticed.
+            Notification::make()->status('database-moved')
+                ->icon('heroicon-o-circle-stack')
+                ->title('Database renamed')
+                ->body('<p><code>'.e($from).'</code> → <code>'.e($to).'</code></p>'
+                    .'<p>Every product, order and setting moved with it, with the same ids and dates.</p>')
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        app(ClientProvisioner::class)->databaseExists($client)
+            ? Notification::make()->info()->title('Database changed')
+                ->body('This client now uses the existing database '.$to.'. Its old database, '.$from.', was left as it was.')
+                ->send()
+            : Notification::make()->warning()->title('Database name changed')
+                ->body('There was no database to move, and '.$to.' does not exist yet. Use "Repair database" on the client\'s page to create it.')
+                ->send();
     }
 
     /** The template the client ran before this save, to move their content if it changed. */
@@ -123,6 +162,8 @@ class EditClient extends EditRecord
      */
     protected function afterSave(): void
     {
+        $this->notifyDatabaseChange($this->getRecord());
+
         $client = $this->getRecord()->refresh();
         $from = $this->previousTemplate;
         $to = $client->templateId();

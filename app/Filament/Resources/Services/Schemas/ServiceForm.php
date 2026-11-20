@@ -31,14 +31,14 @@ class ServiceForm
                         ->icon('heroicon-o-wrench-screwdriver')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('name', 'Service name', scopeColumn: 'template'),
+                                Fields::nameWithAddress('/services', 'name', 'Service name'),
                                 Fields::templateVisibility()->live(),
                                 Select::make('icon')->options($icons)->native(false)->helperText('Line icon shown on cards, the category rail and the booking flow.'),
-                                Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
+                                Toggle::make('is_active')->label('Visible on storefront')->default(true)->inline(false),
                                 Toggle::make('is_popular')->label('Popular (shown first on the homepage)')->inline(false),
                                 Toggle::make('is_emergency')->label('Emergency service')->helperText('Used by the emergency page, quick action and red accents. Keep one.')->inline(false),
-                                TextInput::make('sort_order')->numeric()->default(0),
                             ]),
+                            // The order is set by dragging rows in the services list (then A to Z).
                             Textarea::make('excerpt')->label('Short description')->rows(2)->maxLength(300)->required()->helperText('One or two lines shown on cards and under the service title.'),
                             RichEditor::make('description')->label('About this service'),
                             Fields::image('image', 'Image (1200×800)', 'plumbing-services'),
@@ -60,7 +60,6 @@ class ServiceForm
                             ]),
                             TextInput::make('price_note')->label('Price note (optional)')->maxLength(120)->helperText('e.g. "Visit charge ₹199, adjusted in the final bill". Leave blank to show no pricing.'),
                         ]),
-                    Fields::seoTab(),
                 ]),
             ]);
     }

@@ -253,6 +253,29 @@ Alpine.data('shopSearch', () => ({
 /* ---------------------------------------------------------------------------
    Product page: every size of one product, each with its own quantity box
 --------------------------------------------------------------------------- */
+/**
+ * Saved items page: the wishlist lives on the device, so its ids are sent to the page's own
+ * route (?ids=…) and the order list that comes back is put in place (x-html starts its Alpine
+ * parts). It reloads when a heart on the list takes an item off.
+ */
+Alpine.data('savedList', (url) => ({
+    html: '',
+    loading: true,
+    async init() {
+        await this.load();
+        this.$watch('$store.wishlist.ids', () => this.load());
+    },
+    async load() {
+        const ids = Alpine.store('wishlist').ids;
+        if (!ids.length) { this.html = ''; this.loading = false; return; }
+        try {
+            const res = await fetch(`${url}?ids=${ids.join(',')}`, { headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } });
+            this.html = res.ok ? (await res.text()).trim() : '';
+        } catch { this.html = ''; }
+        this.loading = false;
+    },
+}));
+
 Alpine.data('orderSheet', (lines = []) => ({
     lines: Object.fromEntries(lines.map((l) => [l.key, l])),
     // The quantity box of each line shows how many are in the cart. Changing one marks it
@@ -355,13 +378,37 @@ function writeDraft(rows) {
 const terms = (q) => String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
 const PICK_LIMIT = 60; // results shown at once; typing narrows the rest
 
-Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
-    all: Object.values(index.lines).map((l) => ({
-        ...l,
-        own: [l.name, l.label, l.unit, l.sku].filter(Boolean).join(' ').toLowerCase(),
-        haystack: [l.name, l.label, l.unit, l.sku, l.category].filter(Boolean).join(' ').toLowerCase(),
-    })),
-    category: '',
+/**
+ * Each category's place in the tree: its path ("Women › Jackets & Coats") for the picker's group
+ * headings, and its position, so groups come in menu order.
+ */
+const treePlaces = (tree) => {
+    const byId = new Map(tree.map((c) => [c.id, c]));
+    const places = new Map();
+    tree.forEach((c, order) => {
+        const names = [];
+        for (let at = c, n = 0; at && n < 8; at = byId.get(at.parent), n++) names.unshift(at.name);
+        places.set(c.id, { path: names.join(' › '), order });
+    });
+    return places;
+};
+
+Alpine.data('itemsForm', (index = { lines: {}, codes: {} }, tree = []) => {
+    const places = treePlaces(tree);
+    return {
+    all: Object.values(index.lines).map((l) => {
+        const place = places.get(l.category_id);
+        const path = place?.path || l.category || '';
+        return {
+            ...l,
+            path,
+            order: place ? place.order : tree.length,
+            own: [l.name, l.label, l.unit, l.sku].filter(Boolean).join(' ').toLowerCase(),
+            // The whole path is searchable: "women coat" finds the coats under Women.
+            haystack: [l.name, l.label, l.unit, l.sku, path].filter(Boolean).join(' ').toLowerCase(),
+        };
+    }).sort((a, b) => a.order - b.order),
+    categoryId: null, // the Category filter: a category id, or null for all
     cat: { q: '', open: false, hi: 0 }, // the searchable Category filter
     rows: [],
     nextId: 1,
@@ -396,13 +443,24 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
         return extra ? `${line.name} (${extra})` : line.name;
     },
 
-    /** Category names in catalogue order, for the filter. */
+    /** The category tree for the filter (parents before their children), from the server. */
     get categories() {
-        return [...new Set(this.all.map((l) => l.category).filter(Boolean))];
+        return tree;
     },
-    /** The items the filter allows. */
+    /** The chosen category's entry, or null for all. */
+    get chosenCategory() {
+        return this.categoryId === null ? null : tree.find((c) => c.id === this.categoryId) || null;
+    },
+    /** The chosen category's name, or '' for all. */
+    get category() {
+        return this.chosenCategory?.name || '';
+    },
+    /** The items the filter allows: anything listed in the category or below it. */
     get available() {
-        return this.category ? this.all.filter((l) => l.category === this.category) : this.all;
+        const chosen = this.chosenCategory;
+        if (!chosen) return this.all;
+        const ids = new Set(chosen.products);
+        return this.all.filter((l) => ids.has(l.product_id));
     },
     /** A row's search results: the filtered items matching what was typed, grouped by category. */
     results(row) {
@@ -413,7 +471,7 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
         const shown = found.slice(0, PICK_LIMIT);
         const groups = [];
         shown.forEach((line, i) => {
-            const name = line.category || 'Other';
+            const name = line.path || 'Other';
             let group = groups.find((g) => g.name === name);
             if (!group) groups.push(group = { name, items: [] });
             group.items.push({ line, i });
@@ -454,11 +512,11 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
         row.q = this.display(row.line);
     },
 
-    /** The Category filter's choices: "All categories" first, then the names matching what was typed. */
+    /** The Category filter's choices: "All categories" first, then the tree; typing narrows it. */
     get categoryChoices() {
         const words = this.cat.open ? terms(this.cat.q) : [];
-        const names = this.categories.filter((n) => words.every((w) => n.toLowerCase().includes(w)));
-        return words.length ? names : ['', ...names];
+        const found = this.categories.filter((c) => words.every((w) => c.name.toLowerCase().includes(w)));
+        return words.length ? found : [{ id: null, name: '', depth: 0 }, ...found];
     },
     openCategory() {
         if (this.cat.open) return;
@@ -470,9 +528,9 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
         const n = this.categoryChoices.length;
         if (n) this.cat.hi = (this.cat.hi + step + n) % n;
     },
-    pickCategory(name) {
-        if (name === undefined) return;
-        this.category = name;
+    pickCategory(choice) {
+        if (choice === undefined) return;
+        this.categoryId = choice.id;
         this.closeCategory();
     },
 
@@ -552,7 +610,7 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
             if (line && line.max > 0) rows.push(this.blank({ key: line.key, line, qty: Math.min(Math.max(1, qty), line.max) }));
             else skipped++;
         }
-        this.category = '';
+        this.categoryId = null;
         this.rows = rows.length ? rows : [this.blank()];
         this.expandOnly(this.rows[this.rows.length - 1]);
         this.message = skipped
@@ -587,7 +645,8 @@ Alpine.data('itemsForm', (index = { lines: {}, codes: {} }) => ({
             this.busy = false;
         }
     },
-}));
+};
+});
 
 /* ---------------------------------------------------------------------------
    Quick-order pad: pasted codes → checked lines → added together

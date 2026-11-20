@@ -5,9 +5,9 @@
     <x-slot:actions>
         <a href="{{ url('/#bulk-order') }}" class="bk-btn bk-btn-outline"><x-heroicon-o-arrow-path aria-hidden="true" />Order again</a>
     </x-slot:actions>
-    <section class="bk-card p-5">
+    <section class="bk-card px-4 py-2">
         @include('account.partials.order-table', ['orders' => $orders])
     </section>
-    @if($orders->hasPages())<div class="bk-pager mt-6">{{ $orders->links() }}</div>@endif
+    @if($orders->hasPages())<div class="bk-pager mt-4">{{ $orders->links() }}</div>@endif
 </x-account-shell>
 @endsection

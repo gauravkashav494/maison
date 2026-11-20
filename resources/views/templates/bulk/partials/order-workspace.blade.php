@@ -4,9 +4,9 @@
     to the form with its rows filled in. $quickIndex and $recentOrders come from
     App\Templates\Bulk\HomeComposer.
 --}}
-<div class="bk-card p-4 sm:p-6"
+<div class="bk-card p-4 sm:p-5"
      x-data="{ tab: location.hash === '#paste-list' ? 'paste' : 'items' }" @bk-load-order.window="tab = 'items'">
-    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div class="bk-tabs" role="tablist" aria-label="How to enter your order">
             <button type="button" role="tab" :aria-selected="tab === 'items'" @click="tab = 'items'"><x-heroicon-o-squares-2x2 aria-hidden="true" />Add items</button>
             <button type="button" role="tab" :aria-selected="tab === 'paste'" @click="tab = 'paste'"><x-heroicon-o-clipboard-document-list aria-hidden="true" />Paste a list</button>
@@ -16,7 +16,7 @@
         <div id="bk-tab-tools" class="w-full sm:w-auto" x-show="tab === 'items'"></div>
     </div>
 
-    <div x-show="tab === 'items'"><x-items-form :index="$quickIndex" /></div>
+    <div x-show="tab === 'items'"><x-items-form :index="$quickIndex" :categories="$categoryTree ?? []" /></div>
     <div x-show="tab === 'paste'" x-cloak><x-quick-order :index="$quickIndex" /></div>
 
     <div x-show="tab === 'again'" x-cloak>

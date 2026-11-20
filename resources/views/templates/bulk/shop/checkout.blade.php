@@ -21,18 +21,18 @@
      })">
 
     <div class="flex flex-wrap items-end justify-between gap-3">
-        <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Checkout</h1>
+        <h1 class="text-2xl font-extrabold tracking-tight">Checkout</h1>
         <a href="{{ route('cart') }}" class="bk-link text-sm">← Back to your order</a>
     </div>
 
     <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
-    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]" @submit="submitting = true" novalidate>
+    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form bk-compact mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]" @submit="submitting = true" novalidate>
         @csrf
 
         <div class="space-y-3">
             <section class="bk-card p-4 sm:p-5">
                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <h2 class="flex items-center gap-3 text-lg font-extrabold"><span class="bk-step-no">1</span>@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2>
+                    <h2 class="flex items-center gap-2.5 text-base font-extrabold"><span class="bk-step-no">1</span>@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2>
                     @guest
                         <p class="bk-muted text-sm"><a href="{{ route('login') }}?redirect=checkout" class="bk-link">Sign in</a> to use your saved address</p>
                     @endguest
@@ -63,7 +63,7 @@
             {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
             @unless($salesOrder ?? false)
             <section>
-                <h2 class="flex items-center gap-3 p-4 pb-3 text-lg font-extrabold sm:px-5"><span class="bk-step-no">2</span>Delivery</h2>
+                <h2 class="flex items-center gap-2.5 px-4 py-3 text-base font-extrabold sm:px-5"><span class="bk-step-no">2</span>Delivery</h2>
                 @error('shipping_method')<p class="bk-error px-4 sm:px-5">{{ $message }}</p>@enderror
                 <div class="grid border-t border-[var(--bk-line)] sm:grid-cols-2 sm:[&>.bk-option:nth-child(2)]:border-t-0 sm:[&>.bk-option:nth-child(even)]:border-l sm:[&>.bk-option:nth-child(even)]:border-[var(--bk-line)]">
                     @foreach($shippingMethods as $m)
@@ -83,7 +83,7 @@
             @endunless
 
             <section class="border-t border-[var(--bk-line)]">
-                <h2 class="flex items-center gap-3 p-4 pb-3 text-lg font-extrabold sm:px-5"><span class="bk-step-no">3</span>Payment</h2>
+                <h2 class="flex items-center gap-2.5 px-4 py-3 text-base font-extrabold sm:px-5"><span class="bk-step-no">3</span>Payment</h2>
                 <div class="border-t border-[var(--bk-line)]">
                     @foreach($paymentMethods as $code => $name)
                         <label class="bk-option" :class="payment === @js($code) && 'is-on'">
@@ -109,11 +109,11 @@
             </div>
         </div>
 
-        <aside class="bk-card bk-summary p-5">
-            <p class="text-lg font-extrabold">Order summary</p>
+        <aside class="bk-card bk-summary p-4">
+            <p class="text-base font-extrabold">Order summary</p>
             <ul class="mt-3 max-h-80 divide-y divide-[var(--bk-line)] overflow-y-auto">
                 @foreach($cart['items'] as $item)
-                    <li class="flex justify-between gap-3 py-2.5 text-sm">
+                    <li class="flex justify-between gap-3 py-2 text-sm">
                         <span class="min-w-0">
                             <span class="block font-bold leading-snug">{{ $item['product']['name'] }}</span>
                             <span class="bk-code">{{ $item['variant_sku'] ?: ($item['product']['sku'] ?? '') }}@if($item['options_label'] ?? null) · {{ $item['options_label'] }}@endif · × {{ $item['qty'] }}</span>
@@ -124,7 +124,7 @@
             </ul>
 
             {{-- Read from the cart store so a delivery or payment change updates the totals at once. --}}
-            <dl class="bk-totals mt-4">
+            <dl class="bk-totals mt-3">
                 <dt>Subtotal</dt><dd x-text="$store.cart.subtotal_formatted || @js($cart['subtotal_formatted'])"></dd>
                 <template x-if="$store.cart.discount > 0"><dt>Discount</dt></template>
                 <template x-if="$store.cart.discount > 0"><dd x-text="'− ' + $store.cart.discount_formatted"></dd></template>
@@ -140,7 +140,7 @@
             @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-[var(--bk-line)] pt-3', 'labelClass' => 'text-sm font-bold', 'inputClass' => 'bk-input !py-2 min-w-0 flex-1', 'buttonClass' => 'bk-btn bk-btn-outline !py-2 shrink-0', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 rounded-lg bg-[var(--bk-soft)] px-3 py-2 text-sm', 'removeClass' => 'bk-link shrink-0 text-xs', 'errorClass' => 'bk-error mt-2 text-xs'])
             @if(prices_include_tax())<p class="mt-1 text-right text-xs bk-muted">Inclusive of all taxes</p>@endif
 
-            <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-4 !py-3 text-base" :disabled="submitting || $store.cart.unavailable?.length > 0">
+            <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-3 !py-2.5 text-sm" :disabled="submitting || $store.cart.unavailable?.length > 0">
                 <x-heroicon-o-check-circle aria-hidden="true" /><span x-text="submitting ? 'Placing order…' : 'Place order'">Place order</span>
             </button>
             @guest<p class="bk-muted mt-3 text-center text-xs">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest

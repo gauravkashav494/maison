@@ -2,6 +2,7 @@
 
 namespace App\Templates\Grocery;
 
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\View\View;
@@ -30,9 +31,8 @@ class HomeComposer
             }
         }
 
-        $brands = Product::active()->whereNotNull('brand')->where('brand', '!=', '')
-            ->selectRaw('brand, count(*) as products')->groupBy('brand')
-            ->orderByDesc('products')->limit(12)->get();
+        // In the order set in the brands list (Brand::strip).
+        $brands = Brand::strip(12);
 
         $sections = collect($home['sections'] ?? [])
             ->filter(fn ($s) => ! empty($s['enabled']) && ! empty($s['key']))

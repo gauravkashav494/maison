@@ -56,7 +56,7 @@
         {{-- Details --}}
         <div class="min-w-0 lg:col-span-6">
             <h1 class="display text-2xl text-red lg:text-[2rem]">{{ $product->name }}</h1>
-            <p class="mt-2 text-sm text-ink">{{ $product->category?->name }}@if($product->brand) · {{ $product->brand }}@endif</p>
+            <p class="mt-2 text-sm text-ink">{{ $product->category?->name }}@if($product->brand) · <a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="hover:underline">{{ $product->brand }}</a>@endif</p>
             @if($product->description)<p class="mt-3 text-sm leading-relaxed text-ink/85">{{ $product->description }}</p>@endif
 
             @if($benefits)

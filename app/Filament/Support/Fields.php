@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
+use App\Models\Concerns\HasSeo;
 use App\Rules\WithinClientStorage;
 use App\Templates\TemplateManager;
 use Filament\Forms\Components\BaseFileUpload;
@@ -20,13 +21,9 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs\Tab;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Unique;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /** Reusable admin form building blocks shared across resources and settings pages. */
@@ -141,34 +138,36 @@ class Fields
      *                                    record and the store's own one with the same slug would
      *                                    compete for one URL, and only one of them is ever shown.
      */
-    public static function nameAndSlug(string $nameField = 'name', string $label = 'Name', ?string $scopeColumn = null): array
+    /**
+     * A category picker option: its name, with the categories above it on the right in grey
+     * ("Shirts            Men"), so two of the same name are told apart. For a Select with
+     * allowHtml(); styled by .fi-cat-option in theme.css.
+     *
+     * @param  list<string>  $above  top first
+     */
+    public static function categoryOption(string $name, array $above): string
     {
-        return [
-            TextInput::make($nameField)
-                ->label($label)
-                ->required()
-                ->maxLength(255)
-                ->live(onBlur: true)
-                ->afterStateUpdated(function (Set $set, Get $get, ?string $state, ?string $old) {
-                    // Only auto-fill the slug while it still mirrors the previous name.
-                    if (blank($get('slug')) || $get('slug') === Str::slug((string) $old)) {
-                        $set('slug', Str::slug((string) $state));
-                    }
-                }),
-            TextInput::make('slug')
-                ->required()
-                ->maxLength(255)
-                ->alphaDash()
-                // Slugs are unique inside a client, not across the platform: two clients may
-                // each have a "shirts" category.
-                ->unique(ignoreRecord: true, modifyRuleUsing: function (Unique $rule, Get $get) use ($scopeColumn) {
-                    $clientId = app(ClientContext::class)->id();
-                    $rule = $rule->where('client_id', $clientId);
+        return $above === []
+            ? e($name)
+            : '<span class="fi-cat-option">'.e($name).'<span class="fi-cat-option-path">'.e(implode(' › ', $above)).'</span></span>';
+    }
 
-                    return $scopeColumn && ! $clientId ? $rule->where($scopeColumn, $get($scopeColumn)) : $rule;
-                })
-                ->helperText('Used in the page URL. Lowercase letters, numbers and dashes only.'),
-        ];
+    /**
+     * A name box for a record whose slug the model makes on save (GeneratesSlug) and keeps when
+     * renamed, so the URL never breaks. The hint shows the page address once there is one
+     * ($path is its start, "/" for a top-level page); records with no page of their own pass null.
+     */
+    public static function nameWithAddress(?string $path, string $nameField = 'name', string $label = 'Name'): TextInput
+    {
+        return TextInput::make($nameField)
+            ->label($label)
+            ->required()
+            ->maxLength(255)
+            ->helperText(fn (?Model $record) => match (true) {
+                $path === null => null,
+                filled($record?->slug) => 'Page address: '.rtrim($path, '/').'/'.$record->slug,
+                default => 'The page address is made from the '.strtolower($label).' when saved.',
+            });
     }
 
     /** "Visible in" template selector for catalogue records (null = every template). */
@@ -205,33 +204,35 @@ class Fields
             });
     }
 
-    /** SEO tab shared by every public content type. */
-    public static function seoTab(): Tab
+    /**
+     * The search & social fields of a public content type (HasSeo). Edited in SEO → Search listings,
+     * not on the content forms. Placeholders show what is used when a field is left blank.
+     *
+     * @param  Model&HasSeo  $record
+     */
+    public static function seoFields(Model $record): array
     {
-        return Tab::make('SEO')
-            ->icon('heroicon-o-magnifying-glass')
-            ->schema([
-                Section::make('Search & social')
-                    ->description('Leave blank to fall back to the name/description and main image.')
-                    ->schema([
-                        TextInput::make('meta_title')
-                            ->label('Meta title')
-                            ->maxLength(70)
-                            ->helperText('Recommended 50–60 characters. The site suffix is appended automatically.'),
-                        Textarea::make('meta_description')
-                            ->label('Meta description')
-                            ->rows(3)
-                            ->maxLength(320)
-                            ->helperText('Recommended 140–160 characters.'),
-                        self::image('og_image', 'Social share image (1200×630)', 'seo'),
-                        TextInput::make('canonical_url')
-                            ->label('Canonical URL')
-                            ->url()
-                            ->helperText('Only set when this content duplicates another URL.'),
-                        Toggle::make('noindex')
-                            ->label('Hide from search engines (noindex)')
-                            ->default(false),
-                    ]),
-            ]);
+        return [
+            TextInput::make('meta_title')
+                ->label('Meta title')
+                ->maxLength(70)
+                ->placeholder($record->seoDefaultTitle())
+                ->helperText('Recommended 50–60 characters. The site suffix is appended automatically.'),
+            Textarea::make('meta_description')
+                ->label('Meta description')
+                ->rows(3)
+                ->maxLength(320)
+                ->placeholder($record->seoDefaultDescription())
+                ->helperText('Recommended 140–160 characters.'),
+            self::image('og_image', 'Social share image (1200×630), leave empty to use the main image', 'seo'),
+            TextInput::make('canonical_url')
+                ->label('Canonical URL')
+                ->url()
+                ->maxLength(255)
+                ->helperText('Only set when this content duplicates another URL.'),
+            Toggle::make('noindex')
+                ->label('Hide from search engines (noindex)')
+                ->default(false),
+        ];
     }
 }

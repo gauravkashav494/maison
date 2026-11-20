@@ -19,7 +19,7 @@ class ViewCollection extends ViewRecord
             Action::make('storefront')
                 ->label('View on store')
                 ->icon('heroicon-o-arrow-top-right-on-square')
-                ->color('gray')
+                ->color('primary')
                 ->hidden(fn () => $this->getRecord()->trashed() || ! $this->getRecord()->is_active)
                 ->url(fn () => StorefrontLink::to($this->getRecord(), 'collections/'.$this->getRecord()->slug), shouldOpenInNewTab: true),
             RestoreAction::make(),

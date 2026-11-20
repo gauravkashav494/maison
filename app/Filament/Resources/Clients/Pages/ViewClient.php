@@ -22,7 +22,7 @@ class ViewClient extends ViewRecord
             Action::make('visit')
                 ->label('Visit store')
                 ->icon('heroicon-o-arrow-top-right-on-square')
-                ->color('gray')
+                ->color('primary')
                 ->hidden(fn () => $this->getRecord()->trashed())
                 ->url(fn () => $this->getRecord()->publicUrl(), shouldOpenInNewTab: true),
             $this->repairAction(),

@@ -29,7 +29,7 @@
         @unless($isHome)<button type="button" @click="$store.app.back()" class="icon-btn -ml-2 shrink-0 lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         <button type="button" @click="$store.ui.openMenu()" class="icon-btn shrink-0 lg:hidden {{ $isHome ? '-ml-2' : '' }}" aria-label="Open menu"><x-ico name="menu" :size="22" /></button>
 
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-deep text-white lg:h-11 lg:w-11"><x-ico name="droplet" :size="22" :stroke="2" /></span>
             <span class="font-display text-xl font-800 leading-none tracking-tight lg:text-[1.45rem]"><span class="font-extrabold text-deep">{{ $p['logo_primary'] ?? 'Plumb' }}</span><span class="font-extrabold text-bright">{{ $p['logo_accent'] ?? 'Kart' }}</span></span>
         </a>
@@ -70,7 +70,7 @@
                 @endforeach
             </div>
             @if($links->isNotEmpty())
-                <div class="flex items-center gap-0.5 border-l border-white/20 pl-2" @mouseenter="scheduleClose()">
+                <div class="flex items-center gap-0.5 border-l border-white/20 pl-2" @mouseenter="scheduleClose()" data-menu-area="header">
                     @foreach($links->take(4) as $item)
                         <a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="nav-link {{ $item->is_accent ? 'text-accent' : '' }}">@if($item->is_accent)<x-ico name="percent" :size="14" />@endif{{ $item->label }}</a>
                     @endforeach

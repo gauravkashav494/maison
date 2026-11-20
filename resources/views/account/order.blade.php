@@ -9,7 +9,7 @@
         </div>
         <div class="flex flex-wrap gap-3">
             @if($order->tracking_number)<span class="border border-ink/15 px-3 py-2 text-xs">{{ $order->carrier ?: 'Tracking' }}: <span class="font-mono">{{ $order->tracking_number }}</span></span>@endif
-            <a href="{{ $order->invoiceUrl() }}" class="btn btn-outline btn-sm">Download invoice</a>
+            @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="btn btn-outline btn-sm">Download invoice</a>@endif
             @if($order->status === 'delivered')<a href="/returns" class="btn btn-outline btn-sm">Start a return</a>@endif
         </div>
     </div>

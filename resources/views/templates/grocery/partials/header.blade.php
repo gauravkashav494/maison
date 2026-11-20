@@ -24,7 +24,7 @@
         {{-- Inner pages get a back arrow, like a native navigation bar --}}
         @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-paper lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         {{-- Logo --}}
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
             <span class="text-[1.2rem] font-extrabold leading-none tracking-tight">
                 <span class="text-leaf-dark">{{ $g['logo_primary'] ?? 'Maison' }}</span><span class="text-saffron">{{ $g['logo_accent'] ?? 'Fresh' }}</span>
@@ -90,7 +90,7 @@
                 @endforeach
             </div>
             @if($quickLinks->isNotEmpty())
-                <div class="flex items-center gap-1 border-l border-line pl-3" @mouseenter="scheduleClose()">
+                <div class="flex items-center gap-1 border-l border-line pl-3" @mouseenter="scheduleClose()" data-menu-area="header">
                     @foreach($quickLinks->take(4) as $item)
                         <a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="flex h-11 items-center gap-1 px-2.5 text-[0.8125rem] font-bold {{ $item->is_accent ? 'text-berry' : 'text-slate hover:text-leaf' }}">
                             @if($item->is_accent)<x-ico name="tag" :size="14" />@endif{{ $item->label }}

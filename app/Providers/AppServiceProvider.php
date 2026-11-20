@@ -8,6 +8,8 @@ use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
 use App\Clients\ClientPasswordBrokerManager;
 use App\Clients\StoreFeatures;
+use App\Filament\Pages\SiteSettings;
+use App\Filament\Support\ToggleToast;
 use App\Http\Controllers\Admin\PanelLogoutController;
 use App\Http\Responses\LoginResponse;
 use App\Models\Client;
@@ -34,6 +36,7 @@ use App\Support\PasswordRules;
 use App\Templates\TemplateManager;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Auth\Http\Controllers\LogoutController;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Form;
@@ -99,6 +102,12 @@ class AppServiceProvider extends ServiceProvider
             fn () => view('filament.partials.image-lightbox'),
         );
 
+        // Site settings: "View on storefront" for the open tab, at the right of the tab bar.
+        FilamentView::registerRenderHook(
+            SiteSettings::TABS_END_HOOK,
+            fn () => view('filament.pages.site-settings-store-link', ['links' => SiteSettings::storefrontLinks()]),
+        );
+
         // Every form save scrolls back to the top, where the "Saved" toast shows.
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,
@@ -126,6 +135,9 @@ class AppServiceProvider extends ServiceProvider
             ->placeholder('Hide deleted')
             ->trueLabel('Show all')
             ->falseLabel('Only deleted'));
+
+        // View is the same blue as Edit everywhere (Filament draws it grey by default, which reads as disabled).
+        ViewAction::configureUsing(fn (ViewAction $action) => $action->color('primary'));
 
         // Clicking a table row does nothing: records open from the ⋮ menu (View / Edit) only.
         // Setting the URL here also stops resource list pages adding their default row link.
@@ -172,7 +184,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->terminating(fn () => app(ActivityLog::class)->flush());
 
         // Inline table edits write straight to the row without calling a policy.
-        ToggleColumn::configureUsing(fn ($column) => $column->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record)));
+        // A toast confirms each switch ("Visible turned on"), on every table.
+        ToggleColumn::configureUsing(fn ($column) => $column
+            ->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record))
+            ->afterStateUpdated(fn (ToggleColumn $column, $state) => ToggleToast::send($column, $state)));
         SelectColumn::configureUsing(fn ($column) => $column->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record)));
 
         // Every template's view folder is registered as a fallback location so Blade can resolve

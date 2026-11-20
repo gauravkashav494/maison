@@ -1,22 +1,22 @@
 {{--
     The order form, laid out like an invoice: one row per item. Each row's Item is a search box
     over the catalogue (name, size, code or category), with results grouped by category; the
-    Category filter on the tab row — searchable too — narrows every row to one category. Rate and amount are the server's figures for the
+    Category filter on the tab row — searchable too — narrows every row to one category and everything under it. Rate and amount are the server's figures for the
     chosen item — the buyer chooses only what and how many.
 
     Rows are kept in this browser as a draft until they are added, so a long order survives a
     reload. $index comes from App\Templates\Bulk\OrderLines::index().
 --}}
-@props(['index'])
+@props(['index', 'categories' => []])
 
-<div id="order-form" x-data="itemsForm(@js($index))" @bk-load-order.window="load($event.detail)">
+<div id="order-form" x-data="itemsForm(@js($index), @js($categories))" @bk-load-order.window="load($event.detail)">
     {{-- The Category filter sits on the tab row (the workspace's #bk-tab-tools slot) but is still
          part of this form: x-teleport moves where it is drawn, not whose data it uses. --}}
     <template x-teleport="#bk-tab-tools">
         <div class="flex w-full items-center gap-2 sm:w-auto">
-            <label for="bk-cat-filter" class="text-sm font-bold">Category</label>
-            <div class="bk-combo min-w-0 flex-1 sm:w-64 sm:flex-none" @click.outside="closeCategory()">
-                <input id="bk-cat-filter" type="text" class="bk-input bk-combo-input" autocomplete="off" spellcheck="false"
+            <label for="bk-cat-filter" class="text-xs font-bold">Category</label>
+            <div class="bk-combo min-w-0 flex-1 sm:w-56 sm:flex-none" @click.outside="closeCategory()">
+                <input id="bk-cat-filter" type="text" class="bk-input bk-combo-input !py-1.5 text-sm" autocomplete="off" spellcheck="false"
                        role="combobox" aria-autocomplete="list" aria-controls="bk-cat-list" :aria-expanded="cat.open"
                        :aria-activedescendant="cat.open && categoryChoices.length ? 'bk-cat-opt-' + cat.hi : null"
                        :value="cat.open ? cat.q : (category || 'All categories')"
@@ -27,11 +27,11 @@
                        @keydown.enter.prevent="cat.open ? pickCategory(categoryChoices[cat.hi]) : openCategory()"
                        @keydown.escape="closeCategory()" @keydown.tab="closeCategory()">
                 <ul id="bk-cat-list" class="bk-combo-list" role="listbox" x-show="cat.open" x-cloak>
-                    <template x-for="(name, i) in categoryChoices" :key="name">
-                        <li :id="'bk-cat-opt-' + i" role="option" :aria-selected="name === category"
-                            class="bk-combo-opt" :class="{ 'is-hi': i === cat.hi, 'is-on': name === category }"
-                            @mousedown.prevent="pickCategory(name)" @mousemove="cat.hi = i"
-                            x-text="name || 'All categories'"></li>
+                    <template x-for="(c, i) in categoryChoices" :key="c.id ?? 'all'">
+                        <li :id="'bk-cat-opt-' + i" role="option" :aria-selected="c.id === categoryId"
+                            class="bk-combo-opt bk-cat-opt" :class="{ 'is-hi': i === cat.hi, 'is-on': c.id === categoryId, 'is-top': c.depth === 0 }"
+                            :style="'--d: ' + c.depth" @mousedown.prevent="pickCategory(c)" @mousemove="cat.hi = i"
+                            x-text="c.name || 'All categories'"></li>
                     </template>
                     <li class="bk-combo-empty" x-show="!categoryChoices.length">No category matches “<span x-text="cat.q"></span>”</li>
                 </ul>
@@ -88,7 +88,8 @@
                                     </div>
                                 </template>
                                 <p class="bk-combo-empty" x-show="!results(row).flat.length">
-                                    No item matches “<span x-text="row.q"></span>”<template x-if="category"><span> in <span x-text="category"></span></span></template>
+                                    <template x-if="row.q.trim()"><span>No item matches “<span x-text="row.q"></span>”<template x-if="category"><span> in <span x-text="category"></span></span></template></span></template>
+                                    <template x-if="!row.q.trim()"><span>Nothing to order in <span x-text="category"></span> yet — choose another category.</span></template>
                                 </p>
                                 <p class="bk-combo-empty" x-show="results(row).more > 0" x-text="results(row).more + ' more — keep typing to narrow down'"></p>
                             </div>
@@ -110,16 +111,16 @@
         </tbody>
     </table>
 
-    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <button type="button" class="bk-btn bk-btn-outline" @click="addRow()"><x-heroicon-o-plus aria-hidden="true" />Add item</button>
+            <button type="button" class="bk-btn bk-btn-outline !py-1.5 text-sm" @click="addRow()"><x-heroicon-o-plus aria-hidden="true" />Add item</button>
             <button type="button" class="bk-btn bk-btn-ghost ml-auto text-sm sm:ml-0" x-show="filled.length" x-cloak @click="reset()">Clear</button>
             <p class="bk-ok w-full sm:w-auto" role="status" x-show="message" x-text="message" x-cloak></p>
         </div>
-        <button type="button" class="bk-btn bk-btn-primary w-full sm:w-auto sm:!px-6 sm:!py-3" :disabled="busy || !filled.length" @click="addAll()">
+        <button type="button" class="bk-btn bk-btn-primary w-full sm:w-auto sm:!px-5 sm:!py-2 text-sm" :disabled="busy || !filled.length" @click="addAll()">
             <x-heroicon-o-shopping-cart aria-hidden="true" />
             <span x-text="busy ? 'Adding…' : 'Add ' + filled.length + (filled.length === 1 ? ' item' : ' items') + ' to order'">Add to order</span>
         </button>
     </div>
-    <p class="bk-muted mt-2 text-xs">{{ prices_include_tax() ? 'Prices include GST. Delivery is added at checkout.' : 'Delivery and GST are added at checkout.' }}</p>
+    <p class="bk-muted mt-1.5 text-xs">{{ prices_include_tax() ? 'Prices include GST. Delivery is added at checkout.' : 'Delivery and GST are added at checkout.' }}</p>
 </div>

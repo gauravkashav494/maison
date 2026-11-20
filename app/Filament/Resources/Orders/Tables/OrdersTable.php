@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Orders\Tables;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\Orders\OrderStatusActions;
+use App\Filament\Support\CategoryFilter;
 use App\Filament\Support\DateRangeFilter;
 use App\Filament\Support\RowActions;
 use App\Models\Customer;
@@ -65,6 +66,8 @@ class OrdersTable
                 // Several statuses at once, so "confirmed + processing" (still to fulfil) is one view.
                 SelectFilter::make('status')->options(Order::statusOptions())->multiple()->native(false),
                 SelectFilter::make('payment_method')->options(Order::PAYMENT_METHODS)->native(false),
+                // Orders with at least one product in this category or any below it.
+                CategoryFilter::through('items.product'),
                 // Each sales person's orders, or every sales order at once.
                 SelectFilter::make('salesperson_id')->label('Placed by sales person')->native(false)->searchable()
                     ->options(fn () => Customer::where('client_id', app(ClientContext::class)->id() ?? 0)

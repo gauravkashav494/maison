@@ -48,7 +48,7 @@ class ProductsRelationManager extends RelationManager
                     ->description(fn (Product $r) => $r->compare_at_price ? 'was '.money($r->compare_at_price) : null),
                 TextColumn::make('stock')->sortable()->alignRight()
                     ->color(fn (Product $r) => $r->stock <= 0 ? 'danger' : ($r->stock <= Inventory::lowStockLevel() ? 'warning' : null)),
-                IconColumn::make('is_active')->label('Visible')->boolean(),
+                IconColumn::make('is_active')->label('Visible on storefront')->boolean(),
             ])
             ->recordActions([RowActions::group([
                 Action::make('view')->label('View')->icon('heroicon-m-eye')

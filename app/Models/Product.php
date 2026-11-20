@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Clients\ClientQuota;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\GeneratesSlug;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\UsesClientConnection;
+use App\Support\Activity\ActivityLog;
 use App\Support\ColourNames;
 use App\Support\Media;
 use App\Support\TaxPrices;
@@ -24,6 +26,7 @@ class Product extends Model
 {
     use BelongsToClient;
     use BelongsToTemplate;
+    use GeneratesSlug;
     use HasSeo;
     use SoftDeletes;
     use UsesClientConnection;
@@ -66,6 +69,41 @@ class Product extends Model
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class);
+    }
+
+    /**
+     * Sets the other categories this product is listed under, besides its main one (which is
+     * always kept), and writes the activity line: a pivot sync fires no model events.
+     *
+     * $mainId is the main category being saved with them. The product form passes it, because
+     * Filament saves relationships before it writes the record's own columns.
+     *
+     * @param  array<int|string>  $categoryIds
+     */
+    public function listUnder(array $categoryIds, ?int $mainId = null): void
+    {
+        $main = $mainId ?? (int) $this->category_id;
+        // The main category on either side of this save is not an "other" category.
+        $mains = array_values(array_filter([$main, (int) $this->category_id, (int) ($this->getPrevious()['category_id'] ?? 0)]));
+        $others = fn () => $this->categories()->whereKeyNot($mains)->orderBy('name')->pluck('name')->all();
+        $before = $others();
+
+        $ids = array_map('intval', array_filter($categoryIds, 'filled'));
+        $this->categories()->sync(array_values(array_unique(array_filter([$main, ...$ids]))));
+
+        $after = $others();
+        if ($before === $after) {
+            return;
+        }
+
+        $list = fn (array $names) => $names === [] ? 'none' : implode(', ', $names);
+        $log = app(ActivityLog::class);
+        $log->record(
+            'updated',
+            'changed the other categories of '.$log->describer()->reference($this).' from '.$list($before).' to '.$list($after),
+            $this,
+            [['field' => 'categories', 'label' => 'also listed under', 'old' => $list($before), 'new' => $list($after)]],
+        );
     }
 
     /** Products listed under any of these categories (not only those whose main category it is). */

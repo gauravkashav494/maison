@@ -6,10 +6,10 @@
 --}}
 
 @section('content')
-<div class="bk-wrap mt-6">
+<div class="bk-compact bk-wrap mt-6">
     <x-page-head title="Track an order" text="Enter the order number and the email or phone number used at checkout." :crumbs="['Track order' => null]" />
 
-    <form method="get" action="{{ route('track') }}" class="bk-card mt-5 grid gap-4 p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end" novalidate>
+    <form method="get" action="{{ route('track') }}" class="bk-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end" novalidate>
         <label class="bk-label">Order number<span class="bk-req">*</span>
             <input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. ME-260916-XXXX" class="bk-input uppercase" autocomplete="off">
             @error('number')<span class="bk-error">{{ $message }}</span>@enderror
@@ -18,17 +18,17 @@
             <input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="bk-input" autocomplete="on">
             @error('contact')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
-        <button type="submit" class="bk-btn bk-btn-primary !py-2.5"><x-heroicon-o-magnifying-glass aria-hidden="true" />Track</button>
+        <button type="submit" class="bk-btn bk-btn-primary"><x-heroicon-o-magnifying-glass aria-hidden="true" />Track</button>
         @if($error)<p class="bk-error sm:col-span-3" role="alert">{{ $error }}</p>@endif
     </form>
 
     @if($order)
-        <div class="bk-card mt-5 p-5">
+        <div class="bk-card mt-4 p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p class="bk-kicker">Order {{ $order->number }}</p>
-                    <x-order-status :order="$order" />
-                    <p class="bk-muted mt-2 text-sm">
+                    {{-- The number and its status on one line. --}}
+                    <p class="flex flex-wrap items-center gap-2"><span class="bk-kicker !mb-0">Order {{ $order->number }}</span><x-order-status :order="$order" /></p>
+                    <p class="bk-muted mt-1 text-sm">
                         Placed {{ $order->created_at->format('d M Y') }}
                         @if($order->estimated_delivery && ! in_array($order->status, ['delivered', 'cancelled'])) · Expected {{ $order->estimated_delivery->format('D, d M') }}@endif
                     </p>
@@ -37,10 +37,10 @@
                     <p class="text-sm sm:text-right"><span class="bk-kicker">{{ $order->carrier ?: 'Tracking number' }}</span><span class="bk-code">{{ $order->tracking_number }}</span></p>
                 @endif
             </div>
-            <div class="mt-5"><x-order-timeline :order="$order" /></div>
+            <div class="mt-4"><x-order-timeline :order="$order" /></div>
         </div>
 
-        <div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div class="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <x-order-summary :order="$order" />
             <x-order-details :order="$order">
                 @php $updates = collect($order->status_history ?? [])->reverse()->take(4); @endphp
@@ -54,7 +54,7 @@
                         </ul>
                     </div>
                 @endif
-                <p class="bk-muted border-t border-[var(--bk-line)] pt-4 text-xs">Need help? <a href="{{ url('/contact') }}" class="bk-link">Contact the trade desk</a> with your order number.</p>
+                <p class="bk-muted border-t border-[var(--bk-line)] pt-3 text-xs">Need help? <a href="{{ url('/contact') }}" class="bk-link">Contact the trade desk</a> with your order number.</p>
             </x-order-details>
         </div>
     @endif

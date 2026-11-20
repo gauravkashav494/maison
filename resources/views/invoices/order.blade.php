@@ -64,8 +64,9 @@
             @if($cancelledOn)<div class="cancelled-title">CANCELLED</div>@endif
             <table class="meta" style="width: auto; margin-left: auto; margin-top: 6px;">
                 <tr><td class="k">Invoice no.</td><td class="right"><strong>{{ $order->invoice_number }}</strong></td></tr>
+                <tr><td class="k">Invoice date</td><td class="right">{{ ($order->invoiced_at ?? $order->created_at)->format('d M Y') }}</td></tr>
                 <tr><td class="k">Order no.</td><td class="right">{{ $order->number }}</td></tr>
-                <tr><td class="k">Invoice date</td><td class="right">{{ $order->created_at->format('d M Y') }}</td></tr>
+                <tr><td class="k">Order date</td><td class="right">{{ $order->created_at->format('d M Y') }}</td></tr>
                 @if($placeOfSupply ?? null)<tr><td class="k">Place of supply</td><td class="right">{{ $placeOfSupply }}</td></tr>@endif
                 <tr><td class="k">Payment</td><td class="right">{{ $paymentMethod }} · {{ $order->paymentStatusLabel() }}</td></tr>
             </table>

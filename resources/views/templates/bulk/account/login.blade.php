@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Sign in" intro="Welcome back. Your orders and saved addresses are where you left them.">
-    <form method="post" action="{{ route('login') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('login') }}" class="space-y-3" novalidate>
         @csrf
         <label class="bk-label">Phone number<span class="bk-req">*</span>
             <input name="phone" type="tel" inputmode="tel" autofocus autocomplete="tel" class="bk-input" value="{{ old('phone') }}">

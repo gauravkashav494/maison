@@ -16,8 +16,8 @@
     @endif
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div class="min-w-0">
-            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">{{ $title }}</h1>
-            @if($text)<p class="bk-muted mt-1 max-w-2xl">{{ $text }}</p>@endif
+            <h1 class="text-2xl font-extrabold tracking-tight">{{ $title }}</h1>
+            @if($text)<p class="bk-muted mt-0.5 max-w-2xl text-sm">{{ $text }}</p>@endif
         </div>
         {{ $slot }}
     </div>

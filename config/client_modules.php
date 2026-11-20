@@ -53,8 +53,10 @@ return [
         'categories' => ['label' => 'Categories', 'group' => 'Catalogue', 'model' => Category::class, 'core' => true],
         'collections' => ['label' => 'Collections', 'group' => 'Catalogue', 'model' => Collection::class,
             'storefront' => ['hide' => true, 'routes' => ['collections.*']]],
-        // Switching it off only leaves the admin: products keep their brand name, typed in by hand.
-        'brands' => ['label' => 'Brands', 'group' => 'Catalogue', 'model' => Brand::class],
+        // Switching it off closes the brand pages (/brands/{slug}); products keep their brand name,
+        // typed in by hand, and it still links to the shop filtered by it.
+        'brands' => ['label' => 'Brands', 'group' => 'Catalogue', 'model' => Brand::class,
+            'storefront' => ['routes' => ['brands.*']]],
         // Every product picks its tax (name, rate), so the tax master is always on.
         'taxes' => ['label' => 'Taxes', 'group' => 'Catalogue', 'model' => Tax::class, 'core' => true],
         'reviews' => ['label' => 'Reviews', 'group' => 'Catalogue', 'model' => Review::class, 'actions' => ['view', 'update', 'delete'],
@@ -89,6 +91,10 @@ return [
         'messages' => ['label' => 'Messages', 'group' => 'Marketing', 'model' => ContactMessage::class, 'actions' => ['view', 'update', 'delete'],
             'storefront' => ['routes' => ['contact.store', 'services.contact']]],
 
+        // Search & social titles, descriptions and images of every public page, and the site's SEO
+        // defaults. Switching it off only leaves the admin: the store keeps what was set.
+        'seo' => ['label' => 'SEO', 'group' => 'SEO', 'model' => null, 'actions' => ['view', 'update']],
+
         'appearance' => ['label' => 'Store settings', 'group' => 'Appearance', 'model' => null, 'actions' => ['update'], 'core' => true],
     ],
 
@@ -118,10 +124,10 @@ return [
             ],
         ],
         'Content editor' => [
-            'description' => 'Edits pages, the journal, navigation, store locations and store settings.',
+            'description' => 'Edits pages, the journal, navigation, store locations, SEO and store settings.',
             'permissions' => [
                 'pages' => '*', 'posts' => '*', 'faqs' => '*', 'menus' => '*', 'testimonials' => '*', 'stores' => '*',
-                'appearance' => '*',
+                'appearance' => '*', 'seo' => '*',
             ],
         ],
     ],

@@ -4,7 +4,7 @@
 
 @section('content')
 <x-auth-card heading="Sign in with WhatsApp" intro="No password needed. We'll send a one-time code to the WhatsApp on your account.">
-    <form method="post" action="{{ route('login.otp') }}" class="space-y-4" novalidate>
+    <form method="post" action="{{ route('login.otp') }}" class="space-y-3" novalidate>
         @csrf
         <label class="bk-label">Phone number<span class="bk-req">*</span>
             <input name="phone" type="tel" inputmode="tel" autofocus autocomplete="tel" class="bk-input" value="{{ old('phone') }}">

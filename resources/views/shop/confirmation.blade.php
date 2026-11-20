@@ -10,7 +10,7 @@
         <div class="mt-8 flex flex-wrap justify-center gap-4">
             <a href="{{ route('track') }}?number={{ $order->number }}&contact={{ urlencode($order->email ?: $order->phone) }}" class="btn btn-primary">Track order</a>
             <a href="{{ route('shop.index') }}" class="btn btn-outline">Continue shopping</a>
-            <a href="{{ $order->invoiceUrl() }}" class="btn btn-outline">Download invoice</a>
+            @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="btn btn-outline">Download invoice</a>@endif
         </div>
     </div>
 </section>

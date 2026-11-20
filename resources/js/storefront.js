@@ -131,13 +131,42 @@ Alpine.store('cart', {
 });
 
 /* ---------------------------------------------------------------------------
-   Wishlist + recent searches — per-device, persisted in localStorage
+   Wishlist (Saved items) + recent searches, persisted in localStorage.
+   A guest's wishlist lives on the device only. A signed-in buyer's is kept on the account too
+   (the layout's <meta name="account-wishlist">): on each page the device list is merged into
+   the account's and saved back, and every change is saved. Signing out empties the device
+   list, so the next person on the device does not see it; another account starts from its own.
 --------------------------------------------------------------------------- */
+const accountWishlist = document.querySelector('meta[name="account-wishlist"]');
+
 Alpine.store('wishlist', {
     ids: Alpine.$persist([]).as('elan-wishlist'),
+    owner: Alpine.$persist(null).as('elan-wishlist-owner'),
     has(id) { return this.ids.includes(id); },
-    toggle(id) { this.ids = this.has(id) ? this.ids.filter((x) => x !== id) : [id, ...this.ids]; },
+    toggle(id) {
+        this.ids = this.has(id) ? this.ids.filter((x) => x !== id) : [id, ...this.ids];
+        this.save();
+    },
     get count() { return this.ids.length; },
+    init() {
+        if (!accountWishlist) {
+            if (this.owner) { this.ids = []; this.owner = null; } // signed out
+            return;
+        }
+        let saved = [];
+        try { saved = JSON.parse(accountWishlist.content || '[]').map(Number).filter(Boolean); } catch { /* none */ }
+        const account = accountWishlist.dataset.account;
+        const device = this.owner === null || this.owner === account ? this.ids : [];
+        const merged = [...new Set([...device, ...saved])];
+        this.ids = merged;
+        this.owner = account;
+        if (merged.length !== saved.length || merged.some((id, i) => id !== saved[i])) this.save();
+    },
+    async save() {
+        if (!accountWishlist) return;
+        try { await api('/account/wishlist', { method: 'PUT', body: { ids: this.ids } }); }
+        catch { /* kept on the device; saved with the next change */ }
+    },
 });
 
 Alpine.store('recent', {

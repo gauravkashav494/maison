@@ -5,8 +5,8 @@
 --}}
 @props(['order'])
 
-<div {{ $attributes->merge(['class' => 'bk-card p-5']) }}>
-    <p class="text-lg font-extrabold">Items ordered</p>
+<div {{ $attributes->merge(['class' => 'bk-card p-4']) }}>
+    <p class="text-base font-extrabold">Items ordered</p>
     <table class="bk-table is-stack mt-2">
         <thead>
             <tr>
@@ -31,7 +31,7 @@
         </tbody>
     </table>
 
-    <dl class="bk-totals mt-4">
+    <dl class="bk-totals mt-3">
         <dt>Subtotal</dt><dd>{{ money($order->subtotal) }}</dd>
         @if($order->discount)
             <dt>Discount{{ $order->coupon_code ? " ({$order->coupon_code})" : '' }}</dt><dd>− {{ money($order->discount) }}</dd>

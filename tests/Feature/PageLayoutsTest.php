@@ -85,10 +85,13 @@ class PageLayoutsTest extends TestCase
         // A shared page (no template) that the store already shows at /about.
         Page::create(['client_id' => $admin->client_id, 'title' => 'Our Story', 'slug' => 'about', 'template' => 'default', 'storefront_template' => null, 'is_active' => true]);
 
-        $errors = $this->submitCreateForm($admin, ['title' => 'About us', 'slug' => 'about', 'template' => 'about']);
+        // The form has no slug box: the new page's address is made from its title, and skips the
+        // one the shared page already uses.
+        $errors = $this->submitCreateForm($admin, ['title' => 'About', 'template' => 'default']);
 
-        $this->assertArrayHasKey('data.slug', $errors);
+        $this->assertSame([], $errors);
         $this->assertSame(1, Page::withoutGlobalScopes()->where('slug', 'about')->count());
+        $this->assertSame('fashion', Page::withoutGlobalScopes()->where('slug', 'about-2')->value('storefront_template'));
     }
 
     public function test_setting_up_a_fashion_store_creates_no_hidden_duplicate_pages(): void

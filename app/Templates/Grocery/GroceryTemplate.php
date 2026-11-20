@@ -111,7 +111,7 @@ class GroceryTemplate extends Template
         return [
             'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('grocery.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
-                ->with(['children' => fn ($q) => $q->where('is_active', true)])
+                ->with(['children' => fn ($q) => $q->where('is_active', true)->where('show_in_menu', true)])
                 ->get()),
         ];
     }

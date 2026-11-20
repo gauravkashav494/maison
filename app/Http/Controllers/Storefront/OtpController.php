@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Clients\ClientContext;
+use App\Exceptions\CouponUnavailableException;
 use App\Exceptions\InsufficientStockException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\OtpCodeRequest;
@@ -158,9 +159,9 @@ class OtpController extends Controller
         // A new account (or one without an address yet) keeps this address for next time.
         try {
             $order = $placeOrder($data, $customer, saveAddress: $customer->addresses()->doesntExist());
-        } catch (InsufficientStockException) {
-            // Sold out while the code was on its way: back to checkout, signed in, with the cart
-            // lowered to what is left and a note saying what changed.
+        } catch (InsufficientStockException|CouponUnavailableException) {
+            // Sold out (or the coupon used up) while the code was on its way: back to checkout,
+            // signed in, with the cart updated and a note saying what changed.
             return redirect()->route('checkout')->withInput($data);
         }
         session(['last_order_number' => $order->number]);

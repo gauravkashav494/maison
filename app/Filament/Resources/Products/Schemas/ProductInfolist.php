@@ -143,7 +143,7 @@ class ProductInfolist
                 Section::make('Storefront')
                     ->icon('heroicon-o-building-storefront')
                     ->schema([
-                        IconEntry::make('is_active')->label('Visible')->inlineLabel()->boolean(),
+                        IconEntry::make('is_active')->label('Visible on storefront')->inlineLabel()->boolean(),
                         IconEntry::make('is_new')->label('New arrival')->inlineLabel()->boolean(),
                         IconEntry::make('is_best_seller')->label('Best seller')->inlineLabel()->boolean(),
                         TextEntry::make('rating')->inlineLabel()
@@ -177,8 +177,6 @@ class ProductInfolist
                         TextEntry::make('updated_at')->label('Updated')->inlineLabel()->since(),
                         TextEntry::make('deleted_at')->label('Deleted')->inlineLabel()->dateTime('d M Y, H:i')->color('danger')
                             ->visible(fn (Product $r) => $r->trashed()),
-                        TextEntry::make('meta_title')->label('SEO title')->placeholder('Uses the product name'),
-                        TextEntry::make('meta_description')->label('SEO description')->placeholder('Uses the short description'),
                     ]),
             ]),
         ]);

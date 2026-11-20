@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Support\CategoryFilter;
 use App\Filament\Support\RowActions;
 use App\Models\Product;
 use App\Models\StockMovement;
@@ -131,7 +132,8 @@ class StockLevels extends Page implements HasTable
             ->filters([
                 SelectFilter::make('stock_status')->label('Status')->options(Inventory::STATUSES)
                     ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null) ? Inventory::whereStatus($query, $data['value']) : $query),
-                SelectFilter::make('categories')->label('Category')->relationship('categories', 'name')->preload(),
+                // Also finds the products in the categories below the one picked.
+                CategoryFilter::make(),
             ])
             ->recordActions([RowActions::group([
                 $this->adjustAction(),

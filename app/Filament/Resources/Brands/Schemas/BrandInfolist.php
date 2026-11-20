@@ -41,7 +41,6 @@ class BrandInfolist
                             ->hidden(fn () => app(StoreContext::class)->isLocked())
                             ->formatStateUsing(fn ($state) => app(TemplateManager::class)->options()[$state] ?? $state)
                             ->placeholder('All templates'),
-                        TextEntry::make('sort_order')->label('Sort order')->inlineLabel(),
                         TextEntry::make('updated_at')->label('Updated')->inlineLabel()->since(),
                         TextEntry::make('deleted_at')->label('Deleted')->inlineLabel()->dateTime('d M Y, H:i')->color('danger')
                             ->visible(fn (Brand $r) => $r->trashed()),

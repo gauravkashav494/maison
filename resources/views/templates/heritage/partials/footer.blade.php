@@ -1,6 +1,7 @@
 @php
     $h = tsetting('site');
     $g = tsetting('home');
+    $shop = collect($menus['footer_shop'] ?? []);
     $col1 = $menus['footer_company'] ?? collect();
     $col2 = $menus['footer_help'] ?? collect();
     $socials = ['facebook' => $site['social_facebook'] ?? null, 'instagram' => $site['social_instagram'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'pinterest' => $site['social_pinterest'] ?? null];
@@ -21,7 +22,12 @@
     </div>
     @endmodule
 
-    <div class="h-container grid gap-10 pb-8 pt-[26px] max-md:gap-0 md:grid-cols-2 md:pb-[120px] lg:grid-cols-[498fr_208fr_221fr_309fr] lg:gap-2 lg:px-[60px] lg:pb-9">
+    {{-- Brand, then the link columns (Shop only when its menu has links), then Get in touch. --}}
+    <div @class([
+        'h-container grid gap-10 pb-8 pt-[26px] max-md:gap-0 md:grid-cols-2 md:pb-[120px] lg:gap-2 lg:px-[60px] lg:pb-9',
+        'lg:grid-cols-[400fr_190fr_190fr_210fr_280fr]' => $shop->isNotEmpty(),
+        'lg:grid-cols-[498fr_208fr_221fr_309fr]' => $shop->isEmpty(),
+    ])>
         {{-- Logo, social, copyright --}}
         <div class="max-md:pb-6">
             <a href="{{ route('home') }}" class="inline-grid h-[115px] w-[115px] place-items-center rounded-full border-2 border-gold bg-cream text-red">
@@ -34,14 +40,20 @@
             <p class="mt-4 text-base leading-[27px] text-cream/85">Copyright {{ date('Y') }} {{ $site['name'] ?? config('app.name') }}.<br>All rights reserved.</p>
         </div>
 
-        {{-- Two link columns: accordions on phones (app-style), plain lists from md up --}}
-        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }">
+        {{-- Link columns: accordions on phones (app-style), plain lists from md up --}}
+        @if($shop->isNotEmpty())
+            <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }" data-menu-area="footer_shop">
+                <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left font-semibold text-gold-light md:hidden" :aria-expanded="o">Shop <x-ico name="chevron-down" :size="16" class="transition-transform" ::class="o && 'rotate-180'" /></button>
+                <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($shop as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
+            </div>
+        @endif
+        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }" data-menu-area="footer_company">
             <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left font-semibold text-gold-light md:hidden" :aria-expanded="o">Company <x-ico name="chevron-down" :size="16" class="transition-transform" ::class="o && 'rotate-180'" /></button>
-            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col1 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
+            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col1 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
         </div>
-        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }">
+        <div class="max-md:border-t max-md:border-cream/20" x-data="{ o: false }" data-menu-area="footer_help">
             <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left font-semibold text-gold-light md:hidden" :aria-expanded="o">Help &amp; policies <x-ico name="chevron-down" :size="16" class="transition-transform" ::class="o && 'rotate-180'" /></button>
-            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col2 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach @foreach($menus['legal'] ?? [] as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
+            <ul class="text-base leading-[31px] max-md:pb-4" :class="o ? '' : 'max-md:hidden'">@foreach($col2 as $item)<li class="flex gap-2"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach @foreach($menus['legal'] ?? [] as $item)<li class="flex gap-2" data-menu-area="legal"><span class="mt-[13px] h-1 w-1 shrink-0 rounded-full bg-gold-light"></span><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-gold-light">{{ $item->label }}</a></li>@endforeach</ul>
         </div>
 
         {{-- Get in touch --}}

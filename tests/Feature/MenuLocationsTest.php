@@ -2,12 +2,21 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
+use App\Clients\ClientContext;
+use App\Filament\Resources\Menus\MenuResource;
+use App\Filament\Resources\Menus\Pages\CreateMenu;
+use App\Filament\Resources\Menus\Pages\EditMenu;
+use App\Filament\Resources\Menus\RelationManagers\ItemsRelationManager;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Menu;
 use App\Models\Plan;
 use App\Models\Storefront;
+use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -48,6 +57,107 @@ class MenuLocationsTest extends TestCase
         foreach (['Indian Grocery', 'Heritage', 'Plumbing', 'Header quick links'] as $other) {
             $this->assertStringNotContainsString($other, $html, "a fashion store should not be offered {$other}");
         }
+    }
+
+    public function test_each_menu_says_where_it_shows_on_the_store_and_links_to_it(): void
+    {
+        $this->assertSame('At the top of every page', MenuResource::placement('header'));
+        $this->assertSame('In the footer of every page, as its own column', MenuResource::placement('bulk_footer_shop'));
+        $this->assertSame('On the bottom line of every page, under the footer', MenuResource::placement('grocery_legal'));
+        $this->assertNull(MenuResource::placement('nowhere'));
+
+        $this->actingAs($this->admin, 'client')->get('/client/menus')->assertOk()
+            ->assertSee('Shows on the store')
+            ->assertSee('At the top of every page');
+
+        $menu = Menu::where('location', 'header')->firstOrFail();
+        $this->get('/client/menus/'.$menu->getKey().'/edit')->assertOk()
+            ->assertSee('At the top of every page')
+            ->assertSee('View on storefront')
+            ->assertSee('Where it shows')
+            // The store itself, opened with this menu's area outlined.
+            ->assertSee('src="'.e(rtrim($this->client->publicUrl(), '/').'/?menu_preview=header').'"', false)
+            // "View on storefront" opens the whole page, scrolled to the menu.
+            ->assertSee('menu_preview=header&amp;menu_preview_page=1', false);
+    }
+
+    public function test_where_it_shows_comes_after_the_menu_items_and_reloads_when_they_change(): void
+    {
+        $menu = Menu::where('location', 'header')->firstOrFail();
+        $html = $this->actingAs($this->admin, 'client')->get('/client/menus/'.$menu->getKey().'/edit')->assertOk()->getContent();
+
+        // The items section loads after the page, so its place is marked by its component.
+        $items = strpos($html, 'RelationManagers\\\\ItemsRelationManager');
+        $preview = strpos($html, 'Where it shows');
+        $this->assertNotFalse($items);
+        $this->assertNotFalse($preview);
+        $this->assertGreaterThan($items, $preview, 'the store preview comes after the menu items');
+        $this->assertSame(1, substr_count($html, 'Where it shows'), 'shown once, not also inside the form');
+
+        // A new menu has no items yet: the preview sits in the form and follows the location picked.
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($this->admin);
+        app(StoreContext::class)->resolve($this->admin, app(ClientContext::class)->templateId());
+        Livewire::test(CreateMenu::class)
+            ->assertDontSee('Where it shows')
+            ->fillForm(['location' => 'footer_shop'])
+            ->assertSee('Where it shows')
+            ->assertSee('menu_preview=footer_shop', false);
+
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($this->admin);
+        app(StoreContext::class)->resolve($this->admin, app(ClientContext::class)->templateId());
+        Livewire::test(ItemsRelationManager::class, [
+            'ownerRecord' => $menu, 'pageClass' => EditMenu::class,
+        ])
+            ->callAction(TestAction::make('create')->table(), ['label' => 'Brands', 'url' => '/brands'])
+            ->assertHasNoFormErrors()
+            ->assertDispatched('menu-items-changed');
+    }
+
+    public function test_the_item_form_offers_every_field_for_every_menu(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        $this->actingAs($this->admin, 'client');
+        app(ClientContext::class)->resolveForIdentity($this->admin);
+        app(StoreContext::class)->resolve($this->admin, app(ClientContext::class)->templateId());
+
+        $footer = Menu::create(['client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Legal', 'location' => 'legal']);
+        foreach ([Menu::where('location', 'header')->firstOrFail(), $footer] as $menu) {
+            $test = Livewire::test(ItemsRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+                ->mountAction(TestAction::make('create')->table());
+            foreach (['label', 'url', 'is_active', 'opens_in_new_tab', 'is_accent', 'parent_id', 'group', 'badge', 'eyebrow', 'image'] as $field) {
+                $test->assertFormFieldVisible($field);
+            }
+            $this->assertTrue($test->instance()->getMountedAction()->isModalSlideOver(), 'items open in a side panel');
+        }
+    }
+
+    public function test_the_store_outlines_the_previewed_menu_area_and_ignores_anything_else(): void
+    {
+        $store = $this->withSession([Client::SESSION_KEY => 'alpha']);
+
+        $store->get('/shop?menu_preview=footer_shop')->assertOk()
+            ->assertSee('data-menu-area="footer_shop"', false)
+            ->assertSee('data-menu-preview-hit', false)
+            ->assertSee('<meta name="robots" content="noindex">', false);
+
+        // Only a plain area name switches it on; nothing from the address is echoed into the script.
+        // The whole page: nothing hidden, the menu outlined, and a note saying so.
+        $page = $store->get('/shop?menu_preview=footer_shop&menu_preview_page=1')->assertOk();
+        $page->assertSee('This menu is outlined in orange.')->assertDontSee('overflow: hidden !important', false);
+        $store->get('/shop?menu_preview=footer_shop')->assertSee('overflow: hidden !important', false);
+
+        $store->get('/shop?menu_preview=%3Cscript%3E')->assertOk()->assertDontSee('data-menu-preview-hit', false);
+        $store->get('/shop')->assertOk()->assertDontSee('data-menu-preview-hit', false);
+    }
+
+    public function test_placement_names_the_exceptions_of_each_store_design(): void
+    {
+        $this->assertSame('In the footer of every page, as the Policies column', MenuResource::placement('plumbing_legal'));
+        $this->assertStringContainsString('first 4 links', MenuResource::placement('grocery_header'));
+        $this->assertSame('In the footer of every page, as its own column', MenuResource::placement('heritage_footer_shop'));
+        $this->assertSame('footer_shop', MenuResource::alias('bulk_footer_shop'));
     }
 
     public function test_the_list_shows_plain_location_names_and_no_template_column(): void

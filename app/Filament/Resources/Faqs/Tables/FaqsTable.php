@@ -22,7 +22,7 @@ class FaqsTable
             ->columns([
                 TextColumn::make('category')->badge()->color('gray')->sortable(),
                 TextColumn::make('question')->searchable()->wrap(),
-                ToggleColumn::make('is_active')->label('Visible'),
+                ToggleColumn::make('is_active')->label('Visible on storefront'),
             ])
             ->filters([SelectFilter::make('category')->options(array_combine(Faq::CATEGORIES, Faq::CATEGORIES)),
                 TrashedFilter::make(),

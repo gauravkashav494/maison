@@ -31,7 +31,7 @@ class ActivityDescriber
         // Worked out from the stock (Product::lowestStock()): the stock change itself is listed.
         'lowest_stock',
         'client_id', 'sync_version', 'sync_acked_version', 'external_id', 'price_incl_tax', 'price_excl_tax',
-        'review_count', 'rating', 'invoice_number', 'invoice_fy', 'invoice_seq', 'dispatched_at', 'delivered_at',
+        'review_count', 'rating', 'invoice_number', 'invoice_fy', 'invoice_seq', 'invoiced_at', 'dispatched_at', 'delivered_at',
         'cancelled_at', 'email_verified_at', 'phone_verified_at', 'used_count', 'unsubscribe_token',
         'password_hint', // follows the password, which is logged (by name) on its own
     ];
@@ -58,12 +58,17 @@ class ActivityDescriber
         'og_image' => 'social image',
         'canonical_url' => 'canonical URL',
         'noindex' => 'hide from search engines',
+        'show_in_menu' => 'feature in menu & homepage',
         'compare_at_price' => 'compare-at price',
         'sku' => 'SKU',
+        'extra_category_1' => 'category tag 1',
+        'extra_category_2' => 'category tag 2',
         'url' => 'URL',
         'video_url' => 'video URL',
         'maps_url' => 'map link',
         'min_subtotal' => 'minimum order',
+        'usage_limit' => 'total uses allowed',
+        'per_customer_limit' => 'uses per customer',
         'starts_at' => 'start date',
         'ends_at' => 'end date',
         'client_role_id' => 'role',

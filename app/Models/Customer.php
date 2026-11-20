@@ -39,6 +39,7 @@ class Customer extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_salesperson' => 'boolean',
+            'wishlist' => 'array',
         ];
     }
 

@@ -20,7 +20,7 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Header, offer strip, search, support and footer settings for the Indian Grocery
- * template. Brand contact details, social links, SEO and checkout stay in Site settings.
+ * template. Brand contact details, social links and checkout stay in Site settings; SEO in SEO settings.
  */
 class GrocerySettings extends Page
 {

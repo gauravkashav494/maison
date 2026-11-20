@@ -9,19 +9,26 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * The tax invoice (bill) for an order, as a PDF.
  *
- * Every figure comes from the order as it was placed (items, discount, delivery, tax rate and
- * label, whether prices included tax), so changing the store's settings later never rewrites
- * an old invoice. Only the seller's details (Site settings → Checkout → Invoice) are read live.
+ * Everything comes from the order as it was placed (items, discount, delivery, tax rate and
+ * label, whether prices included tax, and the seller's details from Site settings → Checkout →
+ * Invoice), so changing the store's settings later never rewrites an old invoice. Orders placed
+ * before the seller's details were copied onto them read those details live.
  *
- * The invoice number is the store's own GST series (Order::assignInvoiceNumber, e.g.
- * INV/26-27/0001); the order number is printed beside it so the two can always be matched.
+ * The invoice is issued when the order is dispatched, or when a sales order is placed at the
+ * counter (Order::hasInvoice); until then the customer has an order, not a bill. Its number is
+ * the store's own GST series (Order::assignInvoiceNumber, e.g. INV/26-27/0001) and its date the
+ * day it was issued; the order number and date are printed beside them.
  */
 class Invoice
 {
     public function __construct(private Order $order) {}
 
+    /** The order's invoice. Only for an order that has one (Order::hasInvoice): dispatched, or a sales order. */
     public static function for(Order $order): self
     {
+        if (! $order->hasInvoice()) {
+            throw new \LogicException("Order {$order->number} has no invoice until it is dispatched.");
+        }
         $order->assignInvoiceNumber();
 
         return new self($order->loadMissing('items'));
@@ -64,16 +71,12 @@ class Invoice
         // A rate column on the items once any line carries its own rate.
         $itemRates = $order->items->contains(fn ($item) => $item->tax_rate !== null);
 
+        // As copied onto the order when it was placed; orders from before that read today's settings.
+        $seller = $order->seller ?: self::sellerDetails();
+
         return [
             'order' => $order,
-            'seller' => [
-                'name' => setting('checkout.invoice_business_name') ?: setting('site.name', config('app.name')),
-                'address' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) setting('checkout.invoice_address', ''))))),
-                'gstin' => setting('checkout.invoice_gstin'),
-                'email' => setting('site.contact_email'),
-                'phone' => setting('site.contact_phone'),
-                'note' => setting('checkout.invoice_note'),
-            ],
+            'seller' => $seller,
             'taxRows' => $taxRows,
             'itemRates' => $itemRates,
             'taxLabel' => $order->tax_label ?: 'GST',
@@ -82,14 +85,35 @@ class Invoice
             // Where the supply is made, for a GST invoice: the shipping state, e.g. "Punjab (03)".
             // A sales order has no address: it is supplied at the counter, in the seller's state.
             'placeOfSupply' => $order->salesperson_id
-                ? GstSupply::placeOfSupply(SalesOrder::supplyState(), 'India')
+                ? GstSupply::placeOfSupply(array_key_exists('state', $seller) ? $seller['state'] : SalesOrder::supplyState(), 'India')
                 : GstSupply::placeOfSupply($order->shipping_state, $order->shipping_country),
             'paymentMethod' => Order::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method,
             'amountInWords' => self::rupeesInWords((float) $order->total),
         ];
     }
 
-    /** 1234.5 → "Rupees One Thousand Two Hundred Thirty-Four and Fifty Paise Only" (Indian lakh/crore grouping). */
+    /**
+     * The seller's details as the invoice prints them, from today's settings (Site settings →
+     * Checkout → Invoice, and the site's contact details). PlaceOrder copies these onto each
+     * order, so an invoice keeps the details that applied on its date.
+     *
+     * @return array{name: string, address: list<string>, gstin: ?string, state: ?string, email: ?string, phone: ?string, note: ?string}
+     */
+    public static function sellerDetails(): array
+    {
+        return [
+            'name' => setting('checkout.invoice_business_name') ?: setting('site.name', config('app.name')),
+            'address' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) setting('checkout.invoice_address', ''))))),
+            'gstin' => setting('checkout.invoice_gstin') ?: null,
+            // The seller's state: the place of supply of a sales order handed over at the counter.
+            'state' => SalesOrder::supplyState(),
+            'email' => setting('site.contact_email') ?: null,
+            'phone' => setting('site.contact_phone') ?: null,
+            'note' => setting('checkout.invoice_note') ?: null,
+        ];
+    }
+
+    /** 1234.5 →"Rupees One Thousand Two Hundred Thirty-Four and Fifty Paise Only" (Indian lakh/crore grouping). */
     public static function rupeesInWords(float $amount): string
     {
         $amount = round(abs($amount), 2);

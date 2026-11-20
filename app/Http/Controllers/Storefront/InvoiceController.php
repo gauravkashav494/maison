@@ -13,7 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Allowed for the customer who owns the order, for the guest who has just placed it (the same
  * rule as the confirmation page), and for anyone holding a signed link from Order::invoiceUrl()
- * (the tracking page hands one out after the order number and email have been checked).
+ * (the tracking page hands one out after the order number and email have been checked). Not
+ * found until the order is dispatched: the invoice is issued then.
  */
 class InvoiceController extends Controller
 {
@@ -27,6 +28,8 @@ class InvoiceController extends Controller
                 || ($request->user() && (int) $order->customer_id === (int) $request->user()->id),
             403,
         );
+        // Not issued until the order is dispatched (Order::hasInvoice).
+        abort_unless($order->hasInvoice(), 404);
 
         return Invoice::for($order)->download();
     }

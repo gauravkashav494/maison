@@ -134,6 +134,12 @@ class Cart
         Session::forget(self::COUPON);
     }
 
+    /** The code the shopper applied, still there when the coupon itself can no longer be used. */
+    public function appliedCouponCode(): ?string
+    {
+        return Session::get(self::COUPON);
+    }
+
     public function coupon(): ?Coupon
     {
         $code = Session::get(self::COUPON);
@@ -272,7 +278,21 @@ class Cart
         }
     }
 
-    /** Whether lines were lowered or removed for stock that the shopper has not been told about yet. */
+    /**
+     * Takes the coupon off the cart when the order could not use it after all (its last use went
+     * to someone else, or this customer's uses are spent), with a note for the checkout page. Like
+     * a stock change, the note stops the next "Place order" until the shopper has seen the new total.
+     */
+    public function dropCoupon(string $message): void
+    {
+        $this->removeCoupon();
+
+        foreach ([self::STOCK, self::STOCK_PAGE] as $notice) {
+            Session::put($notice, [...Session::get($notice, []), $message]);
+        }
+    }
+
+    /** Whether lines were lowered or removed for stock (or the coupon taken off) that the shopper has not been told about yet. */
     public function hasUnavailableNotice(): bool
     {
         return Session::get(self::STOCK, []) !== [];
@@ -327,6 +347,55 @@ class Cart
     // ---- Totals ------------------------------------------------------------
 
     /** Hydrated cart payload for the storefront JS, cart and checkout pages. */
+    /**
+     * The cart as toArray() shows it, holding one sample product instead of the shopper's items:
+     * for Site settings → Checkout → "View on storefront", so staff see shipping, payment and tax
+     * at checkout without a bag of their own. Nothing is kept: the real cart is put back at once.
+     * Null when the store has no product in stock to show.
+     */
+    public function preview(): ?array
+    {
+        $line = $this->sampleLine();
+        if (! $line) {
+            return null;
+        }
+
+        $real = Session::get(self::KEY);
+        Session::put(self::KEY, [$this->key($line['product_id'], $line['options']) => $line]);
+        try {
+            return $this->toArray();
+        } finally {
+            $real === null ? Session::forget(self::KEY) : Session::put(self::KEY, $real);
+        }
+    }
+
+    /** One in-stock product on sale (a variant product in its first active, in-stock combination). */
+    private function sampleLine(): ?array
+    {
+        foreach (Product::query()->active()->latest('id')->limit(30)->get() as $product) {
+            $options = [];
+            if ($product->sellsVariants()) {
+                $variant = collect($product->variantList())->first(fn ($v) => $v['is_active'] && (int) $v['stock'] > 0);
+                if (! $variant) {
+                    continue;
+                }
+                $options = $variant['options'];
+            } elseif ($product->stockFor() <= 0) {
+                continue;
+            }
+
+            return [
+                'product_id' => $product->id,
+                'options' => $options,
+                'size' => $this->option($options, 'size'),
+                'color' => $this->option($options, 'colour', 'color'),
+                'qty' => 1,
+            ];
+        }
+
+        return null;
+    }
+
     public function toArray(): array
     {
         $raw = $this->raw();
