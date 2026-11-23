@@ -42,6 +42,9 @@ class StockMovement extends Model
 
     public const EDITED = 'edited';
 
+    // The count the client's own system (MS Access / SQL Server) sent through the sync agent.
+    public const SYNCED = 'synced';
+
     /** Why the stock moved, as shown in the history. */
     public const REASONS = [
         self::SALE => 'Sold',
@@ -52,6 +55,7 @@ class StockMovement extends Model
         self::COUNT => 'Stock count',
         self::OPENING => 'Opening stock',
         self::EDITED => 'Edited on product',
+        self::SYNCED => 'From local system',
     ];
 
     protected $guarded = [];

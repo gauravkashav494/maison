@@ -25,8 +25,8 @@ class SyncFeed
     public function pending(string $resource, int $limit, int $afterId): array
     {
         $rows = $this->query($resource)
-            ->when($resource === 'orders', fn (Builder $q) => $q->with('items'))
-            ->when($resource === 'products', fn (Builder $q) => $q->with('category'))
+            ->when($resource === 'orders', fn (Builder $q) => $q->with(['items', 'salesperson']))
+            ->when($resource === 'products', fn (Builder $q) => $q->with(['category', 'categories']))
             ->whereColumn('sync_version', '>', 'sync_acked_version')
             ->where('id', '>', $afterId)
             ->orderBy('id')
@@ -74,12 +74,16 @@ class SyncFeed
 
     private function presentProducts(Product $product): array
     {
-        return $product->only(['id', 'external_id', 'sku', 'name', 'slug', 'description', 'price', 'compare_at_price', 'is_active', 'has_variants'])
-            + [
-                'version' => $product->sync_version,
-                'category' => $product->category?->name,
-                'variants' => $product->sellsVariants() ? $product->variantList() : [],
-            ];
+        return $product->only([
+            'id', 'external_id', 'sku', 'name', 'slug', 'description', 'price', 'compare_at_price',
+            'tax_rate', 'price_incl_tax', 'price_excl_tax', 'brand', 'is_active', 'has_variants',
+        ]) + [
+            'version' => $product->sync_version,
+            // The main category, and every category the product is listed under (the main one included).
+            'category' => $product->category?->name,
+            'categories' => $product->categories->pluck('name')->sort()->values()->all(),
+            'variants' => $product->sellsVariants() ? $product->variantList() : [],
+        ];
     }
 
     private function presentOrders(Order $order): array
@@ -88,12 +92,17 @@ class SyncFeed
             'id', 'external_id', 'number', 'customer_id', 'status', 'email', 'phone', 'shipping_name', 'shipping_line1',
             'shipping_line2', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country',
             'shipping_method', 'shipping_cost', 'payment_method', 'payment_status', 'subtotal', 'discount', 'coupon_code',
-            'tax', 'total', 'carrier', 'tracking_number', 'notes', 'cancellation_reason',
+            'tax', 'tax_rate', 'tax_label', 'prices_include_tax', 'total', 'carrier', 'tracking_number', 'notes',
+            'cancellation_reason', 'invoice_number',
         ]) + [
             'version' => $order->sync_version,
             'placed_at' => $order->created_at?->toIso8601String(),
+            'invoiced_at' => $order->invoiced_at?->toIso8601String(),
+            // Placed by a sales person at the counter: no delivery, the goods left with the customer.
+            'salesperson' => $order->salesperson?->name,
             'items' => $order->items->map(fn (OrderItem $item) => $item->only([
                 'product_id', 'name', 'sku', 'variant_sku', 'options', 'size', 'color', 'price', 'qty', 'total',
+                'tax_rate', 'tax',
             ]))->all(),
         ];
     }

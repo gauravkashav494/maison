@@ -9,6 +9,10 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\StockMovement;
+use App\Models\Tax;
+use App\Support\PhoneNumber;
+use App\Support\SalesOrder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
@@ -16,10 +20,14 @@ use Illuminate\Support\Str;
  * Applies what the local system sends. Field ownership lives here:
  *
  *   local system  product sku, name, price, compare-at price and stock; each variant's sku,
- *                 options and price; a product's category while it has none; order fulfilment
- *   EcomVision    everything else on a product (slug, text, images, category once set,
- *                 collections, visibility, variant images and on-sale flags),
- *                 orders as placed, and the profile of an existing customer
+ *                 options and price; a product's category, brand and tax while it has none;
+ *                 order fulfilment
+ *   EcomVision    everything else on a product (slug, text, images, category, brand and tax
+ *                 once set, other categories, collections, visibility, variant images and
+ *                 on-sale flags), orders as placed, and the profile of an existing customer
+ *
+ * Prices are rupees and paise, in whichever form the store enters its prices (including tax or
+ * before it, Site settings → Payments & tax); Product works out the other one from its tax.
  */
 class SyncInbound
 {
@@ -55,10 +63,7 @@ class SyncInbound
         try {
             if ($product) {
                 $product->fill($owned);
-                // The category is only filled in while blank; after that it is EcomVision's.
-                if (blank($product->category_id) && filled($item['category'] ?? null)) {
-                    $product->category_id = $this->categoryId($item['category']);
-                }
+                $this->fillBlanks($product, $item);
                 if ($variants) {
                     $this->mergeVariants($product, $variants);
                 }
@@ -85,9 +90,7 @@ class SyncInbound
                 'is_active' => false,
                 'sync_acked_version' => 1,
             ]);
-            if (filled($item['category'] ?? null)) {
-                $product->category_id = $this->categoryId($item['category']);
-            }
+            $this->fillBlanks($product, $item);
             if ($variants) {
                 $this->mergeVariants($product, $variants);
             }
@@ -142,7 +145,7 @@ class SyncInbound
      * price; stock arrives through the stock push, and images, the on-sale flag and any
      * variant the local system no longer sends stay as EcomVision has them.
      *
-     * @param  array<int, array{sku:string, options:array<string,string>, price?:int|null}>  $incoming
+     * @param  array<int, array{sku:string, options:array<string,string>, price?:int|float|null}>  $incoming
      */
     private function mergeVariants(Product $product, array $incoming): void
     {
@@ -212,6 +215,44 @@ class SyncInbound
         $attributes[] = ['name' => $name, 'values' => [$value], 'swatches' => []];
 
         return [$name, $value];
+    }
+
+    /**
+     * The main category, brand and tax are filled in from the local system only while the
+     * product has none; after that they are EcomVision's.
+     */
+    private function fillBlanks(Product $product, array $item): void
+    {
+        if (blank($product->category_id) && filled($item['category'] ?? null)) {
+            $product->category_id = $this->categoryId($item['category']);
+        }
+        // Product::syncBrand() links the name to the client's brand, creating it when new.
+        if (blank($product->brand_id) && blank($product->brand) && filled($item['brand'] ?? null)) {
+            $product->brand = trim((string) $item['brand']);
+        }
+        if (blank($product->tax_id) && isset($item['tax_rate']) && is_numeric($item['tax_rate'])) {
+            $product->tax_id = $this->taxId((float) $item['tax_rate']);
+        }
+    }
+
+    /** The client's tax with this rate, created as "GST <rate>%" when it has none. */
+    private function taxId(float $rate): int
+    {
+        $rate = round($rate, 2);
+        $template = $this->client->templateId();
+
+        $found = Tax::query()->where('client_id', $this->client->id)
+            ->where(fn ($query) => $query->whereNull('template')->when($template, fn ($q) => $q->orWhere('template', $template)))
+            ->where('rate', $rate)
+            ->orderBy('id')
+            ->value('id');
+
+        return (int) ($found ?? Tax::create([
+            'client_id' => $this->client->id,
+            'template' => $template,
+            'name' => 'GST '.Tax::rateLabel($rate),
+            'rate' => $rate,
+        ])->id);
     }
 
     /** The client's category with this name, created (and kept out of the menu) when missing. */
@@ -333,6 +374,8 @@ class SyncInbound
         if (! $product->isDirty()) {
             return SyncResult::of($sku, SyncResult::UNCHANGED);
         }
+        // Shown in the stock history as the local system's count, not a product-form edit.
+        $product->stockChangeReason = StockMovement::SYNCED;
         $product->save();
 
         return SyncResult::of($sku, SyncResult::UPDATED, ['stock' => (int) $product->stock]);
@@ -364,27 +407,42 @@ class SyncInbound
     public function customer(array $item): array
     {
         $key = $item['external_id'];
-        $email = Str::lower($item['email']);
+        $email = filled($item['email'] ?? null) ? Str::lower(trim($item['email'])) : null;
+        $phone = filled($item['phone'] ?? null) ? (PhoneNumber::national('IN', $item['phone']) ?? trim($item['phone'])) : null;
         $customers = Customer::query()->where('client_id', $this->client->id);
 
-        $customer = (clone $customers)->where('external_id', $key)->first()
-            ?? (clone $customers)->whereRaw('lower(email) = ?', [$email])->first();
+        // By the local key, then the email, then the phone (in any of the forms it is stored in).
+        $customer = (clone $customers)->where('external_id', $key)->first();
+        $matchedBy = null;
+        if (! $customer && $email && ($customer = (clone $customers)->whereRaw('lower(email) = ?', [$email])->first())) {
+            $matchedBy = 'email';
+        }
+        if (! $customer && $phone && ($customer = SalesOrder::existingCustomerByPhone($this->client->id, $phone))) {
+            $matchedBy = 'phone';
+        }
 
         if (! $customer) {
-            // No password: they can sign in only after using "forgot password".
-            $customer = new Customer(['client_id' => $this->client->id, 'name' => $item['name'], 'email' => $email, 'phone' => $item['phone'] ?? null, 'is_active' => true]);
+            // An email another (deleted) customer still holds is left off rather than failing the row.
+            if ($email && Customer::withTrashed()->where('client_id', $this->client->id)->whereRaw('lower(email) = ?', [$email])->exists()) {
+                $email = null;
+            }
+            if (! $email && ! $phone) {
+                return SyncResult::rejected($key, 'That email belongs to a deleted customer; send a phone number too.');
+            }
+            // No password: they sign in with "forgot password" or a WhatsApp code to their phone.
+            $customer = new Customer(['client_id' => $this->client->id, 'name' => $item['name'], 'email' => $email, 'phone' => $phone, 'is_active' => true]);
             $customer->forceFill(['external_id' => $key, 'sync_acked_version' => 1])->save();
 
             return SyncResult::of($key, SyncResult::CREATED, ['id' => $customer->id]);
         }
 
         if (filled($customer->external_id) && $customer->external_id !== $key) {
-            return SyncResult::rejected($key, 'That email belongs to a customer with another external_id.');
+            return SyncResult::rejected($key, 'That '.($matchedBy ?? 'email').' belongs to a customer with another external_id.');
         }
 
         $customer->external_id = $key;
-        if (blank($customer->phone) && filled($item['phone'] ?? null)) {
-            $customer->phone = $item['phone'];
+        if (blank($customer->phone) && $phone) {
+            $customer->phone = $phone;
         }
         if (! $customer->isDirty()) {
             return SyncResult::of($key, SyncResult::UNCHANGED);
@@ -408,7 +466,9 @@ class SyncInbound
             return SyncResult::rejected($key, "An order that is {$order->status} cannot move to {$status}.");
         }
 
-        return Order::withoutSyncTracking(function () use ($item, $key, $order, $status) {
+        $hadInvoice = filled($order->invoice_number);
+
+        $result = Order::withoutSyncTracking(function () use ($item, $key, $order, $status) {
             $changed = false;
             if ($status !== $order->status) {
                 $order->transitionTo($status, $item['note'] ?? 'Updated by the local system');
@@ -423,5 +483,14 @@ class SyncInbound
 
             return SyncResult::of($key, $changed ? SyncResult::UPDATED : SyncResult::UNCHANGED);
         });
+
+        // Dispatching issues the tax invoice (Order::assignInvoiceNumber). The local system's own
+        // change is not echoed, but the invoice number is new to it, so the order is offered again.
+        if (! $hadInvoice && filled($order->invoice_number)) {
+            Order::query()->whereKey($order->getKey())->toBase()->increment('sync_version');
+            $result['invoice_number'] = $order->invoice_number;
+        }
+
+        return $result;
     }
 }

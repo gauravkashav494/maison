@@ -23,6 +23,9 @@ class SyncController extends Controller
 
     private const EXTERNAL_ID = ['required', 'string', 'max:191'];
 
+    /** Rupees and paise, as the money columns hold them (decimal 12,2). */
+    private const MONEY = ['numeric', 'min:0', 'max:9999999999', 'decimal:0,2'];
+
     private function client(): Client
     {
         return app(ClientContext::class)->client();
@@ -30,7 +33,12 @@ class SyncController extends Controller
 
     public function ping(): JsonResponse
     {
-        return response()->json(['client' => $this->client()->subdomain, 'server_time' => now()->toIso8601String()]);
+        return response()->json([
+            'client' => $this->client()->subdomain,
+            'server_time' => now()->toIso8601String(),
+            // Which price `price` is: the store's prices are entered including tax, or before it.
+            'prices_include_tax' => prices_include_tax(),
+        ]);
     }
 
     public function changes(Request $request, string $resource): JsonResponse
@@ -62,14 +70,16 @@ class SyncController extends Controller
             'external_id' => self::EXTERNAL_ID,
             'sku' => ['nullable', 'string', 'max:191'],
             'name' => ['required', 'string', 'max:255'],
-            'price' => ['required', 'integer', 'min:0'],
-            'compare_at_price' => ['nullable', 'integer', 'min:0'],
+            'price' => ['required', ...self::MONEY],
+            'compare_at_price' => ['nullable', ...self::MONEY],
             'category' => ['nullable', 'string', 'max:255'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
             'variants' => ['nullable', 'array', 'max:'.self::MAX_VARIANTS],
             'variants.*.sku' => ['required', 'string', 'max:191', 'distinct'],
             'variants.*.options' => ['required', 'array', 'min:1', 'max:5'],
             'variants.*.options.*' => ['required', 'string', 'max:100'],
-            'variants.*.price' => ['nullable', 'integer', 'min:0'],
+            'variants.*.price' => ['nullable', ...self::MONEY],
         ], 'external_id', fn (array $item) => $inbound->product($item));
     }
 
@@ -78,7 +88,7 @@ class SyncController extends Controller
         ['valid' => $valid, 'results' => $results] = $this->validated($request, [
             'sku' => ['required', 'string', 'max:191'],
             'on_hand' => ['required', 'integer', 'min:0'],
-            'price' => ['nullable', 'integer', 'min:0'],
+            'price' => ['nullable', ...self::MONEY],
         ], 'sku');
 
         return response()->json(['results' => [...$results, ...(new SyncInbound($this->client()))->stock($valid)]]);
@@ -91,8 +101,9 @@ class SyncController extends Controller
         return $this->batch($request, [
             'external_id' => self::EXTERNAL_ID,
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            // As in the admin, a customer may be known by phone alone.
+            'email' => ['nullable', 'required_without:phone', 'email', 'max:255'],
+            'phone' => ['nullable', 'required_without:email', 'string', 'max:40'],
         ], 'external_id', fn (array $item) => $inbound->customer($item));
     }
 

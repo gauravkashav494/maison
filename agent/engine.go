@@ -143,8 +143,9 @@ func (e *Engine) cycle(message *string) error {
 
 	// Orders first, so that the stock count sent below already includes them.
 	e.step("orders", e.syncOrders)
-	e.step("customers_in", func() error { return e.syncLinked("customers", "customers_in", "email", true) })
-	e.step("products_in", func() error { return e.syncLinked("products", "products_in", "sku", false) })
+	// A customer may have no email (added by phone), so the phone is tried next.
+	e.step("customers_in", func() error { return e.syncLinked("customers", "customers_in", []string{"email", "phone"}, true) })
+	e.step("products_in", func() error { return e.syncLinked("products", "products_in", []string{"sku"}, false) })
 	e.step("products", func() error { return e.push("products", "products", "external_id", false, nil) })
 	e.step("customers", func() error { return e.push("customers", "customers", "external_id", false, nil) })
 	// Always sent in full: the server subtracts unconfirmed orders, so a resend corrects drift.
@@ -427,7 +428,14 @@ func apiValue(field string, value any) (any, error) {
 		return nil, nil
 	}
 	switch field {
-	case "price", "compare_at_price", "on_hand":
+	case "price", "compare_at_price", "tax_rate":
+		// Rupees and paise (the server keeps two decimals), never below zero.
+		parsed, err := number(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", field, err)
+		}
+		return math.Max(0, math.Round(parsed*100)/100), nil
+	case "on_hand":
 		parsed, err := number(value)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", field, err)
@@ -703,7 +711,8 @@ func quantity(line map[string]any) (int64, error) {
 func (e *Engine) updateOrder(order map[string]any, key any, header, stock *Section) error {
 	status := text(order["status"])
 	changes := map[string]any{}
-	for _, field := range []string{"status", "payment_status", "carrier", "tracking_number"} {
+	// invoice_number arrives once the order is dispatched (on either side): the tax invoice's number.
+	for _, field := range []string{"status", "payment_status", "carrier", "tracking_number", "invoice_number"} {
 		column := header.Columns[field]
 		switch {
 		case column == "":
@@ -779,13 +788,22 @@ func (e *Engine) syncOrders() error {
 	})
 }
 
-func (e *Engine) syncLinked(resource, name, matchField string, updateExisting bool) error {
+// syncLinked links each record to its local row: by external_id once linked, else by the first
+// of matchFields that is both mapped and filled in on the record. A new row is added only when
+// the section allows inserts and no mapped field finds one.
+func (e *Engine) syncLinked(resource, name string, matchFields []string, updateExisting bool) error {
 	section := e.section(name)
 	if section == nil {
 		return nil
 	}
-	if section.Key == "" || section.Columns[matchField] == "" {
-		return fmt.Errorf("%s needs a key and a %s column", name, matchField)
+	mapped := []string{}
+	for _, field := range matchFields {
+		if section.Columns[field] != "" {
+			mapped = append(mapped, field)
+		}
+	}
+	if section.Key == "" || len(mapped) == 0 {
+		return fmt.Errorf("%s needs a key and a %s column", name, strings.Join(matchFields, " or "))
 	}
 
 	return e.feed(resource, func(row map[string]any) (any, error) {
@@ -804,21 +822,26 @@ func (e *Engine) syncLinked(resource, name, matchField string, updateExisting bo
 			return row["external_id"], nil
 		}
 
-		if !filled(row[matchField]) {
-			return nil, nil
-		}
-		column := section.Columns[matchField]
-		key, err := e.localKey(section, column, row[matchField])
-		if err != nil || key != nil {
-			return key, err
+		var found string // the first filled field: the new row is found again by it
+		for _, field := range mapped {
+			if !filled(row[field]) {
+				continue
+			}
+			if found == "" {
+				found = field
+			}
+			key, err := e.localKey(section, section.Columns[field], row[field])
+			if err != nil || key != nil {
+				return key, err
+			}
 		}
 
-		if !section.Insert {
+		if found == "" || !section.Insert {
 			return nil, nil
 		}
 		if err := e.addRow(section, row, nil); err != nil {
 			return nil, err
 		}
-		return e.localKey(section, column, row[matchField])
+		return e.localKey(section, section.Columns[found], row[found])
 	})
 }

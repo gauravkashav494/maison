@@ -40,8 +40,8 @@ Send it on every request as `Authorization: Bearer evs_…`. Use HTTPS only.
 
 | Data | Local system owns | EcomVision owns |
 |---|---|---|
-| Product | SKU, name, price, compare-at price, stock; each variant's SKU, options and price; the category while the product has none | slug, description, images, category once set, collections, SEO, visibility, variant images and on-sale flags |
-| Order | fulfilment status, carrier, tracking number | the order as placed |
+| Product | SKU, name, price, compare-at price, stock; each variant's SKU, options and price; the main category, brand and tax while the product has none | slug, description, images, category, brand and tax once set, other categories, collections, SEO, visibility, variant images and on-sale flags |
+| Order | fulfilment status, carrier, tracking number | the order as placed, its tax invoice number |
 | Customer | adds customers EcomVision does not have; fills a blank phone | name, email, phone and active flag of an existing customer |
 
 A field sent for the other side's ownership is ignored. An owned field edited on the other side
@@ -59,7 +59,7 @@ All are under `/api/sync/v1`. Limit: 600 requests a minute.
 
 | Method and path | Purpose |
 |---|---|
-| `GET ping` | Check the token and read the server time |
+| `GET ping` | Check the token, read the server time and `prices_include_tax` |
 | `GET changes/{products,orders,customers}?limit=100&after_id=0` | Records waiting for the agent (`limit` up to 500) |
 | `POST changes/{products,orders,customers}/ack` | Confirm records were taken |
 | `POST products` | Create or update products |
@@ -73,30 +73,47 @@ Each POST takes `{"items": [...]}`, up to 500 items.
 
 | Endpoint | Item fields (**required**) |
 |---|---|
-| `products` | **external_id**, **name**, **price**, sku, compare_at_price, category, variants |
+| `products` | **external_id**, **name**, **price**, sku, compare_at_price, category, brand, tax_rate, variants |
 | `stock` | **sku**, **on_hand**, price |
-| `customers` | **external_id**, **name**, **email**, phone |
+| `customers` | **external_id**, **name**, **email or phone** (at least one) |
 | `orders/status` | **number**, status, carrier, tracking_number, note |
 | `changes/*/ack` | **id**, **version**, external_id |
 
-On `products`, `category` and `variants` are optional:
+On `products`, `category`, `brand`, `tax_rate` and `variants` are optional:
 
 ```json
-{"external_id": "ITM-88", "sku": "TEE", "name": "Tee", "price": 499, "category": "T-Shirts",
+{"external_id": "ITM-88", "sku": "TEE", "name": "Tee", "price": 499.50, "category": "T-Shirts",
+ "brand": "Acme", "tax_rate": 5,
  "variants": [{"sku": "TEE-BLK-M", "options": {"Color": "Black", "Size": "M"}},
               {"sku": "TEE-BLK-L", "options": {"Color": "Black", "Size": "L"}, "price": 549}]}
 ```
 
 * `category` is a name. It is matched without regard to case, created (out of the menu) when
-  missing, and applied only while the product has no category; after that the panel owns it.
+  missing, and applied only while the product has no category; after that the panel owns it. It
+  becomes the product's main category; the other categories it is listed under are set in the panel.
+* `brand` is a name, linked to the store's brand of that name (created when missing). Applied only
+  while the product has no brand.
+* `tax_rate` is the GST percentage (0, 5, 12, 18, 28…). It picks the store's tax with that rate,
+  creating "GST 18%" when there is none. Applied only while the product has no tax.
 * `variants` (up to 200, 1–5 options each) are matched by SKU: new SKUs are added with stock 0,
   known ones get their options and price updated, and a variant no longer sent is left alone.
   Option names and values are matched to the product's existing spelling. A variant without
   `price` sells at the product's price. A variant SKU that another product already uses is
   rejected. Stock still arrives through `stock`, per variant SKU.
 
-`external_id` is the record's primary key in the local database. Prices and quantities are whole
-numbers; prices are whole rupees, so the agent decides how to round a decimal price.
+`external_id` is the record's primary key in the local database. Quantities are whole numbers.
+Prices are rupees and paise (at most two decimals, e.g. `499.50`); the agent rounds to the paisa.
+
+**Which price to send.** `price` is the price the store's prices are entered as: including tax
+when `ping` says `"prices_include_tax": true`, before tax when it says `false` (Site settings →
+Payments & tax). EcomVision works out the other one from the product's tax.
+
+**Customers** are matched by `external_id`, then email, then phone (`98765 43210`,
+`+91 98765 43210` and `098765 43210` are the same number). A customer may have no email, as in the
+admin. A matched customer that already has another `external_id` is rejected.
+
+**Stock** pushed through `stock` is written to the stock history (Inventory → Stock movements)
+as "From local system".
 
 A valid request answers 200 with one result per item. A bad row does not stop the others:
 
@@ -122,7 +139,16 @@ comes back if it changes on EcomVision afterwards. Acknowledge only after the lo
 committed. To step past a record the agent cannot process yet, pass its id as `after_id`.
 
 Passwords are never sent. Customer addresses are not in the customer feed; each order carries its
-own shipping address.
+own shipping address. A customer's or order's `email` may be empty.
+
+Orders carry their tax as charged: `tax`, `tax_rate`, `tax_label`, `prices_include_tax`, and per
+line `tax_rate` and `tax`. Once dispatched they also carry `invoice_number` and `invoiced_at`.
+When the local system dispatches an order through `orders/status`, the result includes the new
+`invoice_number`, and the order comes through the feed once more carrying it. An order placed by a
+sales person at the counter names them in `salesperson`.
+
+Products carry `brand`, `tax_rate`, `price_incl_tax`, `price_excl_tax`, the main `category` and
+every category in `categories`.
 
 A product created in the panel is in the products feed (with its category name and variants) so
 the local system can create it; acknowledge it with the local item id as `external_id`. It comes
@@ -168,7 +194,8 @@ php artisan sync:token <client-slug>
 
 Orders that exist when the migrations run are treated as already taken, so they are not sent and
 do not reduce stock. Existing products and customers **are** sent on the first cycle so that the
-agent can link them: match on SKU and email, and return the local id as `external_id`.
+agent can link them: match on SKU, and on email or else phone, and return the local id as
+`external_id`.
 
 ---
 
@@ -275,6 +302,12 @@ client needs.
 
 Names are checked against the local schema, and the mapping cannot contain SQL. A web order that
 is cancelled after import is added back to local stock only if `orders_in` maps `status`.
+
+Any field in the feed can be mapped. For example, map `invoice_number` and `tax` on `orders_in`, or
+`tax_rate` and `tax` on `order_items_in`, to keep the GST figures locally; map `tax_rate` and `brand`
+on `products` to send them. `orders_in` writes `invoice_number` again when it arrives after dispatch.
+`customers_in` finds an existing local customer by `email`, then by `phone`, so map both when
+customers may have no email.
 
 ---
 

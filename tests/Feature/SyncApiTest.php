@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\Storefront;
 use App\Models\SyncToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -382,18 +383,119 @@ class SyncApiTest extends TestCase
         $this->api('GET', 'changes/customers')->assertJsonCount(0, 'data');
     }
 
+    public function test_a_local_customer_may_be_known_by_phone_alone(): void
+    {
+        $existing = Customer::create(['client_id' => $this->alpha->id, 'name' => 'Counter Buyer', 'phone' => '9876543210']);
+        $this->api('POST', 'changes/customers/ack', ['items' => [['id' => $existing->id, 'version' => 1]]]);
+
+        $this->api('POST', 'customers', ['items' => [
+            // Matched by phone, whichever way it was typed.
+            ['external_id' => 'C1', 'name' => 'Local Name', 'phone' => '+91 98765 43210'],
+            ['external_id' => 'C2', 'name' => 'Phone Only', 'phone' => '091234 56789'],
+            ['external_id' => 'C3', 'name' => 'Neither'],
+        ]])->assertOk()
+            ->assertJsonPath('results.0.key', 'C3')
+            ->assertJsonPath('results.0.result', 'rejected')
+            ->assertJsonPath('results.1.result', 'updated')
+            ->assertJsonPath('results.2.result', 'created');
+
+        $this->assertSame('C1', $existing->refresh()->external_id);
+        $this->assertSame('Counter Buyer', $existing->name);
+        $new = Customer::where('external_id', 'C2')->first();
+        $this->assertNull($new->email);
+        $this->assertSame('9123456789', $new->phone);
+
+        // A phone that belongs to another local record is not taken over.
+        $this->api('POST', 'customers', ['items' => [['external_id' => 'C9', 'name' => 'X', 'phone' => '9876543210']]])
+            ->assertJsonPath('results.0.result', 'rejected')
+            ->assertJsonPath('results.0.error', 'That phone belongs to a customer with another external_id.');
+    }
+
+    public function test_prices_carry_paise_and_brand_and_tax_fill_in_while_blank(): void
+    {
+        $this->api('GET', 'ping')->assertJsonPath('prices_include_tax', false);
+
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'P1', 'sku' => 'P1', 'name' => 'Soap', 'price' => 99.5, 'compare_at_price' => 120.25, 'brand' => 'Lux', 'tax_rate' => 18],
+            ['external_id' => 'P2', 'sku' => 'P2', 'name' => 'Bad', 'price' => 9.999],
+        ]])->assertOk()
+            ->assertJsonPath('results.0.key', 'P2')
+            ->assertJsonPath('results.0.result', 'rejected')
+            ->assertJsonPath('results.1.result', 'created');
+
+        $product = Product::where('external_id', 'P1')->first();
+        $this->assertSame(99.5, $product->price);
+        $this->assertSame(120.25, $product->compare_at_price);
+        $this->assertSame('Lux', $product->brand);
+        $this->assertNotNull($product->brand_id);
+        $this->assertSame('GST 18%', $product->tax->name);
+        $this->assertSame(18.0, $product->tax_rate);
+        // Prices are entered before tax here, so the price with tax is worked out from it.
+        $this->assertSame(99.5, $product->price_excl_tax);
+        $this->assertSame(117.41, $product->price_incl_tax);
+
+        // Once set, brand and tax are EcomVision's: a resend with others changes neither, and
+        // a second product at the same rate shares the tax.
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'P1', 'sku' => 'P1', 'name' => 'Soap', 'price' => 99.5, 'compare_at_price' => 120.25, 'brand' => 'Dove', 'tax_rate' => 5],
+            ['external_id' => 'P3', 'sku' => 'P3', 'name' => 'Shampoo', 'price' => 250, 'tax_rate' => '18.00'],
+        ]])->assertJsonPath('results.0.result', 'unchanged');
+        $this->assertSame('Lux', $product->refresh()->brand);
+        $this->assertSame(18.0, $product->tax_rate);
+        $this->assertSame($product->tax_id, Product::where('external_id', 'P3')->value('tax_id'));
+
+        // Shown on the web, the product is offered with its brand, tax and categories.
+        $product->update(['is_active' => true]);
+        $this->api('GET', 'changes/products')
+            ->assertJsonPath('data.0.brand', 'Lux')
+            ->assertJsonPath('data.0.tax_rate', 18)
+            ->assertJsonPath('data.0.price_incl_tax', 117.41)
+            ->assertJsonPath('data.0.categories', []);
+    }
+
+    public function test_a_local_stock_count_is_recorded_in_the_stock_history(): void
+    {
+        $product = $this->product($this->alpha, 'S1');
+
+        $this->api('POST', 'stock', ['items' => [['sku' => 'S1', 'on_hand' => 12, 'price' => 1099.5]]])
+            ->assertJsonPath('results.0.result', 'updated');
+
+        $this->assertSame(1099.5, $product->refresh()->price);
+        $movement = StockMovement::where('product_id', $product->id)->latest('id')->first();
+        $this->assertSame(StockMovement::SYNCED, $movement->reason);
+        $this->assertSame(7, $movement->quantity);
+        $this->assertSame(12, $movement->stock_after);
+        $this->assertSame(12, (int) $product->lowest_stock);
+    }
+
     public function test_local_fulfilment_follows_the_order_rules_and_is_not_echoed(): void
     {
         $order = $this->order($this->alpha);
         $this->api('POST', 'changes/orders/ack', ['items' => [['id' => $order->id, 'version' => 1]]]);
 
+        // Packing is not echoed back to the local system.
+        $this->api('POST', 'orders/status', ['items' => [['number' => $order->number, 'status' => 'processing']]])
+            ->assertJsonPath('results.0.result', 'updated')
+            ->assertJsonMissingPath('results.0.invoice_number');
+        $this->api('GET', 'changes/orders')->assertJsonCount(0, 'data');
+
+        // Dispatch issues the tax invoice: its number is new to the local system, so the order
+        // comes back once, carrying it.
         $item = ['number' => $order->number, 'status' => 'shipped', 'carrier' => 'BlueDart', 'tracking_number' => 'T1'];
-        $this->api('POST', 'orders/status', ['items' => [$item]])->assertJsonPath('results.0.result', 'updated');
-        $this->api('POST', 'orders/status', ['items' => [$item]])->assertJsonPath('results.0.result', 'unchanged');
+        $response = $this->api('POST', 'orders/status', ['items' => [$item]])->assertJsonPath('results.0.result', 'updated');
 
         $order->refresh();
         $this->assertSame('T1', $order->tracking_number);
         $this->assertNotNull($order->dispatched_at);
+        $this->assertNotNull($order->invoice_number);
+        $response->assertJsonPath('results.0.invoice_number', $order->invoice_number);
+
+        $feed = $this->api('GET', 'changes/orders')->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'shipped')
+            ->assertJsonPath('data.0.invoice_number', $order->invoice_number);
+        $this->api('POST', 'changes/orders/ack', ['items' => [['id' => $order->id, 'version' => $feed->json('data.0.version')]]]);
+
+        $this->api('POST', 'orders/status', ['items' => [$item]])->assertJsonPath('results.0.result', 'unchanged');
         $this->api('GET', 'changes/orders')->assertJsonCount(0, 'data');
 
         $this->api('POST', 'orders/status', ['items' => [['number' => $order->number, 'status' => 'confirmed']]])

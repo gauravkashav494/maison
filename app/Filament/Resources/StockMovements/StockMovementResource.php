@@ -67,7 +67,11 @@ class StockMovementResource extends Resource
                     ->url(fn (StockMovement $r) => $r->order_id && ClientAccess::current('orders', 'view')
                         ? OrderResource::getUrl('view', ['record' => $r->order_id]) : null),
                 TextColumn::make('by_name')->label('By')
-                    ->placeholder(fn (StockMovement $r) => $r->reason === StockMovement::SALE ? 'Customer' : 'System'),
+                    ->placeholder(fn (StockMovement $r) => match ($r->reason) {
+                        StockMovement::SALE => 'Customer',
+                        StockMovement::SYNCED => 'Sync agent',
+                        default => 'System',
+                    }),
                 TextColumn::make('note')->placeholder('—')->wrap()->toggleable(),
             ])
             ->filters([

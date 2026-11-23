@@ -77,13 +77,14 @@ const shopMapping = `{
 
 // fakeServer stands in for the API; the contract itself is checked by the e2e test below.
 type fakeServer struct {
-	mapping  string
-	orders   []map[string]any
-	reject   map[string]bool
-	received map[string][]map[string]any
-	acks     []map[string]any
-	reports  []map[string]any
-	schemas  int
+	mapping   string
+	orders    []map[string]any
+	customers []map[string]any
+	reject    map[string]bool
+	received  map[string][]map[string]any
+	acks      []map[string]any
+	reports   []map[string]any
+	schemas   int
 }
 
 func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +103,8 @@ func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{}`))
 	case path == "/changes/orders" && r.Method == "GET":
 		json.NewEncoder(w).Encode(map[string]any{"data": f.orders, "has_more": false})
+	case path == "/changes/customers" && r.Method == "GET" && f.customers != nil:
+		json.NewEncoder(w).Encode(map[string]any{"data": f.customers, "has_more": false})
 	case strings.HasPrefix(path, "/changes/") && r.Method == "GET":
 		w.Write([]byte(`{"data":[],"has_more":false}`))
 	case strings.HasSuffix(path, "/ack"):
@@ -255,8 +258,9 @@ func TestOnlyChangedProductsAreSentAndRejectedOnesRetried(t *testing.T) {
 	if got := len(fake.received["/products"]); got != 2 {
 		t.Fatalf("first run sent %d", got)
 	}
-	if fake.received["/products"][0]["price"] != float64(100) {
-		t.Fatalf("price not rounded: %v", fake.received["/products"][0])
+	// Rupees and paise are kept (99.6 stays 99.6), rounded to the paisa.
+	if fake.received["/products"][0]["price"] != 99.6 {
+		t.Fatalf("price not kept to the paisa: %v", fake.received["/products"][0])
 	}
 
 	cleanRun2() // only the rejected one comes again
@@ -280,6 +284,34 @@ func TestOnlyChangedProductsAreSentAndRejectedOnesRetried(t *testing.T) {
 	}
 	if got := len(fake.received["/stock"]); got != 10 {
 		t.Fatalf("stock is always sent in full; got %d", got)
+	}
+}
+
+func TestCustomersWithoutEmailAreLinkedByPhone(t *testing.T) {
+	ddl := shopDDL + `CREATE TABLE People (PersonID INTEGER PRIMARY KEY, Name VARCHAR(50), Email VARCHAR(50), Mobile VARCHAR(20));
+INSERT INTO People (PersonID, Name, Mobile) VALUES (5, 'Counter Buyer', '9876543210');`
+	mapping := `{"customers_in": {"table":"People","key":"PersonID","insert":true,"columns":{"name":"Name","email":"Email","phone":"Mobile"}}}`
+	engine, fake, store := newFixture(t, ddl, mapping)
+	fake.customers = []map[string]any{
+		{"id": float64(1), "version": float64(1), "name": "Counter Buyer", "email": nil, "phone": "9876543210"},
+		{"id": float64(2), "version": float64(1), "name": "New Buyer", "email": nil, "phone": "9123456789"},
+		{"id": float64(3), "version": float64(1), "name": "Nobody", "email": nil, "phone": nil},
+	}
+	cleanRun(t, engine, fake)
+
+	var count int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM People`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("people = %d, want the phone match reused and one row added", count)
+	}
+	links := map[float64]string{}
+	for _, ack := range fake.acks {
+		links[ack["id"].(float64)] = text(ack["external_id"])
+	}
+	if links[1] != "5" || links[2] == "" || links[2] == "5" || links[3] != "" {
+		t.Fatalf("acks = %v", fake.acks)
 	}
 }
 

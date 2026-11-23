@@ -40,6 +40,12 @@ class Product extends Model
     protected $guarded = [];
 
     /**
+     * Why the next save changes the stock, for the stock history; EDITED (the product form)
+     * when not set. The sync API sets StockMovement::SYNCED before saving a local count.
+     */
+    public ?string $stockChangeReason = null;
+
+    /**
      * Also resends the product when a variant is added, removed or renamed (its SKU or options),
      * but not when only variant stock, price, images or availability change: stock moves on
      * every sale and every stock push, and the local system owns price.
@@ -372,7 +378,7 @@ class Product extends Model
                 $product->logStockChanges(
                     $product->getOriginal('has_variants') ? (array) $product->getOriginal('variants') : [],
                     (int) $product->getOriginal('stock'),
-                    StockMovement::EDITED,
+                    $product->stockChangeReason ?? StockMovement::EDITED,
                 );
             }
         });
