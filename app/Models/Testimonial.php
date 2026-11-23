@@ -25,7 +25,16 @@ class Testimonial extends Model
 
     public function scopeActive(Builder $q): Builder
     {
-        return $q->where('is_active', true)->orderBy('sort_order')->orderByDesc('id');
+        return $q->where('is_active', true)->ordered();
+    }
+
+    /**
+     * The storefront order: as dragged in the testimonials list, then for those sharing a place
+     * (every new one starts at 0) the highest rated first, newest first among equal ratings.
+     */
+    public function scopeOrdered(Builder $q): Builder
+    {
+        return $q->orderBy('sort_order')->orderByDesc('rating')->orderByDesc('id');
     }
 
     public function service(): BelongsTo

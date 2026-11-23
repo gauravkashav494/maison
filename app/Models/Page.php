@@ -4,17 +4,23 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
+use App\Models\Concerns\GeneratesSlug;
 use App\Models\Concerns\HasSeo;
 use App\Models\Concerns\UsesClientConnection;
 use App\Support\Media;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Route;
 
 class Page extends Model
 {
     use BelongsToClient;
     use BelongsToTemplate;
+
+    // After BelongsToClient and BelongsToTemplate: their saving hooks fill the client and
+    // template the unique slug is checked within.
+    use GeneratesSlug;
     use HasSeo;
     use SoftDeletes;
     use UsesClientConnection;
@@ -56,5 +62,32 @@ class Page extends Model
     public function getUrlAttribute(): string
     {
         return route('pages.show', $this->slug);
+    }
+
+    /** The slug is made from the title. */
+    protected function slugSource(): string
+    {
+        return (string) $this->title;
+    }
+
+    /**
+     * Pages are served at /{slug} after every other route, so an address another route answers
+     * (/shop, /cart, /brands …) would never reach the page: "Shop" becomes shop-2 instead.
+     */
+    protected function reservedSlugs(): array
+    {
+        return collect(Route::getRoutes()->getRoutes())
+            ->filter(fn ($route) => in_array('GET', $route->methods(), true) && $route->getName() !== 'pages.show')
+            ->map(fn ($route) => strtok($route->uri(), '/'))
+            ->filter(fn ($segment) => is_string($segment) && $segment !== '' && ! str_contains($segment, '{'))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** Platform content (no store): each storefront template may have its own record with this slug. */
+    protected function slugUniqueWithin(): array
+    {
+        return [static::templateColumn()];
     }
 }

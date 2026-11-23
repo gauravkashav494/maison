@@ -25,21 +25,21 @@ class RowActions
      * Delete / Restore / Delete permanently for a soft-deleting model. Each one only shows when it
      * applies (Restore and Delete permanently on archived rows) and when the policy allows it.
      */
-    public static function trash(): array
+    public static function trash(?RestoreAction $restore = null): array
     {
         return [
             DeleteAction::make()->modalDescription('It moves to the trash and can be restored later from the "Deleted items" filter.'),
-            RestoreAction::make(),
+            $restore ?? RestoreAction::make(),
             ForceDeleteAction::make()->label('Delete permanently')
                 ->modalDescription('This removes it for good and cannot be undone.'),
         ];
     }
 
-    public static function trashBulk(): array
+    public static function trashBulk(?RestoreBulkAction $restore = null): array
     {
         return [
             DeleteBulkAction::make()->modalDescription('They move to the trash and can be restored later from the "Deleted items" filter.'),
-            RestoreBulkAction::make(),
+            $restore ?? RestoreBulkAction::make(),
             ForceDeleteBulkAction::make()->label('Delete permanently')
                 ->modalDescription('This removes them for good and cannot be undone.'),
         ];

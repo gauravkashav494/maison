@@ -11,6 +11,7 @@
 <article class="pcard relative {{ $compact ? 'w-[11.5rem] shrink-0 sm:w-[13.5rem] lg:w-[15rem]' : '' }}" data-slide x-data="pCard(@js($card))">
     <a href="{{ $product->url }}" class="pcard-media block">
         @if($product->image_urls)<img src="{{ $product->image_urls[0] }}" alt="{{ $product->name }}" loading="lazy">@endif
+        <x-card-colour-photo :product="$product" />
         <div class="absolute left-2 top-2 flex flex-col gap-1">
             @if($product->discount_percent > 0)<span class="badge badge-off">{{ $product->discount_percent }}% off</span>@endif
             @if($product->is_best_seller)<span class="badge badge-best">Bestseller</span>@elseif($product->is_new)<span class="badge badge-new">New</span>@endif
@@ -20,11 +21,12 @@
     <div class="pcard-body">
         <p class="pcard-brand">{{ $product->brand ?: $product->category?->name }}</p>
         <h3 class="pcard-name"><a href="{{ $product->url }}">{{ $product->name }}</a></h3>
+        <x-card-colours :product="$product" class="mt-1" />
         @if($chips)<div class="pcard-spec">@foreach($chips as $chip)<span>{{ $chip }}</span>@endforeach</div>@endif
         @if($product->review_count)<div class="mt-1.5 flex items-center gap-1 text-xs text-slate"><x-rating :value="$product->rating" :size="12" /> <span class="font-semibold text-ink">{{ number_format($product->rating, 1) }}</span> ({{ number_format($product->review_count) }})</div>@endif
         <div class="pcard-price">
-            <span class="price">{{ money($product->price) }}</span>
-            @if($product->compare_at_price)<span class="mrp">{{ money($product->compare_at_price) }}</span><span class="off">{{ $product->discount_percent }}% off</span>@endif
+            <span class="price">{{ money($product->display_price) }}</span>
+            @if($product->display_compare_at_price)<span class="mrp">{{ money($product->display_compare_at_price) }}</span><span class="off">{{ $product->discount_percent }}% off</span>@endif
         </div>
         <div class="pcard-btn">
             @if($product->in_stock)

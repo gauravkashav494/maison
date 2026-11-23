@@ -71,9 +71,11 @@
 @endif
 
 {{-- CTA --}}
+@module('collections')
 <section class="container-luxe py-20 text-center lg:py-28">
     <p class="eyebrow text-taupe">The collections</p>
     <h2 class="display-md mt-4">See what we make.</h2>
     <a href="{{ route('collections.index') }}" class="btn btn-primary btn-lg mt-8">Discover Our Collections <x-ico name="arrow-right" :size="14" class="btn-arrow" /></a>
 </section>
+@endmodule
 @endsection

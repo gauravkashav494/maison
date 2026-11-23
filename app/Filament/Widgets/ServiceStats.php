@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
+use App\Clients\StoreFeatures;
 use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
 use App\Filament\Resources\Services\ServiceResource;
 use App\Models\ContactMessage;
@@ -47,7 +48,7 @@ class ServiceStats extends Widget
         }
 
         if (ClientAccess::current('services', 'view')) {
-            $stats[] = ['label' => 'Services', 'value' => Service::where('is_active', true)->count(), 'description' => ServiceArea::where('is_active', true)->count().' service areas', 'icon' => 'wrench-screwdriver', 'color' => 'is-green', 'url' => ServiceResource::getUrl('index')];
+            $stats[] = ['label' => 'Services', 'value' => Service::where('is_active', true)->count(), 'description' => StoreFeatures::enabled('service_areas') ? ServiceArea::where('is_active', true)->count().' service areas' : null, 'icon' => 'wrench-screwdriver', 'color' => 'is-green', 'url' => ServiceResource::getUrl('index')];
         }
 
         return ['stats' => $stats];

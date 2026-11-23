@@ -55,8 +55,15 @@ return [
         ],
         'payment_methods' => ['card', 'upi', 'wallet', 'netbanking', 'cod'],
         'cod_fee' => 0,
+        // exclusive: prices are before tax and tax is added at checkout (B2B).
+        // inclusive: prices already include tax.
+        'tax_mode' => 'exclusive',
         'tax_rate' => 0,
-        'tax_label' => 'GST',
         'gift_card_amounts' => [500, 1000, 2500, 5000],
+    ],
+
+    'reviews' => [
+        // A verified buyer's review goes live at once unless it contains a link, email or phone number.
+        'auto_publish_verified' => true,
     ],
 ];

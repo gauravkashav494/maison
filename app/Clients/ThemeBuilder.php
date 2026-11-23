@@ -37,7 +37,7 @@ class ThemeBuilder
 
         $client = Client::themeFor($templateId) ?? new Client(['subdomain' => Client::themeSubdomain($templateId)]);
         $client->fill([
-            'name' => $manager->get($templateId)->name().' theme',
+            'name' => $manager->get($templateId)->name(),
             'storefront_id' => $store->id,
             'plan_id' => $client->plan_id ?? Plan::default()?->id,
             'is_theme' => true,

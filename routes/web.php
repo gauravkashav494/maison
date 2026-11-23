@@ -1,12 +1,17 @@
 <?php
 
 use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Storefront\CancelOrderController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CatalogController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\InvoiceController;
+use App\Http\Controllers\Storefront\NewsletterController;
+use App\Http\Controllers\Storefront\OtpController;
 use App\Http\Controllers\Storefront\PwaController;
 use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\ShopController;
+use App\Http\Controllers\Storefront\StoreEntryController;
 use Illuminate\Support\Facades\Route;
 
 // On the main domain the Super Admin panel owns /, /login and its screens (AdminPanelProvider);
@@ -17,15 +22,13 @@ Route::get('/', HomeController::class)->name('home');
 // Catalogue
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop/{slug}', [ShopController::class, 'category'])->name('shop.category');
+Route::get('/brands', [ShopController::class, 'brands'])->name('brands.index');
+Route::get('/brands/{slug}', [ShopController::class, 'brand'])->name('brands.show');
 Route::get('/collections', [CatalogController::class, 'collections'])->name('collections.index');
 Route::get('/collections/{slug}', [CatalogController::class, 'collection'])->name('collections.show');
 Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('products.show');
 Route::post('/product/{slug}/reviews', [CatalogController::class, 'storeReview'])->middleware('throttle:5,1')->name('products.reviews.store');
 Route::get('/search', [CatalogController::class, 'search'])->name('search');
-
-// A standing link to the Simple List template's bulk order page: it redirects to /shop on the
-// subdomain of the client running that template (see StoreEntryController::bulkOrder).
-Route::get('/bulkorder', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'bulkOrder'])->name('bulkorder');
 
 // Editorial
 Route::get('/journal', [CatalogController::class, 'journal'])->name('journal.index');
@@ -41,12 +44,17 @@ Route::post('/cart/coupon', [CartController::class, 'coupon'])->name('cart.coupo
 Route::delete('/cart/coupon', [CartController::class, 'removeCoupon'])->name('cart.coupon.remove');
 Route::post('/cart/shipping', [CartController::class, 'shipping'])->name('cart.shipping');
 Route::get('/checkout', [CartController::class, 'checkout'])->name('checkout');
+Route::post('/checkout/sales-customer', [CartController::class, 'salesCustomerLookup'])->middleware('throttle:30,1')->name('checkout.sales-customer');
 Route::post('/checkout', [CartController::class, 'placeOrder'])->middleware('throttle:10,1')->name('checkout.place');
 Route::get('/order/{number}/confirmation', [CartController::class, 'confirmation'])->name('orders.confirmation');
+Route::post('/order/{number}/cancel', CancelOrderController::class)->middleware('throttle:10,1')->name('orders.cancel');
+Route::get('/order/{number}/invoice', InvoiceController::class)->middleware('throttle:30,1')->name('orders.invoice');
 Route::match(['get', 'post'], '/track-order', [CatalogController::class, 'track'])->name('track');
 
 // Forms
 Route::post('/newsletter', [CartController::class, 'subscribe'])->name('newsletter');
+Route::get('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'show'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{20,64}')->name('newsletter.unsubscribe');
+Route::post('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'destroy'])->middleware('throttle:10,1')->where('token', '[A-Za-z0-9]{20,64}')->name('newsletter.unsubscribe.confirm');
 Route::post('/delivery-pincode', [CartController::class, 'pincode'])->middleware('throttle:30,1')->name('delivery.pincode');
 Route::post('/contact', [CatalogController::class, 'contactStore'])->middleware('throttle:5,1')->name('contact.store');
 
@@ -56,8 +64,18 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AccountController::class, 'login'])->middleware('throttle:10,1');
     Route::get('/register', [AccountController::class, 'registerForm'])->name('register');
     Route::post('/register', [AccountController::class, 'register'])->middleware('throttle:10,1');
+    // WhatsApp codes: sign in with a code, and the code step of sign-up and guest checkout.
+    Route::get('/login/otp', [OtpController::class, 'loginForm'])->name('login.otp');
+    Route::post('/login/otp', [OtpController::class, 'sendLogin'])->middleware('throttle:5,1');
+    Route::get('/verify', [OtpController::class, 'form'])->name('otp.verify');
+    Route::post('/verify', [OtpController::class, 'verify'])->middleware('throttle:10,1');
+    Route::post('/verify/resend', [OtpController::class, 'resend'])->middleware('throttle:3,1')->name('otp.resend');
     Route::get('/forgot-password', [AccountController::class, 'forgotForm'])->name('password.request');
-    Route::post('/forgot-password', [AccountController::class, 'forgot'])->middleware('throttle:5,1')->name('password.email');
+    Route::post('/forgot-password', [AccountController::class, 'forgot'])->middleware('throttle:5,1')->name('password.send-code');
+    // After the WhatsApp code: choose the new password (allowed for a few minutes, see AccountController).
+    Route::get('/new-password', [AccountController::class, 'newPasswordForm'])->name('password.new');
+    Route::post('/new-password', [AccountController::class, 'saveNewPassword'])->middleware('throttle:10,1');
+    // Emailed links are only sent to a past guest who registers, to prove the address (AccountController::register).
     Route::get('/reset-password/{token}', [AccountController::class, 'resetForm'])->name('password.reset');
     Route::post('/reset-password', [AccountController::class, 'reset'])->name('password.update');
 });
@@ -75,6 +93,8 @@ Route::middleware('auth')->prefix('account')->name('account.')->group(function (
     Route::put('/password', [AccountController::class, 'updatePassword'])->name('password.update');
 });
 Route::get('/account/wishlist', [AccountController::class, 'wishlist'])->name('account.wishlist'); // works for guests too (device wishlist)
+// A signed-in buyer's Saved items, kept on the account (the device list is merged in on sign-in).
+Route::put('/account/wishlist', [AccountController::class, 'saveWishlist'])->middleware(['auth', 'throttle:60,1'])->name('account.wishlist.save');
 
 // Storefront JSON used by the search overlay, quick view, wishlist and recently viewed
 Route::get('/api/search', [CatalogController::class, 'searchJson'])->name('api.search');
@@ -92,9 +112,9 @@ Route::get('/robots.txt', [SeoController::class, 'robots'])->name('robots');
 // Old entry links on the main domain. Anything naming a client (/store/<client>, /c/<client>, or
 // /store/<store> for a store a client runs) redirects to that client's subdomain; a store with
 // no client yet is shown as a demo on the main domain.
-Route::get('/store/exit', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'exit'])->name('store.exit');
-Route::get('/store/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
-Route::get('/c/{subdomain}', [\App\Http\Controllers\Storefront\StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
+Route::get('/store/exit', [StoreEntryController::class, 'exit'])->name('store.exit');
+Route::get('/store/{subdomain}', [StoreEntryController::class, 'enter'])->where('subdomain', '[a-z0-9-]+')->name('store.enter');
+Route::get('/c/{subdomain}', [StoreEntryController::class, 'redirectOldClientLink'])->where('subdomain', '[a-z0-9-]+');
 
 // Service-business routes (Plumbing Services template); 404 in catalogue templates
 require __DIR__.'/services.php';

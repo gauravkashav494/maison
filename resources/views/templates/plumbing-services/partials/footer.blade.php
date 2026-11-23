@@ -19,13 +19,14 @@
             </div>
             <div class="grid grid-cols-2 gap-6 lg:col-span-8 lg:grid-cols-4">
                 @foreach([['Services', 'footer_services'], ['Company', 'footer_company'], ['Help', 'footer_help']] as [$label, $alias])
-                    <div>
+                    <div data-menu-area="{{ $alias }}">
                         <p class="font-display text-sm font-extrabold">{{ $label }}</p>
                         <ul class="mt-3 space-y-2 text-sm text-slate">
-                            @foreach($menus[$alias] ?? [] as $item)<li><a href="{{ $item->url }}" class="hover:text-primary">{{ $item->label }}</a></li>@endforeach
+                            @foreach($menus[$alias] ?? [] as $item)<li><a href="{{ $item->url }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-primary">{{ $item->label }}</a></li>@endforeach
                         </ul>
                     </div>
                 @endforeach
+                @module('service_areas')
                 <div>
                     <p class="font-display text-sm font-extrabold">Service areas</p>
                     <ul class="mt-3 space-y-2 text-sm text-slate">
@@ -33,13 +34,14 @@
                         <li><a href="{{ route('areas.index') }}" class="font-semibold text-primary">All areas</a></li>
                     </ul>
                 </div>
+                @endmodule
             </div>
         </div>
     </div>
     <div class="ps-container flex flex-col gap-3 py-5 text-xs text-slate lg:flex-row lg:items-center lg:justify-between">
         <p>© {{ date('Y') }} {{ $biz['name'] }}. @if(!empty($p['footer_note'])){{ $p['footer_note'] }}@endif</p>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-            @foreach($menus['legal'] ?? [] as $item)<a href="{{ $item->url }}" class="hover:text-primary">{{ $item->label }}</a>@endforeach
+            @foreach($menus['legal'] ?? [] as $item)<a href="{{ $item->url }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif data-menu-area="legal" class="hover:text-primary">{{ $item->label }}</a>@endforeach
             @foreach($p['social'] ?? [] as $s)
                 @if(!empty($s['url']) && $s['url'] !== '#')<a href="{{ $s['url'] }}" target="_blank" rel="noopener" class="icon-btn h-8 w-8" aria-label="{{ ucfirst($s['network']) }}"><x-ico :name="in_array($s['network'], ['facebook','instagram','youtube','linkedin']) ? $s['network'] : 'external'" :size="16" /></a>@endif
             @endforeach

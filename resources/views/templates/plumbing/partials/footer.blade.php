@@ -6,12 +6,15 @@
         'Company' => $menus['footer_company'] ?? collect(),
         'Policies' => $menus['legal'] ?? collect(),
     ];
+    // Which menu each column shows (the menu preview in Content → Navigation outlines it).
+    $areas = ['Shop' => 'footer_shop', 'Customer support' => 'footer_support', 'Company' => 'footer_company', 'Policies' => 'legal'];
     $socials = ['instagram' => $site['social_instagram'] ?? null, 'facebook' => $site['social_facebook'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'linkedin' => $site['social_linkedin'] ?? null];
-    $phone = $p['support_phone'] ?? ($site['contact_phone'] ?? null);
-    $email = $p['support_email'] ?? ($site['contact_email'] ?? null);
+    $phone = store_phone();
+    $email = store_email();
 @endphp
 <footer class="mt-10 bg-deep text-white">
     {{-- Newsletter strip --}}
+    @module('subscribers')
     <div class="border-b border-white/10">
         <div class="p-container flex flex-col gap-4 py-7 lg:flex-row lg:items-center lg:justify-between" x-data="newsletter('plumbing-footer')">
             <div class="flex items-center gap-4">
@@ -29,6 +32,7 @@
             <p x-show="error" x-cloak class="text-sm text-red-300" x-text="error"></p>
         </div>
     </div>
+    @endmodule
 
     <div class="p-container grid gap-10 py-10 lg:grid-cols-12 lg:gap-8">
         {{-- Brand + contact --}}
@@ -52,7 +56,7 @@
 
         {{-- Link columns: accordions on phones, open columns from sm up --}}
         @foreach($cols as $title => $items)
-            <div class="max-sm:border-t max-sm:border-white/10 lg:col-span-2" x-data="{ o: false }">
+            <div class="max-sm:border-t max-sm:border-white/10 lg:col-span-2" x-data="{ o: false }" data-menu-area="{{ $areas[$title] }}">
                 <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left sm:pointer-events-none sm:py-0" :aria-expanded="o"><span class="text-xs font-bold uppercase tracking-wider text-accent">{{ $title }}</span><x-ico name="chevron-down" :size="16" class="text-white/60 transition-transform sm:hidden" ::class="o && 'rotate-180'" /></button>
                 <ul class="space-y-2.5 pb-4 text-sm text-white/80 sm:mt-4 sm:pb-0" :class="o ? '' : 'max-sm:hidden'">
                     @foreach($items as $item)<li><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-white">{{ $item->label }}</a></li>@endforeach

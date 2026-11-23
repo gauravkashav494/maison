@@ -29,7 +29,7 @@ class HomeComposer
         $view->with([
             'g' => $home,
             'sections' => $sections,
-            'popular' => Service::active()->orderByDesc('is_popular')->limit($limit('popular_limit', 8))->get(),
+            'popular' => Service::active()->popularFirst()->limit($limit('popular_limit', 8))->get(),
             'emergencyService' => Service::active()->where('is_emergency', true)->first(),
             'areas' => ServiceArea::active()->get(),
             'testimonials' => Testimonial::with('service')->active()->limit($limit('reviews_limit', 8))->get(),

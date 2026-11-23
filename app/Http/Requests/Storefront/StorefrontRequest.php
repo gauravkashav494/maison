@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Storefront;
 
+use App\Support\IndianStates;
+use App\Support\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\Password;
 
 /**
  * Base for every storefront form.
@@ -23,6 +24,13 @@ abstract class StorefrontRequest extends FormRequest
     /** Lower-cases the given email fields before they are validated and stored. */
     protected array $lowercase = ['email'];
 
+    /**
+     * Address field pairs (state field => country field) on this form. Deliveries are within
+     * India only: before validation "IN" / "Bharat" is written as "India" and a state typed as
+     * "MH" or "punjab" as its full name, so the stored address always reads the same way.
+     */
+    protected array $addressFields = [];
+
     protected function prepareForValidation(): void
     {
         $merge = [];
@@ -31,7 +39,43 @@ abstract class StorefrontRequest extends FormRequest
                 $merge[$key] = mb_strtolower(trim($this->input($key)));
             }
         }
+        if (is_string($this->input('phone')) && ($phone = static::normalisePhone($this->input('phone'))) !== null) {
+            $merge['phone'] = $phone;
+        }
+        foreach ($this->addressFields as $stateKey => $countryKey) {
+            if (IndianStates::isIndia($this->input($countryKey))) {
+                $merge[$countryKey] = 'India';
+            }
+            if (($code = IndianStates::code($this->input($stateKey))) !== null) {
+                $merge[$stateKey] = IndianStates::STATES[$code];
+            }
+        }
         $merge && $this->merge($merge);
+    }
+
+    /**
+     * A phone number as its 10 digits: spaces, hyphens, dots and brackets are dropped, and so is
+     * a +91 / 91 country code or a leading 0 — "+91 98765-43210" and "098765 43210" both become
+     * "9876543210". Anything else (letters, too few or too many digits) is returned as typed, so
+     * the rule rejects it instead of it being quietly changed. Null for an empty value.
+     */
+    public static function normalisePhone(string $value): ?string
+    {
+        $clean = preg_replace('/[\s\-().]/', '', trim($value));
+        if ($clean === '') {
+            return null;
+        }
+        if (! preg_match('/^\+?\d+$/', $clean)) {
+            return trim($value);
+        }
+        $digits = ltrim($clean, '+');
+        if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+            $digits = substr($digits, 2);
+        } elseif (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+
+        return strlen($digits) === 10 ? $digits : trim($value);
     }
 
     // ---- Shared field rules ------------------------------------------------
@@ -47,15 +91,10 @@ abstract class StorefrontRequest extends FormRequest
         return [$required ? 'required' : 'nullable', 'string', 'email:rfc,filter', 'max:190'];
     }
 
-    /** 10–15 digits, optionally with a leading + and spaces or hyphens between groups. */
+    /** Exactly 10 digits (after normalisePhone() has removed spacing and any +91 or leading 0). */
     protected function phone(bool $required = true): array
     {
-        return [$required ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-]{8,18}[0-9]$/', function (string $attribute, mixed $value, \Closure $fail) {
-            $digits = strlen(preg_replace('/\D/', '', (string) $value));
-            if ($digits < 10 || $digits > 15) {
-                $fail('The :attribute must contain 10 to 15 digits.');
-            }
-        }];
+        return [$required ? 'required' : 'nullable', 'string', 'regex:/^\d{10}$/'];
     }
 
     /** Address lines: anything printable, but at least a few characters. */
@@ -70,17 +109,31 @@ abstract class StorefrontRequest extends FormRequest
         return [$required ? 'required' : 'nullable', 'string', 'min:2', "max:{$max}", "regex:/^[\pL\pM][\pL\pM\s.'&\-]*$/u"];
     }
 
-    /** A 6-digit PIN code for India, otherwise a generic 3–10 character postal code. */
-    protected function postalCode(?string $country): array
+    /** A 6-digit Indian PIN code: deliveries are within India only. */
+    protected function postalCode(): array
     {
-        $india = in_array(mb_strtolower(trim((string) $country)), ['india', 'in', 'bharat'], true);
+        return ['required', 'string', 'regex:/^[1-9][0-9]{5}$/'];
+    }
 
-        return ['required', 'string', $india ? 'regex:/^[1-9][0-9]{5}$/' : 'regex:/^[A-Za-z0-9][A-Za-z0-9\s\-]{1,8}[A-Za-z0-9]$/'];
+    /** The country of a delivery address: India only ("India", "IN", "Bharat"). */
+    protected function indiaCountry(): array
+    {
+        return ['required', 'string', 'max:80', function (string $attribute, mixed $value, \Closure $fail) {
+            IndianStates::isIndia(is_string($value) ? $value : null) || $fail('We deliver within India only. Please enter India as the country.');
+        }];
+    }
+
+    /** The state of a delivery address: an Indian state or union territory, by name or short form. */
+    protected function indianState(): array
+    {
+        return ['required', 'string', 'max:80', function (string $attribute, mixed $value, \Closure $fail) {
+            IndianStates::code(is_string($value) ? $value : null) !== null || $fail('Please enter a state or union territory of India, e.g. Maharashtra.');
+        }];
     }
 
     protected function newPassword(): array
     {
-        return ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()];
+        return ['required', 'string', 'confirmed', PasswordRules::rule()];
     }
 
     protected function message(bool $required = true, int $min = 10, int $max = 3000): array
@@ -106,9 +159,9 @@ abstract class StorefrontRequest extends FormRequest
             'prohibited' => 'Your submission could not be accepted.',
             'name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
             'shipping_name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
-            'phone.regex' => 'Please enter a valid :attribute (10 to 15 digits, e.g. 98765 43210).',
-            'postal_code.regex' => $this->postalMessage('country'),
-            'shipping_postal_code.regex' => $this->postalMessage('shipping_country'),
+            'phone.regex' => 'Please enter a 10-digit :attribute, e.g. 9876543210.',
+            'postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
+            'shipping_postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
             'city.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
             'state.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
             'country.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',
@@ -118,13 +171,6 @@ abstract class StorefrontRequest extends FormRequest
             // Last: the patterns above are matched in order, so this only catches the rest.
             '*.regex' => 'The :attribute format is not valid.',
         ];
-    }
-
-    private function postalMessage(string $countryField): string
-    {
-        return in_array(mb_strtolower(trim((string) $this->input($countryField))), ['india', 'in', 'bharat'], true)
-            ? 'Please enter a valid 6-digit PIN code.'
-            : 'Please enter a valid :attribute.';
     }
 
     public function attributes(): array

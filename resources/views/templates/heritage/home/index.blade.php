@@ -6,7 +6,7 @@
     @foreach($sections as $key)
         @switch($key)
             @case('strip') @include('home.sections.strip') @break
-            @case('featured') @include('home.sections.carousel', ['title' => $g['featured_heading'] ?? 'Featured', 'items' => $featuredProducts, 'more' => !empty($g['featured_collection_slug']) ? route('collections.show', $g['featured_collection_slug']) : route('shop.category', 'new-arrivals')]) @break
+            @case('featured') @include('home.sections.carousel', ['title' => $g['featured_heading'] ?? 'Featured', 'items' => $featuredProducts, 'more' => !empty($g['featured_collection_slug']) && app(\App\Clients\StoreFeatures::class)->on('collections') ? route('collections.show', $g['featured_collection_slug']) : route('shop.category', 'new-arrivals')]) @break
             @case('combos') @include('home.sections.carousel', ['title' => $g['combos_heading'] ?? 'Combos', 'items' => $combos, 'more' => !empty($g['combos_collection_slug']) ? route('collections.show', $g['combos_collection_slug']) : route('collections.index')]) @break
             @case('bestsellers') @include('home.sections.carousel', ['title' => $g['bestsellers_heading'] ?? 'Our Best Sellers', 'items' => $bestSellers, 'more' => route('shop.category', 'best-sellers')]) @break
             @case('video') @include('home.sections.video') @break

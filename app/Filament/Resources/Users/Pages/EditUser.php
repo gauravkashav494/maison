@@ -22,9 +22,11 @@ class EditUser extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Your own active state is disabled in the form (and therefore not submitted).
+        // Your own active state and Super Admin flag are disabled in the form (and therefore not
+        // submitted): you can neither lock yourself out nor drop your own Super Admin access.
         if ($this->record->is(filament()->auth()->user())) {
             $data['is_active'] = true;
+            $data['is_super_admin'] = $this->record->isSuperAdmin();
         }
 
         return UserForm::normalise($data);

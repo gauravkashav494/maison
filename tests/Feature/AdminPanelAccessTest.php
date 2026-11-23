@@ -96,11 +96,15 @@ class AdminPanelAccessTest extends TestCase
 
     public function test_a_disabled_operator_is_refused_by_the_panel(): void
     {
+        // Another Super Admin stays, so the last-Super-Admin guard lets this one be disabled.
+        User::create(['name' => 'Backup', 'email' => 'backup@platform.test', 'password' => 'password123', 'is_super_admin' => true, 'is_active' => true]);
         $this->operator->update(['is_active' => false]);
         $this->actingAs($this->operator->fresh(), 'admin');
 
-        // Filament refuses the panel itself (canAccessPanel), so the session is of no use.
-        $this->get('/')->assertForbidden();
-        $this->get('/clients')->assertForbidden();
+        // The open session is ended and the operator is sent to sign-in, told why.
+        $this->get('/')->assertRedirect('/login')
+            ->assertSessionHas('filament.notifications', fn (array $n) => str_contains($n[0]['body'] ?? '', 'Your account has been deactivated'));
+        $this->assertGuest('admin');
+        $this->get('/clients')->assertRedirect('/login');
     }
 }

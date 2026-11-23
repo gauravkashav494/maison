@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Models\Order;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -15,6 +16,10 @@ class OrderForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // A sales order (placed by a sales person) carries no address, so none is asked for. The
+        // columns are not nullable: a blank field is saved as an empty string.
+        $needsAddress = fn (?Order $record) => ! $record?->salesperson_id;
+
         return $schema
             ->columns(1)
             ->components([
@@ -22,8 +27,16 @@ class OrderForm
                     ->description('Changing the status appends an entry to the order timeline the customer sees.')
                     ->columns(2)
                     ->schema([
+                        // Forward only: the current status and the steps after it (Order::allowedTransitions()).
+                        // A delivered or cancelled order is finished, so its status is locked.
                         Select::make('status')
-                            ->options(Order::STATUSES + ['cancelled' => 'Cancelled'])
+                            ->options(fn (?Order $record) => $record
+                                ? array_intersect_key(Order::statusOptions(), array_flip([$record->status, ...$record->allowedTransitions()]))
+                                : Order::statusOptions())
+                            ->disabled(fn (?Order $record) => $record && $record->allowedTransitions() === [])
+                            ->helperText(fn (?Order $record) => $record && $record->allowedTransitions() === []
+                                ? 'This order is '.strtolower($record->statusLabel()).', so its status can no longer change.'
+                                : 'An order only moves forward; it cannot go back to an earlier status.')
                             ->required()
                             ->native(false),
                         Select::make('payment_status')
@@ -43,13 +56,13 @@ class OrderForm
                     ->collapsed()
                     ->schema([
                         TextInput::make('shipping_name')->required(),
-                        TextInput::make('phone'),
-                        TextInput::make('shipping_line1')->label('Address line 1')->required()->columnSpanFull(),
+                        PhoneInput::make('phone'),
+                        TextInput::make('shipping_line1')->label('Address line 1')->required($needsAddress)->dehydrateStateUsing(fn ($state) => $state ?? '')->columnSpanFull(),
                         TextInput::make('shipping_line2')->label('Address line 2')->columnSpanFull(),
-                        TextInput::make('shipping_city')->required(),
-                        TextInput::make('shipping_state')->required(),
-                        TextInput::make('shipping_postal_code')->required(),
-                        TextInput::make('shipping_country')->required(),
+                        TextInput::make('shipping_city')->required($needsAddress)->dehydrateStateUsing(fn ($state) => $state ?? ''),
+                        TextInput::make('shipping_state')->required($needsAddress)->dehydrateStateUsing(fn ($state) => $state ?? ''),
+                        TextInput::make('shipping_postal_code')->required($needsAddress)->dehydrateStateUsing(fn ($state) => $state ?? ''),
+                        TextInput::make('shipping_country')->required($needsAddress)->dehydrateStateUsing(fn ($state) => $state ?? ''),
                     ]),
                 Grid::make(1)->schema([
                     Textarea::make('notes')->label('Internal / customer notes')->rows(3),

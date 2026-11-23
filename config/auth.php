@@ -140,6 +140,8 @@ return [
         'customers' => [
             'provider' => 'customers',
             'table' => 'customer_password_reset_tokens',
+            // Tokens are keyed on client + email: the same address may shop at two stores.
+            'scoped_by_client' => true,
             'expire' => 60,
             'throttle' => 60,
         ],

@@ -4,68 +4,68 @@
 @php $old = fn (string $k, $default = null) => old($k, $default); @endphp
 <x-page-head title="Checkout" :breadcrumbs="['Cart' => route('cart'), 'Checkout' => null]" />
 
-<section class="g-container py-6" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }} })">
+<section class="g-container py-4" x-data="checkout({ shipping: @js($old('shipping_method', $cart['shipping_method']['code'])), payment: @js($old('payment_method', array_key_first($paymentMethods))), codFee: {{ $codFee }}, gst: @js(\App\Support\GstSupply::checkoutConfig()), cart: @js(\Illuminate\Support\Arr::only($cart, ['tax', 'tax_rate', 'tax_inclusive', 'tax_rows', 'tax_line', 'tax_formatted'])) })">
 
-    <form method="post" action="{{ route('checkout.place') }}" class="grid gap-6 lg:grid-cols-12 lg:gap-8" @submit="submitting = true" novalidate>
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
+    <form method="post" action="{{ route('checkout.place') }}" class="checkout-form grid gap-4 lg:grid-cols-12 lg:gap-6" @submit="submitting = true" novalidate>
         @csrf
-        <div class="space-y-4 lg:col-span-8">
-            {{-- Contact --}}
+        <div class="space-y-3 lg:col-span-8">
+            {{-- Contact & delivery address --}}
             <fieldset class="card p-4 sm:p-5">
-                <legend class="sr-only">Contact</legend>
-                <div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-extrabold">Contact details</h2></div>
-                @guest<p class="mt-2 text-xs text-slate">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-leaf underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                <legend class="sr-only">Contact and delivery address</legend>
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-extrabold">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2></div>@guest @otp<p class="text-xs text-slate">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-leaf underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest</div>
+                @if($salesOrder ?? false)
+                    @include('partials.checkout.sales-order', ['labelClass' => 'label', 'fieldClass' => 'field', 'errorClass' => 'error-text', 'radioClass' => 'check'])
+                @else
+                <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="field @error('phone') field-error @enderror" autocomplete="tel" inputmode="tel">@error('phone')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Email (optional)</span><input name="email" type="email" value="{{ $old('email', $user?->email) }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-8"><span class="label">House / flat, building, street<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="field @error('shipping_line1') field-error @enderror" autocomplete="address-line1">@error('shipping_line1')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="col-span-2 sm:col-span-4"><span class="label">Landmark, area (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="field" autocomplete="address-line2">@error('shipping_line2')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="field @error('shipping_city') field-error @enderror" autocomplete="address-level2">@error('shipping_city')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="field @error('shipping_state') field-error @enderror" autocomplete="address-level1">@error('shipping_state')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">Pincode<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="field @error('shipping_postal_code') field-error @enderror" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="error-text">{{ $message }}</span>@enderror</label>
+                    <label class="sm:col-span-3"><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="India" readonly aria-readonly="true" title="We deliver within India only" class="field" autocomplete="country-name">@error('shipping_country')<span class="error-text">{{ $message }}</span>@enderror</label>
                 </div>
+                @auth<label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" name="save_address" value="1" class="check" checked> Save this address for next time</label>@endauth
+                @endif
             </fieldset>
 
-            {{-- Address --}}
-            <fieldset class="card p-4 sm:p-5">
-                <legend class="sr-only">Delivery address</legend>
-                <div class="flex items-center gap-3"><span class="step-num">2</span><h2 class="text-base font-extrabold">Delivery address</h2></div>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label class="sm:col-span-2"><span class="label">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="field @error('shipping_name') field-error @enderror" autocomplete="name">@error('shipping_name')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="label">House / flat, building, street<span class="req" aria-hidden="true">*</span></span><input name="shipping_line1" value="{{ $old('shipping_line1', $address?->line1) }}" class="field @error('shipping_line1') field-error @enderror" autocomplete="address-line1">@error('shipping_line1')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label class="sm:col-span-2"><span class="label">Landmark, area (optional)</span><input name="shipping_line2" value="{{ $old('shipping_line2', $address?->line2) }}" class="field" autocomplete="address-line2">@error('shipping_line2')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Pincode<span class="req" aria-hidden="true">*</span></span><input name="shipping_postal_code" value="{{ $old('shipping_postal_code', $address?->postal_code) }}" class="field @error('shipping_postal_code') field-error @enderror" autocomplete="postal-code" inputmode="numeric">@error('shipping_postal_code')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="shipping_city" value="{{ $old('shipping_city', $address?->city) }}" class="field @error('shipping_city') field-error @enderror" autocomplete="address-level2">@error('shipping_city')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">State<span class="req" aria-hidden="true">*</span></span><input name="shipping_state" value="{{ $old('shipping_state', $address?->state) }}" class="field @error('shipping_state') field-error @enderror" autocomplete="address-level1">@error('shipping_state')<span class="error-text">{{ $message }}</span>@enderror</label>
-                    <label><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="{{ $old('shipping_country', $address?->country ?? 'India') }}" class="field" autocomplete="country-name">@error('shipping_country')<span class="error-text">{{ $message }}</span>@enderror</label>
-                </div>
-                @auth<label class="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" name="save_address" value="1" class="check" checked> Save this address for next time</label>@endauth
-            </fieldset>
-
-            {{-- Delivery slot --}}
-            <fieldset class="card p-4 sm:p-5">
+            {{-- Delivery & payment --}}
+            <div class="card divide-y divide-line">
+            {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
+            @unless($salesOrder ?? false)
+            <fieldset class="p-4 sm:p-5">
                 <legend class="sr-only">Delivery option</legend>
-                <div class="flex items-center gap-3"><span class="step-num">3</span><h2 class="text-base font-extrabold">Delivery option<span class="req" aria-hidden="true">*</span></h2></div>
+                <div class="flex items-center gap-3"><span class="step-num">2</span><h2 class="text-base font-extrabold">Delivery option<span class="req" aria-hidden="true">*</span></h2></div>
                 @error('shipping_method')<p class="error-text">{{ $message }}</p>@enderror
-                <div class="mt-4 grid gap-2">
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
                     @foreach($shippingMethods as $m)
                         @php $free = $m['free_over'] !== null && $m['free_over'] > 0 && $cart['subtotal'] >= $m['free_over']; @endphp
-                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors" :class="shipping === @js($m['code']) ? 'border-leaf bg-leaf-light/50' : 'border-line hover:border-line-strong'">
+                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors" :class="shipping === @js($m['code']) ? 'border-leaf bg-leaf-light/50' : 'border-line hover:border-line-strong'">
                             <input type="radio" name="shipping_method" value="{{ $m['code'] }}" class="check mt-1" :checked="shipping === @js($m['code'])" @change="setShipping(@js($m['code']))">
                             <span class="flex-1">
-                                <span class="flex items-baseline justify-between gap-3"><span class="text-sm font-bold">{{ $m['name'] }}</span><span class="text-sm font-bold tabular {{ ($free || $m['cost'] === 0) ? 'text-leaf' : '' }}">{{ ($free || $m['cost'] === 0) ? 'FREE' : money($m['cost']) }}</span></span>
+                                <span class="flex items-baseline justify-between gap-3"><span class="text-sm font-bold">{{ $m['name'] }}</span><span class="text-sm font-bold tabular {{ ($free || $m['cost'] <= 0) ? 'text-leaf' : '' }}">{{ ($free || $m['cost'] <= 0) ? 'FREE' : money($m['cost']) }}</span></span>
                                 <span class="mt-0.5 block text-xs text-slate">{{ $m['description'] }}@if($m['eta']) · {{ $m['eta'] }}@endif</span>
                             </span>
                         </label>
                     @endforeach
                 </div>
             </fieldset>
+            @endunless
 
             {{-- Payment --}}
-            <fieldset class="card p-4 sm:p-5">
+            <fieldset class="p-4 sm:p-5">
                 <legend class="sr-only">Payment</legend>
-                <div class="flex items-center gap-3"><span class="step-num">4</span><h2 class="text-base font-extrabold">Payment method<span class="req" aria-hidden="true">*</span></h2></div>
-                <p class="mt-2 flex items-center gap-1.5 text-xs text-slate"><x-ico name="lock" :size="12" /> 100% secure. We never store card details.</p>
-                <div class="mt-4 grid gap-2">
+                <div class="flex items-center gap-3"><span class="step-num">3</span><h2 class="text-base font-extrabold">Payment method<span class="req" aria-hidden="true">*</span></h2></div>
+                @if(array_diff(array_keys($paymentMethods), ['cod']))<p class="mt-2 flex items-center gap-1.5 text-xs text-slate"><x-ico name="lock" :size="12" /> 100% secure. We never store card details.</p>@endif
+                <div class="mt-3 grid gap-2">
                     @foreach($paymentMethods as $code => $name)
                         <div class="rounded-xl border transition-colors" :class="payment === @js($code) ? 'border-leaf' : 'border-line'">
-                            <label class="flex cursor-pointer items-center gap-3 px-4 py-3">
+                            <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5">
                                 <input type="radio" name="payment_method" value="{{ $code }}" class="check" x-model="payment">
-                                <span class="flex-1 text-sm font-bold">{{ $name }}</span>
+                                <span class="flex-1 text-sm font-bold">{{ $name }}@if($code === 'cod')<span class="block text-xs font-normal text-slate">Pay by cash or UPI at your door</span>@endif</span>
                                 <span class="text-[0.6875rem] font-semibold text-mist">
                                     @switch($code)
                                         @case('card') Visa · Mastercard · RuPay @break
@@ -75,6 +75,7 @@
                                     @endswitch
                                 </span>
                             </label>
+                            @if($code !== 'cod')
                             <div x-show="payment === @js($code)" x-collapse x-cloak class="border-t border-line bg-paper px-4 py-4 text-sm">
                                 @switch($code)
                                     @case('card')
@@ -96,13 +97,18 @@
                                     @case('cod') <p class="text-slate">Pay in cash or by UPI to the delivery partner at your door.@if($codFee > 0) A handling fee of {{ money($codFee) }} applies.@endif</p> @break
                                 @endswitch
                             </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
                 @error('payment_method')<p class="error-text">{{ $message }}</p>@enderror
             </fieldset>
+            </div>
 
-            <label class="card block p-4 sm:p-5"><span class="label">Delivery instructions (optional)</span><textarea name="notes" rows="2" class="field" placeholder="e.g. Leave at the door, call on arrival, avoid ringing the bell…">{{ $old('notes') }}</textarea>@error('notes')<span class="error-text">{{ $message }}</span>@enderror</label>
+            <div x-data="{ open: @js(filled(old('notes')) || $errors->has('notes')) }">
+                <button type="button" class="text-sm font-semibold text-leaf" @click="open = !open" :aria-expanded="open"><span x-text="open ? '−' : '+'">+</span> Add delivery instructions</button>
+                <label x-show="open" x-collapse x-cloak class="mt-2 block"><span class="sr-only">Delivery instructions</span><textarea name="notes" rows="2" class="field" placeholder="e.g. Leave at the door, call on arrival, avoid ringing the bell…">{{ $old('notes') }}</textarea>@error('notes')<span class="error-text">{{ $message }}</span>@enderror</label>
+            </div>
         </div>
 
         {{-- Summary --}}
@@ -123,10 +129,15 @@
                     <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-slate">Coupon <span x-text="$store.cart.coupon ? '(' + $store.cart.coupon.code + ')' : ''"></span></dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                     <div class="flex justify-between"><dt class="text-slate">Delivery</dt><dd class="tabular" x-text="($store.cart.loaded ? $store.cart.shipping : @js($cart['shipping'])) === 0 ? 'FREE' : ($store.cart.shipping_formatted || @js($cart['shipping_formatted']))"></dd></div>
                     <div class="flex justify-between" x-show="codExtra > 0"><dt class="text-slate">COD handling fee</dt><dd class="tabular" x-text="fmt(codExtra)"></dd></div>
-                    <div class="flex justify-between"><dt class="text-slate" x-text="'Taxes (' + ($store.cart.tax_label || @js($cart['tax_label'])) + ')'"></dt><dd class="tabular" x-text="$store.cart.tax_formatted || @js($cart['tax_formatted'])"></dd></div>
+                    @if(shows_tax_row())
+                        {{-- GST, or IGST / CGST + SGST once the state is typed (as the order will be). --}}<template x-for="row in taxRows" :key="row.label"><div class="flex justify-between"><dt class="text-slate" x-text="row.label"></dt><dd class="tabular" x-text="row.amount"></dd></div></template>
+                    @endif
                     <div class="flex justify-between border-t border-line pt-3 text-base font-extrabold"><dt>To pay</dt><dd class="tabular" x-text="fmt(($store.cart.loaded ? $store.cart.total : {{ $cart['total'] }}) + codExtra)"></dd></div>
                 </dl>
-                <button type="submit" :disabled="submitting" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-line pt-3', 'labelClass' => 'text-sm font-extrabold', 'inputClass' => 'field h-10 min-w-0 flex-1 uppercase', 'buttonClass' => 'btn btn-outline h-10 shrink-0', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 rounded-lg bg-leaf-light px-3 py-2 text-sm', 'removeClass' => 'shrink-0 text-xs font-semibold text-slate hover:text-berry', 'errorClass' => 'error-text mt-2'])
+                @if(prices_include_tax())<p class="mt-1 text-right text-xs text-slate">Inclusive of all taxes</p>@endif
+                <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
+                @guest<p class="mt-2 text-center text-xs text-slate">We will send a code on WhatsApp to confirm your number and create your account.</p>@endotp @endguest
                 <p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-mist">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>.</p>
             </div>
         </aside>

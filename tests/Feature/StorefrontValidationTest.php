@@ -44,7 +44,7 @@ class StorefrontValidationTest extends TestCase
     public function test_an_empty_registration_is_rejected_field_by_field(): void
     {
         $this->onStore()->post('/register', [])
-            ->assertSessionHasErrors(['name', 'email', 'password']);
+            ->assertSessionHasErrors(['name', 'phone', 'password'])->assertSessionDoesntHaveErrors('email');
         $this->assertSame(0, Customer::withoutGlobalScopes()->count());
     }
 
@@ -67,27 +67,28 @@ class StorefrontValidationTest extends TestCase
             'phone' => '+91 98765 43210',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('account.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('account.index'));
 
         $this->assertSame('ravi@example.test', Customer::withoutGlobalScopes()->first()->email);
     }
 
     public function test_addresses_in_india_need_a_six_digit_pin_code(): void
     {
-        $customer = Customer::withoutGlobalScopes()->create(['client_id' => Client::where('subdomain', 'alpha')->value('id'), 'name' => 'Ravi', 'email' => 'ravi@example.test', 'password' => 'password123']);
+        $customer = Customer::withoutGlobalScopes()->create(['client_id' => Client::where('subdomain', 'alpha')->value('id'), 'name' => 'Ravi', 'email' => 'ravi@example.test', 'password' => 'password123', 'is_active' => true]);
         $address = ['name' => 'Ravi', 'line1' => '12 MG Road', 'city' => 'Bengaluru', 'state' => 'Karnataka', 'country' => 'India'];
 
         $this->onStore()->actingAs($customer)->post('/account/addresses', $address + ['postal_code' => '5600'])
             ->assertSessionHasErrors(['postal_code' => 'Please enter a valid 6-digit PIN code.']);
 
-        $this->onStore()->actingAs($customer)->post('/account/addresses', $address + ['postal_code' => '560001'])
+        $this->onStore()->actingAs($customer)->post('/account/addresses', $address + ['postal_code' => '560001'])->assertRedirect()
             ->assertSessionHasNoErrors();
     }
 
     public function test_contact_and_tracking_forms_validate_on_the_server(): void
     {
         $this->onStore()->post('/contact', [])->assertSessionHasErrors(['name', 'email', 'message']);
-        $this->onStore()->get('/track-order?number=&email=')->assertRedirect(route('track'))->assertSessionHasErrors(['number', 'email']);
+        $this->onStore()->get('/track-order?number=&email=')->assertRedirect(route('track'))->assertSessionHasErrors(['number', 'contact']);
     }
 
     public function test_json_forms_return_field_errors(): void
@@ -101,6 +102,39 @@ class StorefrontValidationTest extends TestCase
     public function test_checkout_rejects_missing_fields(): void
     {
         $this->onStore()->post('/checkout', [])
-            ->assertSessionHasErrors(['email', 'phone', 'shipping_name', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country', 'payment_method']);
+            ->assertSessionHasErrors(['phone', 'shipping_name', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country', 'payment_method']);
+    }
+
+    public function test_addresses_must_be_in_india(): void
+    {
+        $customer = Customer::withoutGlobalScopes()->create(['client_id' => Client::where('subdomain', 'alpha')->value('id'), 'name' => 'Ravi', 'email' => 'ravi@example.test', 'password' => 'password123', 'is_active' => true]);
+        $address = ['name' => 'Ravi', 'line1' => '12 MG Road', 'city' => 'Bengaluru', 'state' => 'Karnataka', 'postal_code' => '560001', 'country' => 'India'];
+        $post = fn (array $change) => $this->onStore()->actingAs($customer, 'web')->post('/account/addresses', $change + $address);
+
+        $post(['country' => 'Canada', 'state' => 'Ontario', 'postal_code' => 'K1A 0B1'])->assertSessionHasErrors([
+            'country' => 'We deliver within India only. Please enter India as the country.',
+            'state' => 'Please enter a state or union territory of India, e.g. Maharashtra.',
+            'postal_code' => 'Please enter a valid 6-digit PIN code.',
+        ]);
+        $post(['state' => 'Somewhere'])->assertSessionHasErrors(['state']);
+
+        // Short forms are read and stored in full.
+        $post(['country' => 'IN', 'state' => 'ka'])->assertSessionHasNoErrors()->assertRedirect();
+        $saved = \App\Models\Address::withoutGlobalScopes()->latest('id')->first();
+        $this->assertSame(['Karnataka', 'India'], [$saved->state, $saved->country]);
+    }
+
+    public function test_checkout_delivers_within_india_only(): void
+    {
+        $this->onStore()->post('/checkout', [
+            'shipping_state' => 'Ontario', 'shipping_postal_code' => 'K1A 0B1', 'shipping_country' => 'Canada',
+        ])->assertSessionHasErrors([
+            'shipping_country' => 'We deliver within India only. Please enter India as the country.',
+            'shipping_state' => 'Please enter a state or union territory of India, e.g. Maharashtra.',
+            'shipping_postal_code' => 'Please enter a valid 6-digit PIN code.',
+        ]);
+
+        $this->onStore()->post('/checkout', ['shipping_state' => 'MH', 'shipping_postal_code' => '400001', 'shipping_country' => 'Bharat'])
+            ->assertSessionDoesntHaveErrors(['shipping_state', 'shipping_postal_code', 'shipping_country']);
     }
 }

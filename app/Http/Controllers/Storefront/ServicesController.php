@@ -14,8 +14,10 @@ use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
 use App\Models\Testimonial;
+use App\Support\GuestCustomer;
 use App\Support\Media;
 use App\Support\Seo;
+use App\Support\StaffAlerts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,7 +77,7 @@ class ServicesController extends Controller
         return view('services.show', [
             'service' => $service,
             'faqs' => $faqs,
-            'related' => Service::active()->where('id', '!=', $service->id)->orderByDesc('is_popular')->limit(6)->get(),
+            'related' => Service::active()->where('id', '!=', $service->id)->popularFirst()->limit(6)->get(),
             'testimonials' => Testimonial::with('service')->active()->where('service_id', $service->id)->limit(6)->get()
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'projects' => Project::with('service')->active()->where('service_id', $service->id)->limit(4)->get(),
@@ -132,7 +134,7 @@ class ServicesController extends Controller
 
         return view('services.area', [
             'area' => $area,
-            'services' => Service::active()->orderByDesc('is_popular')->limit(9)->get(),
+            'services' => Service::active()->popularFirst()->limit(9)->get(),
             'testimonials' => Testimonial::with('service')->active()->whereLike('location', $area->name)->limit(6)->get()
                 ->whenEmpty(fn () => Testimonial::with('service')->active()->limit(6)->get()),
             'others' => ServiceArea::active()->where('id', '!=', $area->id)->get(),
@@ -178,12 +180,13 @@ class ServicesController extends Controller
         $data['service_name'] = $service?->name ?? $data['service_name'];
         $data['type'] = $data['type'] ?? ($service?->is_emergency ? 'emergency' : 'booking');
         $data['template'] = template()->id();
-        $data['customer_id'] = $request->user()?->id;
+        $data['customer_id'] = GuestCustomer::idFor($request->user(), $data['email'] ?? null, $data['name'], $data['phone']);
         if (($data['time_slot'] ?? null) === 'asap') {
             $data['preferred_date'] = $data['preferred_date'] ?? today();
         }
 
         $booking = ServiceRequest::create($data);
+        StaffAlerts::serviceRequest($booking);
         $request->session()->put('booking.'.$booking->reference, true);
 
         return redirect()->to($booking->url);
@@ -223,9 +226,10 @@ class ServicesController extends Controller
         $data['type'] = 'quote';
         $data['time_slot'] = 'asap';
         $data['template'] = template()->id();
-        $data['customer_id'] = $request->user()?->id;
+        $data['customer_id'] = GuestCustomer::idFor($request->user(), $data['email'] ?? null, $data['name'], $data['phone']);
 
         $quote = ServiceRequest::create($data);
+        StaffAlerts::serviceRequest($quote);
         $request->session()->put('booking.'.$quote->reference, true);
 
         return redirect()->to($quote->url);
@@ -277,7 +281,7 @@ class ServicesController extends Controller
         $data = $request->validated();
         unset($data['website']);
         $data['subject'] = $data['service'] ?: 'Enquiry';
-        ContactMessage::create($data + ['template' => template()->id()]);
+        StaffAlerts::contactMessage(ContactMessage::create($data + ['template' => template()->id()]));
 
         return back()->with('contact_status', 'Thank you! We have received your message and will call you back shortly.');
     }

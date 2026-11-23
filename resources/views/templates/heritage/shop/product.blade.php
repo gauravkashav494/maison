@@ -56,7 +56,7 @@
         {{-- Details --}}
         <div class="min-w-0 lg:col-span-6">
             <h1 class="display text-2xl text-red lg:text-[2rem]">{{ $product->name }}</h1>
-            <p class="mt-2 text-sm text-ink">{{ $product->category?->name }}@if($product->brand) · {{ $product->brand }}@endif</p>
+            <p class="mt-2 text-sm text-ink">{{ $product->category?->name }}@if($product->brand) · <a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="hover:underline">{{ $product->brand }}</a>@endif</p>
             @if($product->description)<p class="mt-3 text-sm leading-relaxed text-ink/85">{{ $product->description }}</p>@endif
 
             @if($benefits)
@@ -72,20 +72,22 @@
             {{-- Any further attributes this product varies by (material, style, …) --}}
             <x-variant-options :product="$product" />
 
+            @php $base = $product->displayPricing(); @endphp
             <div class="mt-5" x-ref="buy">
                 <p class="text-xs font-medium text-muted">Select Pack Size</p>
-                <div class="mt-2 flex flex-wrap gap-3">
+                {{-- Each pack shows its own variant's price and saving; the product's own when not sold by variant. --}}
+                <div class="mt-2 flex flex-wrap gap-3" x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
                     @foreach($product->sizes ?? [] as $s)
                         <button type="button" @click="size = @js($s)" class="min-w-[9rem] overflow-hidden rounded-xl border-2 text-left transition-colors" :class="size === @js($s) ? 'border-red' : 'border-line hover:border-gold'">
                             <span class="block px-3 py-1.5 text-center text-sm font-semibold" :class="size === @js($s) ? 'bg-red text-cream' : 'bg-cream-dark text-ink'">{{ $s }}</span>
-                            <span class="block px-3 py-2"><span class="flex items-baseline gap-2"><span class="font-semibold tabular">{{ money($product->price) }}</span>@if($product->compare_at_price)<s class="text-xs text-muted">{{ money($product->compare_at_price) }}</s>@endif</span>@if($product->compare_at_price)<span class="mt-1 inline-block rounded-full bg-ink px-2 py-0.5 text-[0.625rem] font-semibold text-cream">Save {{ money($product->compare_at_price - $product->price) }}/-</span>@endif</span>
+                            <span class="block px-3 py-2" x-data="{ get pack() { return forSize(@js($s)) } }"><span class="flex items-baseline gap-2"><span class="font-semibold tabular" x-text="pack.price_formatted">{{ $base['price_formatted'] }}</span><s x-show="pack.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-xs text-muted" x-text="pack.compare_at_price_formatted">{{ $base['compare_at_price_formatted'] }}</s></span><span x-show="pack.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="mt-1 inline-block rounded-full bg-ink px-2 py-0.5 text-[0.625rem] font-semibold text-cream" x-text="'Save ' + pack.save_formatted + '/-'">Save {{ $base['save_formatted'] }}/-</span></span>
                         </button>
                     @endforeach
                 </div>
                 @if(!empty($product->dietary_tags))<ul class="mt-4 flex flex-wrap gap-1.5">@foreach($product->dietary_tags as $t)<li class="badge badge-outline">{{ $t }}</li>@endforeach</ul>@endif
                 <div class="mt-5 flex items-center gap-3">
                     @if($product->in_stock)
-                        <div class="stepper stepper-lg"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-ico name="minus" :size="16" /></button><span x-text="qty"></span><button type="button" @click="qty = Math.min(max, qty + 1)" aria-label="Increase quantity"><x-ico name="plus" :size="16" /></button></div>
+                        <div class="stepper stepper-lg"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-ico name="minus" :size="16" /></button><span x-text="qty"></span><button type="button" @click="qty < max ? qty++ : $store.ui.notify(`Maximum ${max} per order`, 'error')" aria-label="Increase quantity"><x-ico name="plus" :size="16" /></button></div>
                         <button type="button" @click="add()" class="btn btn-gold btn-lg flex-1 rounded-full">Add to Cart</button>
                         <button type="button" @click="$store.wishlist.toggle(p.id)" class="grid h-[3.125rem] w-[3.125rem] shrink-0 place-items-center rounded-full border border-line bg-white text-muted hover:border-gold hover:text-red" :class="$store.wishlist.has(p.id) && '!text-red'" aria-label="Add to wishlist"><x-ico name="heart" :size="18" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
                     @else
@@ -198,6 +200,7 @@
     @endif
 
     {{-- Reviews --}}
+    @module('reviews')
     <section id="reviews" class="h-container pb-10">
         <div class="card grid gap-8 p-6 lg:p-8 {{ $reviews->isEmpty() ? '' : 'lg:grid-cols-12' }}">
             <div class="{{ $reviews->isEmpty() ? 'w-full text-center' : 'lg:col-span-4' }}">
@@ -237,13 +240,14 @@
             <div class="lg:col-span-8">
                     <ul class="divide-y divide-line-soft">
                         @foreach($reviews as $r)
-                            <li class="py-4 first:pt-0"><div class="flex items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-cream-dark font-serif text-sm font-semibold text-red">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-semibold">{{ $r->name }}</span><span class="badge badge-soft">Verified</span></div><span class="text-xs text-muted">{{ $r->created_at->format('d M Y') }}</span></div><div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div><p class="mt-1.5 text-sm leading-relaxed text-muted">{{ $r->body }}</p></li>
+                            <li class="py-4 first:pt-0"><div class="flex items-center justify-between gap-3"><div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-cream-dark font-serif text-sm font-semibold text-red">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-semibold">{{ $r->name }}</span>@if($r->is_verified_purchase)<span class="badge badge-soft">Verified purchase</span>@endif</div><span class="text-xs text-muted">{{ $r->created_at->format('d M Y') }}</span></div><div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div><p class="mt-1.5 text-sm leading-relaxed text-muted">{{ $r->body }}</p></li>
                         @endforeach
                     </ul>
             </div>
             @endunless
         </div>
     </section>
+    @endmodule
 
     <div x-data="productRail('recent')" data-exclude="{{ $product->slug }}" x-show="items.length" x-cloak class="h-container pb-10">
         <h2 class="title-c !text-ink">Recently Viewed</h2>
@@ -252,7 +256,7 @@
 
     {{-- Sticky mobile add-to-cart --}}
     <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-warm p-3 shadow-float lg:hidden">
-        <div class="flex items-center gap-3"><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="font-serif text-base font-semibold tabular">{{ money($product->price) }} <span x-text="size" class="font-sans text-xs font-normal text-muted"></span></p></div>@if($product->in_stock)<button type="button" @click="add()" class="btn btn-gold rounded-full">Add to Cart</button>@endif</div>
+        <div class="flex items-center gap-3"><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="font-serif text-base font-semibold tabular" x-data="variantPricing(@js($product->pricingVariants()), @js($product->displayPricing()))"><span x-text="shown.price_formatted">{{ money($product->price) }}</span> <span x-text="size" class="font-sans text-xs font-normal text-muted"></span></p></div>@if($product->in_stock)<button type="button" @click="add()" class="btn btn-gold rounded-full">Add to Cart</button>@endif</div>
     </div>
 
     {{-- Lightbox --}}

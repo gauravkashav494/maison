@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Page;
 use App\Models\Post;
 use App\Support\Media;
 use Illuminate\Database\Seeder;
@@ -20,25 +19,7 @@ class ContentSeeder extends Seeder
             Post::updateOrCreate(['slug' => $post['slug'], 'template' => 'fashion'], $post + ['body' => '<p>'.$post['excerpt'].'</p><p>Full story coming soon.</p>']);
         }
 
-        $pages = [
-            ['slug' => 'about', 'title' => 'Our Story', 'eyebrow' => 'About Maison Élan', 'excerpt' => 'Clothing, fragrance, timepieces and leather goods designed with intention.'],
-            ['slug' => 'shipping', 'title' => 'Shipping Information', 'template' => 'legal'],
-            ['slug' => 'returns', 'title' => 'Returns & Exchanges', 'template' => 'legal'],
-            ['slug' => 'privacy', 'title' => 'Privacy Policy', 'template' => 'legal'],
-            ['slug' => 'terms', 'title' => 'Terms & Conditions', 'template' => 'legal'],
-            ['slug' => 'cookies', 'title' => 'Cookie Policy', 'template' => 'legal'],
-            ['slug' => 'accessibility', 'title' => 'Accessibility Statement', 'template' => 'legal'],
-            ['slug' => 'disclaimer', 'title' => 'Disclaimer', 'template' => 'legal'],
-            ['slug' => 'size-guide', 'title' => 'Size Guide'],
-            ['slug' => 'care-guide', 'title' => 'Care Guide'],
-            ['slug' => 'gift-cards', 'title' => 'Gift Cards'],
-            ['slug' => 'careers', 'title' => 'Careers'],
-            ['slug' => 'stores', 'title' => 'Store Locator'],
-            ['slug' => 'payment', 'title' => 'Payment Information', 'template' => 'legal'],
-            ['slug' => 'faq', 'title' => 'Frequently Asked Questions'],
-        ];
-        foreach ($pages as $page) {
-            Page::firstOrCreate(['slug' => $page['slug']], $page + ['body' => '<p>Content for this page can be edited in the admin panel under Pages.</p>']);
-        }
+        // Pages are seeded by PagesSeeder, as Fashion pages. This seeder used to add shared
+        // copies of the same slugs too, which the storefront never showed (the Fashion page wins).
     }
 }

@@ -6,7 +6,10 @@ use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
 use App\Clients\Scopes\ClientVisibility;
+use App\Clients\StoreFeatures;
 use App\Contracts\AdminIdentity;
+use App\Filament\Pages\Templates;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Collection;
@@ -22,9 +25,9 @@ use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceArea;
 use App\Models\ServiceRequest;
-use App\Models\Subscriber;
 use App\Models\Store;
 use App\Models\Storefront;
+use App\Models\Subscriber;
 use App\Models\Testimonial;
 use App\Templates\Scopes\TemplateVisibility;
 use App\Templates\TemplateManager;
@@ -54,7 +57,7 @@ class ResolveTemplate
     public const CATALOGUE_ROUTES = ['shop.*', 'collections.*', 'products.*', 'search', 'cart', 'cart.*', 'checkout', 'checkout.*', 'orders.*', 'track', 'api.search', 'api.products', 'api.product', 'account.orders', 'account.order', 'account.wishlist'];
 
     /** Catalogue and content models: limited to the template AND to the client being served. */
-    public const SCOPED = [Product::class, Category::class, Collection::class, Page::class, Post::class, Faq::class, Service::class, ServiceArea::class, Testimonial::class, Project::class];
+    public const SCOPED = [Product::class, Category::class, Collection::class, Brand::class, Page::class, Post::class, Faq::class, Service::class, ServiceArea::class, Testimonial::class, Project::class];
 
     /**
      * Models that belong to a client but are not catalogue content. They are scoped by client
@@ -82,12 +85,17 @@ class ResolveTemplate
         $client = $this->clientForRequest($request);
         $hostTemplate = $client ? null : Storefront::templateForHost($request->getHost());
 
-        // The old entry links (/store/<subdomain>, /c/<subdomain>, /bulkorder) redirect on their own.
-        $isEntryLink = $request->is('store/*', 'c/*', 'bulkorder');
+        // The old entry links (/store/<subdomain>, /c/<subdomain>) redirect on their own.
+        $isEntryLink = $request->is('store/*', 'c/*');
 
         if (! $client && ! $isEntryLink) {
             // The main domain is the Super Admin panel, never a store.
             if (! $hostTemplate) {
+                // A deactivated client's own address says so, instead of leading to the panel.
+                if ($inactive = Client::anyForHost($request->getHost())) {
+                    return response()->view('storefront-deactivated', ['client' => $inactive], 503);
+                }
+
                 // The panel's dashboard route carries the main domain, so this always lands there.
                 // (Panel::getUrl() falls back to url('') — this same host — which loops forever when
                 // a request arrives on a host that is neither the main domain nor a client.)
@@ -114,8 +122,8 @@ class ResolveTemplate
         $publicId = $client?->templateId()
             ?? $hostTemplate
             ?? Storefront::templateForCookie($request->cookie(Storefront::COOKIE))
-            ?? $manager->activeId();
-        if ($publicId !== $manager->activeId() && ! $manager->previewId()) {
+            ?? $manager->defaultId();
+        if (! $manager->previewId()) {
             $manager->setCurrent($manager->get($publicId));
         }
 
@@ -151,6 +159,11 @@ class ResolveTemplate
                 $model::addGlobalScope(ClientVisibility::NAME, new ClientVisibility($client->id));
             }
         }
+
+        // Modules switched off on the client: their records, pages, forms and links go.
+        $features = app(StoreFeatures::class);
+        $features->hideStorefrontData();
+        $features->guard($request->route());
 
         $response = $next($request);
 
@@ -289,7 +302,7 @@ class ResolveTemplate
                 ? '<span>You are viewing your store, <strong>'.e($previewing).'</strong> — visitors here see <strong>'.e($active).'</strong>. Share your own store link from the admin dashboard.</span>'
                 : '<span>Previewing the <strong>'.e($previewing).'</strong> template — visitors still see <strong>'.e($active).'</strong>.</span>'
                     .'<a href="'.$exit.'" style="color:#fff;text-decoration:underline">Exit preview</a>')
-            .'<a href="'.e($locked ? url('/client') : \App\Filament\Pages\Templates::getUrl(panel: 'admin')).'" style="color:#fff;text-decoration:underline">'.($locked ? 'Back to admin' : 'Manage templates').'</a>'
+            .'<a href="'.e($locked ? url('/client') : Templates::getUrl(panel: 'admin')).'" style="color:#fff;text-decoration:underline">'.($locked ? 'Back to admin' : 'Manage templates').'</a>'
             .'</div>';
         $response->setContent(str_replace('</body>', $bar.'</body>', $content));
     }

@@ -21,7 +21,7 @@
     </div>
 
     <div class="ps-container relative flex h-[4.5rem] items-center gap-3 2xl:gap-6">
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5" aria-label="{{ $biz['name'] }} home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5" aria-label="{{ $biz['name'] }} home">
             <span class="grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-glow"><x-ico name="droplet" :size="24" :stroke="2" /></span>
             <span class="font-display text-[1.35rem] font-extrabold tracking-tight text-deep">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-bright">{{ $p['logo_accent'] ?? 'Care' }}</span></span>
         </a>
@@ -54,7 +54,7 @@
             </div>
             @foreach($header as $item)
                 @if($item->url !== '/services')
-                    <a href="{{ $item->url }}" class="nav-link {{ $item->is_accent ? 'nav-link-accent' : '' }} {{ request()->is(ltrim($item->url, '/')) ? 'is-active' : '' }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif>{{ $item->is_accent ? '' : '' }}{{ $item->label }}</a>
+                    <a href="{{ $item->url }}" data-menu-area="header" class="nav-link {{ $item->is_accent ? 'nav-link-accent' : '' }} {{ request()->is(ltrim($item->url, '/')) ? 'is-active' : '' }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif>{{ $item->is_accent ? '' : '' }}{{ $item->label }}</a>
                 @endif
             @endforeach
         </nav>
@@ -66,11 +66,8 @@
             </a>
             @if($biz['whatsapp'])<a href="{{ $biz['whatsapp_href'] }}" target="_blank" rel="noopener" class="icon-btn hidden h-11 w-11 bg-success-light text-whatsapp-dark hover:bg-success-light xl:grid" aria-label="WhatsApp"><x-ico name="whatsapp" :size="22" /></a>@endif
             <a href="{{ route('booking.create') }}" class="btn btn-primary px-4 2xl:px-5">Book a plumber</a>
-            @auth
-                <a href="{{ route('account.index') }}" class="icon-btn hidden h-11 w-11 2xl:grid" aria-label="My account"><x-ico name="user" :size="22" /></a>
-            @else
-                <a href="{{ route('login') }}" class="icon-btn hidden h-11 w-11 2xl:grid" aria-label="Log in"><x-ico name="user" :size="22" /></a>
-            @endauth
+            <x-account-menu wrapper="hidden 2xl:block" class="icon-btn h-11 w-11" aria-label="{{ auth()->check() ? 'My account' : 'Log in' }}" orders="account.bookings" orders-label="My bookings"
+                            panel="rounded-xl border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-sky" muted="text-slate"><x-ico name="user" :size="22" /></x-account-menu>
         </div>
     </div>
 </header>

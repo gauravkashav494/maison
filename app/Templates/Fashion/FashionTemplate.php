@@ -2,6 +2,7 @@
 
 namespace App\Templates\Fashion;
 
+use App\Filament\Pages\FashionSettings;
 use App\Filament\Pages\HomepageSettings;
 use App\Models\Category;
 use App\Models\Menu;
@@ -74,7 +75,7 @@ class FashionTemplate extends Template
 
     public function adminPages(): array
     {
-        return [HomepageSettings::class];
+        return [FashionSettings::class, HomepageSettings::class];
     }
 
     public function isInstalled(): bool

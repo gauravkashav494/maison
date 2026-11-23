@@ -18,6 +18,7 @@ class GroceryMenuSeeder extends Seeder
             ['label' => 'Bestsellers', 'url' => '/shop/best-sellers'],
             ['label' => 'New in store', 'url' => '/shop/new-arrivals'],
             ['label' => 'Combos', 'url' => '/collections'],
+            ['label' => 'Brands', 'url' => '/brands'],
             ['label' => 'Recipes & tips', 'url' => '/journal'],
         ]);
 

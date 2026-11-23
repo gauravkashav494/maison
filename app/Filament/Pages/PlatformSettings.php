@@ -17,7 +17,7 @@ use Filament\Support\Icons\Heroicon;
 /**
  * The platform's own settings, for the super admin only: its name and the look of the
  * super-admin sign-in page. Each client's brand, contact, SEO and checkout live in that
- * client's Site settings (client panel), never here.
+ * client's Site settings and SEO settings (client panel), never here.
  */
 class PlatformSettings extends Page
 {

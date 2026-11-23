@@ -24,7 +24,7 @@
         {{-- Inner pages get a back arrow, like a native navigation bar --}}
         @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-paper lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         {{-- Logo --}}
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
             <span class="text-[1.2rem] font-extrabold leading-none tracking-tight">
                 <span class="text-leaf-dark">{{ $g['logo_primary'] ?? 'Maison' }}</span><span class="text-saffron">{{ $g['logo_accent'] ?? 'Fresh' }}</span>
@@ -51,14 +51,15 @@
                 <x-ico name="heart" :size="20" />
                 <span x-show="$store.wishlist.count" x-cloak class="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-berry px-1 text-[0.625rem] font-bold text-white" x-text="$store.wishlist.count"></span>
             </a>
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="hidden h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold hover:bg-paper sm:flex">
+            <x-account-menu wrapper="hidden sm:block" class="flex h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold hover:bg-paper" aria-label="Account"
+                            panel="rounded-lg border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-paper" muted="text-mist">
                 <x-ico name="user" :size="20" />
                 <span class="hidden xl:block">{{ auth()->check() ? Str::of(auth()->user()->name)->before(' ') : 'Login' }}</span>
-            </a>
+            </x-account-menu>
             <button type="button" @click="$store.ui.openCart()" class="btn btn-primary relative h-10 gap-2 px-3 sm:px-4" aria-label="Open cart">
                 <x-ico name="cart" :size="20" />
                 <span class="hidden flex-col items-start leading-none sm:flex">
-                    <span class="text-[0.6875rem] font-semibold opacity-90" x-text="$store.cart.count ? $store.cart.count + ' item' + ($store.cart.count > 1 ? 's' : '') : 'My cart'">My cart</span>
+                    <span class="text-[0.6875rem] font-semibold opacity-90" x-text="$store.cart.count ? $store.cart.count + ' item' + ($store.cart.count > 1 ? 's' : '') : 'Cart'">Cart</span>
                     <span class="mt-0.5 text-[0.8125rem] font-extrabold" x-show="$store.cart.count" x-cloak x-text="$store.cart.total_formatted"></span>
                 </span>
                 <span x-show="$store.cart.count" x-cloak class="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-saffron px-1 text-[0.6875rem] font-extrabold text-white sm:hidden" x-text="$store.cart.count"></span>
@@ -89,7 +90,7 @@
                 @endforeach
             </div>
             @if($quickLinks->isNotEmpty())
-                <div class="flex items-center gap-1 border-l border-line pl-3" @mouseenter="scheduleClose()">
+                <div class="flex items-center gap-1 border-l border-line pl-3" @mouseenter="scheduleClose()" data-menu-area="header">
                     @foreach($quickLinks->take(4) as $item)
                         <a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="flex h-11 items-center gap-1 px-2.5 text-[0.8125rem] font-bold {{ $item->is_accent ? 'text-berry' : 'text-slate hover:text-leaf' }}">
                             @if($item->is_accent)<x-ico name="tag" :size="14" />@endif{{ $item->label }}

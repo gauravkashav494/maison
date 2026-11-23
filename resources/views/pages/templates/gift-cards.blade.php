@@ -17,7 +17,7 @@
                     </div>
                     <div class="mt-6 flex gap-3">
                         <div class="flex h-12 items-center border border-ink/20"><button type="button" @click="qty = Math.max(1, qty - 1)" class="grid h-full w-11 place-items-center" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span class="w-8 text-center text-sm" x-text="qty"></span><button type="button" @click="qty++" class="grid h-full w-11 place-items-center" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>
-                        <button type="button" @click="$store.cart.add({{ $giftCard->id }}, amount, null, qty)" :disabled="!amount" class="btn btn-primary flex-1">Add to Bag</button>
+                        <button type="button" @click="$store.cart.add({{ $giftCard->id }}, amount, null, qty)" :disabled="!amount" class="btn btn-primary flex-1">Add to Cart</button>
                     </div>
                     <p class="mt-4 text-xs text-smoke">Add a personal message in the order notes at checkout. Cards are sent by email within the hour and never expire.</p>
                 </div>

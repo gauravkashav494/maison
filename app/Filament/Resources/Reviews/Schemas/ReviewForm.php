@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Reviews\Schemas;
 
+use App\Models\Review;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 
@@ -22,6 +24,16 @@ class ReviewForm
             ]),
             TextInput::make('title')->maxLength(120),
             Textarea::make('body')->rows(5)->required(),
+            Grid::make(2)->visibleOn('edit')->schema([
+                TextEntry::make('is_verified_purchase')->label('Verified purchase')
+                    ->state(fn (?Review $record) => $record?->is_verified_purchase
+                        ? 'Yes: signed in, with a delivered order for this product'
+                        : 'No')
+                    ->badge()->color(fn (?Review $record) => $record?->is_verified_purchase ? 'success' : 'gray'),
+                TextEntry::make('held_reason')->label('Held by the automatic check because')
+                    ->badge()->color('warning')
+                    ->visible(fn (?Review $record) => filled($record?->held_reason) && ! $record->is_approved),
+            ]),
             Toggle::make('is_approved')->label('Approved (visible on the product page)'),
         ]);
     }

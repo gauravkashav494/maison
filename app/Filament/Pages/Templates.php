@@ -2,6 +2,9 @@
 
 namespace App\Filament\Pages;
 
+use App\Admin\PlatformModules;
+use App\Clients\ThemeBuilder;
+use App\Models\Client;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -12,9 +15,9 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 
 /**
- * Appearance → Templates: choose which storefront template visitors see.
- * Switching only changes the presentation layer; every product, category, page,
- * order, customer and setting is shared and kept.
+ * Platform → Templates: the storefront templates a store can be built on. Each store's
+ * template is set on the store itself (its host decides what visitors see); here a super
+ * admin installs demo content, builds the public theme preview and opens a template's settings.
  */
 class Templates extends Page
 {
@@ -32,47 +35,16 @@ class Templates extends Page
     // answer that folder (403) before the app.
     protected static ?string $slug = 'appearance/templates';
 
-    /** @return Collection<string, Template> */
-    /** Activating a template changes the public website: super admin only. */
+    /** Installing content and building theme previews: super admin only. */
     public static function canAccess(): bool
     {
-        return (bool) filament()->auth()->user()?->isSuperAdmin();
+        return PlatformModules::current(PlatformModules::TEMPLATES);
     }
 
+    /** @return Collection<string, Template> */
     public function getTemplates(): Collection
     {
         return app(TemplateManager::class)->all();
-    }
-
-    public function getActiveId(): string
-    {
-        return app(TemplateManager::class)->activeId();
-    }
-
-    public function getActivatedAt(): ?string
-    {
-        return setting('appearance.activated_at');
-    }
-
-    public function activateAction(): Action
-    {
-        return Action::make('activate')
-            ->label('Activate')
-            ->icon('heroicon-m-check')
-            ->requiresConfirmation()
-            ->modalHeading(fn (array $arguments) => 'Activate the '.$this->template($arguments)->name().' template?')
-            ->modalDescription('Visitors on the main domain will see this template immediately. Every store also stays reachable on its own address (Platform → Stores). All products, categories, pages, orders, customers and settings are kept.')
-            ->modalSubmitActionLabel('Yes, activate')
-            ->action(function (array $arguments) {
-                $template = $this->template($arguments);
-                if (! $template->isInstalled()) {
-                    Notification::make()->warning()->title('Install the demo content first')->body('This template has no content yet. Use "Install demo content" and then activate it.')->send();
-
-                    return;
-                }
-                app(TemplateManager::class)->activate($template->id());
-                Notification::make()->success()->title($template->name().' is now live')->body('Visitors see the new template. Open the storefront to check it.')->send();
-            });
     }
 
     public function previewAction(): Action
@@ -82,8 +54,8 @@ class Templates extends Page
             ->icon('heroicon-m-eye')
             ->color('gray')
             // The public theme preview, theme-<template>.<base domain>.
-            ->url(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id())?->publicUrl())
-            ->visible(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id()) !== null)
+            ->url(fn (array $arguments) => Client::themeFor($this->template($arguments)->id())?->publicUrl())
+            ->visible(fn (array $arguments) => Client::themeFor($this->template($arguments)->id()) !== null)
             ->openUrlInNewTab();
     }
 
@@ -91,18 +63,18 @@ class Templates extends Page
     public function themeAction(): Action
     {
         return Action::make('theme')
-            ->label(fn (array $arguments) => \App\Models\Client::themeFor($this->template($arguments)->id()) ? 'Update theme' : 'Set up theme')
+            ->label(fn (array $arguments) => Client::themeFor($this->template($arguments)->id()) ? 'Update theme' : 'Set up theme')
             ->icon('heroicon-m-sparkles')
             ->color('gray')
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments) => 'Theme preview of '.$this->template($arguments)->name())
             ->modalDescription(fn (array $arguments) => 'A public sample store at '
-                .\App\Models\Client::themeSubdomain($this->template($arguments)->id()).'.'.\App\Models\Client::baseDomain()
+                .Client::themeSubdomain($this->template($arguments)->id()).'.'.Client::baseDomain()
                 .', with its own sample content. Visitors can browse it but cannot order, book, sign in or send forms. '
                 .'Setting it up takes about half a minute; updating it only adds what is missing.')
             ->modalSubmitActionLabel('Go ahead')
             ->action(function (array $arguments) {
-                $result = app(\App\Clients\ThemeBuilder::class)->build($this->template($arguments)->id());
+                $result = app(ThemeBuilder::class)->build($this->template($arguments)->id());
                 $result['ok']
                     ? Notification::make()->success()->title('Theme preview ready')->body($result['client']->publicUrl())->send()
                     : Notification::make()->danger()->persistent()->title('The theme preview could not be set up')->body($result['message'])->send();
@@ -121,7 +93,7 @@ class Templates extends Page
             ->action(function (array $arguments) {
                 $template = $this->template($arguments);
                 $template->install();
-                Notification::make()->success()->title('Demo content installed')->body('You can now preview or activate '.$template->name().'.')->send();
+                Notification::make()->success()->title('Demo content installed')->body($template->name().' is ready to preview and to build stores on.')->send();
             });
     }
 

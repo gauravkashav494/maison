@@ -3,6 +3,7 @@
 namespace App\Templates\PlumbingServices;
 
 use App\Clients\ClientDatabase;
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Models\Service;
@@ -112,7 +113,8 @@ class PlumbingServicesTemplate extends Template
     {
         $site = $this->setting('site', []);
         $digits = fn (?string $v) => preg_replace('/[^0-9+]/', '', (string) $v);
-        $phone = $site['phone'] ?? '';
+        $phone = ($site['phone'] ?? '') ?: (string) setting('site.contact_phone');
+        $email = ($site['email'] ?? '') ?: (string) setting('site.contact_email');
         $emergency = $site['emergency_phone'] ?: $phone;
         $wa = $digits($site['whatsapp_number'] ?? '');
 
@@ -125,8 +127,8 @@ class PlumbingServicesTemplate extends Template
             'emergency_available' => (bool) ($site['emergency_available'] ?? false),
             'whatsapp' => $wa !== '',
             'whatsapp_href' => $wa !== '' ? 'https://wa.me/'.ltrim($wa, '+').'?text='.rawurlencode($site['whatsapp_message'] ?? '') : '#',
-            'email' => $site['email'] ?? '',
-            'email_href' => 'mailto:'.($site['email'] ?? ''),
+            'email' => $email,
+            'email_href' => 'mailto:'.$email,
             'address' => $site['address'] ?? '',
             'hours' => $site['hours'] ?? '',
             'response' => $site['response_note'] ?? '',
@@ -141,8 +143,10 @@ class PlumbingServicesTemplate extends Template
             'biz' => $this->contact(),
             'navServices' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_services'), 600, fn () => Service::active()
                 ->get(['id', 'name', 'slug', 'icon', 'excerpt', 'is_emergency', 'is_popular'])),
-            'navAreas' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
-                ->get(['id', 'name', 'slug', 'state', 'response_time'])),
+            'navAreas' => app(StoreFeatures::class)->on('service_areas')
+                ? Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing_services.nav_areas'), 600, fn () => ServiceArea::active()
+                    ->get(['id', 'name', 'slug', 'state', 'response_time']))
+                : collect(),
         ];
     }
 

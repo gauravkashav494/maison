@@ -21,7 +21,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
 {
-    use Concerns\LogsPlatformActivity, HasFactory, Notifiable;
+    use Concerns\LogsActivity, Concerns\StoresPasswordHint, HasFactory, Notifiable;
     use SoftDeletes;
     use UsesPlatformConnection;
 
@@ -74,6 +74,11 @@ class ClientUser extends Authenticatable implements AdminIdentity, FilamentUser
     }
 
     public function isSuperAdmin(): bool
+    {
+        return false;
+    }
+
+    public function isPlatformAccount(): bool
     {
         return false;
     }

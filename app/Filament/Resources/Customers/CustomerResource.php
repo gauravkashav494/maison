@@ -4,21 +4,31 @@ namespace App\Filament\Resources\Customers;
 
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Forms\Components\PhoneInput;
+use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
+use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
+use App\Filament\Support\DateRangeFilter;
+use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
+use App\Support\PasswordRules;
+use App\Support\PhoneNumber;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,17 +70,23 @@ class CustomerResource extends Resource
         return $schema->columns(1)->components([
             Section::make('Customer')->columns(2)->schema([
                 TextInput::make('name')->required()->maxLength(120),
-                TextInput::make('email')->email()->required()->maxLength(190)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0)),
-                TextInput::make('phone')->maxLength(30),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable()
-                    ->dehydrated(fn ($state) => filled($state))
-                    ->minLength(8)
-                    ->helperText('Leave blank to keep the current password.'),
+                PhoneInput::make('phone')
+                    ->required()
+                    // Customer sign-in uses national digits, so keep the stored customer phone
+                    // in that same canonical form even though the input displays +91.
+                    ->dehydrateStateUsing(fn (?string $state) => filled($state) ? PhoneNumber::national('IN', $state) : null),
+                // Optional: a customer may be known by phone only (they sign in with their phone). Without
+                // an email they get no order emails and cannot reset a forgotten password.
+                TextInput::make('email')->email()->maxLength(190)
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0))
+                    ->helperText('Optional. Needed to receive order emails and to reset a forgotten password.'),
+                PasswordRules::field(TextInput::make('password'), 'Leave blank to keep the current password. Sales people need a password to sign in.')
+                    ->required(fn (Get $get, ?Customer $record) => (bool) $get('is_salesperson') && blank($record?->password))
+                    ->dehydrated(fn ($state) => filled($state)),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('A disabled customer cannot sign in to the storefront.'),
+                Toggle::make('is_salesperson')->label('Sales person')->default(false)->inline(false)
+                    ->helperText('Signs in on the store and checks out without a delivery address, for themselves or for a customer. The store\'s address goes on the order.'),
                 Select::make('client_id')
                     ->label('Client')
                     ->options(fn () => Client::orderBy('name')->pluck('name', 'id'))
@@ -83,6 +99,16 @@ class CustomerResource extends Resource
         ]);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return CustomerInfolist::configure($schema);
+    }
+
+    public static function getRelations(): array
+    {
+        return [OrdersRelationManager::class];
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -92,11 +118,31 @@ class CustomerResource extends Resource
                 TextColumn::make('client.name')->label('Client')->badge()->color('gray')->sortable()
                     ->visible(fn () => app(ClientContext::class)->isSuperAdmin()),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->searchable()->toggleable(),
+                // Guests were created from an order or booking: no password and no phone proven by a WhatsApp code.
+                TextColumn::make('account')->label('Account')->badge()
+                    ->state(fn (Customer $r) => match (true) {
+                        $r->isSalesperson() => 'Sales person',
+                        $r->isAccount() => 'Registered',
+                        default => 'Guest',
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'Guest' => 'gray',
+                        'Sales person' => 'info',
+                        default => 'success',
+                    }),
+                PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Joined')->date('d M Y')->sortable(),
             ])
-            ->filters([TrashedFilter::make()])
-            ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])
+            ->filters([
+                // When the customer joined: one picker with ready ranges, both days included.
+                DateRangeFilter::range('joined', 'Joined',
+                    scope: fn (Builder $query, string $from, string $until) => $query->joinedBetween($from, $until)),
+                TernaryFilter::make('is_salesperson')->label('Account type')
+                    ->trueLabel('Sales people')->falseLabel('Customers'),
+                TrashedFilter::make(),
+            ])
+            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
     }
 
@@ -111,6 +157,7 @@ class CustomerResource extends Resource
             'index' => Pages\ListCustomers::route('/'),
             'create' => Pages\CreateCustomer::route('/create'),
             'edit' => Pages\EditCustomer::route('/{record}/edit'),
+            'view' => Pages\ViewCustomer::route('/{record}'),
         ];
     }
 }

@@ -33,6 +33,10 @@
              per-client databases are covered by ClientDatabaseIsolationTest. -->
         <env name="CLIENT_ISOLATION" value="shared"/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Never message real phones from the suite (TestCase also binds a fake gateway). -->
+        <env name="WHATSAPP_ENABLED" value="false"/>
+        <!-- The code flows stay on; codes go to the fake gateway. Tests of the "no codes" mode switch it off. -->
+        <env name="OTP_ENABLED" value="true"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

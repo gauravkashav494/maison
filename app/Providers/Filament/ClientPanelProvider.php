@@ -3,7 +3,10 @@
 namespace App\Providers\Filament;
 
 use App\Clients\ClientContext;
+use App\Filament\Auth\EditProfile;
 use App\Filament\Auth\Login;
+use App\Filament\Pages\BulkOrderSettings;
+use App\Filament\Pages\FashionSettings;
 use App\Filament\Pages\GroceryHomepageSettings;
 use App\Filament\Pages\GrocerySettings;
 use App\Filament\Pages\HeritageHomepageSettings;
@@ -13,7 +16,12 @@ use App\Filament\Pages\PlumbingHomepageSettings;
 use App\Filament\Pages\PlumbingServicesHomepageSettings;
 use App\Filament\Pages\PlumbingServicesSettings;
 use App\Filament\Pages\PlumbingSettings;
+use App\Filament\Pages\SearchListings;
+use App\Filament\Pages\SeoSettings;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Pages\StockLevels;
+use App\Filament\Resources\ActivityLog\ActivityLogResource;
+use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
 use App\Filament\Resources\ClientUsers\ClientUserResource;
@@ -22,7 +30,6 @@ use App\Filament\Resources\ContactMessages\ContactMessageResource;
 use App\Filament\Resources\Coupons\CouponResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Faqs\FaqResource;
-use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Menus\MenuResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Pages\PageResource;
@@ -33,17 +40,24 @@ use App\Filament\Resources\Reviews\ReviewResource;
 use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
 use App\Filament\Resources\ServiceRequests\ServiceRequestResource;
 use App\Filament\Resources\Services\ServiceResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\Stores\StoreResource;
 use App\Filament\Resources\Subscribers\SubscriberResource;
+use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Testimonials\TestimonialResource;
 use App\Filament\Widgets\ClientUsage;
+use App\Filament\Widgets\NoAccessWelcome;
 use App\Filament\Widgets\RecentOrders;
 use App\Filament\Widgets\ServiceStats;
 use App\Filament\Widgets\StoreLink;
 use App\Filament\Widgets\StoreStats;
+use App\Http\Controllers\Admin\OrderInvoiceController;
 use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticatePanelSession;
 use App\Http\Middleware\DiscourageSearchEngines;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
@@ -57,6 +71,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
@@ -75,8 +90,11 @@ class ClientPanelProvider extends PanelProvider
         ProductResource::class,
         CategoryResource::class,
         CollectionResource::class,
+        BrandResource::class,
+        TaxResource::class,
         CouponResource::class,
         OrderResource::class,
+        StockMovementResource::class,
         ReviewResource::class,
         ServiceResource::class,
         ServiceAreaResource::class,
@@ -93,12 +111,17 @@ class ClientPanelProvider extends PanelProvider
         CustomerResource::class,
         ClientUserResource::class,
         ClientRoleResource::class,
+        ActivityLogResource::class,
     ];
 
     /** Appearance and content settings for the templates; each page checks its own access. */
     public const PAGES = [
         Dashboard::class,
+        StockLevels::class,
+        SearchListings::class,
+        SeoSettings::class,
         SiteSettings::class,
+        FashionSettings::class,
         HomepageSettings::class,
         GrocerySettings::class,
         GroceryHomepageSettings::class,
@@ -108,6 +131,7 @@ class ClientPanelProvider extends PanelProvider
         PlumbingHomepageSettings::class,
         PlumbingServicesSettings::class,
         PlumbingServicesHomepageSettings::class,
+        BulkOrderSettings::class,
     ];
 
     public function panel(Panel $panel): Panel
@@ -119,36 +143,53 @@ class ClientPanelProvider extends PanelProvider
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(Login::class)
+            ->profile(EditProfile::class, isSimple: false)
+            // The menu item shows the account name (not "Profile") and opens the edit profile page.
+            ->userMenuItems(['profile' => fn (Action $action): Action => $action->label(fn (): string => Filament::getUserName(Filament::auth()->user()))])
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => app(ClientContext::class)->client()?->name ?? config('app.name'))
             ->brandLogo(fn () => view('filament.partials.brand'))
-            ->favicon(null)
+            ->favicon('/favicon.ico')
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            // The bell: new orders, customer cancellations, reviews, messages, bookings (App\Support\StaffAlerts).
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-badge'))
+            // Live checklist under every new-password field (App\Support\PasswordRules).
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.partials.editable-tags'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
-            ->navigationGroups(['Sales', 'Catalogue', 'Services', 'Content', 'Marketing', 'Appearance', 'Team', 'Settings'])
+            ->navigationGroups(['Sales', 'Catalogue', 'Inventory', 'Services', 'Content', 'Marketing', 'SEO', 'Appearance', 'Team', 'Settings'])
             ->colors([
-                'primary' => Color::Blue,
+                // Sidebar navy (--navy in the admin theme) at 600, the shade buttons, toggles and checkboxes use.
+                'primary' => [
+                    50 => '#eef2f8', 100 => '#dbe3ef', 200 => '#b9c7dd', 300 => '#8ca2c3', 400 => '#5c7aa3',
+                    500 => '#34527d', 600 => '#1c3557', 700 => '#172c49', 800 => '#12233a', 900 => '#0e1b2d', 950 => '#08111d',
+                ],
                 'gray' => Color::Slate,
             ])
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
+                NoAccessWelcome::class,
                 StoreLink::class,
                 ClientUsage::class,
                 StoreStats::class,
                 ServiceStats::class,
                 RecentOrders::class,
             ])
+            // Opens an order's invoice PDF in a new tab (Orders → View invoice).
+            ->authenticatedRoutes(fn () => Route::get('orders/{order}/invoice', OrderInvoiceController::class)
+                ->whereNumber('order')->name('orders.invoice'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
+                AuthenticatePanelSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,

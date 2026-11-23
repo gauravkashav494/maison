@@ -60,7 +60,7 @@
         <div class="lg:col-span-7">
             <div class="flex items-center gap-2 text-xs font-semibold text-slate">
                 @if($product->is_veg !== null)<span class="veg-mark {{ $product->is_veg ? '' : 'nonveg' }}"></span> <span>{{ $product->is_veg ? 'Vegetarian' : 'Non-vegetarian' }}</span> <span class="text-mist">·</span>@endif
-                @if($product->brand)<a href="{{ route('shop.index', ['brand' => $product->brand]) }}" class="text-leaf hover:underline">{{ $product->brand }}</a>@endif
+                @if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="text-leaf hover:underline">{{ $product->brand }}</a>@endif
             </div>
             <h1 class="mt-1.5 text-xl font-extrabold leading-tight lg:text-3xl">{{ $product->name }}</h1>
             <div class="mt-2 flex flex-wrap items-center gap-3">
@@ -87,14 +87,14 @@
             <x-variant-options :product="$product" />
 
             <div class="card mt-5 p-4 sm:p-5" x-ref="buy">
-                <div class="flex flex-wrap items-end gap-x-3 gap-y-1">
-                    <p class="text-2xl font-extrabold tabular lg:text-3xl">{{ money($product->price) }}</p>
-                    @if($product->compare_at_price)
-                        <p class="text-base text-mist tabular strike">MRP {{ money($product->compare_at_price) }}</p>
-                        <span class="badge badge-soft">You save {{ money($product->compare_at_price - $product->price) }}</span>
-                    @endif
+                {{-- Price and MRP follow the chosen variant; the product's own until one is chosen. --}}
+                @php $base = $product->displayPricing(); @endphp
+                <div class="flex flex-wrap items-end gap-x-3 gap-y-1" x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
+                    <p class="text-2xl font-extrabold tabular lg:text-3xl" x-text="shown.price_formatted">{{ $base['price_formatted'] }}</p>
+                    <p x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-base text-mist tabular strike" x-text="'MRP ' + shown.compare_at_price_formatted">MRP {{ $base['compare_at_price_formatted'] }}</p>
+                    <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="badge badge-soft" x-text="'You save ' + shown.save_formatted">You save {{ $base['save_formatted'] }}</span>
                 </div>
-                <p class="mt-1 text-xs text-slate">Inclusive of all taxes</p>
+                @if(price_tax_note($product->effectiveTaxRate()) !== '')<p class="mt-1 text-xs text-slate">{{ price_tax_note($product->effectiveTaxRate()) }}</p>@endif
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
                     @if($product->in_stock)
@@ -160,6 +160,7 @@
     @endif
 
     {{-- Reviews --}}
+    @module('reviews')
     <section id="reviews" class="g-container section">
         <div class="card grid gap-8 p-5 sm:p-6 lg:grid-cols-12">
             <div class="lg:col-span-4">
@@ -204,7 +205,7 @@
                         @foreach($reviews as $r)
                             <li class="py-4 first:pt-0">
                                 <div class="flex items-center justify-between gap-3">
-                                    <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-leaf-light text-xs font-extrabold text-leaf-dark">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span><span class="badge badge-soft">Verified</span></div>
+                                    <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-leaf-light text-xs font-extrabold text-leaf-dark">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span>@if($r->is_verified_purchase)<span class="badge badge-soft">Verified purchase</span>@endif</div>
                                     <span class="text-xs text-mist">{{ $r->created_at->format('d M Y') }}</span>
                                 </div>
                                 <div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div>
@@ -216,6 +217,7 @@
             </div>
         </div>
     </section>
+    @endmodule
 
     {{-- Similar products --}}
     @if($related->isNotEmpty())
@@ -233,7 +235,7 @@
     {{-- Sticky mobile bar --}}
     <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
-            <div class="min-w-0 flex-1"><p class="truncate text-sm font-bold">{{ $product->name }}</p><p class="text-sm font-extrabold tabular">{{ money($product->price) }} <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
+            <div class="min-w-0 flex-1"><p class="truncate text-sm font-bold">{{ $product->name }}</p><p class="text-sm font-extrabold tabular" x-data="variantPricing(@js($product->pricingVariants()), @js($product->displayPricing()))"><span x-text="shown.price_formatted">{{ money($product->price) }}</span> <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
             @if($product->in_stock)
                 <button type="button" x-show="!qty" @click="add()" class="btn btn-primary">Add to cart</button>
                 <div x-show="qty" x-cloak class="stepper"><button type="button" @click="dec()" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span x-text="qty"></span><button type="button" @click="add()" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>

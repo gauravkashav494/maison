@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-<x-page-head title="My cart" :breadcrumbs="['Cart' => null]" />
+<x-page-head title="Cart" :breadcrumbs="['Cart' => null]" />
 
 <section class="g-container pb-28 pt-4 lg:py-6" x-data="{ code: '' }">
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     {{-- App-style sticky checkout bar (phones) --}}
     <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
@@ -12,7 +13,7 @@
         </div>
     </div>
 
-    <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak>
+    <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak>
         <x-empty-state icon="cart" title="Your cart is empty" text="Add fresh produce, daily essentials and snacks — delivery is just minutes away.">
             <a href="{{ route('shop.index') }}" class="btn btn-primary btn-lg">Start shopping</a>
         </x-empty-state>
@@ -44,7 +45,7 @@
                                 <button type="button" @click="$store.cart.remove(item.key)" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-mist hover:bg-paper hover:text-berry" aria-label="Remove"><x-ico name="trash" :size="16" /></button>
                             </div>
                             <div class="mt-2 flex items-center justify-between gap-3">
-                                <div class="flex items-baseline gap-2"><span class="text-base font-extrabold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span><span class="text-xs text-slate" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
+                                <div class="flex items-baseline gap-2"><span class="text-base font-extrabold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-mist strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span><span class="text-xs text-slate" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
                                 <div class="stepper">
                                     <button type="button" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button>
                                     <span x-text="item.qty"></span>
@@ -68,6 +69,7 @@
         {{-- Bill --}}
         <aside class="lg:col-span-4">
             <div class="space-y-4 lg:sticky lg:top-[7.5rem]">
+                @module('coupons')
                 <div class="card p-4">
                     <p class="text-sm font-extrabold">Have a promo code?</p>
                     <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-2 flex gap-2" x-show="!$store.cart.coupon" novalidate>
@@ -80,6 +82,7 @@
                         <button type="button" @click="$store.cart.removeCoupon()" class="text-xs font-semibold text-slate hover:text-berry">Remove</button>
                     </div>
                 </div>
+                @endmodule
 
                 <div class="card p-4">
                     <p class="text-sm font-extrabold">Bill details</p>
@@ -87,9 +90,12 @@
                         <div class="flex justify-between"><dt class="text-slate">Item total</dt><dd class="tabular" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-slate">Coupon discount</dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-slate">Delivery charge</dt><dd class="tabular" :class="$store.cart.shipping === 0 && 'font-bold text-leaf'" x-text="$store.cart.shipping === 0 ? 'FREE' : $store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-slate" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @if(shows_tax_row())
+                            <div class="flex justify-between"><dt class="text-slate" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @endif
                         <div class="flex justify-between border-t border-line pt-3 text-base font-extrabold"><dt>To pay</dt><dd class="tabular" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
+                    @if(prices_include_tax())<p class="mt-1 text-right text-xs text-slate">Inclusive of all taxes</p>@endif
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg btn-block mt-4">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>
                     <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate"><x-ico name="lock" :size="12" /> Safe & secure payments · UPI, cards, wallets, COD</p>
                 </div>

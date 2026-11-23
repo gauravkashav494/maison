@@ -23,7 +23,7 @@ class Setting extends Model
     protected $casts = ['value' => 'array'];
 
     /** Groups every client owns outright: without its own copy a client gets config('client_defaults'), never the platform's. */
-    public const CLIENT_OWNED = ['site', 'seo', 'checkout', 'login'];
+    public const CLIENT_OWNED = ['site', 'seo', 'checkout', 'login', 'reviews'];
 
     /** Get a setting group (e.g. "site") or a nested value via dot notation ("site.name"). */
     public static function get(string $key, mixed $default = null): mixed

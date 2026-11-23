@@ -4,7 +4,7 @@
 <x-auth-shell title="Welcome back" text="Log in to see your bookings and saved addresses.">
     <form method="post" action="{{ route('login') }}" class="space-y-4" novalidate>
         @csrf
-        <div><label class="label" for="email">Email<span class="req" aria-hidden="true">*</span></label><input id="email" name="email" type="email" autofocus value="{{ old('email') }}" class="field @error('email') field-error @enderror" autocomplete="email">@error('email')<p class="error">{{ $message }}</p>@enderror</div>
+        <div><label class="label" for="phone">Phone number<span class="req" aria-hidden="true">*</span></label><input id="phone" name="phone" type="tel" inputmode="tel" autofocus value="{{ old('phone') }}" class="field @error('phone') field-error @enderror" autocomplete="tel">@error('phone')<p class="error">{{ $message }}</p>@enderror</div>
         <div><label class="label" for="password">Password<span class="req" aria-hidden="true">*</span></label><input id="password" name="password" type="password" class="field" autocomplete="current-password">@error('password')<p class="error">{{ $message }}</p>@enderror</div>
         <div class="flex items-center justify-between text-sm">
             <label class="flex items-center gap-2"><input type="checkbox" name="remember" class="check"> Keep me logged in</label>
@@ -12,6 +12,9 @@
         </div>
         <button type="submit" class="btn btn-primary btn-lg btn-block">Log in</button>
     </form>
+    @otp
+        <a href="{{ route('login.otp') }}" class="btn btn-outline btn-lg btn-block mt-3">Log in with WhatsApp code</a>
+    @endotp
     <p class="mt-5 text-center text-sm text-slate">New here? <a href="{{ route('register') }}" class="font-bold text-primary hover:underline">Create an account</a></p>
     <p class="mt-2 text-center text-xs text-slate">No account needed to book — <a href="{{ route('booking.create') }}" class="font-semibold text-primary">book a plumber</a> or <a href="{{ route('bookings') }}" class="font-semibold text-primary">track a request</a>.</p>
 </x-auth-shell>

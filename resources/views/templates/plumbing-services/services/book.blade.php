@@ -119,7 +119,7 @@
             <div x-show="step === 5" x-cloak x-transition.opacity.duration.200ms>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div><label class="label" for="name">Your name<span class="req" aria-hidden="true">*</span></label><input id="name" name="name" x-model="f.name" class="field" autocomplete="name" :class="errors.name && 'field-error'"><p class="error" x-show="errors.name" x-text="errors.name"></p></div>
-                    <div><label class="label" for="phone">Mobile number<span class="req" aria-hidden="true">*</span></label><input id="phone" name="phone" type="tel" inputmode="tel" x-model="f.phone" class="field" placeholder="98765 43210" autocomplete="tel" :class="errors.phone && 'field-error'"><p class="error" x-show="errors.phone" x-text="errors.phone"></p></div>
+                    <div><label class="label" for="phone">Mobile number<span class="req" aria-hidden="true">*</span></label><input id="phone" name="phone" type="tel" inputmode="tel" x-model="f.phone" class="field" placeholder="9876543210" autocomplete="tel" :class="errors.phone && 'field-error'"><p class="error" x-show="errors.phone" x-text="errors.phone"></p></div>
                     <div class="sm:col-span-2"><label class="label" for="email">Email <span class="font-normal text-slate">(optional)</span></label><input id="email" name="email" type="email" x-model="f.email" class="field" autocomplete="email" :class="errors.email && 'field-error'"><p class="error" x-show="errors.email" x-text="errors.email"></p></div>
                 </div>
                 <p class="mt-3 text-xs text-slate">We call this number to confirm the slot. No spam, no marketing calls.</p>

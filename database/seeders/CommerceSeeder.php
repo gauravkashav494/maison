@@ -24,7 +24,6 @@ class CommerceSeeder extends Seeder
             'payment_methods' => ['card', 'upi', 'wallet', 'netbanking', 'cod'],
             'cod_fee' => 99,
             'tax_rate' => 0,
-            'tax_label' => 'GST',
             'gift_card_amounts' => [2500, 5000, 10000, 25000],
         ]);
 

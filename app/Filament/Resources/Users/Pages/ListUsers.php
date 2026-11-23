@@ -12,7 +12,7 @@ class ListUsers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Platform operators. A client\'s own staff are managed on that client; shoppers are its customers.';
+        return 'Super Admins and platform staff who sign in to /admin. A client\'s own staff are managed on that client; shoppers are its customers.';
     }
 
     protected function getHeaderActions(): array

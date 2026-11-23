@@ -4,10 +4,11 @@
 @php
     $crumbs = ['Shop' => route('shop.index')];
     if ($category?->parent) $crumbs[$category->parent->name] = $category->parent->url;
+    if ($brand ?? null) { $crumbs['Brands'] = route('brands.index'); }
     $crumbs[$title] = null;
     $init = $filters + ['view' => $view];
 @endphp
-<x-page-hero :eyebrow="$eyebrow" :title="$title" :description="$category?->description" :breadcrumbs="$crumbs" />
+<x-page-hero :eyebrow="$eyebrow" :title="$title" :description="$category?->description ?? ($brand ?? null)?->description" :breadcrumbs="$crumbs" />
 
 <section class="container-luxe py-10 lg:py-14" x-data="shopFilters(@js($init))" @open-filters.window="open = true">
     {{-- Category strip --}}
@@ -77,8 +78,8 @@
                                 <x-rating :value="$p->rating" :count="$p->review_count" class="mt-2" />
                                 <p class="mt-3 max-w-lg text-sm leading-relaxed text-smoke">{{ $p->description }}</p>
                                 <div class="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3 pt-5">
-                                    <span class="tabular-nums {{ $p->is_on_sale ? 'text-rouge' : '' }}">{{ money($p->price) }}</span>
-                                    @if($p->compare_at_price)<span class="text-sm text-smoke line-through">{{ money($p->compare_at_price) }}</span>@endif
+                                    <span class="tabular-nums {{ $p->is_on_sale ? 'text-rouge' : '' }}">{{ money($p->display_price) }}</span>
+                                    @if($p->display_compare_at_price)<span class="text-sm text-smoke line-through">{{ money($p->display_compare_at_price) }}</span>@endif
                                     <div class="flex gap-1.5">@foreach(array_slice($p->colors ?? [], 0, 4) as $c)<span class="h-3 w-3 rounded-full ring-1 ring-ink/10" style="background:{{ $c['hex'] }}"></span>@endforeach</div>
                                     <button type="button" @click="$store.ui.showQuickView(product.slug)" class="btn btn-outline btn-sm ml-auto">Quick add</button>
                                 </div>

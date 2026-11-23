@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Admin\PlatformModules;
 use App\Contracts\AdminIdentity;
 use App\Models\Plan;
 
@@ -10,37 +11,37 @@ class PlanPolicy
 {
     public function viewAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function view(AdminIdentity $user, Plan $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function create(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function update(AdminIdentity $user, Plan $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function delete(AdminIdentity $user, Plan $record): bool
     {
-        return $user->isSuperAdmin() && ! $record->clients()->exists();
+        return PlatformModules::allows($user, PlatformModules::PLANS) && ! $record->clients()->exists();
     }
 
     public function deleteAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function restore(AdminIdentity $user, Plan $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::PLANS);
     }
 
     public function restoreAny(AdminIdentity $user): bool

@@ -6,6 +6,7 @@
 @source '../js/**/*.js';
 /* Shared storefront components used by this template. */
 @source '../../../views/components/variant-options.blade.php';
+@source '../../../views/components/account-menu.blade.php';
 @source inline("{sm:,md:,lg:,xl:,}grid-cols-{2,3,4,5,6}");
 @source inline("col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
 
@@ -134,6 +135,9 @@
   .field { display: block; width: 100%; border: 1.5px solid var(--color-line-strong); border-radius: 0.625rem; background: #fff; padding: 0.75rem 0.875rem; font-size: 0.9375rem; color: var(--color-ink); transition: border-color .2s, box-shadow .2s; }
   .field::placeholder { color: var(--color-mist); }
   .field:focus { outline: none; border-color: var(--color-leaf); box-shadow: 0 0 0 3px rgb(30 138 76 / 0.15); }
+  /* Checkout keeps its fields short so the whole form fits on fewer screens. */
+  .checkout-form .field { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  .checkout-form .label { margin-bottom: 0.25rem; }
   .field-error { border-color: var(--color-nonveg); }
   .label { display: block; margin-bottom: 0.375rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-slate); }
   .error-text { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-nonveg); }

@@ -66,20 +66,7 @@ class ClientProvisioner
 
     public function databaseExists(Client $client): bool
     {
-        $config = $this->databases->connectionConfig($client);
-        $name = $this->databases->databaseNameFor($client);
-
-        if ($config['driver'] === 'sqlite') {
-            return file_exists($config['database']);
-        }
-
-        $server = DB::connection($this->databases->serverConnection($client));
-
-        return (bool) match (true) {
-            $this->databases->mode() === 'schema' => $server->selectOne('select 1 from information_schema.schemata where schema_name = ?', [$name]),
-            $config['driver'] === 'pgsql' => $server->selectOne('select 1 from pg_database where datname = ?', [$name]),
-            default => $server->selectOne('select 1 from information_schema.schemata where schema_name = ?', [$name]),
-        };
+        return $this->databases->exists($this->databases->databaseNameFor($client));
     }
 
     /**

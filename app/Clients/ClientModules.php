@@ -11,12 +11,12 @@ use App\Templates\TemplateManager;
 /** Read access to config/client_modules.php: the modules, their permissions and default roles. */
 class ClientModules
 {
-    /** @return array<string, array{label: string, group: string, model: ?string, actions: array<string>}> */
+    /** @return array<string, array{label: string, group: string, model: ?string, actions: array<string>, core: bool}> */
     public static function all(): array
     {
         $modules = [];
         foreach (config('client_modules.modules', []) as $key => $module) {
-            $modules[$key] = $module + ['actions' => config('client_modules.default_actions', [])];
+            $modules[$key] = $module + ['actions' => config('client_modules.default_actions', []), 'core' => false];
         }
 
         return $modules;
@@ -25,6 +25,18 @@ class ClientModules
     public static function get(string $module): ?array
     {
         return self::all()[$module] ?? null;
+    }
+
+    /** A module the store cannot run without: always on, never switched off for a client. */
+    public static function isCore(string $module): bool
+    {
+        return (bool) (self::get($module)['core'] ?? false);
+    }
+
+    /** @return array<string> core module keys among the given module keys */
+    public static function coreAmong(array $keys): array
+    {
+        return array_values(array_filter($keys, fn (string $key) => self::isCore($key)));
     }
 
     public static function forModel(string $model): ?string

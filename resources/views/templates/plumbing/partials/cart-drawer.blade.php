@@ -3,7 +3,7 @@
     <div class="overlay" x-show="$store.ui.cartOpen" x-transition.opacity @click="$store.ui.closeAll()"></div>
     <aside class="sheet inset-y-0 right-0 flex w-full max-w-md flex-col" x-show="$store.ui.cartOpen" x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" x-trap.noscroll="$store.ui.cartOpen" aria-label="Cart">
         <div class="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 class="font-display text-lg font-bold">Your cart <span class="text-sm font-semibold text-slate" x-text="$store.cart.count ? '(' + $store.cart.count + ')' : ''"></span></h2>
+            <h2 class="font-display text-lg font-bold">Cart <span class="text-sm font-semibold text-slate" x-text="$store.cart.count ? '(' + $store.cart.count + ')' : ''"></span></h2>
             <button type="button" @click="$store.ui.closeAll()" class="icon-btn" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
 
@@ -18,7 +18,8 @@
         </div>
 
         <div class="flex-1 overflow-y-auto">
-            <template x-if="$store.cart.loaded && !$store.cart.count">
+            <x-cart-unavailable-notice in-drawer margin="1rem 1rem 0" />
+            <template x-if="$store.cart.loaded && !$store.cart.count && !$store.cart.unavailable?.length">
                 <div class="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
                     <span class="grid h-20 w-20 place-items-center rounded-full bg-sky text-primary"><x-ico name="cart" :size="34" :stroke="1.5" /></span>
                     <p class="font-display text-lg font-bold">Your cart is empty</p>
@@ -34,7 +35,7 @@
                             <a :href="item.product.url" class="line-clamp-2 text-[0.8125rem] font-semibold leading-snug" x-text="item.product.name"></a>
                             <p class="mt-0.5 text-xs text-slate" x-text="[item.product.brand, item.options_label || item.size].filter(Boolean).join(' · ')"></p>
                             <div class="mt-1.5 flex items-center justify-between">
-                                <div class="price text-sm"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="mrp ml-1" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span></div>
+                                <div class="price text-sm"><span x-text="item.line_total_formatted"></span> <span x-show="item.product.compare_at_price" class="mrp ml-1" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span></div>
                                 <div class="stepper !rounded-lg">
                                     <button type="button" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease" class="!h-8 !w-8"><x-ico name="minus" :size="14" /></button>
                                     <span class="text-sm" x-text="item.qty"></span>

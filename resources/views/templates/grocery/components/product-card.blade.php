@@ -8,6 +8,7 @@
     {{-- Media --}}
     <a href="{{ $product->url }}" class="relative block aspect-square overflow-hidden rounded-lg bg-paper" aria-label="{{ $product->name }}">
         <img src="{{ $product->image_url }}" alt="{{ $product->name }}" @if(!$priority) loading="lazy" @endif decoding="async" class="img-cover transition-transform duration-500 group-hover:scale-105">
+        <x-card-colour-photo :product="$product" />
         <span class="absolute left-1.5 top-1.5 flex flex-col gap-1">
             @if($discount > 0)<span class="badge badge-off">{{ $discount }}% OFF</span>@endif
             @if($product->is_new)<span class="badge badge-new">NEW</span>@endif
@@ -28,14 +29,15 @@
             <a href="{{ $product->url }}" class="line-clamp-2 hover:text-leaf">{{ $product->name }}</a>
         </h3>
         @if($unit)<p class="mt-0.5 text-xs text-slate">{{ $unit }}</p>@endif
+        <x-card-colours :product="$product" class="mt-1" />
         @if($product->review_count > 0)
             <p class="mt-1 flex items-center gap-1 text-[0.6875rem] font-semibold text-slate"><x-ico name="star" :size="11" class="fill-star text-star" /> {{ number_format($product->rating, 1) }} <span class="font-normal text-mist">({{ number_format($product->review_count) }})</span></p>
         @endif
 
         <div class="mt-auto flex items-end justify-between gap-2 pt-2">
             <div class="min-w-0">
-                <p class="text-sm font-extrabold tabular">{{ money($product->price) }}</p>
-                @if($product->compare_at_price)<p class="text-xs text-mist tabular strike">{{ money($product->compare_at_price) }}</p>@endif
+                <p class="text-sm font-extrabold tabular">{{ money($product->display_price) }}</p>
+                @if($product->display_compare_at_price)<p class="text-xs text-mist tabular strike">{{ money($product->display_compare_at_price) }}</p>@endif
             </div>
             @if($product->in_stock)
                 <div class="shrink-0">

@@ -1,12 +1,12 @@
 @extends('layouts.app', ['transparentHeader' => filled(setting('site.page_header_image'))])
 
 @section('content')
-<x-page-hero eyebrow="Order tracking" title="Track your order" description="Enter your order number and the email used at checkout to see where your parcel is." :breadcrumbs="['Track order' => null]" />
+<x-page-hero eyebrow="Order tracking" title="Track your order" description="Enter your order number and the email or phone number used at checkout to see where your parcel is." :breadcrumbs="['Track order' => null]" />
 
 <section class="container-luxe py-12 lg:py-16">
     <form method="get" action="{{ route('track') }}" class="mx-auto grid max-w-2xl gap-6 border border-ink/10 bg-cream p-6 sm:grid-cols-[1fr_1fr_auto] sm:items-end lg:p-8" novalidate>
         <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="ME-260916-XXXX" class="input-luxe uppercase">@error('number')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
-        <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Email<span class="req" aria-hidden="true">*</span></span><input name="email" type="email" value="{{ old('email', request('email')) }}" class="input-luxe">@error('email')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
+        <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Email or phone<span class="req" aria-hidden="true">*</span></span><input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="input-luxe">@error('contact')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
         <button type="submit" class="btn btn-primary">Track</button>
         @if($error)<p class="text-sm text-rouge sm:col-span-3">{{ $error }}</p>@endif
     </form>
@@ -18,6 +18,7 @@
                     <p class="eyebrow text-taupe">Order {{ $order->number }}</p>
                     <h2 class="mt-2 font-serif text-4xl">{{ $order->statusLabel() }}</h2>
                     <p class="mt-2 text-sm text-smoke">Placed {{ $order->created_at->format('d F Y') }}@if($order->estimated_delivery && $order->status !== 'delivered') · Estimated delivery {{ $order->estimated_delivery->format('l, d F') }}@endif</p>
+                    @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="link-underline eyebrow mt-3 inline-block">Download invoice →</a>@endif
                 </div>
                 @if($order->tracking_number)
                     <div class="text-sm sm:text-right"><p class="eyebrow text-taupe">{{ $order->carrier ?: 'Tracking number' }}</p><p class="mt-1 font-mono">{{ $order->tracking_number }}</p></div>

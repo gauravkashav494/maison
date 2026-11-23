@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Clients\ClientDatabase;
+use App\Clients\ClientModules;
+use App\Clients\ClientSetup;
 use App\Models\Concerns\UsesPlatformConnection;
+use App\Support\Activity\ActivityLog;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * A client is the tenant: the business renting the platform.
@@ -24,7 +30,7 @@ use Illuminate\Support\Str;
  */
 class Client extends Model
 {
-    use Concerns\LogsPlatformActivity;
+    use Concerns\LogsActivity;
     use SoftDeletes;
     use UsesPlatformConnection;
 
@@ -35,6 +41,9 @@ class Client extends Model
 
     protected $guarded = [];
 
+    /** Set by the last save when it moved this client's database: [old name, new name]. Not a column. */
+    public ?array $movedDatabase = null;
+
     protected $casts = ['is_active' => 'boolean', 'is_theme' => 'boolean', 'modules' => 'array'];
 
     /** Global scope that keeps theme previews out of every client list, count and total. */
@@ -43,6 +52,61 @@ class Client extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(self::HIDE_THEMES, fn (Builder $query) => $query->where($query->qualifyColumn('is_theme'), false));
+        // Backstop for every way a client is saved (form, console, seeders): never two clients on one database.
+        static::saving(function (Client $client) {
+            if ($client->isDirty(['subdomain', 'database'])
+                && ($problem = app(ClientDatabase::class)->problemWithName($client->databaseName(), $client))) {
+                throw ValidationException::withMessages(['database' => $problem]);
+            }
+        });
+        // A store template owns <slug>.<base domain> and /store/<slug> for its theme preview, and a
+        // client is matched first, so a client on that address would take it over.
+        static::saving(function (Client $client) {
+            if ($client->isDirty('subdomain') && ($store = static::storeOnAddress((string) $client->subdomain))) {
+                throw ValidationException::withMessages(['subdomain' => static::storeAddressMessage($store)]);
+            }
+        });
+        static::saving(function (Client $client) {
+            if ($client->isDirty('domain') && filled($client->domain) && ($problem = static::domainProblem((string) $client->domain, ignoreClient: $client))) {
+                throw ValidationException::withMessages(['domain' => $problem]);
+            }
+        });
+        // A new database name (typed in, or generated from a new subdomain) moves the client's
+        // database, data and all, rather than leaving it behind and starting an empty one. It runs
+        // before the row is written, so a move that fails stops the save and nothing changes.
+        static::updating(function (Client $client) {
+            $client->movedDatabase = null;
+            if (! $client->isDirty(['subdomain', 'database'])) {
+                return;
+            }
+
+            $databases = app(ClientDatabase::class);
+            $from = $client->originalDatabaseName();
+            $to = $client->databaseName();
+            if (! $databases->isolated() || strcasecmp($from, $to) === 0) {
+                return;
+            }
+
+            if (ClientSetup::isRunning($client)) {
+                throw ValidationException::withMessages(['database' => 'This client\'s database is still being set up. Change its name once that has finished.']);
+            }
+
+            try {
+                $moved = $databases->rename($client, $from, $to, 'client_'.str_replace('-', '_', (string) $client->getOriginal('subdomain')));
+            } catch (Throwable $e) {
+                report($e);
+
+                throw ValidationException::withMessages(['database' => 'The database "'.$from.'" could not be moved to "'.$to.'": '.$e->getMessage()]);
+            }
+
+            $client->movedDatabase = $moved ? [$from, $to] : null;
+
+            if ($moved) {
+                $log = app(ActivityLog::class);
+                $log->record('updated', 'moved the database of '.$log->describer()->reference($client).' from '.$from.' to '.$to, $client,
+                    [['field' => 'database', 'label' => 'database', 'old' => $from, 'new' => $to]]);
+            }
+        });
         static::created(fn (Client $client) => ClientRole::createDefaultsFor($client));
         static::saved(fn () => Cache::forget('clients.hosts'));
         static::deleted(fn () => Cache::forget('clients.hosts'));
@@ -80,7 +144,15 @@ class Client extends Model
     /** Is this module switched on for the client? Null means nobody has narrowed the list yet. */
     public function hasModule(string $module): bool
     {
-        return $this->modules === null || in_array($module, $this->modules, true);
+        return $this->modules === null
+            || ClientModules::isCore($module)
+            || in_array($module, $this->modules, true);
+    }
+
+    /** Every activity-log line about this client: its staff's work and changes to the account. */
+    public function activity(): HasMany
+    {
+        return $this->hasMany(PlatformActivity::class);
     }
 
     public function customers(): HasMany
@@ -120,6 +192,29 @@ class Client extends Model
     public function databaseName(): string
     {
         return $this->database ?: config('clients.prefix', 'client_').$this->key();
+    }
+
+    /** The database name as it was before the unsaved changes (a new subdomain or name). */
+    public function originalDatabaseName(): string
+    {
+        return $this->getOriginal('database')
+            ?: config('clients.prefix', 'client_').str_replace('-', '_', (string) $this->getOriginal('subdomain'));
+    }
+
+    /**
+     * Where this client's uploads live on the public disk: clients/<id>/<type>/…. Named after the
+     * id, not the subdomain, so it never depends on the address. Folders made before this
+     * (clients/<subdomain>) are moved by `php artisan clients:media-by-id`.
+     */
+    public function mediaDirectory(): string
+    {
+        return 'clients/'.$this->getKey();
+    }
+
+    /** The folder uploads used before they were named by client id. */
+    public function legacyMediaDirectory(): string
+    {
+        return 'clients/'.$this->subdomain;
     }
 
     /** Slug in a form that is safe inside an identifier or a connection name. */
@@ -202,6 +297,21 @@ class Client extends Model
         return static::hostMap()[$host] ?? null;
     }
 
+    /**
+     * The client this host belongs to, deactivated ones included (idForHost() only knows active
+     * clients). For saying "this store is deactivated" rather than treating the host as unknown.
+     */
+    public static function anyForHost(string $host): ?self
+    {
+        $host = strtolower(preg_replace('/:\d+$/', '', $host));
+        $suffix = '.'.static::baseDomain();
+
+        return static::withThemes()
+            ->where(fn ($q) => $q->where('domain', $host)
+                ->when(str_ends_with($host, $suffix), fn ($q) => $q->orWhere('subdomain', substr($host, 0, -strlen($suffix)))))
+            ->first();
+    }
+
     /** Active client with this subdomain, if any. */
     public static function idForSubdomain(?string $subdomain): ?int
     {
@@ -229,6 +339,72 @@ class Client extends Model
         $port = $portNo && ! in_array((int) $portNo, [80, 443], true) ? ':'.$portNo : '';
 
         return $scheme.'://'.$this->subdomain.'.'.static::baseDomain().$port;
+    }
+
+    /** Stored as a bare lowercase host, however it was typed (https://, a path, capitals). */
+    public function setDomainAttribute(?string $value): void
+    {
+        $this->attributes['domain'] = static::normaliseHost($value);
+    }
+
+    /** "https://Shop.Example.com/path" → "shop.example.com"; blank → null. */
+    public static function normaliseHost(?string $value): ?string
+    {
+        $value = strtolower(trim((string) $value));
+        $value = preg_replace('#^[a-z][a-z0-9+.-]*://#', '', $value);
+        $value = rtrim(explode('/', $value, 2)[0], '.');
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * Why a custom domain cannot be used, or null when it can. Every host answers for exactly
+     * one client or store, so a custom domain may not be:
+     *  - on the platform's own domain: the main domain is the admin panel, and every
+     *    <name>.<base> is a client's subdomain or a store's own address (use the subdomain);
+     *  - another client's custom domain (deleted clients and theme previews too);
+     *  - a store's demo domain.
+     */
+    public static function domainProblem(string $host, ?Client $ignoreClient = null, ?Storefront $ignoreStore = null): ?string
+    {
+        $host = (string) static::normaliseHost($host);
+
+        if (! preg_match('/^(?=.{4,190}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $host)) {
+            return 'Enter a host name such as shop.example.com (no https://, no path).';
+        }
+
+        $base = static::baseDomain();
+        if ($host === $base || str_ends_with($host, '.'.$base)) {
+            return '"'.$host.'" is on the platform\'s own domain ('.$base.'), where every address belongs to a client or store already. Use a domain of the client\'s own.';
+        }
+
+        $client = static::withoutGlobalScopes()->withTrashed()->where('domain', $host)
+            ->when($ignoreClient?->exists, fn ($q) => $q->whereKeyNot($ignoreClient->getKey()))
+            ->first();
+        if ($client) {
+            return '"'.$host.'" is already the domain of '.($client->is_theme ? 'a theme preview' : 'the client "'.$client->name.'"')
+                .($client->trashed() ? ' (deleted)' : '').'.';
+        }
+
+        $store = Storefront::where('domain', $host)
+            ->when($ignoreStore?->exists, fn ($q) => $q->whereKeyNot($ignoreStore->getKey()))
+            ->first();
+        if ($store) {
+            return '"'.$host.'" is already the demo domain of the store "'.$store->name.'".';
+        }
+
+        return null;
+    }
+
+    /** The store template whose own address (its slug) is this subdomain, if any; inactive stores too. */
+    public static function storeOnAddress(string $subdomain): ?Storefront
+    {
+        return Storefront::where('slug', strtolower(trim($subdomain)))->first();
+    }
+
+    public static function storeAddressMessage(Storefront $store): string
+    {
+        return '"'.$store->slug.'" is the address of the store "'.$store->name.'" (its theme preview). Choose another subdomain.';
     }
 
     /** Sign-in page of the client panel, on the same host as the store. */

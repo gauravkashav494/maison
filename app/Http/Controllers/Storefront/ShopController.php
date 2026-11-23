@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
@@ -33,13 +34,53 @@ class ShopController extends Controller
         };
     }
 
-    private function categoryListing(Request $request, Category $category): View
+    /** Every brand with something on sale, A to Z (or in the order set on the brand master). */
+    public function brands(): View
     {
-        $ids = [$category->id, ...$category->children()->pluck('id')->all()];
+        return view('shop.brands', [
+            'brands' => Brand::query()
+                ->withCount(['products' => fn (Builder $q) => $q->active()])
+                ->whereHas('products', fn (Builder $q) => $q->active())
+                ->ordered()
+                ->get(),
+            'seo' => Seo::simple('Brands', 'Shop by brand: every brand we stock, in one place.'),
+        ]);
+    }
+
+    /** A brand's page: the shop listing of its products, with the brand's logo and description. */
+    public function brand(Request $request, string $slug): View|RedirectResponse
+    {
+        $brand = Brand::where('slug', $slug)->first();
+        // Links can outlive a brand (renamed slug, removed); send them to the shop.
+        if (! $brand) {
+            return to_route('shop.index');
+        }
 
         return $this->listing(
             $request,
-            Product::whereIn('category_id', $ids),
+            Product::where('brand_id', $brand->getKey()),
+            $brand->name,
+            'Brand',
+            Seo::forModel($brand, $brand->url, jsonLd: [array_filter([
+                '@context' => 'https://schema.org',
+                '@type' => 'Brand',
+                'name' => $brand->name,
+                'url' => $brand->url,
+                'logo' => $brand->logo_url,
+                'description' => $brand->description,
+            ])]),
+            brand: $brand,
+        );
+    }
+
+    private function categoryListing(Request $request, Category $category): View
+    {
+        // Men lists Men › Shirts and Men › Shirts › Formal too, at any depth.
+        $ids = [$category->id, ...$category->descendantIds()];
+
+        return $this->listing(
+            $request,
+            Product::inCategories($ids),
             $category->name,
             $category->parent?->name ?? ($category->tagline ?? 'Shop'),
             Seo::forModel($category, $category->url),
@@ -47,22 +88,28 @@ class ShopController extends Controller
         );
     }
 
-    private function listing(Request $request, Builder $base, string $title, string $eyebrow, Seo $seo, ?Category $category = null): View
+    private function listing(Request $request, Builder $base, string $title, string $eyebrow, Seo $seo, ?Category $category = null, ?Brand $brand = null): View
     {
         $base->active();
 
         // Facet options are computed from the unfiltered scope so users can widen a filter.
         $scope = (clone $base)->with('category')->get(['id', 'category_id', 'price', 'sizes', 'colors', 'material', 'brand', 'rating', 'stock', 'dietary_tags']);
         $facets = $this->facets($scope, $category);
+        if ($brand) {
+            $facets['brands'] = collect(); // every product here is that brand
+        }
 
         $f = $this->filtersFrom($request);
         $query = (clone $base)->with('category');
 
+        if ($f['q'] !== '') {
+            $query->search($f['q']);
+        }
         if ($f['category']) {
-            $query->whereIn('category_id', Category::whereIn('slug', $f['category'])->pluck('id'));
+            $query->inCategories(Category::whereIn('slug', $f['category'])->pluck('id'));
         }
         if ($f['subcategory']) {
-            $query->whereIn('category_id', Category::whereIn('slug', $f['subcategory'])->pluck('id'));
+            $query->inCategories(Category::whereIn('slug', $f['subcategory'])->pluck('id'));
         }
         if ($f['collection']) {
             $query->whereHas('collections', fn ($c) => $c->whereIn('slug', $f['collection']));
@@ -92,7 +139,8 @@ class ShopController extends Controller
             $query->where('is_veg', true); // grocery templates: vegetarian-only switch
         }
         if ($f['discount']) {
-            $query->onSale()->whereRaw('(compare_at_price - price) * 100.0 / nullif(compare_at_price, 0) >= ?', [$f['discount']]);
+            $basis = Product::mrpBasisSql();
+            $query->onSale()->whereRaw("(compare_at_price - {$basis}) * 100.0 / nullif(compare_at_price, 0) >= ?", [$f['discount']]);
         }
         foreach ($f['diet'] as $tag) {
             $query->whereLike('dietary_tags', trim(json_encode($tag), '"'));
@@ -118,10 +166,18 @@ class ShopController extends Controller
             $f['min'] !== null || $f['max'] !== null, $f['rating'], $f['availability'], $f['sale'], $f['veg'], $f['diet'], $f['discount'],
         ]));
 
+        // The department being browsed (Men, for Men › Shirts). Inside one, the collections that
+        // hold products on this page ("Summer") are offered as shortcuts.
+        $department = $category?->root();
+
         return view('shop.index', [
+            'department' => $department,
+            'departmentCollections' => $department ? $facets['collections'] : collect(),
             'title' => $title,
             'eyebrow' => $eyebrow,
             'category' => $category,
+            // On a brand's page (/brands/{slug}): its logo and description head the listing.
+            'brand' => $brand,
             'categories' => Category::active()->topLevel()->where('show_in_menu', true)->get(),
             'products' => $query->paginate(24)->withQueryString(),
             'facets' => $facets,
@@ -137,6 +193,7 @@ class ShopController extends Controller
         $list = fn (string $key) => array_values(array_filter(array_map('trim', explode(',', (string) $request->query($key, '')))));
 
         return [
+            'q' => trim((string) $request->query('q', '')),
             'category' => $list('category'),
             'subcategory' => $list('subcategory'),
             'collection' => $list('collection'),
@@ -177,13 +234,14 @@ class ShopController extends Controller
         }
         uksort($sizes, fn ($a, $b) => $this->sizeRank($a) <=> $this->sizeRank($b));
 
-        $categoryIds = $products->pluck('category_id')->unique();
+        // Every category a product in scope is listed under, not only its main one.
+        $listedIn = fn ($q) => $q->whereIn('products.id', $products->pluck('id'));
         $subcategories = $category
-            ? $category->children()->active()->whereIn('id', $categoryIds)->get()
+            ? $category->children()->active()->whereHas('products', $listedIn)->get()
             : collect();
         $categories = $category
             ? collect()
-            : Category::active()->topLevel()->where('show_in_menu', true)->whereIn('id', $categoryIds)->get();
+            : Category::active()->topLevel()->where('show_in_menu', true)->whereHas('products', $listedIn)->get();
 
         return [
             'categories' => $categories,
@@ -194,8 +252,8 @@ class ShopController extends Controller
             'sizes' => $sizes,
             'colors' => $colors,
             'diets' => collect($diets)->sortKeys(),
-            'price_min' => (int) ($products->min('price') ?? 0),
-            'price_max' => (int) ($products->max('price') ?? 0),
+            'price_min' => (float) ($products->min('price') ?? 0),
+            'price_max' => (float) ($products->max('price') ?? 0),
         ];
     }
 

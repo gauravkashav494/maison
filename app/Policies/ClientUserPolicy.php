@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Admin\PlatformModules;
 use App\Clients\ClientContext;
 use App\Contracts\AdminIdentity;
 use App\Models\ClientUser;
@@ -18,7 +19,7 @@ class ClientUserPolicy
 
     public function viewAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin() || $this->isClientAdmin($user);
+        return PlatformModules::allows($user, PlatformModules::CLIENTS) || $this->isClientAdmin($user);
     }
 
     public function view(AdminIdentity $user, ClientUser $record): bool
@@ -28,7 +29,7 @@ class ClientUserPolicy
 
     public function create(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin() || $this->isClientAdmin($user);
+        return PlatformModules::allows($user, PlatformModules::CLIENTS) || $this->isClientAdmin($user);
     }
 
     public function update(AdminIdentity $user, ClientUser $record): bool
@@ -52,7 +53,7 @@ class ClientUserPolicy
 
     public function deleteAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin() || $this->isClientAdmin($user);
+        return PlatformModules::allows($user, PlatformModules::CLIENTS) || $this->isClientAdmin($user);
     }
 
     public function restore(AdminIdentity $user, ClientUser $record): bool
@@ -83,7 +84,7 @@ class ClientUserPolicy
 
     private function mayManage(AdminIdentity $user, ClientUser $record): bool
     {
-        if ($user->isSuperAdmin()) {
+        if (PlatformModules::allows($user, PlatformModules::CLIENTS)) {
             return true;
         }
 

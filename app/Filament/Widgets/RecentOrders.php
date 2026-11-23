@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Clients\ClientAccess;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use Filament\Widgets\Widget;
@@ -19,7 +20,7 @@ class RecentOrders extends Widget
 
     public static function canView(): bool
     {
-        return StoreStats::canView() && \App\Clients\ClientAccess::current('orders', 'view');
+        return StoreStats::canView() && ClientAccess::current('orders', 'view');
     }
 
     protected function getViewData(): array

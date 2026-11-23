@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -15,6 +16,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -26,6 +28,9 @@ use Filament\Support\Icons\Heroicon;
 class PlumbingServicesSettings extends Page
 {
     use HasSettingsForm;
+
+    /** Social networks a footer link can point to. */
+    private const NETWORKS = ['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn', 'x' => 'X'];
 
     protected string $view = 'filament.pages.settings';
 
@@ -60,13 +65,13 @@ class PlumbingServicesSettings extends Page
                     Tab::make('Business')->icon('heroicon-o-building-storefront')->schema([
                         Section::make('Name & logo')->columns(2)->schema([
                             TextInput::make("$g.business_name")->label('Business name')->required()->columnSpan(2)->helperText('Used in the PWA name, structured data and the footer.'),
-                            TextInput::make("$g.logo_primary")->label('Logo — first word')->helperText('Rendered in deep blue.'),
-                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->helperText('Rendered in bright blue.'),
+                            TextInput::make("$g.logo_primary")->label('Logo — first word')->placeholder('Pipe')->helperText('The first half of your business name, in deep blue. Examples: Pipe, Quick, Flow.'),
+                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->placeholder('Care')->helperText('The second half, in bright blue, joined to the first with no space. Examples: Care, Fix, Pro — "Pipe" + "Care" reads "PipeCare".'),
                             TextInput::make("$g.tagline")->label('Tagline')->columnSpan(2),
                         ]),
                         Section::make('Contact')->columns(2)->schema([
                             TextInput::make("$g.phone")->label('Phone')->required()->helperText('Shown on every Call button.'),
-                            TextInput::make("$g.emergency_phone")->label('Emergency phone')->helperText('Leave blank to use the main phone.'),
+                            PhoneInput::make("$g.emergency_phone")->label('Emergency phone')->helperText('Leave blank to use the main phone.'),
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format without +, e.g. 919876543210. Leave blank to hide WhatsApp buttons.'),
                             TextInput::make("$g.whatsapp_message")->label('WhatsApp pre-filled message'),
                             TextInput::make("$g.email")->label('Email')->email(),
@@ -102,8 +107,8 @@ class PlumbingServicesSettings extends Page
                         Textarea::make("$g.footer_blurb")->label('Footer blurb')->rows(3),
                         TextInput::make("$g.footer_note")->label('Footer trust line'),
                         Repeater::make("$g.social")->label('Social links')->schema([
-                            Select::make('network')->options(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn', 'x' => 'X'])->required()->native(false),
-                            TextInput::make('url')->label('URL')->required(),
+                            Select::make('network')->options(self::NETWORKS)->required()->native(false)->live(),
+                            TextInput::make('url')->label(fn (Get $get) => trim((self::NETWORKS[$get('network')] ?? '').' URL'))->required(),
                         ])->columns(2)->maxItems(5)->helperText('Links set to "#" are hidden.'),
                     ]),
                 ]),

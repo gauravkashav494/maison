@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = $g['support_phone'] ?? ($site['contact_phone'] ?? null); @endphp
+@php $g = tsetting('site'); $subjects = $page->data['subjects'] ?? ['Order issue', 'Missing or damaged item', 'Refund', 'Product question', 'Other']; $phone = store_phone(); @endphp
 <x-page-head :title="$page->title" :text="$page->excerpt" :breadcrumbs="[$page->title => null]" />
 <section class="g-container grid gap-6 py-6 lg:grid-cols-12">
+    @module('messages')
     <div class="lg:col-span-7">
         <div class="card p-5 sm:p-6">
             @if(session('contact_status'))<p class="mb-4 flex items-center gap-2 rounded-xl bg-leaf-light px-4 py-3 text-sm font-semibold text-leaf-dark"><x-ico name="check" :size="16" /> {{ session('contact_status') }}</p>@endif
@@ -22,7 +23,8 @@
             </form>
         </div>
     </div>
-    <div class="space-y-4 lg:col-span-5">
+    @endmodule
+    <div @class(['space-y-4', 'lg:col-span-5' => app(\App\Clients\StoreFeatures::class)->on('messages'), 'lg:col-span-12' => ! app(\App\Clients\StoreFeatures::class)->on('messages')])>
         <div class="card p-5">
             <p class="text-sm font-extrabold">Quick help</p>
             <ul class="mt-3 space-y-3 text-sm">

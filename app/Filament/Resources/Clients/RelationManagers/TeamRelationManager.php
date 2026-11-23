@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Clients\RelationManagers;
 
 use App\Filament\Resources\Clients\Pages\ViewClient;
+use App\Filament\Support\PasswordHintColumn;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
 use Filament\Actions\Action;
@@ -40,6 +41,7 @@ class TeamRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('medium'),
                 TextColumn::make('email')->searchable()->sortable()->copyable(),
+                PasswordHintColumn::make(),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('role')->label('Access')->badge()
                     ->formatStateUsing(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? ClientUser::ROLES[$state] : ($r->clientRole?->name ?? 'No role'))

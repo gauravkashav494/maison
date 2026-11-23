@@ -8,7 +8,7 @@
             <button type="button" @click="$store.ui.closeAll()" class="grid h-9 w-9 place-items-center rounded-lg hover:bg-paper" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
         <div class="flex-1 overflow-y-auto p-3">
-            <ul class="space-y-1">
+            <ul class="space-y-1" data-menu-area="header">
                 @foreach($quickLinks as $item)<li><a href="{{ $item->href }}" class="block rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-paper {{ $item->is_accent ? 'text-berry' : '' }}">{{ $item->label }}</a></li>@endforeach
             </ul>
             @if($help->isNotEmpty())
@@ -19,6 +19,7 @@
         <div class="border-t border-line p-4">
             @auth
                 <a href="{{ route('account.index') }}" class="btn btn-outline btn-block">My account</a>
+                <form method="post" action="{{ route('logout') }}" class="mt-2" novalidate>@csrf<button type="submit" class="block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-slate hover:bg-paper">Log out</button></form>
             @else
                 <a href="{{ route('login') }}" class="btn btn-primary btn-block">Login / Sign up</a>
             @endauth

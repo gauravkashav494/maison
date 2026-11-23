@@ -4,7 +4,7 @@
     $links = $menus['header'] ?? collect();
     $cats = $navCategories ?? collect();
     $isHome = request()->routeIs('home');
-    $phone = $p['support_phone'] ?? ($site['contact_phone'] ?? null);
+    $phone = store_phone();
 @endphp
 
 {{-- Top strip: trust promises + support (desktop only) --}}
@@ -29,7 +29,7 @@
         @unless($isHome)<button type="button" @click="$store.app.back()" class="icon-btn -ml-2 shrink-0 lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         <button type="button" @click="$store.ui.openMenu()" class="icon-btn shrink-0 lg:hidden {{ $isHome ? '-ml-2' : '' }}" aria-label="Open menu"><x-ico name="menu" :size="22" /></button>
 
-        <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+        <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-deep text-white lg:h-11 lg:w-11"><x-ico name="droplet" :size="22" :stroke="2" /></span>
             <span class="font-display text-xl font-800 leading-none tracking-tight lg:text-[1.45rem]"><span class="font-extrabold text-deep">{{ $p['logo_primary'] ?? 'Plumb' }}</span><span class="font-extrabold text-bright">{{ $p['logo_accent'] ?? 'Kart' }}</span></span>
         </a>
@@ -47,7 +47,8 @@
                     <span class="leading-tight"><span class="block text-[0.6875rem] font-semibold uppercase tracking-wider text-slate">Expert support</span><span class="block text-sm font-bold text-ink">{{ $phone }}</span></span>
                 </a>
             @endif
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="icon-btn hidden lg:grid" aria-label="Account" title="{{ auth()->check() ? 'My account' : 'Login' }}"><x-ico name="user" :size="22" /></a>
+            <x-account-menu wrapper="hidden lg:block" class="icon-btn" aria-label="Account" title="{{ auth()->check() ? 'My account' : 'Login' }}"
+                            panel="rounded-xl border border-line bg-white text-sm text-ink shadow-lg" item="hover:bg-sky" muted="text-slate"><x-ico name="user" :size="22" /></x-account-menu>
             <a href="{{ route('account.wishlist') }}" class="icon-btn relative hidden lg:grid" aria-label="Wishlist"><x-ico name="heart" :size="22" /><span x-show="$store.wishlist.count" x-cloak class="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[0.625rem] font-bold text-ink" x-text="$store.wishlist.count"></span></a>
             <button type="button" @click="$store.ui.openCart()" class="relative flex h-10 items-center gap-2 rounded-xl px-2 text-ink hover:bg-sky lg:bg-primary lg:px-4 lg:text-white lg:hover:bg-deep" aria-label="Open cart">
                 <x-ico name="cart" :size="22" />
@@ -69,7 +70,7 @@
                 @endforeach
             </div>
             @if($links->isNotEmpty())
-                <div class="flex items-center gap-0.5 border-l border-white/20 pl-2" @mouseenter="scheduleClose()">
+                <div class="flex items-center gap-0.5 border-l border-white/20 pl-2" @mouseenter="scheduleClose()" data-menu-area="header">
                     @foreach($links->take(4) as $item)
                         <a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="nav-link {{ $item->is_accent ? 'text-accent' : '' }}">@if($item->is_accent)<x-ico name="percent" :size="14" />@endif{{ $item->label }}</a>
                     @endforeach

@@ -4,10 +4,19 @@ namespace App\Filament\Auth;
 
 use App\Clients\ClientContext;
 use App\Models\Client;
+use App\Models\ClientUser;
 use App\Models\Setting;
+use App\Models\User;
 use App\Support\Media;
 use App\Templates\Template;
+use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 /**
  * Split-screen sign-in: brand visual on the left, Filament's standard login form on the right.
@@ -22,6 +31,58 @@ class Login extends BaseLogin
 
     /** Full-bleed layout (no centred card) so the page can split into visual + form. */
     protected static string $layout = 'filament-panels::components.layout.base';
+
+    /** Unix time when the current login throttle expires, for the visible countdown. */
+    public ?int $retryUntil = null;
+
+    /**
+     * Site settings → Sign-in page → "View sign-in page": a signed-in team member sees their store's
+     * sign-in page instead of being sent to the dashboard. The form does nothing in this preview.
+     */
+    #[Locked]
+    public bool $settingsPreview = false;
+
+    public function mount(): void
+    {
+        if (request()->query('settings_preview') === 'login' && ! $this->isPlatform() && Filament::auth()->check()) {
+            $this->settingsPreview = true;
+            $this->form->fill();
+
+            return;
+        }
+
+        parent::mount();
+    }
+
+    public function authenticate(): ?LoginResponse
+    {
+        if ($this->settingsPreview) {
+            Notification::make()->title('This is a preview')->body('You are already signed in, so nothing was sent.')->warning()->send();
+
+            return null;
+        }
+
+        return parent::authenticate();
+    }
+
+    /** Keep each store's failed sign-ins independent, including stores behind custom domains. */
+    protected function getRateLimitKey($method, $component = null): string
+    {
+        $method ??= debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, limit: 2)[1]['function'];
+        $component ??= static::class;
+        $scope = $this->isPlatform()
+            ? 'platform'
+            : 'client:'.($this->hostClientId() ?? request()->getHost());
+
+        return 'livewire-rate-limiter:'.sha1($component.'|'.$method.'|'.$scope.'|'.request()->ip());
+    }
+
+    protected function getRateLimitedNotification(TooManyRequestsException $exception): ?Notification
+    {
+        $this->retryUntil = now()->addSeconds($exception->secondsUntilAvailable)->timestamp;
+
+        return parent::getRateLimitedNotification($exception);
+    }
 
     public const STYLES = [
         'classic' => 'Classic — floating split card on navy',
@@ -98,6 +159,78 @@ class Login extends BaseLogin
         $id = Client::idForHost(request()->getHost());
 
         return $id ? Client::find($id) : null;
+    }
+
+    /**
+     * The same email may hold an account in several stores (client_users is unique on
+     * client_id + email). On a store's own host the credentials are matched together with
+     * that store, so signing in on store B can never pick store A's account with the same
+     * email — whichever row happened to come first.
+     */
+    protected function getCredentialsFromFormData(#[\SensitiveParameter] array $data): array
+    {
+        $credentials = parent::getCredentialsFromFormData($data);
+
+        if (! $this->isPlatform() && ($clientId = $this->hostClientId())) {
+            $credentials['client_id'] = $clientId;
+        }
+
+        return $credentials;
+    }
+
+    /**
+     * Says why a correct email and password still cannot sign in, instead of the generic
+     * "credentials do not match". Only reached once the password has been checked, so it tells
+     * nothing to someone guessing.
+     */
+    protected function isUserAllowedToAccessPanel(Authenticatable $user): bool
+    {
+        if ($reason = self::deactivatedMessage($user)) {
+            $this->failWith($reason);
+        }
+
+        return parent::isUserAllowedToAccessPanel($user);
+    }
+
+    /**
+     * Why this account may not use its panel because it (or its whole store) was switched off,
+     * or null when it is active. Also used to sign out a session that was already open.
+     */
+    public static function deactivatedMessage(Authenticatable $user): ?string
+    {
+        if ($user instanceof ClientUser) {
+            if (! $user->client?->is_active) {
+                return 'This store has been deactivated, so its team cannot sign in. Please contact support.';
+            }
+            if (! $user->is_active) {
+                return 'Your account has been deactivated. Please contact your store\'s Client Admin.';
+            }
+        }
+
+        if ($user instanceof User && ! $user->isActiveAccount()) {
+            return 'Your account has been deactivated. Please contact another super admin.';
+        }
+
+        return null;
+    }
+
+    private function failWith(string $message): never
+    {
+        $this->userUndertakingMultiFactorAuthentication = null;
+
+        throw ValidationException::withMessages(['data.email' => $message]);
+    }
+
+    /**
+     * The client whose host this is, deactivated ones included: Client::idForHost() only knows
+     * active clients, and without the client the credentials could match a same-email account
+     * of another store.
+     */
+    private function hostClientId(): ?int
+    {
+        $host = request()->getHost();
+
+        return Client::idForHost($host) ?? Client::anyForHost($host)?->id;
     }
 
     private function isPlatform(): bool

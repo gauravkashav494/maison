@@ -36,20 +36,6 @@ class StoreEntryController extends Controller
             ->withCookie(cookie()->forget(Storefront::COOKIE));
     }
 
-    /**
-     * A standing link to the Simple List template's bulk order page: it opens /shop on the
-     * subdomain of the first client running that template.
-     */
-    public function bulkOrder(Request $request): RedirectResponse
-    {
-        $client = Client::active()
-            ->whereHas('storefront', fn ($query) => $query->where('template', 'simple'))
-            ->orderBy('id')
-            ->firstOrFail();
-
-        return $this->toClient($request, $client, '/shop');
-    }
-
     /** A client's subdomain, or else a store's slug (which opens that store's theme preview). */
     public function enter(Request $request, string $subdomain): RedirectResponse
     {

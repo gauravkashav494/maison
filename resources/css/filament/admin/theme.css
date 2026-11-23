@@ -76,6 +76,15 @@ html { font-size: 14px; }
 /* User menu: name + role next to the avatar */
 .fi-topbar .fi-user-menu .fi-dropdown-trigger { display: flex; align-items: center; gap: 0.6rem; color: #fff; }
 .fi-topbar .fi-user-menu .fi-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+/* Initials avatar (no uploaded photo): light chip in light mode, navy in dark mode. */
+.fi-initials-avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0; user-select: none;
+  background: var(--primary-50, #eef2f8); color: var(--primary-700, #172c49);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1;
+}
+.fi-initials-avatar.fi-size-sm { font-size: 0.625rem; }
+.fi-initials-avatar.fi-size-lg { font-size: 0.9375rem; }
+.dark .fi-initials-avatar { background: var(--primary-500, #34527d); color: #fff; }
 .fi-usage-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .fi-usage { padding: .875rem 1rem; border-radius: .75rem; background: #fff; box-shadow: 0 0 0 1px rgb(15 42 77 / .08); }
 .fi-usage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
@@ -134,7 +143,16 @@ html { font-size: 14px; }
 
 /* ---- Workspace ------------------------------------------------------------- */
 .fi-main { padding-top: 0; }
-.fi-page-content { gap: 1.25rem; }
+.fi-page-content { gap: 0.75rem; }
+/* Compact forms: Filament spaces schema fields 1.5rem apart. Must stay above the widget and stat-card gap rules below, which share its specificity. */
+.fi-sc.fi-sc-has-gap { gap: 1rem; }
+.fi-wi-stats-overview .fi-sc-has-gap { gap: 0.75rem; }
+.fi-wi-stats-overview-stat { padding: 1rem 1.25rem; }
+/* Widget grids (header / footer widgets, dashboard) use the schema gap of 1.5rem; match the page gap. */
+.fi-sc-has-gap:has(.fi-wi-widget) { gap: 0.75rem; }
+/* Compact page header: Filament puts 2rem above the breadcrumbs and 2rem between the title and the content; cut to 1rem and 0.5rem. */
+.fi-page-header-main-ctn { padding-block: 1rem; row-gap: 0.5rem; }
+.fi-header .fi-breadcrumbs { margin-bottom: 0.25rem; }
 .fi-header-heading { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
 .fi-header-subheading { font-size: 0.8125rem; }
 .fi-breadcrumbs-item-label { font-size: 0.75rem; }
@@ -142,20 +160,103 @@ html { font-size: 14px; }
 .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-stat, .fi-fo-tabs, .fi-admin-card {
   border-radius: 0.85rem;
   background: var(--card-bg);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  /* The 1px ring is the card outline (Filament draws it as a ring, which a plain box-shadow would wipe out). */
+  box-shadow: 0 0 0 1px var(--tw-ring-color), 0 1px 2px rgba(16, 24, 40, 0.04);
   --tw-ring-color: var(--card-line);
 }
+/* Sections that aren't drawn as a card (not contained, or aside with the card on its content) get no outline. */
+.fi-section:is(.fi-section-not-contained, .fi-aside) { --tw-ring-color: transparent; }
 .fi-section-header-heading { font-size: 0.95rem; font-weight: 700; }
+/* Compact cards: Filament pads section bodies and contained tab panels 1.5rem and headers/footers
+   1rem x 1.5rem. Tighten both; compact sections keep Filament's own smaller padding. */
+.fi-section:not(.fi-section-not-contained):not(.fi-compact):not(.fi-divided) > .fi-section-content-ctn > .fi-section-content,
+.fi-section:not(.fi-section-not-contained):not(.fi-compact).fi-divided > .fi-section-content-ctn > .fi-section-content > *,
+.fi-sc-tabs.fi-contained .fi-sc-tabs-tab.fi-active { padding: 1rem 1.25rem; }
+.fi-section:not(.fi-section-not-contained):not(.fi-aside):not(.fi-compact) > .fi-section-header,
+.fi-section:not(.fi-section-not-contained):not(.fi-compact) > .fi-section-content-ctn > .fi-section-footer { padding: 0.75rem 1.25rem; }
 .fi-ta-header-heading { font-size: 0.95rem; font-weight: 700; }
+/* Compact toolbar (search, filters, column toggle): Filament pads it 0.75rem top and bottom. */
+.fi-ta-header-toolbar { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+/* Same for the pagination bar under the table (Filament: 0.75rem). */
+.fi-ta-ctn .fi-pagination { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+/* Compact modals and slide-overs: Filament pads them 1.5rem (1.25rem on slide-over headers and
+   sticky footers). Cut to 1rem top/bottom and 1.25rem at the sides. Start-aligned windows with an icon
+   keep their wide start padding so the text still lines up with the heading. */
+.fi-modal-window > .fi-modal-header { padding-top: 1rem; padding-inline: 1.25rem; }
+.fi-modal-window > .fi-modal-content { padding-block: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-icon) > :is(.fi-modal-content, .fi-modal-footer),
+.fi-modal-window.fi-modal-window-has-icon:not(.fi-align-start):not(.fi-align-left) > :is(.fi-modal-content, .fi-modal-footer) { padding-inline: 1.25rem; }
+.fi-modal-has-sticky-header > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-header { padding-bottom: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-content):not(.fi-modal-window-has-footer) > .fi-modal-header { padding-bottom: 1rem; }
+.fi-modal-window:not(.fi-modal-window-has-content) > .fi-modal-footer { margin-top: 1rem; }
+.fi-modal:not(.fi-modal-has-sticky-footer) > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-footer { padding-bottom: 1rem; }
+.fi-modal-has-sticky-footer > .fi-modal-window-ctn > .fi-modal-window > .fi-modal-footer { padding-block: 0.75rem; }
+.fi-modal-slide-over > .fi-modal-window-ctn > .fi-modal-window .fi-modal-close-btn { top: 1rem; inset-inline-end: 1.25rem; }
 .fi-ta-header-cell { background: var(--thead-bg); }
+/* Compact header row: Filament pads header cells 0.875rem and the select-all checkbox cell 1rem. */
+.fi-ta-table > thead .fi-ta-header-cell,
+.fi-ta-table > thead .fi-ta-selection-cell { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .fi-ta-header-cell, .fi-ta-header-cell-sort-btn { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
 .fi-ta-cell { font-size: 0.8125rem; }
 .fi-ta-row:hover { background: var(--row-hover); }
+/* Compact rows: Filament pads each column's content (and the checkbox / actions cells) 1rem top
+   and bottom. Halve that for every table in both panels. */
+.fi-ta-row :is(.fi-ta-text, .fi-ta-icon, .fi-ta-color, .fi-ta-select, .fi-ta-checkbox, .fi-ta-text-input, .fi-ta-toggle, .fi-ta-image):not(.fi-inline),
+.fi-ta-row > .fi-ta-cell:has(.fi-ta-actions),
+.fi-ta-row > .fi-ta-cell:has(.fi-ta-record-checkbox),
+.fi-ta-row > .fi-ta-selection-cell { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .fi-badge { font-size: 0.7rem; }
 .fi-btn { border-radius: 0.55rem; }
 .fi-fo-field-label { font-size: 0.8125rem; }
+/* Label sits 0.5rem above its input (forms) or value (infolists) in Filament; tighten. */
+.fi-fo-field { row-gap: 0.3rem; }
+.fi-in-entry { row-gap: 0.3rem; }
+/* Same for the input and its helper / error text below it. */
+.fi-fo-field-content-col { row-gap: 0.3rem; }
+/* Order page side cards (Customer, Delivery…): bold labels so each value is easy to find. */
+.fi-order-side .fi-in-entry-label { font-weight: 700; color: var(--ink); }
+/* Order page Payment: a rule above the total, like a receipt. */
+.fi-order-total { border-top: 1px solid var(--card-line); padding-top: .75rem; }
 .fi-input, .fi-select-input, .fi-textarea { font-size: 0.875rem; }
 .fi-tabs { border-radius: 0.75rem; }
+/* An "on" toggle uses the same navy as buttons (Filament otherwise picks the lightest passing shade). */
+.fi-toggle.fi-toggle-on.fi-color-primary { background-color: var(--primary-600); }
+/* The active tab is filled with that same navy, so it reads as "on" like the toggle. */
+.fi-tabs-item.fi-active { background-color: var(--primary-600); }
+.fi-tabs-item.fi-active .fi-tabs-item-label,
+.fi-tabs-item.fi-active > .fi-icon { color: #fff; }
+.dark .fi-tabs-item.fi-active { background-color: var(--primary-500); }
+
+
+/* Sections inside a tab panel (settings pages): the panel is a white card too, so each section is a
+   boxed block with a coloured top edge and a tinted header, and air between them. */
+/* No overflow: hidden here: it clipped open dropdowns (a select's list is drawn inside the section)
+   and scrolled the section to the focused option, hiding its fields. The tinted header is rounded
+   to the section's corners instead. */
+.fi-sc-tabs-tab .fi-section:not(.fi-aside) {
+  border: 1px solid #cfd6e1;
+  border-top: 3px solid var(--primary-600, #2563eb);
+  --tw-ring-color: transparent;
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06);
+}
+.fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-header {
+  background: var(--thead-bg);
+  border-start-start-radius: calc(0.75rem - 3px);
+  border-start-end-radius: calc(0.75rem - 3px);
+}
+.fi-sc-tabs-tab .fi-section.fi-compact:not(.fi-aside) > .fi-section-header {
+  border-start-start-radius: calc(0.5rem - 3px);
+  border-start-end-radius: calc(0.5rem - 3px);
+}
+/* A collapsed section is only its header: round its bottom corners too. */
+.fi-sc-tabs-tab .fi-section.fi-collapsed:not(.fi-aside) > .fi-section-header {
+  border-end-start-radius: calc(0.75rem - 1px);
+  border-end-end-radius: calc(0.75rem - 1px);
+}
+.fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-content-ctn { border-top-color: #cfd6e1; }
+.fi-sc-tabs-tab > .fi-sc { row-gap: 1rem; }
+.dark .fi-sc-tabs-tab .fi-section:not(.fi-aside) { border-color: rgba(255, 255, 255, 0.14); border-top-color: var(--primary-400, #60a5fa); }
+.dark .fi-sc-tabs-tab .fi-section:not(.fi-aside) > .fi-section-content-ctn { border-top-color: rgba(255, 255, 255, 0.1); }
 
 /* ---- Dashboard widgets ----------------------------------------------------- */
 .fi-admin-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -237,15 +338,18 @@ a.fi-admin-row:hover { background: var(--row-hover); }
    A floating card on a deep navy backdrop: image + serif quote on the left,
    an airy form on the right. Collapses to a single column with a short image
    banner on phones. */
-.fi-login { position: relative; display: flex; min-height: 100dvh; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; padding: 2rem 1.25rem; overflow: hidden; background: radial-gradient(120% 90% at 10% 0%, #1f3d6b 0%, #14274a 45%, #0c1830 100%); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+.fi-login { position: relative; display: flex; width: 100%; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; padding: 2rem 1.25rem; overflow: clip; background: radial-gradient(120% 90% at 10% 0%, #1f3d6b 0%, #14274a 45%, #0c1830 100%); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+@media (max-height: 700px) { .fi-login { height: auto; min-height: 100vh; min-height: 100dvh; } }
+/* overflow: clip (not hidden) so the glows never give Filament's scroll-to-error a hidden scroll range to jump through. */
+.fi-login-glows { position: absolute; inset: 0; overflow: clip; pointer-events: none; }
 .fi-login-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; opacity: 0.55; }
 .fi-login-glow-a { top: -12rem; right: -8rem; width: 34rem; height: 34rem; background: #3b6fd1; }
 .fi-login-glow-b { bottom: -14rem; left: -6rem; width: 30rem; height: 30rem; background: #c9a24a; opacity: 0.22; }
 
-.fi-login-card { position: relative; display: grid; width: 100%; max-width: 68rem; grid-template-columns: 1fr; overflow: hidden; border-radius: 1.5rem; background: var(--card-bg); box-shadow: 0 40px 90px -30px rgba(3, 10, 25, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.fi-login-card { position: relative; display: grid; width: 100%; max-width: 68rem; grid-template-columns: 1fr; overflow: clip; border-radius: 1.5rem; background: var(--card-bg); box-shadow: 0 40px 90px -30px rgba(3, 10, 25, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06); }
 @media (min-width: 1024px) { .fi-login-card { grid-template-columns: 1.1fr 1fr; min-height: 38rem; } }
 
-.fi-login-visual { position: relative; min-height: 11rem; overflow: hidden; background: #1c3557 center / cover no-repeat; color: #fff; }
+.fi-login-visual { position: relative; min-height: 11rem; overflow: clip; background: #1c3557 center / cover no-repeat; color: #fff; }
 .fi-login-visual-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 24, 48, 0.25) 0%, rgba(12, 24, 48, 0.35) 45%, rgba(12, 24, 48, 0.9) 100%); }
 .fi-login-visual-body { position: relative; display: flex; height: 100%; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
 @media (min-width: 1024px) { .fi-login-visual-body { padding: 2.5rem; } }
@@ -266,6 +370,13 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-kicker { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #b8963f; }
 .fi-login-title { margin-top: 0.4rem; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 2rem; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
 .fi-login-subtitle { margin-top: 0.4rem; margin-bottom: 1.75rem; font-size: 0.875rem; color: var(--ink-soft); }
+.fi-login-throttle { display: flex; align-items: center; gap: 0.8rem; margin: -0.7rem 0 1rem; padding: 0.75rem 0.85rem; border: 1px solid #ead8aa; border-radius: 0.75rem; background: linear-gradient(135deg, #fffaf0, #fff); color: var(--ink); box-shadow: 0 5px 16px rgba(30, 40, 55, 0.06); }
+.fi-login-throttle-clock { display: flex; flex: 0 0 3.15rem; flex-direction: column; align-items: center; justify-content: center; min-height: 3.15rem; border: 1px solid #ecdbaF; border-radius: 0.65rem; background: #f8efd9; color: #775714; font-variant-numeric: tabular-nums; line-height: 1; }
+.fi-login-throttle-clock strong { font-size: 1.15rem; font-weight: 800; }
+.fi-login-throttle-clock span { margin-top: 0.25rem; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.12em; }
+.fi-login-throttle-copy { display: grid; gap: 0.2rem; min-width: 0; }
+.fi-login-throttle-title { color: var(--ink); font-size: 0.8rem; font-weight: 750; }
+.fi-login-throttle-message { color: var(--ink-soft); font-size: 0.72rem; line-height: 1.4; }
 .fi-login .fi-simple-page-content { display: flex; flex-direction: column; gap: 1.1rem; }
 .fi-login .fi-fo-field-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-muted); }
 .fi-login .fi-input-wrp { border-radius: 0.7rem; background: var(--thead-bg); --tw-ring-color: var(--card-line); box-shadow: 0 0 0 1px var(--tw-ring-color); }
@@ -279,6 +390,11 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login-foot a { color: rgba(255, 255, 255, 0.85); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, 0.3); }
 .fi-login-foot a:hover { color: #fff; border-color: #fff; }
 .dark .fi-login-card { box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+/* Sign-in paused notice: a dark amber panel instead of the light cream one. */
+.dark .fi-login-throttle { border-color: rgba(226, 200, 135, 0.28); background: linear-gradient(135deg, rgba(226, 200, 135, 0.1), rgba(255, 255, 255, 0.03)); box-shadow: none; }
+.dark .fi-login-throttle-clock { border-color: rgba(226, 200, 135, 0.35); background: rgba(226, 200, 135, 0.12); color: #f0d58e; }
+.dark .fi-login-throttle-title { color: #f8f3e8; }
+.dark .fi-login-throttle-message { color: rgba(255, 255, 255, 0.68); }
 /* Classic in dark mode: dark --navy disappears on the dark card, so fields, focus ring, button and mark use lighter blues */
 .dark .fi-login[data-style="classic"] .fi-input-wrp { background: rgba(255, 255, 255, 0.05); --tw-ring-color: rgba(255, 255, 255, 0.14); }
 .dark .fi-login[data-style="classic"] .fi-input-wrp:focus-within { background: rgba(255, 255, 255, 0.08); --tw-ring-color: #60a5fa; box-shadow: 0 0 0 1.5px var(--tw-ring-color), 0 0 0 4px rgba(96, 165, 250, 0.18); }
@@ -355,6 +471,10 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login[data-style="midnight"] .fi-btn { background: #fff !important; color: #101c30 !important; }
 .fi-login[data-style="midnight"] .fi-btn:hover { filter: none; background: #e2c887 !important; box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7); }
 .fi-login[data-style="midnight"] .fi-login-help { color: rgba(255, 255, 255, 0.5); }
+.fi-login[data-style="midnight"] .fi-login-throttle { border-color: rgba(226, 200, 135, 0.3); background: rgba(20, 27, 44, 0.82); color: #fff; }
+.fi-login[data-style="midnight"] .fi-login-throttle-clock { border-color: rgba(226, 200, 135, 0.35); background: rgba(226, 200, 135, 0.12); color: #f0d58e; }
+.fi-login[data-style="midnight"] .fi-login-throttle-title { color: #fff; }
+.fi-login[data-style="midnight"] .fi-login-throttle-message { color: rgba(255, 255, 255, 0.7); }
 .fi-login[data-style="midnight"] .fi-login-foot { color: rgba(255, 255, 255, 0.6); }
 
 /* ---- Sign-in style: Minimal --------------------------------------------------
@@ -377,3 +497,326 @@ a.fi-admin-row:hover { background: var(--row-hover); }
 .fi-login[data-style="minimal"] .fi-login-help { text-align: center; }
 .fi-login[data-style="minimal"] .fi-login-foot { position: absolute; bottom: 1.5rem; color: var(--ink-faint); }
 .fi-login[data-style="minimal"] .fi-login-foot a { color: var(--ink-soft); border-color: var(--card-line); }
+/* ---- Filters bar above every table -------------------------------------------
+   AppServiceProvider::registerTableFilterLayout(). Kept short: no "Filters" heading
+   (the bar speaks for itself), the fields in one row, and Reset at the end of that row
+   rather than on a line of its own. Filters apply as they change, so there is no Apply
+   button. On a phone everything stacks. */
+.fi-ta-filters-above-content-ctn { padding-top: 0.875rem; padding-bottom: 0.5rem; }
+/* Navy accent along the top of every table card, curving into its corners (same stripe as sections inside tabs). */
+.fi-ta-ctn { border-top: 3px solid var(--primary-600, #1c3557); }
+.dark .fi-ta-ctn { border-top-color: var(--primary-400, #60a5fa); }
+/* Same stripe on every section card. An aside section's card is its content box, beside the label. */
+.fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section.fi-aside > .fi-section-content-ctn { border-top: 3px solid var(--primary-600, #1c3557); }
+.dark .fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.dark .fi-section.fi-aside > .fi-section-content-ctn { border-top-color: var(--primary-400, #60a5fa); }
+.fi-ta-filters-above-content-ctn .fi-ta-filters { row-gap: 0.5rem; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters-header { display: none; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters .fi-sc.fi-sc-has-gap { gap: 0.75rem; }
+.fi-ta-filters-above-content-ctn .fi-ta-filters-actions-ctn { gap: 0.5rem; }
+@media (min-width: 640px) {
+  .fi-ta-filters-above-content-ctn .fi-ta-filters { grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: end; }
+}
+
+/* ---- My profile page --------------------------------------------------------- */
+/* Header card: navy banner, large initials avatar overlapping it, role / store / status chips. */
+.fi-profile-hero { overflow: hidden; border-radius: 0.85rem; background: var(--card-bg); box-shadow: 0 0 0 1px var(--card-line), 0 2px 6px rgba(16, 24, 40, 0.06); }
+.fi-profile-hero-banner {
+  height: 6.5rem;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.14), transparent 45%),
+    radial-gradient(circle at 10% 120%, rgba(92, 122, 163, 0.55), transparent 55%),
+    linear-gradient(120deg, var(--navy) 0%, var(--primary-500, #34527d) 100%);
+}
+.fi-profile-hero-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.25rem; padding: 0 1.5rem 1.35rem; }
+.fi-profile-avatar {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 5.5rem; height: 5.5rem; margin-top: -2.75rem;
+  border-radius: 9999px; border: 4px solid var(--card-bg);
+  background: linear-gradient(140deg, var(--primary-600, #1c3557), var(--primary-400, #5c7aa3));
+  color: #fff; font-size: 1.75rem; font-weight: 800; letter-spacing: 0.02em;
+  box-shadow: 0 6px 16px -6px rgba(16, 24, 40, 0.45);
+}
+.fi-profile-hero-text { flex: 1 1 16rem; min-width: 0; }
+.fi-profile-hero-name { font-size: 1.35rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); }
+.fi-profile-hero-email { margin-top: 0.15rem; font-size: 0.8125rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.fi-profile-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
+.fi-profile-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 600; color: var(--ink-muted); background: var(--thead-bg); box-shadow: inset 0 0 0 1px var(--card-line); }
+.fi-profile-chip.is-role { color: var(--primary-700, #172c49); background: var(--primary-50, #eef2f8); box-shadow: inset 0 0 0 1px var(--primary-200, #b9c7dd); }
+.fi-profile-chip.is-active { color: #15803d; background: #f0fdf4; box-shadow: inset 0 0 0 1px #bbf7d0; }
+.fi-profile-chip.is-inactive { color: #b91c1c; background: #fef2f2; box-shadow: inset 0 0 0 1px #fecaca; }
+.fi-profile-chip-icon { width: 0.9rem; height: 0.9rem; }
+.fi-profile-dot { width: 0.45rem; height: 0.45rem; border-radius: 9999px; background: currentColor; }
+.fi-profile-hero-meta { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-bottom: 0.2rem; }
+.fi-profile-meta-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
+.fi-profile-meta-value { margin-top: 0.15rem; font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+@media (max-width: 640px) {
+  .fi-profile-hero-body { flex-direction: column; align-items: flex-start; padding: 0 1.1rem 1.15rem; }
+  .fi-profile-hero-text { flex: none; }
+  .fi-profile-hero-meta { align-items: flex-start; text-align: left; }
+}
+
+/* Form sections: boxed with a navy top edge and a tinted header, like the settings pages. */
+.fi-profile-section { overflow: hidden; border: 1px solid #cfd6e1; border-top: 3px solid var(--primary-600, #1c3557); --tw-ring-color: transparent; box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06); }
+.fi-profile-section > .fi-section-header { background: var(--thead-bg); }
+.fi-profile-section > .fi-section-header .fi-section-header-icon { color: var(--primary-600, #1c3557); }
+.fi-profile-section > .fi-section-content-ctn { border-top-color: #cfd6e1; }
+
+/* Side column: account facts and security tips. */
+.fi-profile-side { display: flex; flex-direction: column; gap: 1.5rem; }
+.fi-profile-card-icon { width: 1.1rem; height: 1.1rem; color: var(--primary-600, #1c3557); }
+.fi-profile-facts { padding: 0.35rem 1.25rem; }
+.fi-profile-facts > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px dashed var(--card-line); font-size: 0.8125rem; }
+.fi-profile-facts > div:last-child { border-bottom: 0; }
+.fi-profile-facts dt { color: var(--ink-soft); }
+.fi-profile-facts dd { font-weight: 600; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.fi-profile-status { display: inline-flex; align-items: center; gap: 0.35rem; color: #b91c1c; }
+.fi-profile-status.is-active { color: #15803d; }
+.fi-profile-tips { display: flex; flex-direction: column; gap: 0.65rem; padding: 1rem 1.25rem 1.15rem; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-muted); }
+.fi-profile-tips li { position: relative; padding-left: 1.4rem; }
+.fi-profile-tips li::before { content: ''; position: absolute; left: 0; top: 0.2rem; width: 0.9rem; height: 0.9rem; border-radius: 9999px; background: var(--primary-50, #eef2f8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%231c3557'%3E%3Cpath fill-rule='evenodd' d='M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z'/%3E%3C/svg%3E") center / 0.6rem no-repeat; }
+
+.dark .fi-profile-section { border-color: rgba(255, 255, 255, 0.14); border-top-color: var(--primary-400, #5c7aa3); }
+.dark .fi-profile-section > .fi-section-content-ctn { border-top-color: rgba(255, 255, 255, 0.1); }
+.dark .fi-profile-chip.is-role { color: #dbe3ef; background: rgba(92, 122, 163, 0.2); box-shadow: inset 0 0 0 1px rgba(92, 122, 163, 0.4); }
+.dark .fi-profile-chip.is-active { color: #86efac; background: rgba(34, 197, 94, 0.12); box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.3); }
+.dark .fi-profile-chip.is-inactive { color: #fca5a5; background: rgba(239, 68, 68, 0.12); box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.3); }
+.dark .fi-profile-status.is-active { color: #86efac; }
+
+/* ---------------------------------------------------------------------------
+   Product form → Options: compact swatch pickers under a Colour option.
+   The dot gets a hairline ring so white and pale colours stay visible.
+--------------------------------------------------------------------------- */
+.fi-swatch-grid { gap: 0.5rem !important; }
+.fi-swatch-picker .fi-input-wrp-prefix { padding-inline: 0.6rem; font-size: 0.75rem; font-weight: 500; color: var(--ink); }
+.fi-swatch-picker input { font-size: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-soft); }
+.fi-swatch-picker .fi-fo-color-picker-preview { width: 1.15rem; height: 1.15rem; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.18); }
+.fi-swatch-picker .fi-fo-color-picker-preview.fi-empty { background: repeating-linear-gradient(45deg, #fff 0 3px, #e5e9f0 3px 6px); }
+.dark .fi-swatch-picker .fi-fo-color-picker-preview { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
+
+/* ---------------------------------------------------------------------------
+   Phone field (App\Filament\Forms\Components\PhoneInput): the country picker
+   sits inside the box, left of the number.
+--------------------------------------------------------------------------- */
+.fi-phone-box { position: relative; }
+.fi-phone-row { display: flex; align-items: stretch; width: 100%; }
+.fi-phone-country {
+  display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0;
+  padding: 0 0.6rem 0 0.75rem; border-right: 1px solid var(--card-line);
+  font-size: 0.875rem; color: var(--ink); background: transparent; cursor: pointer;
+  border-top-left-radius: inherit; border-bottom-left-radius: inherit;
+}
+.fi-phone-country:hover:not(:disabled) { background: var(--row-hover); }
+.fi-phone-country:disabled { cursor: default; opacity: 0.7; }
+.fi-phone-country.is-fixed { cursor: default; padding: 0 0.75rem; color: var(--ink-soft); }
+.fi-phone-code { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em; color: var(--ink-soft); }
+.fi-phone-dial { font-variant-numeric: tabular-nums; }
+.fi-phone-caret { width: 1rem; height: 1rem; color: var(--ink-faint); }
+.fi-phone-number { flex: 1; min-width: 0; }
+.fi-phone-hint { margin-top: 0.35rem; font-size: 0.8125rem; color: var(--ink-soft); }
+.fi-phone-panel {
+  position: fixed; z-index: 50; max-height: 300px;
+  background: var(--card-bg); border: 1px solid var(--card-line); border-radius: 0.6rem;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15); padding: 0.4rem;
+}
+.fi-phone-search {
+  width: 100%; padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; font-size: 0.875rem;
+  border: 1px solid var(--card-line); border-radius: 0.45rem; background: transparent; color: var(--ink);
+}
+.fi-phone-list { max-height: 15rem; overflow-y: auto; }
+.fi-phone-option {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%; text-align: left;
+  padding: 0.4rem 0.5rem; border-radius: 0.4rem; font-size: 0.875rem; color: var(--ink);
+}
+.fi-phone-option:hover, .fi-phone-option.is-active { background: var(--row-hover); }
+.fi-phone-option.is-active { font-weight: 600; }
+.fi-phone-option .fi-phone-code { width: 1.6rem; }
+.fi-phone-name { flex: 1; }
+.fi-phone-option .fi-phone-dial { color: var(--ink-soft); }
+.fi-phone-empty { padding: 0.5rem; font-size: 0.875rem; color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------------------
+   Multi-image uploads (Fields::image(..., multiple: true)): compact tiles
+   instead of Filament's third-of-the-form previews.
+--------------------------------------------------------------------------- */
+.fi-fo-file-upload .filepond--root[data-style-panel-layout='grid'] .filepond--item {
+  width: 10rem;
+}
+
+/* Lightbox for saved images in upload fields (filament/partials/image-lightbox). */
+.fi-fo-file-upload .filepond--item .filepond--image-preview-wrapper { cursor: zoom-in; }
+.fi-lightbox {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 3rem 1rem; background: rgba(8, 17, 29, 0.85); cursor: zoom-out;
+}
+/* The size the storefront shows a product photo: a square of about 560px (the gallery column
+   of the 80rem-wide product page), smaller on small screens. The image is scaled to fit it,
+   small images included; contain keeps the proportions. */
+.fi-lightbox img {
+  width: min(560px, 90vw, 85vh); height: min(560px, 90vw, 85vh); object-fit: contain; cursor: default;
+  image-rendering: auto;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.45));
+}
+.fi-lightbox-close {
+  position: absolute; top: 0.75rem; right: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 9999px;
+  color: #fff; font-size: 1.75rem; line-height: 1; background: rgba(255, 255, 255, 0.12);
+}
+.fi-lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
+.fi-lightbox-new {
+  position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.85); font-size: 0.8125rem; text-decoration: underline;
+}
+
+/* Combination photos: a one-line drop box, so each combination row stays as short as its inputs. */
+.fi-variant-photos .filepond--root { margin-bottom: 0; font-size: 0.8125rem; }
+.fi-variant-photos .filepond--drop-label { min-height: 2.25rem; }
+.fi-variant-photos .filepond--drop-label label { padding: 0.35rem 0.5rem; }
+/* Only FilePond's own "Browse" link shows; its "Drag & Drop your files or" text is hidden. The
+   label's text is FilePond's default on every box (a custom placeholder is reset by Filament),
+   so this never swaps while the page loads. Dropping files on the box still works. */
+.fi-variant-photos .filepond--drop-label label { font-size: 0; }
+.fi-variant-photos .filepond--drop-label .filepond--label-action { font-size: 0.8125rem; font-weight: 600; color: var(--color-primary-600, #1c3557); text-decoration: underline; text-underline-offset: 2px; }
+.dark .fi-variant-photos .filepond--drop-label .filepond--label-action { color: var(--color-primary-400, #9fb4d4); }
+/* No box around it: just the underlined link, left-aligned. */
+.fi-variant-photos .filepond--panel-root { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.fi-variant-photos .filepond--root { box-shadow: none !important; border: 0 !important; background: transparent !important; }
+.fi-variant-photos .filepond--drop-label { justify-content: flex-start; min-height: 1.75rem !important; }
+.fi-variant-photos .filepond--drop-label label { text-align: left; padding: 0.2rem 0 !important; }
+
+/* Photo picker for a product's combinations (App\Filament\Forms\Components\ImagePicker). */
+.fi-image-picker-grid { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.fi-image-picker-item {
+  position: relative; width: 2.75rem; height: 2.75rem; border-radius: 0.4rem; overflow: hidden;
+  border: 2px solid var(--card-line); background: var(--thead-bg); cursor: pointer; opacity: 0.55;
+  transition: opacity 0.1s, border-color 0.1s;
+}
+.fi-image-picker-item:hover { opacity: 0.9; }
+.fi-image-picker-item img { width: 100%; height: 100%; object-fit: cover; }
+.fi-image-picker-item.is-chosen { opacity: 1; border-color: var(--color-primary-600, #1c3557); }
+.fi-image-picker-check {
+  position: absolute; right: 0.1rem; top: 0.1rem; display: block; width: 0.95rem; height: 0.95rem;
+  border-radius: 9999px; background: var(--color-primary-600, #1c3557); color: #fff; padding: 0.1rem;
+}
+/* The tick is shown by x-show (and hidden server-side when not chosen). */
+.fi-image-picker-label { margin-bottom: 0.3rem; font-size: 0.8125rem; font-weight: 600; color: var(--ink); }
+.fi-image-picker-empty { font-size: 0.8125rem; color: var(--ink-soft); }
+
+/* Photos per colour in Step 1 · Options (one picker per value). */
+.fi-option-photos { margin-top: 0.5rem; }
+
+/* Step 1 · one short row per colour value: swatch, photos to pick, upload. */
+.fi-colour-card { padding: 0.25rem 0.4rem; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 0.5rem; }
+.fi-colour-card > * { align-items: center; gap: 0.4rem; }
+.fi-option-photos.fi-swatch-grid > * { gap: 0.4rem !important; }
+.fi-colour-card .fi-image-picker-empty { font-size: 0.75rem; }
+.dark .fi-colour-card { border-color: rgba(255, 255, 255, 0.1); }
+
+/* Role form: each module is one row of its section with a rule between rows. The section's grid
+   gap is replaced by row padding so the rule sits midway. (In Filament 4 the section content
+   element is the grid itself, hence .fi-section-content.fi-sc.) */
+.fi-role-permissions .fi-section-content.fi-sc { row-gap: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col { padding-block: 0.7rem; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col:first-child { padding-top: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col:last-child { padding-bottom: 0; }
+.fi-role-permissions .fi-section-content.fi-sc > .fi-grid-col + .fi-grid-col { border-top: 1px solid var(--card-line); }
+.fi-role-permissions .fi-fo-field-label-content { font-weight: 700; }
+
+/* Dashboard welcome for an account with no module yet (NoAccessWelcome): a calm card, not an error. */
+.fi-welcome { padding: 1.5rem 1.75rem; border-radius: .875rem; background: linear-gradient(120deg, #0f2a4d, #1d4ed8); color: #fff; }
+.fi-welcome-kicker { font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .7); }
+.fi-welcome-title { margin-top: .2rem; font-size: 1.5rem; font-weight: 700; }
+.fi-welcome-text { margin-top: .5rem; max-width: 42rem; font-size: .875rem; color: rgb(255 255 255 / .85); }
+.fi-welcome-contact { margin-top: .9rem; font-size: .875rem; color: rgb(255 255 255 / .85); }
+.fi-welcome-contact strong { color: #fff; }
+.fi-welcome-contact a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+/* Platform dashboard greeting (PlatformWelcome): a slimmer bar with a button per section. */
+.fi-welcome-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.5rem; }
+.fi-welcome-bar .fi-welcome-title { margin-top: 0; font-size: 1.25rem; }
+.fi-welcome-bar .fi-welcome-text { margin-top: .2rem; }
+.fi-welcome-bar .fi-welcome-text a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.fi-welcome-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.fi-welcome-btn { padding: .4rem .85rem; border-radius: .5rem; background: #fff; color: #0f2a4d; font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.fi-welcome-btn:hover { background: #e8eef9; }
+
+/* Category options that show the categories above them at the right end of the row
+   (product category tags, category Parent category; Fields::categoryOption): "New Shirts ........ Men › T-shirts & Polos". Filament wraps
+   each option label in a plain span; let it fill the row so the path can sit at the far right. */
+.fi-select-input-option > span:has(> .fi-cat-option) { flex: 1 1 auto; min-width: 0; }
+.fi-cat-option { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; width: 100%; }
+.fi-cat-option-path { margin-left: auto; text-align: right; white-space: nowrap; font-size: .8em; color: var(--gray-500); }
+
+/* ---------------------------------------------------------------------------
+   "Database renamed" toast (EditClient): a client's whole store moved, so it
+   gets a look of its own instead of the plain success toast.
+--------------------------------------------------------------------------- */
+.fi-no-notification.fi-status-database-moved:not(.fi-inline) {
+  position: relative;
+  max-width: 26rem;
+  padding: 1.1rem 1.1rem 1.1rem 1.35rem;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 100%);
+  border-radius: 0.9rem;
+  overflow: hidden;
+  box-shadow: 0 18px 40px -12px rgb(15 23 42 / 0.55), 0 0 0 1px rgb(52 211 153 / 0.35);
+  --tw-ring-color: transparent;
+}
+.fi-no-notification.fi-status-database-moved:not(.fi-inline)::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, #34d399, #10b981);
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 9999px;
+  color: #34d399;
+  background: rgb(52 211 153 / 0.14);
+  box-shadow: 0 0 0 1px rgb(52 211 153 / 0.35);
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-title {
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-body {
+  color: var(--navy-text);
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-body p:first-child {
+  margin: 0.35rem 0 0.5rem;
+  color: #34d399;
+  font-weight: 600;
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-body code {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.375rem;
+  font-size: 0.78rem;
+  color: #fff;
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--navy-line);
+  word-break: break-all;
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-close-btn {
+  color: var(--navy-muted);
+}
+.fi-no-notification.fi-status-database-moved .fi-no-notification-close-btn:hover {
+  color: #fff;
+}
+/* Dark mode: the workspace is near the card's navy, so lift the card and let the green glow carry it. */
+.dark .fi-no-notification.fi-status-database-moved:not(.fi-inline) {
+  background: linear-gradient(135deg, #1b2d4d 0%, #233b63 100%);
+  box-shadow: 0 18px 45px -10px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(52 211 153 / 0.5), 0 0 28px -6px rgb(52 211 153 / 0.35);
+}
+.dark .fi-no-notification.fi-status-database-moved .fi-no-notification-icon {
+  background: rgb(52 211 153 / 0.2);
+  box-shadow: 0 0 0 1px rgb(52 211 153 / 0.5), 0 0 16px -2px rgb(52 211 153 / 0.45);
+}
+.dark .fi-no-notification.fi-status-database-moved .fi-no-notification-body code {
+  background: rgb(255 255 255 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}

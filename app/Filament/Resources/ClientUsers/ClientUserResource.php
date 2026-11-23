@@ -4,11 +4,14 @@ namespace App\Filament\Resources\ClientUsers;
 
 use App\Clients\ClientContext;
 use App\Filament\Concerns\OpensTrashedRecords;
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
+use App\Support\PasswordRules;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -106,16 +109,10 @@ class ClientUserResource extends Resource
                 TextInput::make('email')->email()->required()->maxLength(190)
                     // Addresses are unique inside a client, not across the platform.
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule, $get) => $rule->where('client_id', app(ClientContext::class)->id() ?? $get('client_id') ?? 0)),
-                TextInput::make('phone')->maxLength(30),
-                TextInput::make('password')
-                    ->password()
-                    ->revealable()
+                PhoneInput::make('phone'),
+                PasswordRules::field(TextInput::make('password'), fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password.')
                     ->dehydrated(fn ($state) => filled($state))
-                    ->required(fn (string $operation) => $operation === 'create')
-                    ->minLength(8)
-                    ->hint('Minimum 8 characters')
-                    ->hintIcon('heroicon-m-information-circle', tooltip: 'Use at least 8 characters. A mix of letters, numbers and symbols is stronger.')
-                    ->helperText(fn (string $operation) => $operation === 'create' ? null : 'Leave blank to keep the current password.'),
+                    ->required(fn (string $operation) => $operation === 'create'),
             ]),
             Section::make('Access')->columns(2)->schema([
                 Select::make('role')->label('Account type')
@@ -162,13 +159,14 @@ class ClientUserResource extends Resource
                     TextEntry::make('name')->weight('bold'),
                     TextEntry::make('email')->copyable()->icon('heroicon-m-envelope'),
                     TextEntry::make('phone')->placeholder('—')->copyable()->icon('heroicon-m-phone'),
+                    PasswordHintColumn::entry(),
                 ]),
                 Section::make('Access')->columns(2)->schema([
                     TextEntry::make('role')->label('Account type')->badge()
                         ->formatStateUsing(fn (?string $state) => ClientUser::ROLES[$state] ?? $state)
                         ->color(fn (ClientUser $r) => $r->isClientAdmin() ? 'info' : 'gray'),
                     TextEntry::make('clientRole.name')->label('Role')
-                        ->state(fn (ClientUser $r) => $r->isClientAdmin() ? 'Everything, including managing staff' : ($r->clientRole?->name ?? 'No role — cannot do anything yet'))
+                        ->state(fn (ClientUser $r) => $r->isClientAdmin() ? 'Every module switched on, plus managing staff' : ($r->clientRole?->name ?? 'No role — cannot do anything yet'))
                         ->color(fn (ClientUser $r) => ! $r->isClientAdmin() && ! $r->clientRole ? 'danger' : null),
                 ]),
                 Section::make('Client')->columns(2)->visible($superAdmin)->schema([
@@ -205,6 +203,7 @@ class ClientUserResource extends Resource
                     ->formatStateUsing(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? ClientUser::ROLES[$state] : ($r->clientRole?->name ?? 'No role'))
                     ->color(fn (?string $state, ClientUser $r) => $r->isClientAdmin() ? 'info' : ($r->clientRole ? 'gray' : 'danger')),
                 TextColumn::make('phone')->placeholder('—')->color('gray')->toggleable(),
+                PasswordHintColumn::make(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Added')->date('d M Y')->sortable()->toggleable(),
             ])
@@ -229,7 +228,13 @@ class ClientUserResource extends Resource
                     ...RowActions::trash(),
                 ]),
             ])
-            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
+            // Bulk actions follow the same per-record ClientUserPolicy rules as the row actions (by default
+            // Filament checks only deleteAny): never your own account, never a client's last active Client Admin.
+            ->checkIfRecordIsSelectableUsing(fn (ClientUser $r) => ! $r->is(filament()->auth()->user()))
+            ->toolbarActions([BulkActionGroup::make(array_map(
+                fn ($action) => $action->authorizeIndividualRecords(),
+                RowActions::trashBulk(),
+            ))]);
     }
 
     public static function getPages(): array

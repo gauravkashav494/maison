@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Faqs\Pages;
 
-use App\Filament\Resources\Faqs\FaqResource;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Faqs\FaqResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListFaqs extends ListRecords

@@ -21,7 +21,7 @@
         'applications' => $applications ? 'Applications' : null,
         'installation' => $product->installation_notes ? 'Installation & usage' : null,
         'shipping' => 'Shipping & returns',
-        'reviews' => 'Reviews'.($product->review_count ? ' ('.number_format($product->review_count).')' : ''),
+        'reviews' => app(\App\Clients\StoreFeatures::class)->on('reviews') ? 'Reviews'.($product->review_count ? ' ('.number_format($product->review_count).')' : '') : null,
     ]);
     $wa = $p['whatsapp_number'] ?? null;
 @endphp
@@ -64,7 +64,7 @@
         {{-- Buy box --}}
         <div class="lg:col-span-7">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate">
-                @if($product->brand)<a href="{{ route('shop.index', ['brand' => $product->brand]) }}" class="font-bold uppercase tracking-wider text-primary">{{ $product->brand }}</a>@endif
+                @if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="font-bold uppercase tracking-wider text-primary">{{ $product->brand }}</a>@endif
                 @if($product->sku)<span>SKU: <span class="font-semibold text-ink">{{ $product->sku }}</span></span>@endif
                 @if($product->category)<span>· <a href="{{ $product->category->url }}" class="hover:text-primary">{{ $product->category->name }}</a></span>@endif
             </div>
@@ -75,13 +75,18 @@
             </div>
 
             {{-- Price block --}}
+            {{-- Price and MRP follow the chosen variant; the product's own until one is chosen. --}}
+            @php $base = $product->displayPricing(); @endphp
             <div class="card mt-4 p-4 lg:p-5">
-                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span class="price text-3xl text-ink">{{ money($product->price) }}</span>
-                    @if($product->compare_at_price)<span class="mrp text-base">MRP {{ money($product->compare_at_price) }}</span><span class="off text-base">{{ $product->discount_percent }}% off</span>@endif
+                <div x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span class="price text-3xl text-ink" x-text="shown.price_formatted">{{ $base['price_formatted'] }}</span>
+                        <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="mrp text-base" x-text="'MRP ' + shown.compare_at_price_formatted">MRP {{ $base['compare_at_price_formatted'] }}</span>
+                        <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="off text-base" x-text="shown.discount_percent + '% off'">{{ $base['discount_percent'] }}% off</span>
+                    </div>
+                    <p x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="mt-1 text-sm font-semibold text-success" x-text="'You save ' + shown.save_formatted">You save {{ $base['save_formatted'] }}</p>
                 </div>
-                @if($product->compare_at_price)<p class="mt-1 text-sm font-semibold text-success">You save {{ money($product->compare_at_price - $product->price) }}</p>@endif
-                <p class="mt-1 text-xs text-slate">{{ $p['gst_note'] ?? 'Inclusive of all taxes.' }}</p>
+                @if(price_tax_note($product->effectiveTaxRate()) !== '')<p class="mt-1 text-xs text-slate">{{ prices_include_tax() ? ($p['gst_note'] ?? 'Inclusive of all taxes.') : price_tax_note($product->effectiveTaxRate()).'.' }}</p>@endif
 
                 @if(count($product->sizes ?? []) > 1)
                     <div class="mt-4">
@@ -169,8 +174,9 @@
                 <div x-show="tab === 'shipping'" x-cloak class="prose-p max-w-3xl">
                     <h3>Delivery</h3><p>{{ $p['delivery_promise'] ?? 'Dispatch within 24 hours on working days.' }} Fittings, taps and tools typically arrive in 2–4 days; pipes, tanks, pumps and sanitaryware in 4–6 days by surface transport.@if($threshold > 0) Free delivery on orders over {{ money($threshold) }}.@endif</p>
                     <h3>Returns</h3><p>Unused products in original packing can be returned within 7 days of delivery. Cut pipes, opened adhesives and installed sanitaryware are not returnable. Damaged or wrong items are replaced free of cost when reported within 48 hours.</p>
-                    <h3>Payment & GST</h3><p>UPI, cards, net banking, wallets and cash on delivery. {{ $p['gst_note'] ?? 'Prices include GST.' }}</p>
+                    <h3>Payment & GST</h3><p>UPI, cards, net banking, wallets and cash on delivery. {{ prices_include_tax() ? ($p['gst_note'] ?? 'Prices include GST.') : (price_tax_note($product->effectiveTaxRate()) !== '' ? 'Prices are before GST, which is added at checkout.' : '') }}</p>
                 </div>
+                @module('reviews')
                 <div x-show="tab === 'reviews'" x-cloak id="reviews">
                     <div class="grid gap-8 lg:grid-cols-12">
                         <div class="lg:col-span-4">
@@ -200,7 +206,7 @@
                                     @foreach($reviews as $r)
                                         <li class="py-4 first:pt-0">
                                             <div class="flex items-center justify-between gap-3">
-                                                <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-sky text-xs font-bold text-primary">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span><span class="pill-ok">Verified</span></div>
+                                                <div class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-sky text-xs font-bold text-primary">{{ Str::upper(Str::substr($r->name, 0, 1)) }}</span><span class="text-sm font-bold">{{ $r->name }}</span>@if($r->is_verified_purchase)<span class="pill-ok">Verified purchase</span>@endif</div>
                                                 <span class="text-xs text-mist">{{ $r->created_at->format('d M Y') }}</span>
                                             </div>
                                             <div class="mt-2 flex items-center gap-2"><x-rating :value="$r->rating" :size="13" />@if($r->title)<span class="text-sm font-semibold">{{ $r->title }}</span>@endif</div>
@@ -212,6 +218,7 @@
                         </div>
                     </div>
                 </div>
+                @endmodule
             </div>
         </div>
     </section>
@@ -238,7 +245,7 @@
     {{-- Sticky mobile buy bar --}}
     <div x-show="showSticky" x-cloak x-transition class="above-tabs border-t border-line bg-white p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
-            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="price text-base">{{ money($product->price) }} <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
+            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ $product->name }}</p><p class="price text-base" x-data="variantPricing(@js($product->pricingVariants()), @js($product->displayPricing()))"><span x-text="shown.price_formatted">{{ money($product->price) }}</span> <span x-text="size" class="text-xs font-normal text-slate"></span></p></div>
             @if($product->in_stock)<button type="button" @click="add()" class="btn btn-primary"><x-ico name="cart" :size="16" /> Add</button><button type="button" @click="buyNow()" class="btn btn-accent">Buy now</button>@endif
         </div>
     </div>

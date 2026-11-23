@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Services\Pages;
 
-use App\Filament\Resources\Services\ServiceResource;
 use App\Filament\Concerns\HasTemplateTabs;
+use App\Filament\Resources\Services\ServiceResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListServices extends ListRecords

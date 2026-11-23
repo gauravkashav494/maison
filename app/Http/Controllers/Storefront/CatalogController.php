@@ -14,9 +14,10 @@ use App\Models\Order;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Product;
-use App\Models\Review;
 use App\Models\Store;
+use App\Support\ReviewModeration;
 use App\Support\Seo;
+use App\Support\StaffAlerts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,10 +59,13 @@ class CatalogController extends Controller
 
     public function product(string $slug): View
     {
-        $product = Product::with(['category.parent', 'collections'])->active()->where('slug', $slug)->firstOrFail();
+        $product = Product::with(['category.parent', 'categories', 'collections'])->active()->where('slug', $slug)->firstOrFail();
 
+        // Products sharing any of its categories, those in its main category first.
         $related = Product::with('category')->active()
-            ->where('category_id', $product->category_id)->whereKeyNot($product->id)
+            ->inCategories($product->categories->pluck('id')->push($product->category_id)->filter()->unique()->values())
+            ->whereKeyNot($product->id)
+            ->orderByRaw('case when category_id = ? then 0 else 1 end', [$product->category_id])
             ->orderBy('sort_order')->limit(4)->get();
 
         // "Complete the look": pieces from the same collections, other categories first.
@@ -80,7 +84,8 @@ class CatalogController extends Controller
             '@type' => 'Product',
             'name' => $product->name,
             'description' => $product->description,
-            'image' => $product->image_urls,
+            // Real photos only: the no-image placeholder is not something to hand search engines.
+            'image' => $product->images ? $product->image_urls : [],
             'sku' => $product->sku,
             'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: setting('site.name')],
             'offers' => [
@@ -109,9 +114,14 @@ class CatalogController extends Controller
     {
         $product = Product::active()->where('slug', $slug)->firstOrFail();
         $data = $request->validated();
-        $product->reviews()->create($data + ['customer_id' => $request->user()?->id, 'is_approved' => false, 'template' => $product->template ?? template()->id()]);
+        $customer = $request->user();
+        $verdict = app(ReviewModeration::class)->assess($product, $customer, $data);
+        $review = $product->reviews()->create($data + $verdict + ['customer_id' => $customer?->id, 'template' => $product->template ?? template()->id()]);
+        StaffAlerts::reviewSubmitted($review);
 
-        return back()->with('review_status', 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
+        return back()->with('review_status', $verdict['is_approved']
+            ? 'Thank you — your review is now live.'
+            : 'Thank you — your review has been submitted and will appear once approved.')->withFragment('reviews');
     }
 
     public function productJson(string $slug): JsonResponse
@@ -167,28 +177,9 @@ class CatalogController extends Controller
         ]);
     }
 
-    /**
-     * Every word of the query must match one of the product fields, so technical searches
-     * such as "1 inch PVC pipe" or "brass ball valve" work across name, brand, SKU,
-     * material, sizes and category.
-     */
     private function searchQuery(string $q)
     {
-        $words = array_values(array_filter(preg_split('/\s+/', trim($q))));
-
-        return Product::with('category')->active()
-            ->where(function ($outer) use ($words) {
-                foreach ($words as $word) {
-                    $outer->where(fn ($w) => $w->whereLike('name', $word)
-                        ->orWhereLike('description', $word)
-                        ->orWhereLike('brand', $word)
-                        ->orWhereLike('sku', $word)
-                        ->orWhereLike('material', $word)
-                        ->orWhereLike('sizes', $word)
-                        ->orWhereHas('category', fn ($c) => $c->whereLike('name', $word)));
-                }
-            })
-            ->orderBy('sort_order');
+        return Product::with('category')->active()->search($q)->orderBy('sort_order');
     }
 
     // ---- CMS pages (template-driven) --------------------------------------
@@ -214,7 +205,7 @@ class CatalogController extends Controller
     {
         $data = $request->validated();
         unset($data['website']);
-        ContactMessage::create($data + ['template' => template()->id()]);
+        StaffAlerts::contactMessage(ContactMessage::create($data + ['template' => template()->id()]));
 
         return back()->with('contact_status', 'Thank you. Our client care team will reply within one business day.');
     }
@@ -247,17 +238,21 @@ class CatalogController extends Controller
         $order = null;
         $error = null;
         // The form was submitted (even empty): every field is checked on the server.
-        if ($request->hasAny(['number', 'email'])) {
-            $data = app(TrackOrderRequest::class)->validated();
+        if ($request->hasAny(['number', 'contact', 'email'])) {
+            $form = app(TrackOrderRequest::class);
+            $data = $form->validated();
             $order = Order::with('items')->where('number', strtoupper($data['number']))
-                ->whereRaw('lower(email) = ?', [$data['email']])->first();
-            $error = $order ? null : 'We could not find an order with that number and email.';
+                ->when($form->isEmail(),
+                    fn ($q) => $q->whereRaw('lower(email) = ?', [$data['contact']]),
+                    fn ($q) => $q->where('phone', $data['contact']))
+                ->first();
+            $error = $order ? null : 'We could not find an order with that number and email or phone.';
         }
 
         return view('shop.track', [
             'order' => $order,
             'error' => $error,
-            'seo' => Seo::simple('Track your order', 'Enter your order number and email to see delivery progress.', noindex: true),
+            'seo' => Seo::simple('Track your order', 'Enter your order number and email or phone to see delivery progress.', noindex: true),
         ]);
     }
 }

@@ -25,19 +25,18 @@ class ServiceAreaForm
                         ->icon('heroicon-o-map-pin')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('name', 'City / area', scopeColumn: 'template'),
+                                Fields::nameWithAddress('/service-areas', 'name', 'City / area'),
                                 Fields::templateVisibility()->live(),
                                 TextInput::make('state')->maxLength(80),
                                 TextInput::make('response_time')->label('Typical emergency response')->placeholder('60–90 min')->maxLength(60),
-                                Toggle::make('is_active')->label('Visible')->default(true)->inline(false),
-                                TextInput::make('sort_order')->numeric()->default(0),
+                                Toggle::make('is_active')->label('Visible on storefront')->default(true)->inline(false),
                             ]),
+                            // The order is set by dragging rows in the service areas list (then A to Z).
                             TagsInput::make('localities')->label('Localities covered')->placeholder('Add a locality and press Enter'),
                             Textarea::make('excerpt')->label('Short description')->rows(2)->maxLength(300),
                             RichEditor::make('description')->label('Page content'),
                             Fields::image('image', 'Image (1200×800)', 'plumbing-services'),
                         ]),
-                    Fields::seoTab(),
                 ]),
             ]);
     }

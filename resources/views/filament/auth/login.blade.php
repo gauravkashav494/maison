@@ -8,8 +8,10 @@
     $mark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 6.5L12 21 5 9.5z"/><path d="M5 9.5h14M12 3l-3.5 6.5L12 21l3.5-11.5z"/></svg>';
 @endphp
 <div class="fi-login" data-style="{{ $this->style() }}" @if($image) style="--login-image: url('{{ $image }}')" @endif>
-    <div class="fi-login-glow fi-login-glow-a"></div>
-    <div class="fi-login-glow fi-login-glow-b"></div>
+    <div class="fi-login-glows" aria-hidden="true">
+        <div class="fi-login-glow fi-login-glow-a"></div>
+        <div class="fi-login-glow fi-login-glow-b"></div>
+    </div>
 
     <div class="fi-login-card">
         {{-- Visual panel --}}
@@ -36,6 +38,36 @@
                 <p class="fi-login-kicker">{{ $page['kicker'] }}</p>
                 <h1 class="fi-login-title">{{ $page['heading'] }}</h1>
                 <p class="fi-login-subtitle">{{ $page['subtitle'] }}</p>
+                @if ($this->retryUntil)
+                    <div
+                        wire:key="login-throttle-{{ $this->retryUntil }}"
+                        x-data="{
+                            endsAt: {{ $this->retryUntil }},
+                            remaining: 0,
+                            timer: null,
+                            init() { this.update(); this.timer = window.setInterval(() => this.update(), 1000) },
+                            update() {
+                                this.remaining = Math.max(0, this.endsAt - Math.floor(Date.now() / 1000))
+                                if (this.remaining === 0 && this.timer) window.clearInterval(this.timer)
+                            },
+                            destroy() { if (this.timer) window.clearInterval(this.timer) },
+                        }"
+                        x-cloak
+                        x-show="remaining > 0"
+                        class="fi-login-throttle"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <span class="fi-login-throttle-clock" aria-hidden="true">
+                            <strong x-text="remaining">0</strong>
+                            <span x-text="remaining === 1 ? 'SEC' : 'SECS'">SECS</span>
+                        </span>
+                        <span class="fi-login-throttle-copy">
+                            <strong class="fi-login-throttle-title">Sign-in temporarily paused</strong>
+                            <span class="fi-login-throttle-message">Too many login attempts. Please wait for the countdown to finish.</span>
+                        </span>
+                    </div>
+                @endif
                 <div class="fi-simple-page-content">
                     {{ $this->content }}
                 </div>
@@ -46,5 +78,12 @@
         </main>
     </div>
 
-    <p class="fi-login-foot">© {{ date('Y') }} {{ $siteName }} · <a href="{{ url('/') }}" target="_blank" rel="noopener">Visit the storefront</a></p>
+    @if ($this->settingsPreview)
+        {{-- Site settings → Sign-in page → "View sign-in page": a signed-in team member's preview. --}}
+        <div role="status" style="position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 9999; max-width: min(92vw, 640px); text-align: center; background: #0f172a; color: #fff; font: 600 13px/1.4 system-ui, sans-serif; padding: 9px 14px; border-radius: 18px; box-shadow: 0 8px 24px rgb(0 0 0 / .25);">
+            Preview of your team's sign-in page, as set in Site settings → Sign-in page. You are signed in, so this form does nothing here.
+        </div>
+    @endif
+
+    <p class="fi-login-foot">© {{ date('Y') }} {{ $siteName }}@if(filament()->getCurrentPanel()?->getId() !== 'admin') · <a href="{{ url('/') }}" target="_blank" rel="noopener">Visit the storefront</a>@endif</p>
 </div>

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Models\Collection;
@@ -101,11 +102,11 @@ class HeritageHomepageSettings extends Page
                 Tab::make('Product carousels')->icon('heroicon-o-squares-2x2')->schema([
                     Section::make('Featured collection')->columns(3)->schema([
                         TextInput::make("$g.featured_heading")->label('Heading'),
-                        Select::make("$g.featured_source")->label('Source')->options(['collection' => 'A collection', 'new' => 'Products flagged “New arrival”'])->native(false)->live(),
-                        Select::make("$g.featured_collection_slug")->label('Collection')->options($collections)->searchable()->native(false)->visible(fn (Get $get) => $get("$g.featured_source") !== 'new'),
+                        Select::make("$g.featured_source")->label('Source')->options(fn () => StoreFeatures::enabled('collections') ? ['collection' => 'A collection', 'new' => 'Products flagged “New arrival”'] : ['new' => 'Products flagged “New arrival”'])->native(false)->live(),
+                        Select::make("$g.featured_collection_slug")->label('Collection')->options($collections)->searchable()->native(false)->visible(fn (Get $get) => $get("$g.featured_source") !== 'new' && StoreFeatures::enabled('collections')),
                         TextInput::make("$g.featured_limit")->label('Max products')->numeric()->minValue(4)->maxValue(20),
                     ]),
-                    Section::make('Combos')->columns(3)->schema([
+                    Section::make('Combos')->visible(fn () => StoreFeatures::enabled('collections'))->columns(3)->schema([
                         TextInput::make("$g.combos_heading")->label('Heading'),
                         Select::make("$g.combos_collection_slug")->label('Collection')->options($collections)->searchable()->native(false),
                         TextInput::make("$g.combos_limit")->label('Max products')->numeric()->minValue(4)->maxValue(20),
@@ -118,7 +119,7 @@ class HeritageHomepageSettings extends Page
                         TextInput::make("$g.new_heading")->label('Heading'),
                         TextInput::make("$g.new_limit")->label('Max products')->numeric()->minValue(4)->maxValue(20),
                     ]),
-                    Section::make('Shop by need (tabs)')->description('One tab per collection with its products. Manage collections under Catalogue → Collections.')->columns(2)->schema([
+                    Section::make('Shop by need (tabs)')->visible(fn () => StoreFeatures::enabled('collections'))->description('One tab per collection with its products. Manage collections under Catalogue → Collections.')->columns(2)->schema([
                         TextInput::make("$g.needs_heading")->label('Heading'),
                         TextInput::make("$g.needs_limit")->label('Max tabs')->numeric()->minValue(3)->maxValue(12),
                     ]),
@@ -154,7 +155,7 @@ class HeritageHomepageSettings extends Page
                         TextInput::make("$g.story_cta_label")->label('Button label'),
                         TextInput::make("$g.story_cta_url")->label('Button link'),
                         Fields::image("$g.story_image", 'Image (portrait)', 'heritage'),
-                        Repeater::make("$g.story_stats")->label('Statistics strip')->schema([Grid::make(2)->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])])->reorderable()->maxItems(5),
+                        Repeater::make("$g.story_stats")->label('Statistics strip')->helperText('Shown on every product page, under the certifications.')->schema([Grid::make(2)->schema([TextInput::make('value')->required(), TextInput::make('label')->required()])])->reorderable()->maxItems(5),
                     ]),
                 ]),
 
@@ -174,7 +175,7 @@ class HeritageHomepageSettings extends Page
                 ]),
 
                 Tab::make('Blogs, reviews & newsletter')->icon('heroicon-o-star')->schema([
-                    TextInput::make("$g.journal_heading")->label('Blogs heading'),
+                    TextInput::make("$g.journal_heading")->label('Blogs heading')->visible(fn () => StoreFeatures::enabled('posts')),
                     Section::make('Happy customers')->schema([
                         TextInput::make("$g.testimonials_heading")->label('Heading'),
                         Fields::image("$g.testimonials_image", 'Image card (portrait)', 'heritage'),
@@ -184,7 +185,7 @@ class HeritageHomepageSettings extends Page
                             TextInput::make('product')->label('Product'),
                         ])->reorderable()->collapsible()->itemLabel(fn (array $state): ?string => $state['name'] ?? null)->maxItems(12),
                     ]),
-                    Section::make('Newsletter')->columns(2)->schema([
+                    Section::make('Newsletter')->visible(fn () => StoreFeatures::enabled('subscribers'))->columns(2)->schema([
                         TextInput::make("$g.newsletter_heading")->label('Heading'),
                         TextInput::make("$g.newsletter_text")->label('Text'),
                     ]),

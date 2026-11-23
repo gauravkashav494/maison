@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\EditProfile;
 use App\Filament\Auth\Login;
 use App\Filament\Pages\ClientTotalsReport;
 use App\Filament\Pages\PlatformSettings;
@@ -13,12 +14,15 @@ use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Storefronts\StorefrontResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\PlatformStats;
+use App\Filament\Widgets\PlatformWelcome;
 use App\Filament\Widgets\RecentClients;
 use App\Http\Middleware\ApplyAdminScope;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\AuthenticatePanelSession;
 use App\Http\Middleware\DiscourageSearchEngines;
 use App\Models\Storefront;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
@@ -72,25 +76,36 @@ class AdminPanelProvider extends PanelProvider
             ->resourceCreatePageRedirect('index')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(Login::class)
+            ->profile(EditProfile::class, isSimple: false)
+            // The menu item shows the account name (not "Profile") and opens the edit profile page.
+            ->userMenuItems(['profile' => fn (Action $action): Action => $action->label(fn (): string => Filament::getUserName(Filament::auth()->user()))])
             ->maxContentWidth(Width::Full)
             ->brandName(fn () => setting('platform.name', config('app.name')))
             ->brandLogo(fn () => view('filament.partials.brand'))
-            ->favicon(null)
+            ->favicon('/favicon.ico')
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
+            // Live checklist under every new-password field (App\Support\PasswordRules).
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.partials.editable-tags'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
             ->navigationGroups(['Clients', 'Platform', 'Settings'])
             ->colors([
-                'primary' => Color::Blue,
+                // Sidebar navy (--navy in the admin theme) at 600, the shade buttons, toggles and checkboxes use.
+                'primary' => [
+                    50 => '#eef2f8', 100 => '#dbe3ef', 200 => '#b9c7dd', 300 => '#8ca2c3', 400 => '#5c7aa3',
+                    500 => '#34527d', 600 => '#1c3557', 700 => '#172c49', 800 => '#12233a', 900 => '#0e1b2d', 950 => '#08111d',
+                ],
                 'gray' => Color::Slate,
             ])
             // Listed, not discovered: a new screen stays off the platform panel until it is added here.
             ->resources(self::RESOURCES)
             ->pages(self::PAGES)
             ->widgets([
+                PlatformWelcome::class,
                 PlatformStats::class,
                 RecentClients::class,
             ])
@@ -98,7 +113,7 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
+                AuthenticatePanelSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,

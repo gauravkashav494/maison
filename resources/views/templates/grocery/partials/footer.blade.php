@@ -6,11 +6,14 @@
         'Help' => $menus['footer_help'] ?? collect(),
         'Company' => $menus['footer_company'] ?? collect(),
     ];
+    // Which menu each column shows (the menu preview in Content → Navigation outlines it).
+    $areas = ['Categories' => 'footer_categories', 'Help' => 'footer_help', 'Company' => 'footer_company'];
     $socials = ['instagram' => $site['social_instagram'] ?? null, 'facebook' => $site['social_facebook'] ?? null, 'youtube' => $site['social_youtube'] ?? null, 'pinterest' => $site['social_pinterest'] ?? null];
-    $phone = $g['support_phone'] ?? ($site['contact_phone'] ?? null);
+    $phone = store_phone();
 @endphp
 <footer class="mt-8 border-t border-line bg-white">
     {{-- Newsletter --}}
+    @module('subscribers')
     <div class="g-container py-8 lg:py-10">
         <div class="flex flex-col gap-5 rounded-2xl bg-leaf-light p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8" x-data="newsletter('grocery-footer')">
             <div class="max-w-lg">
@@ -25,6 +28,7 @@
             <p x-show="error" x-cloak class="text-sm text-nonveg" x-text="error"></p>
         </div>
     </div>
+    @endmodule
 
     <div class="g-container grid gap-8 border-t border-line py-8 max-sm:gap-0 sm:grid-cols-2 lg:grid-cols-12 lg:py-10">
         {{-- Brand --}}
@@ -48,7 +52,7 @@
 
         {{-- Link columns: accordions on phones (app-style), open columns from sm up --}}
         @foreach($cols as $title => $items)
-            <div class="max-sm:border-t max-sm:border-line lg:col-span-2" x-data="{ o: false }">
+            <div class="max-sm:border-t max-sm:border-line lg:col-span-2" x-data="{ o: false }" data-menu-area="{{ $areas[$title] }}">
                 <button type="button" @click="o = !o" class="flex w-full items-center justify-between py-3.5 text-left sm:pointer-events-none sm:py-0" :aria-expanded="o"><span class="text-xs font-extrabold uppercase tracking-wider text-ink">{{ $title }}</span><x-ico name="chevron-down" :size="16" class="text-slate transition-transform sm:hidden" ::class="o && 'rotate-180'" /></button>
                 <ul class="space-y-2.5 pb-4 text-sm text-slate sm:mt-4 sm:pb-0" :class="o ? '' : 'max-sm:hidden'">
                     @foreach($items as $item)
@@ -72,8 +76,8 @@
     <div class="border-t border-line">
         <div class="g-container flex flex-col gap-3 py-5 text-xs text-slate sm:flex-row sm:items-center sm:justify-between">
             <p>© {{ date('Y') }} {{ $site['name'] ?? config('app.name') }}. All rights reserved.</p>
-            <ul class="flex flex-wrap gap-x-5 gap-y-1">
-                @foreach($menus['legal'] ?? [] as $item)<li><a href="{{ $item->href }}" class="hover:text-leaf">{{ $item->label }}</a></li>@endforeach
+            <ul class="flex flex-wrap gap-x-5 gap-y-1" data-menu-area="legal">
+                @foreach($menus['legal'] ?? [] as $item)<li><a href="{{ $item->href }}" @if($item->opens_in_new_tab) target="_blank" rel="noopener" @endif class="hover:text-leaf">{{ $item->label }}</a></li>@endforeach
             </ul>
         </div>
     </div>

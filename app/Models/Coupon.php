@@ -17,7 +17,7 @@ class Coupon extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = ['value' => 'float', 'min_subtotal' => 'float', 'is_active' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'usage_limit' => 'integer', 'per_customer_limit' => 'integer', 'used_count' => 'integer'];
 
     public static function findValid(string $code): ?self
     {
@@ -44,24 +44,59 @@ class Coupon extends Model
         return true;
     }
 
-    /** Discount amount (in rupees) for a given subtotal; 0 when the minimum is not met. */
-    public function discountFor(int $subtotal): int
+    /**
+     * Usable at all, and not yet used as often as allowed by this customer: their account, or the
+     * phone number on the order (a guest, or the same person with a second account). With neither
+     * known (a shopper not signed in), only the overall rules apply; the order checks again.
+     */
+    public function isUsableBy(?int $customerId, ?string $phone): bool
     {
-        if ($subtotal < $this->min_subtotal) {
-            return 0;
+        if (! $this->isUsable()) {
+            return false;
+        }
+        if ($this->per_customer_limit === null || ($customerId === null && blank($phone))) {
+            return true;
+        }
+
+        return $this->timesUsedBy($customerId, $phone) < $this->per_customer_limit;
+    }
+
+    /** This customer's orders (by account or phone) that used this code; cancelled orders don't count. */
+    public function timesUsedBy(?int $customerId, ?string $phone): int
+    {
+        return Order::query()
+            ->whereRaw('lower(coupon_code) = ?', [strtolower($this->code)])
+            ->where('status', '!=', Order::STATUS_CANCELLED)
+            ->where(fn ($q) => $q
+                ->when(filled($phone), fn ($q) => $q->orWhere('phone', $phone))
+                ->when($customerId !== null, fn ($q) => $q->orWhere('customer_id', $customerId)))
+            ->count();
+    }
+
+    /** Whether a cart of this subtotal reaches the coupon's minimum order (every coupon type, free shipping included). */
+    public function meetsMinimum(float $subtotal): bool
+    {
+        return $subtotal >= (float) $this->min_subtotal;
+    }
+
+    /** Discount amount (in rupees and paise) for a given subtotal; 0 when the minimum is not met. */
+    public function discountFor(float $subtotal): float
+    {
+        if (! $this->meetsMinimum($subtotal)) {
+            return 0.0;
         }
 
         return match ($this->type) {
-            'percent' => (int) round($subtotal * min(100, $this->value) / 100),
+            'percent' => round($subtotal * min(100, $this->value) / 100, 2),
             'fixed' => min($subtotal, $this->value),
-            default => 0,
+            default => 0.0,
         };
     }
 
     public function describe(): string
     {
         return match ($this->type) {
-            'percent' => "{$this->value}% off",
+            'percent' => rtrim(rtrim(number_format($this->value, 2, '.', ''), '0'), '.').'% off',
             'fixed' => money($this->value).' off',
             'free_shipping' => 'Free shipping',
             default => $this->code,

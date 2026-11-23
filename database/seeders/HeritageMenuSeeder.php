@@ -14,6 +14,7 @@ class HeritageMenuSeeder extends Seeder
             ['label' => 'Deals & Offers', 'url' => '/shop/sale', 'is_accent' => true],
             ['label' => 'Gift Boxes', 'url' => '/shop/gift-boxes'],
             ['label' => 'New Launches', 'url' => '/shop/new-arrivals'],
+            ['label' => 'Brands', 'url' => '/brands'],
             ['label' => 'Recipes', 'url' => '/journal'],
         ]);
 

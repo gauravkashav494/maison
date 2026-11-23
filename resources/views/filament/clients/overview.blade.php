@@ -42,7 +42,7 @@
 
         @unless ($client->trashed())
             <div class="flex shrink-0 flex-wrap gap-2">
-                <x-filament::button tag="a" :href="$client->publicUrl()" target="_blank" color="gray" size="sm" icon="heroicon-m-arrow-top-right-on-square">
+                <x-filament::button tag="a" :href="$client->publicUrl()" target="_blank" color="primary" size="sm" icon="heroicon-m-arrow-top-right-on-square">
                     Storefront
                 </x-filament::button>
                 <x-filament::button tag="a" :href="$client->loginUrl()" target="_blank" color="gray" size="sm" icon="heroicon-m-arrow-right-end-on-rectangle">

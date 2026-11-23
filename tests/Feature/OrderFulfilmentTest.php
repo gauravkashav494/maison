@@ -2,12 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
+use App\Clients\ClientContext;
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Storefront;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -157,9 +163,9 @@ class OrderFulfilmentTest extends TestCase
         // Status
         $this->assertSame([$delivered->id], $all()->withStatus(Order::STATUS_DELIVERED)->pluck('id')->all());
 
-        // One exact day
-        $this->assertSame([$open->id], $all()->placedOn(now()->toDateString())->pluck('id')->all());
-        $this->assertSame([$delivered->id], $all()->placedOn(now()->subDays(10)->toDateString())->pluck('id')->all());
+        // One exact day: the same date at both ends
+        $this->assertSame([$open->id], $all()->placedBetween(now()->toDateString(), now()->toDateString())->pluck('id')->all());
+        $this->assertSame([$delivered->id], $all()->placedBetween(now()->subDays(10)->toDateString(), now()->subDays(10)->toDateString())->pluck('id')->all());
 
         // A range, and each end on its own
         $this->assertSame([$delivered->id], $all()->placedBetween(now()->subDays(12)->toDateString(), now()->subDays(5)->toDateString())->pluck('id')->all());
@@ -167,7 +173,7 @@ class OrderFulfilmentTest extends TestCase
         $this->assertSame([$delivered->id], $all()->placedBetween(null, now()->subDays(5)->toDateString())->pluck('id')->all());
 
         // Nothing chosen (the state the reset button returns to) filters nothing out.
-        $this->assertCount(2, $all()->placedOn(null)->placedBetween(null, null)->withStatus(null)->get());
+        $this->assertCount(2, $all()->placedBetween(null, null)->withStatus(null)->get());
     }
 
     public function test_the_order_list_page_opens_with_the_filters_available(): void
@@ -178,8 +184,96 @@ class OrderFulfilmentTest extends TestCase
         $this->get('/client/orders')
             ->assertSuccessful()
             ->assertSee($order->number)
-            ->assertSee('Placed on')        // the single-date filter
-            ->assertSee('Placed from');     // the range filter
+            ->assertSee('Placed between');  // the date-range filter
+    }
+
+    public function test_orders_not_yet_handled_are_tagged_new_in_the_list(): void
+    {
+        $this->actingAs($this->staff, 'client');
+        $waiting = $this->order();
+        $handled = $this->order();
+        $handled->transitionTo('processing', null, $this->staff);
+
+        $this->assertTrue($waiting->isNew());
+        $this->assertFalse($handled->fresh()->isNew());
+
+        $badge = fn (Order $o) => '/'.$o->number.'\s*<span[^>]*fi-badge.*?New/s';
+
+        // Opening the list does not clear the tag: only acting on the order does.
+        $this->get('/client/orders')->assertSuccessful();
+        $html = $this->get('/client/orders')->assertSuccessful()->getContent();
+        $this->assertMatchesRegularExpression($badge($waiting), $html);
+        $this->assertDoesNotMatchRegularExpression('/'.$handled->number.'\s*<span[^>]*fi-badge/', $html);
+
+        // The sidebar count is the same set of orders.
+        $this->assertSame('1', OrderResource::getNavigationBadge());
+
+        $waiting->transitionTo(Order::STATUS_CANCELLED, 'Customer asked', $this->staff);
+        $this->assertFalse($waiting->fresh()->isNew());
+        $this->assertNull(OrderResource::getNavigationBadge());
+    }
+
+    public function test_the_order_page_shows_the_status_history_as_a_timeline_newest_first(): void
+    {
+        $order = $this->order();
+        $order->forceFill(['status_history' => [['status' => 'confirmed', 'at' => now()->subDay()->toIso8601String(), 'note' => 'Order placed']]])->save();
+        $order->transitionTo('processing', null, $this->staff);
+        $order->transitionTo(Order::STATUS_DISPATCHED, 'Sent with BlueDart, AWB 1234', $this->staff);
+        $this->actingAs($this->staff, 'client');
+
+        $html = $this->get('/client/orders/'.$order->getRouteKey())->assertSuccessful()->getContent();
+
+        $timeline = (string) str($html)->after('Order timeline')->before('</ol>');
+        $this->assertStringContainsString('Current', $timeline);
+        $this->assertStringContainsString('Sent with BlueDart, AWB 1234', $timeline);
+        $this->assertStringContainsString('by Alpha Admin', $timeline);
+        $this->assertStringNotContainsString('admin@alpha.test', $timeline, 'Only the name of who made the change, not their email.');
+        // Newest first: Dispatched, then Processing, then Order Confirmed.
+        $this->assertTrue(strpos($timeline, 'Dispatched') < strpos($timeline, 'Processing'));
+        $this->assertTrue(strpos($timeline, 'Processing') < strpos($timeline, 'Order Confirmed'));
+    }
+
+    public function test_the_order_page_has_the_store_admin_layout(): void
+    {
+        $order = $this->order();
+        $order->forceFill([
+            'phone' => '9876543210', 'payment_method' => 'upi', 'payment_status' => 'paid',
+            'shipping_method' => 'Standard', 'discount' => 100, 'coupon_code' => 'TRADE10', 'notes' => 'Leave at reception',
+        ])->save();
+        $this->order()->forceFill(['total' => 2500])->save(); // the same customer's earlier order
+        $this->actingAs($this->staff, 'client');
+
+        $this->get('/client/orders/'.$order->getRouteKey())
+            ->assertSuccessful()
+            ->assertSee('Order '.$order->number)
+            ->assertSeeInOrder(['Order Confirmed', 'Paid', 'Placed'])                  // header badges
+            ->assertSee('Dispatch')                                                   // the next step, on the page
+            ->assertSeeInOrder(['Items', 'Payment', 'Order timeline'])                 // main column
+            ->assertSeeInOrder(['Customer', 'Shipping address', 'Delivery', 'Customer note']) // side cards
+            ->assertSee('Discount (TRADE10)')
+            ->assertSee('UPI · Paid')
+            ->assertSee('2 orders')                                                   // customer history by email
+            ->assertSee('Leave at reception')
+            ->assertDontSee('Cancelled');                                             // no cancellation card
+    }
+
+    public function test_an_order_can_be_dispatched_from_its_own_page(): void
+    {
+        $order = $this->order();
+        $this->actingAs($this->staff, 'client');
+        app(ClientContext::class)->resolveForIdentity($this->staff);
+        app(StoreContext::class)->resolve($this->staff, $this->client->templateId());
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+
+        Livewire::test(ViewOrder::class, ['record' => $order->getRouteKey()])
+            ->assertActionVisible('dispatch')
+            ->callAction('dispatch', ['carrier' => 'BlueDart', 'tracking_number' => 'AWB1234', 'note' => 'Packed'])
+            ->assertHasNoActionErrors()
+            ->assertActionHidden('dispatch'); // already dispatched, so the button goes
+
+        $order->refresh();
+        $this->assertSame(Order::STATUS_DISPATCHED, $order->status);
+        $this->assertSame('AWB1234', $order->tracking_number);
     }
 
     public function test_an_order_of_another_client_cannot_be_fulfilled(): void
@@ -194,8 +288,8 @@ class OrderFulfilmentTest extends TestCase
             'subtotal' => 500, 'total' => 500,
         ]);
 
-        app(\App\Clients\ClientContext::class)->resolveForIdentity($this->staff);
-        app(\App\Admin\StoreContext::class)->resolve($this->staff, $this->client->templateId());
+        app(ClientContext::class)->resolveForIdentity($this->staff);
+        app(StoreContext::class)->resolve($this->staff, $this->client->templateId());
 
         $this->assertFalse($this->staff->can('update', $theirOrder));
     }

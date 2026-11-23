@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 trait BelongsToClient
 {
+    // Everything a client owns is in its activity log: who added, changed or deleted it.
+    use LogsActivity;
+
     public static function bootBelongsToClient(): void
     {
         static::saving(function ($model) {

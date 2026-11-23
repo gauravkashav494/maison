@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -17,7 +18,7 @@ use Filament\Support\Icons\Heroicon;
 
 /**
  * Header, search, support, bulk-quote and footer settings for the Plumbing template.
- * Brand contact details, social links, SEO and checkout stay in Site settings.
+ * Brand contact details, social links and checkout stay in Site settings; SEO in SEO settings.
  */
 class PlumbingSettings extends Page
 {
@@ -55,8 +56,8 @@ class PlumbingSettings extends Page
                 Tabs::make('Plumbing settings')->persistTabInQueryString()->tabs([
                     Tab::make('Header')->icon('heroicon-o-window')->schema([
                         Section::make('Logo & top strip')->columns(2)->schema([
-                            TextInput::make("$g.logo_primary")->label('Logo — first word')->helperText('Rendered in deep blue.'),
-                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->helperText('Rendered in bright blue.'),
+                            TextInput::make("$g.logo_primary")->label('Logo — first word')->placeholder('Plumb')->helperText('The first half of your store name, in deep blue. Examples: Plumb, Pipe, Aqua.'),
+                            TextInput::make("$g.logo_accent")->label('Logo — accent word')->placeholder('Kart')->helperText('The second half, in bright blue, joined to the first with no space. Examples: Kart, Mart, Store — "Plumb" + "Kart" reads "PlumbKart".'),
                             TextInput::make("$g.tagline")->label('Tagline')->columnSpan(2),
                             TagsInput::make("$g.usp_strip")->label('Top strip promises')->helperText('Short trust lines shown in the strip above the header, e.g. "Pan-India delivery".')->columnSpan(2),
                         ]),
@@ -67,10 +68,10 @@ class PlumbingSettings extends Page
                     ]),
                     Tab::make('Support & delivery')->icon('heroicon-o-phone')->schema([
                         Section::make('Support')->columns(2)->schema([
-                            TextInput::make("$g.support_phone")->label('Support phone'),
+                            PhoneInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                             TextInput::make("$g.support_hours")->label('Support hours'),
                             TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format without +, e.g. 919876543210. Leave blank to hide WhatsApp buttons.'),
-                            TextInput::make("$g.support_email")->label('Support email')->email(),
+                            TextInput::make("$g.support_email")->label('Support email (override)')->email()->placeholder('Uses Site settings → Client care email')->helperText('Only fill in to show a different address on this template.'),
                         ]),
                         Section::make('Delivery & GST messaging')->columns(1)->schema([
                             TextInput::make("$g.delivery_promise")->label('Delivery promise')->helperText('Shown on product pages and in the cart.'),

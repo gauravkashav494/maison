@@ -2,9 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Models\Service;
+use App\Templates\Scopes\TemplateVisibility;
 use App\Templates\TemplateManager;
 use BackedEnum;
 use Filament\Forms\Components\Repeater;
@@ -73,7 +75,7 @@ class PlumbingServicesHomepageSettings extends Page
     {
         $g = 'plumbing_services_home';
         $icons = array_combine(self::ICONS, array_map(fn ($i) => str($i)->headline()->value(), self::ICONS));
-        $services = fn () => Service::withoutGlobalScope(\App\Templates\Scopes\TemplateVisibility::NAME)->where('template', 'plumbing-services')->orderBy('name')->pluck('name', 'slug')->all();
+        $services = fn () => Service::withoutGlobalScope(TemplateVisibility::NAME)->where('template', 'plumbing-services')->orderBy('name')->pluck('name', 'slug')->all();
         $heading = fn (string $key, string $label, bool $sub = true, ?int $limitMax = null, int $limitMin = 3) => Section::make($label)->columns($limitMax ? 3 : 2)->schema(array_filter([
             TextInput::make("$g.{$key}_heading")->label('Heading'),
             $sub ? TextInput::make("$g.{$key}_sub")->label('Sub-heading') : null,
@@ -143,14 +145,14 @@ class PlumbingServicesHomepageSettings extends Page
                     ]),
 
                     Tab::make('Areas, reviews & work')->icon('heroicon-o-map-pin')->schema([
-                        $heading('areas', 'Service areas')->description('Areas come from Content → Service areas.'),
-                        $heading('reviews', 'Customer reviews', false, 12)->description('Reviews come from Content → Testimonials.'),
-                        $heading('projects', 'Recent work', true, 12)->description('Projects come from Content → Projects.'),
+                        $heading('areas', 'Service areas')->description('Areas come from Content → Service areas.')->visible(fn () => StoreFeatures::enabled('service_areas')),
+                        $heading('reviews', 'Customer reviews', false, 12)->description('Reviews come from Content → Testimonials.')->visible(fn () => StoreFeatures::enabled('testimonials')),
+                        $heading('projects', 'Recent work', true, 12)->description('Projects come from Content → Projects.')->visible(fn () => StoreFeatures::enabled('projects')),
                     ]),
 
                     Tab::make('FAQ, blog & CTA')->icon('heroicon-o-megaphone')->schema([
-                        $heading('faq', 'FAQs', false, 12)->description('FAQs come from Content → FAQs (Plumbing Services tab).'),
-                        $heading('blog', 'Tips & guides', false),
+                        $heading('faq', 'FAQs', false, 12)->description('FAQs come from Content → FAQs (Plumbing Services tab).')->visible(fn () => StoreFeatures::enabled('faqs')),
+                        $heading('blog', 'Tips & guides', false)->visible(fn () => StoreFeatures::enabled('posts')),
                         Section::make('Final call to action')->columns(2)->schema([
                             TextInput::make("$g.cta_heading")->label('Heading'),
                             Fields::image("$g.cta_image", 'Image (1200×800)', 'plumbing-services'),

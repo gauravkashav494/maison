@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Storefronts\Tables;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Storefront;
-use App\Templates\TemplateManager;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
@@ -31,7 +30,6 @@ class StorefrontsTable
                 TextColumn::make('product_limit')->label('Default limits')->placeholder('Unlimited')
                     ->formatStateUsing(fn (?int $state) => $state === null ? 'Unlimited products' : number_format($state).' products')
                     ->description(fn (Storefront $r) => $r->storage_limit_mb === null ? 'Unlimited storage' : number_format($r->storage_limit_mb).' MB storage'),
-                IconColumn::make('is_live')->label('Main domain')->boolean()->state(fn (Storefront $r) => app(TemplateManager::class)->activeId() === $r->template)->tooltip('Also served on the main domain (Appearance → Templates)'),
                 IconColumn::make('is_active')->label('Active')->boolean(),
                 TextColumn::make('created_at')->label('Created')->date('d M Y')->sortable(),
             ])

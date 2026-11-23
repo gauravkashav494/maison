@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Admin\StoreContext;
 use App\Templates\TemplateManager;
 use Filament\Actions\CreateAction;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -9,15 +10,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Splits a resource list into one tab per storefront template plus "Shared"
- * (records visible in every template) and "All". The active storefront template
- * is selected by default, and "New …" pre-fills the template of the open tab.
+ * (records visible in every template) and "All". "All" is selected by default,
+ * and "New …" pre-fills the template of the open tab.
  */
 trait HasTemplateTabs
 {
     public function getTabs(): array
     {
         // Narrowed to one store (store owner, or super admin using the switcher): the scope already filters, no tabs.
-        if (app(\App\Admin\StoreContext::class)->template()) {
+        if (app(StoreContext::class)->template()) {
             return [];
         }
 
@@ -43,7 +44,7 @@ trait HasTemplateTabs
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return app(TemplateManager::class)->activeId();
+        return 'all';
     }
 
     /** "New …" opens the create form with the current tab's template pre-selected. */
@@ -51,7 +52,7 @@ trait HasTemplateTabs
     {
         return CreateAction::make()->url(function () {
             $tab = (string) ($this->activeTab ?? '');
-            $template = app(\App\Admin\StoreContext::class)->template() ?? (app(TemplateManager::class)->has($tab) ? $tab : null);
+            $template = app(StoreContext::class)->template() ?? (app(TemplateManager::class)->has($tab) ? $tab : null);
 
             return static::getResource()::getUrl('create', array_filter(['template' => $template]));
         });

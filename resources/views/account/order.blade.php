@@ -9,11 +9,21 @@
         </div>
         <div class="flex flex-wrap gap-3">
             @if($order->tracking_number)<span class="border border-ink/15 px-3 py-2 text-xs">{{ $order->carrier ?: 'Tracking' }}: <span class="font-mono">{{ $order->tracking_number }}</span></span>@endif
+            @if($order->hasInvoice())<a href="{{ $order->invoiceUrl() }}" class="btn btn-outline btn-sm">Download invoice</a>@endif
             @if($order->status === 'delivered')<a href="/returns" class="btn btn-outline btn-sm">Start a return</a>@endif
         </div>
     </div>
 
+    @if((int) $order->salesperson_id === (int) $user->id && (int) $order->customer_id !== (int) $user->id)
+        <div class="mt-6 border border-ink/10 bg-cream px-5 py-4 text-sm">
+            <span class="eyebrow text-taupe">Sales order</span>
+            <p class="mt-1">You placed this order for <strong>{{ $order->shipping_name }}</strong>@if($order->phone) · {{ $order->phone }}@endif.</p>
+        </div>
+    @endif
+
     <div class="py-10"><x-order-timeline :order="$order" /></div>
+
+    <x-order-cancel :order="$order" class="mb-10" />
 
     <div class="grid gap-10 lg:grid-cols-5 lg:gap-16">
         <div class="space-y-8 text-sm lg:col-span-2">

@@ -2,6 +2,7 @@
 
 namespace App\Clients;
 
+use App\Admin\PlatformModules;
 use App\Admin\StoreContext;
 use App\Contracts\AdminIdentity;
 use App\Models\ClientUser;
@@ -12,10 +13,11 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * May this account use this module? Every check on a client's business data ends here.
  *
- * Three independent answers must all be yes: the SuperAdmin has no access to a client's data at
- * all; the module must be switched on for the client; and a staff account's role must grant the
- * action. A Client Admin holds every action of the modules their client has. Anything unknown
- * — no account, no client, no such module — is refused.
+ * A platform account has no access to a client's data at all. The modules ticked on the client
+ * are the ceiling for its whole team: a module switched off is gone for the Client Admin too
+ * (and the policies still hide modules the store does not support, e.g. services on a catalogue
+ * store). Within that ceiling the Client Admin holds every action, while Admin Staff get only
+ * what their role grants. Anything unknown — no account, no client, no such module — is refused.
  */
 class ClientAccess
 {
@@ -25,7 +27,11 @@ class ClientAccess
             return false;
         }
 
-        if (ClientModules::get($module) === null || ! $user->client->hasModule($module)) {
+        if (ClientModules::get($module) === null) {
+            return false;
+        }
+
+        if (! $user->client->hasModule($module)) {
             return false;
         }
 
@@ -47,6 +53,12 @@ class ClientAccess
         $context = app(StoreContext::class);
         if ($context->isSuperAdmin()) {
             return true;
+        }
+        // Platform staff edit inline only in the platform modules they were given.
+        if ($context->user()?->isPlatformAccount()) {
+            $module = $record ? PlatformModules::forModel($record::class) : null;
+
+            return $module !== null && PlatformModules::allows($context->user(), $module);
         }
 
         $model = $record instanceof MenuItem ? Menu::class : ($record ? $record::class : null);

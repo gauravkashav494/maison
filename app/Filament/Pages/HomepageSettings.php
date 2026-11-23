@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Clients\StoreFeatures;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Filament\Support\Fields;
 use App\Models\Collection;
@@ -107,10 +108,10 @@ class HomepageSettings extends Page
                         ])->columns(2)->maxItems(3)->reorderable(),
                     ]),
 
-                    Tab::make('Featured collection')->icon('heroicon-o-rectangle-stack')->schema([
+                    Tab::make('Featured collection')->icon('heroicon-o-rectangle-stack')->visible(fn () => StoreFeatures::enabled('collections'))->schema([
                         Select::make('home.featured_collection_id')
                             ->label('Collection')
-                            ->options(fn () => Collection::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                            ->options(fn () => Collection::active()->pluck('name', 'id'))
                             ->searchable()
                             ->helperText('Uses the collection’s hero/card image, name and description.'),
                         TextInput::make('home.featured_eyebrow')->label('Eyebrow'),
@@ -149,7 +150,7 @@ class HomepageSettings extends Page
                     ]),
 
                     Tab::make('Journal, promises & newsletter')->icon('heroicon-o-newspaper')->schema([
-                        Section::make('Journal')->schema([
+                        Section::make('Journal')->visible(fn () => StoreFeatures::enabled('posts'))->schema([
                             Grid::make(2)->schema([
                                 TextInput::make('home.journal_eyebrow')->label('Eyebrow'),
                                 TextInput::make('home.journal_heading')->label('Heading'),
@@ -164,7 +165,7 @@ class HomepageSettings extends Page
                                 Textarea::make('text')->rows(2)->required()->columnSpanFull(),
                             ])->columns(2)->maxItems(5)->reorderable()->itemLabel(fn (array $state) => $state['title'] ?? null),
                         ]),
-                        Section::make('Newsletter')->schema([
+                        Section::make('Newsletter')->visible(fn () => StoreFeatures::enabled('subscribers'))->schema([
                             Grid::make(2)->schema([
                                 TextInput::make('home.newsletter_eyebrow')->label('Eyebrow'),
                                 TextInput::make('home.newsletter_heading')->label('Heading')->helperText($italicHint),

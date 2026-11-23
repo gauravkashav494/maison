@@ -2,37 +2,60 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Exceptions\CouponUnavailableException;
+use App\Exceptions\InsufficientStockException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\CheckoutRequest;
 use App\Http\Requests\Storefront\CodeRequest;
 use App\Http\Requests\Storefront\NewsletterRequest;
 use App\Http\Requests\Storefront\PincodeRequest;
-use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Subscriber;
 use App\Services\Cart;
+use App\Services\PlaceOrder;
+use App\Support\CustomerOtp;
+use App\Support\SalesOrder;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CartController extends Controller
 {
+    public const REMOVE_UNAVAILABLE = 'Remove the items that are no longer available from your cart to place your order.';
+
     public function __construct(private readonly Cart $cart) {}
 
     public function page(): View
     {
-        return view('shop.cart', ['cart' => $this->cart->toArray(), 'seo' => Seo::simple('Shopping Bag', null, noindex: true)]);
+        return view('shop.cart', [
+            'cart' => $this->cart->toArray(),
+            'unavailableNotice' => $this->cart->takePageUnavailableNotice(),
+            'seo' => Seo::simple('Cart', null, noindex: true),
+        ]);
     }
 
     // ---- JSON API used by the Alpine cart store ---------------------------
 
+    /**
+     * The cart for the Alpine store, with `unavailable_notice` set once when lines were taken out
+     * because the product was hidden or deleted (shown as a toast by every template).
+     */
+    private function cartJson(): JsonResponse
+    {
+        $cart = $this->cart->toArray();
+
+        return response()->json($cart + [
+            'unavailable_notice' => $this->cart->takeUnavailableNotice(),
+            'unavailable_toast' => $this->cart->takeUnavailableToast(),
+        ]);
+    }
+
     public function items(): JsonResponse
     {
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function store(Request $request): JsonResponse
@@ -43,7 +66,7 @@ class CartController extends Controller
             'options.*' => ['nullable', 'string', 'max:60'],
             'size' => ['nullable', 'string', 'max:40'],
             'color' => ['nullable', 'string', 'max:40'],
-            'qty' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'qty' => ['nullable', 'integer', 'min:1'],
         ]);
         $product = Product::active()->findOrFail($data['product_id']);
 
@@ -59,28 +82,39 @@ class CartController extends Controller
 
         if ($product->sellsVariants()) {
             $variant = $product->findVariant($options);
-            abort_unless((bool) $variant, 422, 'That combination is not available.');
-            abort_unless($variant['stock'] > 0, 422, 'That combination is out of stock.');
+            abort_unless((bool) $variant, 422, 'That variant is not available.');
+            abort_unless($variant['stock'] > 0, 422, 'That variant is out of stock.');
         }
 
-        $this->cart->add($product->id, $options, (int) ($data['qty'] ?? 1));
+        // No more than the product's "max quantity per order" or the stock of the choice.
+        $qty = (int) ($data['qty'] ?? 1);
+        $inCart = $this->cart->quantityOf($product->id, $options);
+        $refused = $product->orderLimitMessage($inCart + $qty, $options, $inCart);
+        abort_if($refused !== null, 422, $refused);
 
-        return response()->json($this->cart->toArray());
+        $this->cart->add($product->id, $options, $qty);
+
+        return $this->cartJson();
     }
 
     public function update(Request $request, string $key): JsonResponse
     {
-        $data = $request->validate(['qty' => ['required', 'integer', 'min:0', 'max:20']]);
+        $data = $request->validate(['qty' => ['required', 'integer', 'min:0']]);
+        $line = $this->cart->raw()[$key] ?? null;
+        if ($line && (int) $data['qty'] > (int) $line['qty'] && ($product = Product::find($line['product_id']))) {
+            $refused = $product->orderLimitMessage((int) $data['qty'], (array) $line['options']);
+            abort_if($refused !== null, 422, $refused);
+        }
         $this->cart->update($key, (int) $data['qty']);
 
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function destroy(string $key): JsonResponse
     {
         $this->cart->remove($key);
 
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function coupon(CodeRequest $request): JsonResponse
@@ -90,20 +124,28 @@ class CartController extends Controller
         if (! $coupon) {
             return response()->json(['message' => 'That code is not valid or has expired.'], 422);
         }
-        if ($coupon->discountFor($this->cart->toArray()['subtotal']) === 0 && $coupon->type !== 'free_shipping') {
+        // A signed-in shopper hears now when their own uses are spent; anyone else when the order is placed.
+        $customer = SalesOrder::active() ? null : $request->user();
+        if ($customer && ! $coupon->isUsableBy($customer->getKey(), $customer->phone)) {
+            $this->cart->removeCoupon();
+
+            return response()->json(['message' => 'You have already used this code.'], 422);
+        }
+        $subtotal = $this->cart->toArray()['subtotal'];
+        if (! $coupon->meetsMinimum($subtotal) || ($coupon->discountFor($subtotal) <= 0 && $coupon->type !== 'free_shipping')) {
             $this->cart->removeCoupon();
 
             return response()->json(['message' => 'This code needs a minimum subtotal of '.money($coupon->min_subtotal).'.'], 422);
         }
 
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function removeCoupon(): JsonResponse
     {
         $this->cart->removeCoupon();
 
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function shipping(CodeRequest $request): JsonResponse
@@ -111,7 +153,7 @@ class CartController extends Controller
         $data = $request->validated();
         $this->cart->setShippingMethod($data['code']);
 
-        return response()->json($this->cart->toArray());
+        return $this->cartJson();
     }
 
     public function subscribe(NewsletterRequest $request): JsonResponse
@@ -120,6 +162,9 @@ class CartController extends Controller
         $subscriber = Subscriber::withTrashed()->firstOrCreate(['email' => strtolower($data['email'])], ['source' => $data['source'] ?? 'site', 'template' => template()->id()]);
         if ($subscriber->trashed()) {
             $subscriber->restore(); // re-subscribing after being removed brings the same row back
+        }
+        if ($subscriber->isUnsubscribed()) {
+            $subscriber->forceFill(['unsubscribed_at' => null])->save(); // signing up again is a fresh opt-in
         }
 
         return response()->json(['ok' => true]);
@@ -136,144 +181,98 @@ class CartController extends Controller
     public function checkout(Request $request): View|RedirectResponse
     {
         $cart = $this->cart->toArray();
+        // Site settings → Checkout → "View on storefront": staff have no bag of their own, so the
+        // page shows a sample one (nothing saved; components/app-head stops the order being placed).
+        $preview = $request->query('settings_preview') === 'checkout' ? $this->cart->preview() : null;
+        if ($preview) {
+            $cart = $preview;
+            view()->share('settingsPreviewCart', $preview);
+        }
         if (empty($cart['items'])) {
             return redirect()->route('cart');
         }
+        // An item taken off or lowered just now (here or when an order was tried) is said on this page.
+        $unavailableNotice = $this->cart->takePageUnavailableNotice();
 
         $user = $request->user();
         $default = $user?->addresses()->where('is_default', true)->first() ?? $user?->addresses()->first();
 
-        $enabled = setting('checkout.payment_methods', array_keys(Order::PAYMENT_METHODS));
-        $payments = array_filter(Order::PAYMENT_METHODS, fn ($k) => in_array($k, (array) $enabled, true), ARRAY_FILTER_USE_KEY);
+        $payments = Order::checkoutPaymentMethods();
+        $salesOrder = SalesOrder::active();
 
         return view('shop.checkout', [
             'cart' => $cart,
+            'previewCart' => $preview,
             'shippingMethods' => $this->cart->shippingMethods(),
             'paymentMethods' => $payments,
-            'codFee' => (int) setting('checkout.cod_fee', 0),
+            'codFee' => $salesOrder ? 0.0 : (float) setting('checkout.cod_fee', 0),
             'user' => $user,
             'address' => $default,
+            'unavailableNotice' => $unavailableNotice,
+            // A sales person: who the order is for instead of an address and a delivery method.
+            'salesOrder' => $salesOrder,
             'seo' => Seo::simple('Checkout', null, noindex: true),
         ]);
     }
 
-    public function placeOrder(CheckoutRequest $request): RedirectResponse
+    /** Private, client-scoped lookup used to fill a known customer's name for a sales order. */
+    public function salesCustomerLookup(Request $request): JsonResponse
     {
-        $cart = $this->cart->toArray();
-        if (empty($cart['items'])) {
+        $salesperson = SalesOrder::salesperson();
+        abort_unless($salesperson, 404);
+
+        $data = $request->validate(['phone' => ['required', 'string', 'regex:/^\d{10}$/']]);
+        $customer = SalesOrder::existingCustomerByPhone((int) $salesperson->client_id, $data['phone']);
+
+        return response()->json(['name' => $customer?->name, 'email' => $customer?->email]);
+    }
+
+    public function placeOrder(CheckoutRequest $request, PlaceOrder $placeOrder, CustomerOtp $otp): RedirectResponse
+    {
+        if (empty($this->cart->toArray()['items'])) {
             return redirect()->route('cart');
+        }
+        // Items no longer sold stay in the cart until the shopper removes them: no order until then.
+        if ($this->cart->hasUnavailableItems()) {
+            return redirect()->route('checkout')->withInput()->withErrors(['cart' => self::REMOVE_UNAVAILABLE]);
+        }
+        // Lines lowered for stock since the checkout page opened: no order until the shopper has seen
+        // what is left. The page says what changed.
+        if ($this->cart->hasUnavailableNotice()) {
+            return redirect()->route('checkout')->withInput();
         }
 
         $data = $request->validated();
 
-        $this->cart->setShippingMethod($data['shipping_method']);
-        $cart = $this->cart->toArray();
-        $codFee = $data['payment_method'] === 'cod' ? (int) setting('checkout.cod_fee', 0) : 0;
-
-        // Orders, items and stock live on the client connection; addresses and coupons may live on
-        // the central one. Wrap both so a late failure doesn't leave a half-placed order behind.
-        $clientConnection = DB::connection((new Order)->getConnectionName());
-        $order = $clientConnection->transaction(fn () => DB::transaction(function () use ($data, $cart, $codFee, $request) {
-            $order = Order::create([
-                'number' => Order::generateNumber(),
-                'template' => template()->id(),
-                'customer_id' => $request->user()?->id,
-                'status' => 'confirmed',
-                'email' => strtolower($data['email']),
-                'phone' => $data['phone'],
-                'shipping_name' => $data['shipping_name'],
-                'shipping_line1' => $data['shipping_line1'],
-                'shipping_line2' => $data['shipping_line2'] ?? null,
-                'shipping_city' => $data['shipping_city'],
-                'shipping_state' => $data['shipping_state'],
-                'shipping_postal_code' => $data['shipping_postal_code'],
-                'shipping_country' => $data['shipping_country'],
-                'shipping_method' => $cart['shipping_method']['name'],
-                'shipping_cost' => $cart['shipping'] + $codFee,
-                'payment_method' => $data['payment_method'],
-                'payment_status' => $data['payment_method'] === 'cod' ? 'cod' : 'paid',
-                'subtotal' => $cart['subtotal'],
-                'discount' => $cart['discount'],
-                'coupon_code' => $cart['coupon']['code'] ?? null,
-                'tax' => $cart['tax'],
-                'total' => $cart['total'] + $codFee,
-                'estimated_delivery' => now()->addDays(5),
-                'notes' => $data['notes'] ?? null,
-                'status_history' => [['status' => 'confirmed', 'at' => now()->toIso8601String(), 'note' => 'Order placed']],
-            ]);
-
-            foreach ($cart['items'] as $line) {
-                $order->items()->create([
-                    'product_id' => $line['product']['id'],
-                    'name' => $line['product']['name'],
-                    'sku' => Product::find($line['product']['id'])?->sku,
-                    'image' => $line['product']['images'][0] ?? null,
-                    'size' => $line['size'],
-                    'color' => $line['color'],
-                    // What the customer chose, recorded with the order rather than inferred later.
-                    'options' => $line['options'] ?: null,
-                    'variant_sku' => $line['variant_sku'] ?? null,
-                    'price' => $line['unit_price'] ?? $line['product']['price'],
-                    'qty' => $line['qty'],
-                    'total' => $line['line_total'],
-                ]);
-                $this->reduceStock($line);
+        // A shopper without an account proves the phone number with a WhatsApp code first. Once it
+        // is entered, an account is made from these details and the order is placed (OtpController).
+        // While codes are off the order is placed as a guest's: nobody is signed in to the account
+        // of a number they have not proven, and the order is kept against the email (GuestCustomer).
+        if (! $request->user() && CustomerOtp::enabled()) {
+            if ($error = $otp->start(CustomerOtp::CHECKOUT, $data['phone'], $data)) {
+                return back()->withInput()->withErrors(['phone' => $error]);
             }
 
-            if (! empty($cart['coupon']['code'])) {
-                Coupon::where('code', $cart['coupon']['code'])->increment('used_count');
-            }
+            return redirect()->route('otp.verify');
+        }
 
-            if ($request->user() && $request->boolean('save_address')) {
-                $request->user()->addresses()->create([
-                    'name' => $data['shipping_name'],
-                    'phone' => $data['phone'],
-                    'line1' => $data['shipping_line1'],
-                    'line2' => $data['shipping_line2'] ?? null,
-                    'city' => $data['shipping_city'],
-                    'state' => $data['shipping_state'],
-                    'postal_code' => $data['shipping_postal_code'],
-                    'country' => $data['shipping_country'],
-                    'is_default' => $request->user()->addresses()->count() === 0,
-                ]);
-            }
+        // A sales person: no address (the store's is used), for themselves or a customer they serve.
+        $customer = $request->user();
+        if ($salesperson = SalesOrder::salesperson()) {
+            [$data, $customer] = SalesOrder::prepare($data, $salesperson);
+        }
 
-            return $order;
-        }));
-
-        $this->cart->clear();
+        try {
+            $order = $placeOrder($data, $customer, ! $salesperson && $request->boolean('save_address'));
+        } catch (InsufficientStockException|CouponUnavailableException) {
+            // Bought by someone else (or in another window) meanwhile, or the coupon ran out: the
+            // cart now holds what is left, and the checkout page says what changed before the
+            // shopper places it again.
+            return redirect()->route('checkout')->withInput();
+        }
         session(['last_order_number' => $order->number]);
 
         return redirect()->route('orders.confirmation', $order->number);
-    }
-
-    /**
-     * Takes the sold quantity off the stock. A product sold by variant has its stock on the
-     * variant, so that is reduced as well as the product total.
-     */
-    private function reduceStock(array $line): void
-    {
-        $qty = (int) $line['qty'];
-        $product = Product::find($line['product']['id']);
-        if (! $product) {
-            return;
-        }
-
-        $options = $line['options'] ?? [];
-        if ($product->sellsVariants() && $options) {
-            $wanted = $product->normaliseOptions($options);
-            $variants = (array) $product->variants;
-            foreach ($variants as $index => $variant) {
-                if ($product->normaliseOptions((array) ($variant['options'] ?? [])) == $wanted) {
-                    $current = $variant['stock'] ?? $product->stock;
-                    $variants[$index]['stock'] = max(0, (int) $current - $qty);
-                    $product->update(['variants' => $variants]);
-                    break;
-                }
-            }
-        }
-
-        Product::whereKey($product->id)->where('stock', '>=', $qty)->decrement('stock', $qty);
     }
 
     public function confirmation(Request $request, string $number): View

@@ -49,6 +49,11 @@ class PlumbingTemplate extends Template
         return ['name' => $this->setting('site.logo_primary', 'Plumb').$this->setting('site.logo_accent', 'Kart'), 'theme_color' => '#063B73', 'background_color' => '#F7F9FC'];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_SPECIFICATIONS, self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/plumbing';
@@ -106,7 +111,7 @@ class PlumbingTemplate extends Template
         return [
             'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('plumbing.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
-                ->with(['children' => fn ($q) => $q->where('is_active', true)])
+                ->with(['children' => fn ($q) => $q->where('is_active', true)->where('show_in_menu', true)])
                 ->get()),
         ];
     }
@@ -123,10 +128,10 @@ class PlumbingTemplate extends Template
                 'usp_strip' => ['Pan-India delivery', 'Genuine products', 'Easy returns', 'Expert support'],
                 'search_placeholder' => 'Search pipes, fittings, taps, valves, pumps…',
                 'search_suggestions' => ['1 inch PVC pipe', 'CPVC elbow', 'basin mixer', 'brass ball valve', '1 HP water pump', 'wall mixer', 'PVC tee'],
-                'support_phone' => '+91 98765 43210',
+                'support_phone' => null,
                 'support_hours' => 'Mon–Sat, 9 am – 7 pm',
                 'whatsapp_number' => '919876543210',
-                'support_email' => 'support@plumbkart.in',
+                'support_email' => null,
                 'delivery_promise' => 'Dispatch in 24 hours · Delivery in 2–6 days',
                 'gst_note' => 'All prices inclusive of GST. GST invoice available on every order.',
                 'bulk_heading' => 'Buying for a project?',

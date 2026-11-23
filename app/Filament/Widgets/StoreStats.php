@@ -8,7 +8,6 @@ use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\Product;
 use Filament\Widgets\Widget;
 
 /** A client's headline numbers. A figure is neither computed nor sent unless the role grants it. */
@@ -37,7 +36,12 @@ class StoreStats extends Widget
 
         if (ClientAccess::current('orders', 'view')) {
             $monthStart = now()->startOfMonth();
-            $open = Order::whereIn('status', ['confirmed', 'processing'])->count();
+            $toFulfil = ['confirmed', 'processing'];
+            $open = Order::whereIn('status', $toFulfil)->count();
+
+            // Each card opens the orders list already filtered to the figure it shows.
+            // The orders list's date-range picker reads "dd/mm/yyyy - dd/mm/yyyy".
+            $thisMonth = ['placed_between' => ['placed_between' => $monthStart->format('d/m/Y').' - '.today()->format('d/m/Y')]];
 
             $stats[] = [
                 'label' => 'Orders this month',
@@ -45,15 +49,16 @@ class StoreStats extends Widget
                 'description' => Order::count().' all time',
                 'icon' => 'shopping-cart',
                 'color' => 'is-blue',
-                'url' => OrderResource::getUrl('index'),
+                'url' => OrderResource::getUrl('index', ['filters' => $thisMonth]),
             ];
             $stats[] = [
                 'label' => 'Revenue this month',
-                'value' => money((int) Order::where('created_at', '>=', $monthStart)->where('status', '!=', 'cancelled')->sum('total')),
+                'value' => money((float) Order::where('created_at', '>=', $monthStart)->where('status', '!=', 'cancelled')->sum('total')),
                 'description' => 'Excluding cancelled orders',
                 'icon' => 'banknotes',
                 'color' => 'is-green',
-                'url' => OrderResource::getUrl('index'),
+                // Revenue leaves out cancelled orders, so the list selects every other status.
+                'url' => OrderResource::getUrl('index', ['filters' => $thisMonth + ['status' => ['values' => array_keys(Order::STATUSES)]]]),
             ];
             $stats[] = [
                 'label' => 'Orders to fulfil',
@@ -61,17 +66,19 @@ class StoreStats extends Widget
                 'description' => 'Confirmed or processing',
                 'icon' => 'truck',
                 'color' => 'is-orange',
-                'url' => OrderResource::getUrl('index'),
+                'url' => OrderResource::getUrl('index', ['filters' => ['status' => ['values' => $toFulfil]]]),
             ];
         }
 
         if (ClientAccess::current('customers', 'view')) {
-            $lowStock = ClientAccess::current('products', 'view') ? Product::active()->where('stock', '<=', 5)->count() : null;
+            $customers = Customer::where('client_id', app(StoreContext::class)->user()?->clientId());
+            $new = (clone $customers)->where('created_at', '>=', now()->startOfMonth())->count();
 
             $stats[] = [
                 'label' => 'Customers',
-                'value' => Customer::where('client_id', app(StoreContext::class)->user()?->clientId())->count(),
-                'description' => $lowStock === null ? 'Registered shoppers' : $lowStock.' product'.($lowStock === 1 ? '' : 's').' low on stock',
+                'value' => $customers->count(),
+                // About customers only (it used to borrow this line for a low-stock count).
+                'description' => $new.' new this month',
                 'icon' => 'users',
                 'color' => 'is-purple',
                 'url' => CustomerResource::getUrl('index'),

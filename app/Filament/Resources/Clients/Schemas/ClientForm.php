@@ -5,9 +5,11 @@ namespace App\Filament\Resources\Clients\Schemas;
 use App\Clients\ClientDatabase;
 use App\Clients\ClientModules;
 use App\Clients\ClientQuota;
+use App\Clients\ClientTemplateSwitch;
 use App\Models\Client;
 use App\Models\Plan;
 use App\Models\Storefront;
+use App\Rules\AvailableClientDatabase;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -15,6 +17,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ClientForm
@@ -37,7 +40,7 @@ class ClientForm
                 ->description('Allowances for products, images and storage')
                 ->schema([$sections['plan']]),
             Step::make('Modules')->icon('heroicon-o-squares-2x2')
-                ->description('What their team can use')
+                ->description('What their Client Admin can use')
                 ->schema([$sections['modules']]),
             Step::make('Address & database')->icon('heroicon-o-globe-alt')
                 ->description('Where the store lives and how it starts')
@@ -65,6 +68,12 @@ class ClientForm
                     ->regex('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/')
                     ->notIn(['exit']) // /store/exit is the "leave this store" link
                     ->rule('not_regex:/^'.preg_quote(config('templates.theme_prefix', 'theme-'), '/').'/')
+                    // A store template's slug is that store's own address.
+                    ->rule(fn (?Client $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                        if ($record === null && filled($value) && ($store = Client::storeOnAddress((string) $value))) {
+                            $fail(Client::storeAddressMessage($store));
+                        }
+                    })
                     ->validationMessages([
                         'regex' => 'Use lowercase letters, numbers and hyphens only, without a hyphen at the start or end.',
                         'not_regex' => 'Subdomains starting with "'.config('templates.theme_prefix', 'theme-').'" are kept for theme previews.',
@@ -77,14 +86,34 @@ class ClientForm
                         : 'The store\'s web address. It also names the database, so it cannot be changed later.'),
                 Select::make('storefront_id')
                     ->label('Store')
-                    ->options(fn () => Storefront::orderBy('name')->pluck('name', 'id'))
+                    // Only active stores can be chosen; an existing client keeps its own store listed even
+                    // after that store is deactivated, so editing it does not blank the field.
+                    ->options(fn (?Client $record) => self::selectableStorefronts($record))
+                    ->in(fn (?Client $record) => self::selectableStorefronts($record)->keys()->all())
+                    ->validationMessages(['in' => 'This store is not active. Choose an active store.'])
                     ->required()
                     ->native(false)
                     ->searchable()
                     ->live()
                     // Every module the new store supports starts switched on.
-                    ->afterStateUpdated(fn ($set, $state) => $set('modules', array_keys(ClientModules::optionsForStorefront($state))))
+                    ->afterStateUpdated(function ($set, $state) {
+                        $set('modules', array_keys(ClientModules::optionsForStorefront($state)));
+                        // The toggle below is hidden until the store changes, so its default never
+                        // applied: start it on each time the choice changes.
+                        $set('move_content', true);
+                    })
                     ->helperText('The store (template) this client runs. Two clients may run the same store; they share no data.'),
+                // Changing the store of an existing client to one with another template: offer to
+                // bring their catalogue along, or it disappears from their site (it stays in admin).
+                Toggle::make('move_content')
+                    ->label('Move this client\'s content to the new template')
+                    ->default(true)
+                    ->dehydrated(false)
+                    ->visible(fn (?Client $record, $get) => self::switchesTemplate($record, $get('storefront_id')))
+                    ->helperText(fn (?Client $record) => $record
+                        ? self::moveContentHelp($record)
+                        : null)
+                    ->columnSpanFull(),
                 Toggle::make('is_active')->label('Active')->default(true)->inline(false)
                     ->helperText('Inactive clients cannot sign in and their storefront stops answering.'),
             ]),
@@ -94,21 +123,40 @@ class ClientForm
                     : 'The client gets its own subdomain, used for both the store and the client login, as soon as it is saved.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)->unique(ignoreRecord: true)
-                        ->rule('regex:/^[a-z0-9.-]+\.[a-z]{2,}$/i')->helperText('Host only, no https://.'),
+                    TextInput::make('domain')->label('Custom domain (optional)')->placeholder('shop.example.com')->maxLength(190)
+                        // One host, one client: not another client's or store's domain, and not on the platform's own domain.
+                        ->rule(fn (?Client $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record) {
+                            if (filled($value) && ($problem = Client::domainProblem((string) $value, ignoreClient: $record))) {
+                                $fail($problem);
+                            }
+                        })
+                        ->dehydrateStateUsing(fn (?string $state) => Client::normaliseHost($state))
+                        ->helperText('Host only, no https://. Must be the client\'s own domain, not one on '.Client::baseDomain().'.'),
                 ]),
             'modules' => Section::make('Modules')
-                ->description('What this client can use. A module switched off disappears from their panel, for every member of their team.')
+                ->description('What this client\'s Client Admin can use. A module switched off disappears for the whole team, the Client Admin included; the locked ones are core to the store and always on; what each Admin Staff member sees within these modules is set by their role.')
                 ->schema([
                     CheckboxList::make('modules')
                         ->hiddenLabel()
                         ->options(fn ($get) => ClientModules::optionsForStorefront($get('storefront_id')))
                         // A client nobody has narrowed yet has everything its store supports.
-                        ->formatStateUsing(function (?array $state, $get) {
+                        // The field hands over [] for a null column, so the record is asked directly.
+                        ->formatStateUsing(function (?array $state, $get, ?Client $record) {
                             $available = array_keys(ClientModules::optionsForStorefront($get('storefront_id')));
 
-                            return $state === null ? $available : array_values(array_intersect($state, $available));
+                            $state = $record && $record->modules === null
+                                ? $available
+                                : array_values(array_intersect($state ?? [], $available));
+
+                            return array_values(array_unique([...$state, ...ClientModules::coreAmong($available)]));
                         })
+                        // Core modules show ticked and locked; they are always on whatever is saved.
+                        ->disableOptionWhen(fn (string $value) => ClientModules::isCore($value))
+                        ->in(fn ($get) => array_keys(ClientModules::optionsForStorefront($get('storefront_id'))))
+                        ->dehydrateStateUsing(fn (?array $state, $get) => array_values(array_unique([
+                            ...($state ?? []),
+                            ...ClientModules::coreAmong(array_keys(ClientModules::optionsForStorefront($get('storefront_id')))),
+                        ])))
                         ->default([])
                         ->columns(3)
                         ->bulkToggleable(),
@@ -138,13 +186,66 @@ class ClientForm
                 ->columns(2)
                 ->schema([
                     TextInput::make('database')->label('Database name')->maxLength(64)
-                        ->placeholder(fn (?Client $record) => $record ? $record->databaseName() : config('clients.prefix', 'client_').'<subdomain>')
-                        ->helperText('Leave blank to use the generated name. Only change it when the database already exists under another name.'),
+                        // One database per client: never one another client (or the platform) already uses.
+                        ->rule(fn (?Client $record, $get) => new AvailableClientDatabase($record, $get('subdomain')))
+                        // Editing: the field starts empty and only takes a NEW name; the one in use is the hint.
+                        ->formatStateUsing(fn (?string $state, ?Client $record) => $record ? null : $state)
+                        ->dehydrateStateUsing(fn (?string $state, ?Client $record) => match (true) {
+                            // Left empty while editing: keep the database the client has now, never move it.
+                            blank($state) => $record?->database,
+                            // The client's own generated name typed in stays generated, not frozen in.
+                            $record && blank($record->database) && trim($state) === $record->databaseName() => null,
+                            default => trim($state),
+                        })
+                        ->placeholder(config('clients.prefix', 'client_').'<subdomain>')
+                        // Editing: the database in use now stays in sight while a new name is typed.
+                        ->hint(fn (?Client $record) => $record ? 'Currently: '.$record->databaseName() : null)
+                        ->hintIcon(fn (?Client $record) => $record ? 'heroicon-m-circle-stack' : null)
+                        ->hintColor('primary')
+                        ->helperText(fn (?Client $record) => $record
+                            ? 'Leave empty to keep it. A new name renames the database, keeping all its data. If a database with the new name already exists, the client uses that one instead.'
+                            : 'Leave blank to use the generated name.'),
                     Toggle::make('sample_products')->label('Add sample products and services')->default(false)->inline(false)
                         ->dehydrated(false)
                         ->visible(fn (?Client $record) => $record === null && app(ClientDatabase::class)->isolated())
                         ->helperText('Fills the store with its demo products, categories and collections, or services, areas and projects, which the client can edit or delete later. Menus and pages are added either way.'),
                 ]),
         ];
+    }
+
+    /**
+     * Stores a client can be put on: the active ones, plus the client's current store.
+     *
+     * @return Collection<int, string> id => name
+     */
+    public static function selectableStorefronts(?Client $record): Collection
+    {
+        return Storefront::query()
+            ->where(fn ($q) => $q->where('is_active', true)
+                ->when($record?->storefront_id, fn ($q, $id) => $q->orWhere('id', $id)))
+            ->orderBy('name')
+            ->pluck('name', 'id');
+    }
+
+    /** True when an existing client is being moved to a store that runs a different template. */
+    public static function switchesTemplate(?Client $record, mixed $storefrontId): bool
+    {
+        if (! $record || blank($storefrontId) || (int) $storefrontId === (int) $record->storefront_id) {
+            return false;
+        }
+        $to = Storefront::find($storefrontId)?->template;
+
+        return $to !== null && $to !== $record->templateId();
+    }
+
+    private static function moveContentHelp(Client $record): string
+    {
+        $from = $record->templateId();
+        $count = $from ? ClientTemplateSwitch::countContent($record, $from) : 0;
+
+        return "Their products, categories, collections, pages, posts and other content ({$count} "
+            .Str::plural('item', $count).') were made for the current template and only show there. '
+            .'On: they move to the new template and stay on the site. Off: they disappear from the site but stay in admin. '
+            .'Either way the new template\'s homepage, menus and Appearance settings start from its defaults.';
     }
 }

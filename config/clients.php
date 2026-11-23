@@ -40,7 +40,7 @@ return [
     // customers, addresses, storefronts, settings, store locations, sessions) is platform data
     // and stays in the main database.
     'tables' => [
-        'products', 'categories', 'collections', 'collection_product', 'coupons',
+        'products', 'categories', 'category_product', 'collections', 'collection_product', 'category_collection', 'brands', 'taxes', 'coupons',
         'orders', 'order_items', 'reviews', 'pages', 'posts', 'faqs', 'menus', 'menu_items',
         'contact_messages', 'subscribers',
         'services', 'service_areas', 'testimonials', 'projects', 'service_requests', 'stores',

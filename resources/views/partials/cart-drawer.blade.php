@@ -1,13 +1,13 @@
 <div x-data x-cloak x-show="$store.ui.cartOpen" class="fixed inset-0 z-[70]"
      x-transition:enter="transition duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
      x-transition:leave="transition duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-    <button type="button" aria-label="Close bag" class="absolute inset-0 bg-ink/40" @click="$store.ui.closeAll()"></button>
+    <button type="button" aria-label="Close cart" class="absolute inset-0 bg-ink/40" @click="$store.ui.closeAll()"></button>
     <aside x-show="$store.ui.cartOpen" x-trap.noscroll="$store.ui.cartOpen"
            x-transition:enter="transition duration-500 ease-[var(--ease-luxe)]" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
            x-transition:leave="transition duration-400 ease-[var(--ease-luxe)]" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
-           class="absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col bg-ivory text-ink" role="dialog" aria-modal="true" aria-label="Shopping bag">
+           class="absolute inset-y-0 right-0 flex w-full max-w-[30rem] flex-col bg-ivory text-ink" role="dialog" aria-modal="true" aria-label="Cart">
         <div class="flex h-[4.5rem] items-center justify-between border-b border-ink/10 px-6">
-            <h2 class="font-serif text-2xl">Shopping Bag <span class="ml-1 text-sm text-smoke tabular-nums">(<span x-text="$store.cart.count"></span>)</span></h2>
+            <h2 class="font-serif text-2xl">Cart <span class="ml-1 text-sm text-smoke tabular-nums">(<span x-text="$store.cart.count"></span>)</span></h2>
             <button type="button" @click="$store.ui.closeAll()" aria-label="Close" class="-mr-2 grid h-10 w-10 place-items-center"><x-ico name="close" :size="20" /></button>
         </div>
 
@@ -21,9 +21,10 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-6">
+            <x-cart-unavailable-notice in-drawer margin="1rem 0 0" />
             {{-- Empty --}}
-            <div x-show="$store.cart.loaded && !$store.cart.items.length" class="py-14 text-center">
-                <p class="font-serif text-2xl">Your bag is empty</p>
+            <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" class="py-14 text-center">
+                <p class="font-serif text-2xl">Your cart is empty</p>
                 <p class="mt-2 text-sm text-smoke">Discover the new season and the pieces that define it.</p>
                 <a href="{{ route('shop.index') }}" class="btn btn-outline mt-8" @click="$store.ui.closeAll()">Continue shopping</a>
             </div>
@@ -80,7 +81,7 @@
             <div class="flex items-center justify-between text-sm"><span>Subtotal</span><span class="tabular-nums" x-text="$store.cart.subtotal_formatted"></span></div>
             <p class="mt-1 text-[0.6875rem] text-smoke">Shipping and taxes calculated at checkout.</p>
             <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> Proceed to Checkout</a>
-            <a href="{{ route('cart') }}" class="link-underline mt-4 block text-center text-[0.6875rem] uppercase tracking-[0.2em]">View bag</a>
+            <a href="{{ route('cart') }}" class="link-underline mt-4 block text-center text-[0.6875rem] uppercase tracking-[0.2em]">View cart</a>
         </div>
     </aside>
 </div>

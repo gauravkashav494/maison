@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Admin\PlatformModules;
 use App\Contracts\AdminIdentity;
 use App\Models\Storefront;
 
@@ -10,22 +11,22 @@ class StorefrontPolicy
 {
     public function viewAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::STOREFRONTS);
     }
 
     public function view(AdminIdentity $user, Storefront $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::STOREFRONTS);
     }
 
     public function create(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::STOREFRONTS);
     }
 
     public function update(AdminIdentity $user, Storefront $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::STOREFRONTS);
     }
 
     public function delete(AdminIdentity $user, Storefront $record): bool

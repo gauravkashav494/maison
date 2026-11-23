@@ -3,14 +3,16 @@
 namespace Tests\Feature;
 
 use App\Clients\ClientContext;
+use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\ClientUsers\ClientUserResource;
 use App\Filament\Resources\ClientUsers\Pages\CreateClientUser;
-use App\Filament\Resources\Clients\Pages\EditClient;
+use App\Filament\Resources\ClientUsers\Pages\ListClientUsers;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Plan;
 use App\Models\Storefront;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -63,7 +65,7 @@ class ClientEditAdminsTest extends TestCase
     {
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
 
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
@@ -133,7 +135,7 @@ class ClientEditAdminsTest extends TestCase
 
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Same Email', 'email' => 'shared@mail.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Same Email', 'email' => 'shared@mail.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
         $this->assertDatabaseHas('client_users', ['email' => 'shared@mail.test', 'client_id' => $this->client->id]);
@@ -144,8 +146,8 @@ class ClientEditAdminsTest extends TestCase
     {
         $page = $this->editPage();
         $items = $page->get('data.clientAdmins');
-        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
-        $items['new-two'] = ['name' => 'Third', 'email' => 'third@acme.test', 'phone' => null, 'password' => 'another-pass', 'is_active' => true];
+        $items['new-one'] = ['name' => 'Second', 'email' => 'second@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
+        $items['new-two'] = ['name' => 'Third', 'email' => 'third@acme.test', 'phone' => null, 'password' => 'another-pass1', 'is_active' => true];
         $page->set('data.clientAdmins', $items)->call('save')->assertHasNoFormErrors();
 
         $this->assertSame(3, $this->client->clientAdmins()->count());
@@ -158,10 +160,56 @@ class ClientEditAdminsTest extends TestCase
         app(ClientContext::class)->resolveForIdentity($this->admin);
 
         Livewire::test(CreateClientUser::class)
-            ->fillForm(['name' => 'Co Owner', 'email' => 'co@acme.test', 'password' => 'another-pass', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true])
+            ->fillForm(['name' => 'Co Owner', 'email' => 'co@acme.test', 'password' => 'another-pass1', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $this->assertDatabaseHas('client_users', ['email' => 'co@acme.test', 'client_id' => $this->client->id, 'role' => ClientUser::ROLE_CLIENT_ADMIN]);
+    }
+
+    public function test_a_client_with_no_module_list_opens_with_every_module_ticked(): void
+    {
+        $this->assertNull($this->client->modules);
+
+        $ticked = $this->editPage()->get('data.modules');
+
+        $this->assertContains('orders', $ticked);
+        $this->assertContains('products', $ticked);
+        $this->assertNotContains('services', $ticked); // a fashion store has no services
+    }
+
+    public function test_a_narrowed_module_list_is_shown_as_saved_plus_the_core_modules(): void
+    {
+        $this->client->update(['modules' => ['reviews']]);
+
+        $this->assertEqualsCanonicalizing(['reviews', 'orders', 'customers', 'products', 'categories', 'taxes', 'appearance'], $this->editPage()->get('data.modules'));
+    }
+
+    public function test_core_modules_cannot_be_switched_off_on_save(): void
+    {
+        $this->editPage()
+            ->set('data.modules', ['reviews'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertEqualsCanonicalizing(['reviews', 'orders', 'customers', 'products', 'categories', 'taxes', 'appearance'], $this->client->fresh()->modules);
+    }
+
+    public function test_bulk_delete_in_the_client_panel_never_removes_your_own_account(): void
+    {
+        $other = ClientUser::create(['client_id' => $this->client->id, 'name' => 'Co Owner', 'email' => 'co@acme.test', 'password' => 'secret-pass', 'role' => ClientUser::ROLE_CLIENT_ADMIN, 'is_active' => true]);
+        $staff = ClientUser::create(['client_id' => $this->client->id, 'name' => 'Staff', 'email' => 'staff@acme.test', 'password' => 'secret-pass', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'is_active' => true]);
+
+        $this->actingAs($this->admin, 'client');
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($this->admin);
+
+        Livewire::test(ListClientUsers::class)
+            ->selectTableRecords([$this->admin->id, $other->id, $staff->id])
+            ->callAction(TestAction::make('delete')->table()->bulk());
+
+        $this->assertNotSoftDeleted($this->admin);
+        $this->assertSoftDeleted($other);
+        $this->assertSoftDeleted($staff);
     }
 }

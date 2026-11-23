@@ -11,5 +11,5 @@
     @if($fragrance) @include('home.sections.fragrance') @endif
     @if($posts->isNotEmpty()) @include('home.sections.journal') @endif
     @include('home.sections.promises')
-    @include('home.sections.newsletter')
+    @module('subscribers') @include('home.sections.newsletter') @endmodule
 @endsection

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Admin\PlatformModules;
 use App\Contracts\AdminIdentity;
 use App\Models\Client;
 
@@ -14,28 +15,28 @@ class ClientPolicy
 {
     public function viewAny(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     public function view(AdminIdentity $user, Client $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     public function create(AdminIdentity $user): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     public function update(AdminIdentity $user, Client $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     /** Deleting moves the client to the trash (soft delete): staff, customers and its database are kept, and it can be restored. */
     public function delete(AdminIdentity $user, Client $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     public function deleteAny(AdminIdentity $user): bool
@@ -45,7 +46,7 @@ class ClientPolicy
 
     public function restore(AdminIdentity $user, Client $record): bool
     {
-        return $user->isSuperAdmin();
+        return PlatformModules::allows($user, PlatformModules::CLIENTS);
     }
 
     public function restoreAny(AdminIdentity $user): bool

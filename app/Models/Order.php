@@ -6,11 +6,15 @@ use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\TracksSyncVersion;
 use App\Models\Concerns\UsesClientConnection;
+use App\Support\TaxBreakdown;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use LogicException;
 
 class Order extends Model
 {
@@ -32,8 +36,17 @@ class Order extends Model
 
     protected $casts = [
         'status_history' => 'array',
+        'seller' => 'array',
+        'shipping_cost' => 'float',
+        'subtotal' => 'float',
+        'discount' => 'float',
+        'tax' => 'float',
+        'tax_rate' => 'float',
+        'prices_include_tax' => 'boolean',
+        'total' => 'float',
         'estimated_delivery' => 'date',
         'dispatched_at' => 'datetime',
+        'invoiced_at' => 'datetime',
         'delivered_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
@@ -55,6 +68,12 @@ class Order extends Model
     /** Cancelled sits outside the pipeline and ends the order. */
     public const STATUS_CANCELLED = 'cancelled';
 
+    /**
+     * The goods have left the store: reaching any of these issues the tax invoice (GST: at or
+     * before removal of the goods). Before dispatch the customer has an order, not a bill.
+     */
+    public const INVOICED_STATUSES = [self::STATUS_DISPATCHED, 'out_for_delivery', self::STATUS_DELIVERED];
+
     /** Every status an order can be in, for filters and labels. */
     public static function statusOptions(): array
     {
@@ -69,10 +88,38 @@ class Order extends Model
         'cod' => 'Cash on delivery',
     ];
 
+    /**
+     * Temporary override: when non-empty, checkout in every store offers only these methods,
+     * whatever the store's own settings say. Empty it to go back to the per-store settings.
+     * The other methods' code (views, admin, labels) is kept as is.
+     */
+    public const CHECKOUT_ONLY_PAYMENT_METHODS = ['cod'];
+
+    /** Payment methods a shopper can pick at checkout: code => label. */
+    public static function checkoutPaymentMethods(): array
+    {
+        $enabled = self::CHECKOUT_ONLY_PAYMENT_METHODS
+            ?: (array) setting('checkout.payment_methods', array_keys(self::PAYMENT_METHODS));
+
+        return array_filter(self::PAYMENT_METHODS, fn ($k) => in_array($k, $enabled, true), ARRAY_FILTER_USE_KEY);
+    }
+
     /** The storefront account that placed this, or null for a guest. */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class)->withTrashed();
+    }
+
+    /** The sales person who placed this order (for themselves or for the customer), if a sales person did. */
+    public function salesperson(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'salesperson_id')->withTrashed();
+    }
+
+    /** Placed by a sales person: no delivery, the store's own address is on the order. */
+    public function isSalesOrder(): bool
+    {
+        return $this->salesperson_id !== null;
     }
 
     /** Legacy link to the pre-split users table; kept so historic rows stay readable. */
@@ -95,6 +142,36 @@ class Order extends Model
         return $number;
     }
 
+    /** Payment status as shoppers see it on the storefront: "Pay on delivery" for COD. */
+    public function paymentStatusLabel(): string
+    {
+        return $this->payment_status === 'cod' ? 'Pay on delivery' : ucfirst((string) $this->payment_status);
+    }
+
+    /** Filament colour for the payment status badge. */
+    public function paymentStatusColor(): string
+    {
+        return match ($this->payment_status) {
+            'paid' => 'success',
+            'cod' => 'warning',
+            'refunded' => 'gray',
+            default => 'danger',
+        };
+    }
+
+    /** Filament colour for the order status badge. */
+    public function statusColor(): string
+    {
+        return match ($this->status) {
+            'confirmed' => 'info',
+            'processing' => 'warning',
+            self::STATUS_DISPATCHED, 'out_for_delivery' => 'primary',
+            self::STATUS_DELIVERED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+            default => 'gray',
+        };
+    }
+
     public function statusLabel(): string
     {
         return $this->status === 'cancelled' ? 'Cancelled' : (self::STATUSES[$this->status] ?? ucfirst($this->status));
@@ -110,23 +187,32 @@ class Order extends Model
 
     // ---- Query scopes used by the admin list filters -----------------------
 
-    /** Orders placed on one calendar day. */
-    public function scopePlacedOn($query, $date)
-    {
-        return $query->when(filled($date), fn ($q) => $q->whereDate('created_at', $date));
-    }
-
     /** Orders placed within a range; either end may be left open. */
     public function scopePlacedBetween($query, $from = null, $until = null)
     {
         return $query
-            ->when(filled($from), fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when(filled($until), fn ($q) => $q->whereDate('created_at', '<=', $until));
+            ->when(filled($from), fn ($q) => $q->whereDate('created_at', '>=', Carbon::parse($from)))
+            ->when(filled($until), fn ($q) => $q->whereDate('created_at', '<=', Carbon::parse($until)));
     }
 
     public function scopeWithStatus($query, $status = null)
     {
         return $query->when(filled($status), fn ($q) => $q->where('status', $status));
+    }
+
+    /**
+     * Received but not yet handled: still at the first step of the pipeline. It stops being new
+     * as soon as staff move it on (processing, dispatched, delivered) or cancel it.
+     */
+    public function isNew(): bool
+    {
+        return $this->status === array_key_first(self::STATUSES);
+    }
+
+    /** Orders that are new (see isNew()): the ones the sidebar badge counts. */
+    public function scopeAwaitingAction($query)
+    {
+        return $query->where('status', array_key_first(self::STATUSES));
     }
 
     public function isCancelled(): bool
@@ -160,6 +246,18 @@ class Order extends Model
         $next = $index === -1 ? $pipeline : array_slice($pipeline, $index + 1);
 
         return [...$next, self::STATUS_CANCELLED];
+    }
+
+    /**
+     * Statuses from which the customer may still cancel the order themselves, from their
+     * account. Once it is dispatched it is in the courier's hands, so only the store can stop it.
+     */
+    public const CUSTOMER_CANCELLABLE = ['confirmed', 'processing'];
+
+    public function customerCanCancel(): bool
+    {
+        return in_array($this->status, self::CUSTOMER_CANCELLABLE, true)
+            && $this->canTransitionTo(self::STATUS_CANCELLED);
     }
 
     public function canTransitionTo(string $status): bool
@@ -203,7 +301,36 @@ class Order extends Model
             default => [],
         };
 
-        $this->forceFill($attributes)->save();
+        // A cancelled order is finished: its goods are already back on the shelf, so it is never
+        // reopened (Order::allowedTransitions()).
+        if ($this->isCancelled() && $status !== self::STATUS_CANCELLED) {
+            throw new LogicException("Order {$this->number} is cancelled and cannot be reopened.");
+        }
+
+        $this->getConnection()->transaction(function () use ($attributes, $status) {
+            $wasCancelled = $this->isCancelled();
+
+            // Cancelling puts the goods back on the shelf. Every status change comes through
+            // here, so the stock moves back exactly once, whoever made the change.
+            $this->forceFill($attributes)->save();
+
+            if (! $wasCancelled && $status === self::STATUS_CANCELLED) {
+                $this->returnStock();
+            }
+
+            // Dispatched (or moved straight past it): the tax invoice is issued now.
+            if (in_array($status, self::INVOICED_STATUSES, true)) {
+                $this->assignInvoiceNumber();
+            }
+        });
+    }
+
+    /** Puts every line's quantity back into the product's stock. */
+    private function returnStock(): void
+    {
+        foreach ($this->items()->with('product')->get() as $item) {
+            $item->product?->adjustStock((int) $item->qty, (array) $item->options, StockMovement::CANCELLED, $this);
+        }
     }
 
     /** The audit trail, newest last, ready to display. */
@@ -220,13 +347,129 @@ class Order extends Model
             $this->shipping_name,
             $this->shipping_line1,
             $this->shipping_line2,
-            trim("{$this->shipping_city}, {$this->shipping_state} {$this->shipping_postal_code}"),
+            // A store address kept on a sales order may have no city or PIN code.
+            trim(implode(', ', array_filter([$this->shipping_city, trim("{$this->shipping_state} {$this->shipping_postal_code}")]))),
             $this->shipping_country,
         ]));
+    }
+
+    /**
+     * Link to download this order's invoice (PDF). Signed and short-lived, so it also works for a
+     * guest on the tracking page; the order's own customer, or the guest who has just placed it,
+     * can open the plain link too (InvoiceController).
+     */
+    public function invoiceUrl(): string
+    {
+        return URL::temporarySignedRoute('orders.invoice', now()->addHours(2), ['number' => $this->number]);
+    }
+
+    /**
+     * Whether this order has a tax invoice to show: once it is dispatched (or a sales order,
+     * handed over at the counter). An order cancelled before dispatch never gets one. Orders
+     * numbered when they were placed, before invoices waited for dispatch, keep theirs.
+     */
+    public function hasInvoice(): bool
+    {
+        return filled($this->invoice_number)
+            || $this->isSalesOrder()
+            || $this->dispatched_at !== null
+            || in_array($this->status, self::INVOICED_STATUSES, true);
+    }
+
+    /**
+     * Issues the order's tax invoice, once: the next number in its store's series and the
+     * invoice date. Later calls return the number it already has.
+     *
+     * Called on dispatch (Order::setStatus) and when a sales order is placed. One unbroken
+     * series per store and Indian financial year (April–March) of the invoice date, as GST asks:
+     * "<prefix>/<yy-yy>/<0001>", e.g. INV/26-27/0001, at most 16 characters. The prefix is the
+     * store's (Site settings → Checkout → Invoice). A dispatched order from before this was
+     * automatic gets its number the first time its invoice is opened, dated its dispatch.
+     */
+    public function assignInvoiceNumber(): string
+    {
+        if (filled($this->invoice_number)) {
+            return $this->invoice_number;
+        }
+
+        $issued = $this->dispatched_at ?? now();
+        $start = $issued->month >= 4 ? $issued->year : $issued->year - 1;
+        $fy = sprintf('%02d-%02d', $start % 100, ($start + 1) % 100);
+        $prefix = strtoupper((string) setting('checkout.invoice_prefix', 'INV')) ?: 'INV';
+
+        return $this->getConnection()->transaction(function () use ($fy, $prefix, $issued) {
+            // Re-read under a lock: another request may have numbered this order, or taken the
+            // next number, a moment ago. The unique index backs this up.
+            $fresh = static::withoutGlobalScopes()->lockForUpdate()->find($this->getKey());
+            if ($fresh && filled($fresh->invoice_number)) {
+                return $this->invoice_number = $fresh->invoice_number;
+            }
+
+            $seq = 1 + (int) static::withoutGlobalScopes()->withTrashed()
+                ->where('client_id', $this->client_id)->where('invoice_fy', $fy)
+                ->lockForUpdate()->max('invoice_seq');
+            $number = $prefix.'/'.$fy.'/'.str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+
+            // Bookkeeping that follows the dispatch, which is the logged change (ActivityDescriber::IGNORED).
+            $columns = ['invoice_number' => $number, 'invoice_fy' => $fy, 'invoice_seq' => $seq, 'invoiced_at' => $issued];
+            static::withoutGlobalScopes()->whereKey($this->getKey())->update($columns);
+            $this->forceFill($columns)->syncOriginalAttributes(array_keys($columns));
+
+            return $number;
+        });
     }
 
     public function getUrlAttribute(): string
     {
         return route('orders.confirmation', $this->number);
+    }
+
+    /** Label for this order's tax row, as it applied when the order was placed. */
+    public function taxLine(): string
+    {
+        return tax_line($this->tax_label ?: 'Tax', $this->tax_rate, (bool) $this->prices_include_tax);
+    }
+
+    /**
+     * The tax per rate, as charged when the order was placed: from each line's own rate and tax,
+     * or, for orders placed before lines had them, the order's single rate. "CGST + SGST" gives a
+     * CGST and an SGST row per rate.
+     *
+     * @return list<array{label: string, rate: float, amount: float, taxable: float}>
+     */
+    public function taxRows(): array
+    {
+        $label = $this->tax_label ?: 'Tax';
+        $items = $this->items->filter(fn (OrderItem $item) => $item->tax_rate !== null);
+
+        if ($items->isEmpty() || $items->count() !== $this->items->count()) {
+            $tax = (float) $this->tax;
+
+            return TaxBreakdown::rows([[
+                'rate' => (float) $this->tax_rate,
+                'tax' => $tax,
+                'taxable' => $this->prices_include_tax ? max(0, (float) $this->subtotal - (float) $this->discount - $tax) : max(0, (float) $this->subtotal - (float) $this->discount),
+            ]], $label);
+        }
+
+        // The taxable value per line is worked out as at checkout (its share of the discount);
+        // the tax is the amount each line was charged.
+        $items = $items->values();
+        $lines = TaxBreakdown::for(
+            $items->map(fn (OrderItem $item) => ['amount' => (float) $item->total, 'rate' => (float) $item->tax_rate])->all(),
+            (float) $this->discount,
+            (bool) $this->prices_include_tax,
+        )['lines'];
+
+        $byRate = [];
+        foreach ($items as $i => $item) {
+            $key = number_format((float) $item->tax_rate, 2, '.', '');
+            $byRate[$key] ??= ['rate' => (float) $item->tax_rate, 'tax' => 0.0, 'taxable' => 0.0];
+            $byRate[$key]['tax'] = round($byRate[$key]['tax'] + (float) $item->tax, 2);
+            $byRate[$key]['taxable'] = round($byRate[$key]['taxable'] + $lines[$i]['taxable'], 2);
+        }
+        ksort($byRate, SORT_NUMERIC);
+
+        return TaxBreakdown::rows(array_values($byRate), $label);
     }
 }

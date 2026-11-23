@@ -2,6 +2,7 @@
 
 namespace App\Templates\Plumbing;
 
+use App\Models\Brand;
 use App\Models\Faq;
 use App\Models\Product;
 use Illuminate\View\View;
@@ -26,9 +27,8 @@ class HomeComposer
             ->orderByDesc('is_best_seller')->orderByDesc('rating')->orderByDesc('review_count')
             ->limit($limit('featured_limit', 10))->get();
 
-        $brands = Product::active()->whereNotNull('brand')->where('brand', '!=', '')
-            ->selectRaw('brand, count(*) as products')->groupBy('brand')
-            ->orderByDesc('products')->limit(12)->get();
+        // In the order set in the brands list (Brand::strip).
+        $brands = Brand::strip(12);
 
         $sections = collect($home['sections'] ?? [])
             ->filter(fn ($s) => ! empty($s['enabled']) && ! empty($s['key']))
@@ -42,7 +42,7 @@ class HomeComposer
             'brands' => $brands,
             'bestSellers' => Product::with('category')->active()->bestSellers()->orderBy('sort_order')->limit($limit('bestsellers_limit', 10))->get(),
             'newArrivals' => Product::with('category')->active()->newArrivals()->orderBy('sort_order')->limit($limit('new_limit', 10))->get(),
-            'faqs' => $sections->contains('faq') ? Faq::active()->orderBy('sort_order')->limit(6)->get() : collect(),
+            'faqs' => $sections->contains('faq') ? Faq::active()->limit(6)->get() : collect(),
             'categoriesLimit' => $limit('categories_limit', 9),
         ]);
     }

@@ -29,7 +29,7 @@
                 @endforeach
             </ul>
             @if($links->isNotEmpty())
-                <ul class="mt-4 border-t border-line px-5 py-3">
+                <ul class="mt-4 border-t border-line px-5 py-3" data-menu-area="header">
                     @foreach($links as $item)<li><a href="{{ $item->href }}" class="block py-2 text-sm font-semibold {{ $item->is_accent ? 'text-red' : '' }}">{{ $item->label }}</a></li>@endforeach
                 </ul>
             @endif
@@ -39,7 +39,7 @@
             @endif
         </div>
         <div class="border-t border-line p-4 safe-bottom">
-            @auth<a href="{{ route('account.index') }}" class="btn btn-outline btn-block">My account</a>@else<a href="{{ route('login') }}" class="btn btn-primary btn-block">Login / Sign up</a>@endauth
+            @auth<a href="{{ route('account.index') }}" class="btn btn-outline btn-block">My account</a><form method="post" action="{{ route('logout') }}" class="mt-2" novalidate>@csrf<button type="submit" class="block w-full rounded-lg px-3 py-2 text-center text-sm font-semibold text-muted hover:bg-cream">Log out</button></form>@else<a href="{{ route('login') }}" class="btn btn-primary btn-block">Login / Sign up</a>@endauth
         </div>
     </div>
 </div>

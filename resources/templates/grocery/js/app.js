@@ -9,6 +9,9 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
+import '../../../js/password-reveal';
+import '../../../js/phone-input';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);
@@ -32,7 +35,7 @@ async function api(url, options = {}) {
     return res.json();
 }
 
-const inr = (n) => '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n));
+const inr = (n) => '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 
 /* ---------------------------------------------------------------------------
    Stores
@@ -54,10 +57,10 @@ Alpine.store('ui', {
     openCategories() { this.closeAll(); this.categoriesOpen = true; },
     openLocation() { this.closeAll(); this.locationOpen = true; },
     pickPack(product) { this.packPicker = product; },
-    notify(message, tone = 'ok') {
+    notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.toastTimer);
         this.toast = { message, tone };
-        this.toastTimer = setTimeout(() => { this.toast = null; }, 2200);
+        this.toastTimer = setTimeout(() => { this.toast = null; }, duration ?? 2200);
     },
 });
 
@@ -69,7 +72,20 @@ Alpine.store('cart', {
     tax: 0, tax_label: 'GST', tax_formatted: 'Included',
     total: 0, total_formatted: '₹0', recommendations: [],
     loaded: false, busy: false, couponError: null, couponBusy: false,
-    apply(data) { Object.assign(this, data); this.loaded = true; },
+    removed_notice: null, noticeBox: false, // <x-cart-unavailable-notice>
+    apply(data) {
+        Object.assign(this, data);
+        this.loaded = true;
+        // A product hidden or deleted since it was added: the server took it out, say which —
+        // in the box on the cart and checkout pages (<x-cart-unavailable-notice>), else a toast.
+        if (data.unavailable_notice) {
+            this.removed_notice = data.unavailable_notice;
+            if (!this.noticeBox) Alpine.store('ui').notify(data.unavailable_notice, 'error', 8000);
+        }
+        // An item no longer sold stays in the cart, greyed, until removed (<x-cart-unavailable-notice>
+        // lists it); said once in a toast, except on the cart and checkout pages, which list it.
+        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(data.unavailable_toast, 'error', 8000);
+    },
     async load() { this.apply(await api('/cart/items')); },
     /** Total MRP savings across the bag (compare-at − price). */
     get savings() {
@@ -91,7 +107,11 @@ Alpine.store('cart', {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
         } finally { this.busy = false; }
     },
-    async update(key, qty) { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); },
+    async update(key, qty) {
+        // Refused over the product's max quantity per order or its stock: say why.
+        try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
+        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart', 'error'); }
+    },
     async remove(key) { this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' })); },
     async inc(productId, size, max = null) {
         const line = this.line(productId, size);
@@ -307,13 +327,11 @@ Alpine.data('productPage', (product) => ({
     showSticky: false,
     tab: 'details',
     get qty() { return Alpine.store('cart').qtyOf(this.p.id, this.size); },
-    get slides() {
-        const s = product.images.map((src) => ({ type: 'image', src }));
-        if (product.video_url) s.push({ type: 'video', src: product.video_url });
-        return s;
-    },
+    // A combination with its own photos takes over the gallery when it is chosen.
+    get slides() { return gallerySlides(product, this); },
     init() {
         Alpine.store('recent_products').push(product.slug);
+        watchVariantGallery(this, product);
         const anchor = this.$refs.buy;
         if (anchor) new IntersectionObserver(([e]) => { this.showSticky = !e.isIntersecting && e.boundingClientRect.top < 0; }, { threshold: 0 }).observe(anchor);
         let x0 = null;
@@ -328,7 +346,15 @@ Alpine.data('productPage', (product) => ({
     prev() { this.image = (this.image - 1 + this.slides.length) % this.slides.length; },
     isYouTube(src) { return /youtube\.com|youtu\.be/.test(src); },
     embed(src) { const m = src.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/); return m ? `https://www.youtube.com/embed/${m[1]}?rel=0` : src; },
-    add() { Alpine.store('cart').inc(this.p.id, this.size, this.p.max_qty); },
+    add() {
+        // Options beyond the pack size (Colour, Material…) go with the request, or the server
+        // cannot tell which combination to add.
+        if (Object.values(this.options || {}).some(Boolean)) {
+            Alpine.store('cart').add(this.p.id, this.size, null, 1, false, this.options);
+            return;
+        }
+        Alpine.store('cart').inc(this.p.id, this.size, this.p.max_qty);
+    },
     dec() { Alpine.store('cart').dec(this.p.id, this.size); },
     async buyNow() {
         if (!this.qty) await Alpine.store('cart').add(this.p.id, this.size, null, 1, false, this.options);
@@ -402,17 +428,7 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape') Alpine.store
 
 window.Alpine = Alpine;
 registerAppShell(Alpine);
+// Registered before start: the product page's price line is built when Alpine starts.
+registerVariants(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
-
-/* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
-Alpine.data('variantPricing', (variants) => ({
-    get current() {
-        const chosen = this.options || {};
-        const picked = Object.keys(chosen).filter((k) => chosen[k]);
-        return variants.find((v) => {
-            const names = Object.keys(v.options);
-            return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
-        }) || null;
-    },
-}));

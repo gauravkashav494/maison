@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-<x-page-head title="Your cart" eyebrow="Shopping cart" :breadcrumbs="['Cart' => null]" />
+<x-page-head title="Cart" eyebrow="Shopping cart" :breadcrumbs="['Cart' => null]" />
 
 <section class="h-container pb-28 pt-5 lg:py-8" x-data="{ code: '' }">
+    <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
     {{-- App-style sticky checkout bar (phones) --}}
     <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-line bg-warm p-3 shadow-float lg:hidden">
         <div class="flex items-center gap-3">
@@ -12,7 +13,7 @@
         </div>
     </div>
 
-    <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.saved.items.length" x-cloak>
+    <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length && !$store.saved.items.length" x-cloak>
         <x-empty-state icon="bag" title="Your cart is empty" text="Rice, dals, spices, ghee — everything a good kitchen needs is a click away.">
             <a href="{{ route('shop.index') }}" class="btn btn-primary btn-lg">Start shopping</a>
         </x-empty-state>
@@ -41,7 +42,7 @@
                                 <button type="button" @click="$store.cart.remove(item.key)" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-cream hover:text-red" aria-label="Remove"><x-ico name="trash" :size="16" /></button>
                             </div>
                             <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                                <div class="flex items-baseline gap-2"><span class="font-serif text-lg font-semibold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-muted strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN')"></span><span class="text-xs text-muted" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
+                                <div class="flex items-baseline gap-2"><span class="font-serif text-lg font-semibold tabular" x-text="item.line_total_formatted"></span><span x-show="item.product.compare_at_price" class="text-xs text-muted strike" x-text="'₹' + (item.product.compare_at_price * item.qty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></span><span class="text-xs text-muted" x-text="item.qty > 1 ? item.product.price_formatted + ' each' : ''"></span></div>
                                 <div class="flex items-center gap-3">
                                     <div class="stepper !h-9"><button type="button" class="!w-9" @click="$store.cart.update(item.key, item.qty - 1)" aria-label="Decrease"><x-ico name="minus" :size="14" /></button><span class="!min-w-8 text-sm" x-text="item.qty"></span><button type="button" class="!w-9" @click="$store.cart.update(item.key, item.qty + 1)" :disabled="item.product.max_qty && item.qty >= item.product.max_qty" aria-label="Increase"><x-ico name="plus" :size="14" /></button></div>
                                     <button type="button" @click="$store.saved.save(item)" class="hidden items-center gap-1 text-xs font-medium text-muted hover:text-red sm:flex"><x-ico name="bookmark" :size="14" /> Save for later</button>
@@ -76,21 +77,26 @@
         {{-- Summary --}}
         <aside class="lg:col-span-4" x-show="$store.cart.items.length">
             <div class="space-y-4 lg:sticky lg:top-[8.5rem]">
+                @module('coupons')
                 <div class="card p-5">
                     <p class="font-serif text-lg">Have a coupon?</p>
                     <form @submit.prevent="$store.cart.applyCoupon(code)" class="mt-3 flex gap-2" x-show="!$store.cart.coupon" novalidate><input x-model="code" placeholder="Enter code" class="field h-11 flex-1 uppercase" aria-label="Coupon code"><button type="submit" :disabled="$store.cart.couponBusy" class="btn btn-outline h-11">Apply</button></form>
                     <p x-show="$store.cart.couponError" x-cloak class="error-text" x-text="$store.cart.couponError"></p>
                     <div x-show="$store.cart.coupon" x-cloak class="mt-2 flex items-center justify-between rounded-lg bg-cream px-3 py-2 text-sm"><span class="font-semibold text-maroon"><span x-text="$store.cart.coupon?.code"></span> applied <span class="font-normal text-muted" x-text="'· ' + ($store.cart.coupon?.label || '')"></span></span><button type="button" @click="$store.cart.removeCoupon()" class="text-xs text-muted hover:text-red">Remove</button></div>
                 </div>
+                @endmodule
                 <div class="card p-5">
                     <p class="font-serif text-lg">Order summary</p>
                     <dl class="mt-4 space-y-2.5 text-sm">
                         <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd class="tabular" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-muted">Coupon discount</dt><dd class="tabular text-leaf" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-muted">Delivery <span class="text-xs" x-text="'(' + ($store.cart.shipping_method?.name || 'Standard') + ')'"></span></dt><dd class="tabular" x-text="$store.cart.shipping === 0 ? 'Free' : $store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-muted" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @if(shows_tax_row())
+                            <div class="flex justify-between"><dt class="text-muted" x-text="$store.cart.tax_line"></dt><dd class="tabular" x-text="$store.cart.tax_formatted"></dd></div>
+                        @endif
                         <div class="flex justify-between border-t border-line pt-3 font-serif text-xl"><dt>Estimated total</dt><dd class="tabular font-semibold" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
+                    @if(prices_include_tax())<p class="mt-1 text-right text-xs text-muted">Inclusive of all taxes</p>@endif
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg btn-block mt-5">Proceed to checkout <x-ico name="arrow-right" :size="16" /></a>
                     <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted"><x-ico name="lock" :size="12" /> Secure checkout · UPI, cards, wallets, COD</p>
                 </div>

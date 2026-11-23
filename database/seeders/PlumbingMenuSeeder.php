@@ -16,7 +16,7 @@ class PlumbingMenuSeeder extends Seeder
         // Category bar under the search: categories come from the catalogue; these are the extra links.
         $this->menu('plumbing_header', 'Plumbing — Header navigation', [
             ['label' => 'Shop all', 'url' => '/shop'],
-            ['label' => 'Brands', 'url' => '/shop?view=brands'],
+            ['label' => 'Brands', 'url' => '/brands'],
             ['label' => 'Offers', 'url' => '/shop/sale', 'is_accent' => true],
             ['label' => 'Project kits', 'url' => '/collections'],
             ['label' => 'Bulk quote', 'url' => '/contact?subject=Bulk+quote'],

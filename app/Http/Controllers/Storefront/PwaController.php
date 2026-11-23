@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Storefront;
 use App\Http\Controllers\Controller;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 /**
  * Installable web app support shared by every template: the manifest is built from the
@@ -21,7 +22,7 @@ class PwaController extends Controller
 
         return response()->json([
             'name' => $name,
-            'short_name' => mb_strlen($name) <= 12 ? $name : \Illuminate\Support\Str::before($name, ' '),
+            'short_name' => mb_strlen($name) <= 12 ? $name : Str::before($name, ' '),
             'description' => $template->description(),
             'id' => '/',
             'start_url' => '/?source=pwa',

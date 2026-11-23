@@ -6,6 +6,12 @@ use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
 use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
+use App\Clients\ClientPasswordBrokerManager;
+use App\Clients\StoreFeatures;
+use App\Filament\Pages\SiteSettings;
+use App\Filament\Support\ToggleToast;
+use App\Http\Controllers\Admin\PanelLogoutController;
+use App\Http\Responses\LoginResponse;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
@@ -23,19 +29,40 @@ use App\Policies\PlanPolicy;
 use App\Policies\PlatformActivityPolicy;
 use App\Policies\StorefrontPolicy;
 use App\Policies\UserPolicy;
+use App\Support\Activity\ActivityLog;
+use App\Support\Activity\SignInActivity;
+use App\Support\CustomerOtp;
 use App\Support\DatabaseMacros;
+use App\Support\PasswordRules;
 use App\Templates\TemplateManager;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\ViewAction;
+use Filament\Auth\Http\Controllers\LogoutController;
+use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Form;
+use Filament\Schemas\Components\Group;
 use Filament\Support\Facades\FilamentIcon;
+use Filament\Support\Facades\FilamentView;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Enums\FiltersResetActionPosition;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Filament\Tables\View\TablesRenderHook;
 use Filament\View\PanelsIconAlias;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View as ViewInstance;
 
 class AppServiceProvider extends ServiceProvider
@@ -47,18 +74,52 @@ class AppServiceProvider extends ServiceProvider
         // read the same instance, so they cannot disagree about who is being served.
         $this->app->singleton(ClientContext::class);
         $this->app->singleton(ClientDatabase::class);
+        // Panel logout signs out the panel account only, not a shopper in the same browser.
+        $this->app->bind(LogoutController::class, PanelLogoutController::class);
+        // Shopper reset tokens are kept per client (see ClientScopedTokenRepository). `extend`
+        // rather than a new binding: the framework's deferred provider would replace that.
+        $this->app->extend('auth.password', fn ($manager, $app) => new ClientPasswordBrokerManager($app));
+        $this->app->singleton(StoreFeatures::class);
+        // After sign-in, never send an account back to a page it is not allowed to open.
+        $this->app->bind(\Filament\Auth\Http\Responses\Contracts\LoginResponse::class, LoginResponse::class);
+        // One log per request, so a bulk action's held-back lines are written together.
+        $this->app->singleton(ActivityLog::class);
         $this->app->singleton(TemplateManager::class, fn () => new TemplateManager(config('templates.templates', [])));
     }
 
     public function boot(): void
     {
+        // One password rule everywhere, including Filament's own profile and reset pages.
+        Password::defaults(fn () => PasswordRules::rule());
+
         $this->registerPanelIcons();
+        $this->hideTableFilterIndicators();
+        $this->registerTableFilterLayout();
+        $this->registerSelects();
+
+        // Saved images in upload fields open large in a lightbox, and load from the browser cache.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.partials.image-lightbox'),
+        );
+
+        // Site settings: "View on storefront" for the open tab, at the right of the tab bar.
+        FilamentView::registerRenderHook(
+            SiteSettings::TABS_END_HOOK,
+            fn () => view('filament.pages.site-settings-store-link', ['links' => SiteSettings::storefrontLinks()]),
+        );
+
+        // Every form save scrolls back to the top, where the "Saved" toast shows.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => view('filament.partials.scroll-top-on-save'),
+        );
 
         // Picking a module in the sidebar collapses it to icons (desktop too, not only on phones), so
         // the page gets the room; the ☰ button opens it again. Group headers do not count as a pick.
-        \Filament\Support\Facades\FilamentView::registerRenderHook(
-            \Filament\View\PanelsRenderHook::BODY_END,
-            fn () => new \Illuminate\Support\HtmlString(<<<'HTML'
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn () => new HtmlString(<<<'HTML'
                 <script>
                     document.addEventListener('click', (event) => {
                         const item = event.target.closest('.fi-main-sidebar a.fi-sidebar-item-btn');
@@ -70,15 +131,25 @@ class AppServiceProvider extends ServiceProvider
         );
 
         // The soft-delete filter on every table, in the same words as the "Delete" action.
-        \Filament\Tables\Filters\TrashedFilter::configureUsing(fn (\Filament\Tables\Filters\TrashedFilter $filter) => $filter
+        TrashedFilter::configureUsing(fn (TrashedFilter $filter) => $filter
             ->label('Deleted items')
             ->placeholder('Hide deleted')
             ->trueLabel('Show all')
             ->falseLabel('Only deleted'));
 
+        // View is the same blue as Edit everywhere (Filament draws it grey by default, which reads as disabled).
+        ViewAction::configureUsing(fn (ViewAction $action) => $action->color('primary'));
+
         // Clicking a table row does nothing: records open from the ⋮ menu (View / Edit) only.
         // Setting the URL here also stops resource list pages adding their default row link.
         Table::configureUsing(fn (Table $table) => $table->recordUrl(null));
+
+        // Filters apply as soon as they change (registerTableFilterLayout()), so there is no Apply
+        // button. A table that opts back into an Apply button (deferFilters()) gets one that reads
+        // "Apply", and in a filters dropdown it also closes the dropdown.
+        Table::configureUsing(fn (Table $table) => $table->filtersApplyAction(
+            fn (Action $action) => ($table->getFiltersLayout() === FiltersLayout::Dropdown ? $action->close() : $action)->label('Apply'),
+        ));
 
         // Validation is the server's job: no browser "Please fill out this field" pop-ups, every
         // form is checked by its Laravel rules and the messages show under each field.
@@ -104,8 +175,20 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ClientRole::class, ClientRolePolicy::class);
         Gate::policy(PlatformActivity::class, PlatformActivityPolicy::class);
 
+        // Activity log: sign-ins of client staff, and one line per bulk action rather than one
+        // per record ("moved 12 products to the trash: …"). Lines still held when the request
+        // ends (an action that stopped half way) are written then, one by one.
+        SignInActivity::register();
+        BulkAction::configureUsing(fn (BulkAction $action) => $action
+            ->before(fn () => app(ActivityLog::class)->startGroup())
+            ->after(fn () => app(ActivityLog::class)->flush()));
+        $this->app->terminating(fn () => app(ActivityLog::class)->flush());
+
         // Inline table edits write straight to the row without calling a policy.
-        ToggleColumn::configureUsing(fn ($column) => $column->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record)));
+        // A toast confirms each switch ("Visible turned on"), on every table.
+        ToggleColumn::configureUsing(fn ($column) => $column
+            ->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record))
+            ->afterStateUpdated(fn (ToggleColumn $column, $state) => ToggleToast::send($column, $state)));
         SelectColumn::configureUsing(fn ($column) => $column->disabled(fn (?Model $record) => ! ClientAccess::canEditInline($record)));
 
         // Every template's view folder is registered as a fallback location so Blade can resolve
@@ -118,14 +201,20 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
+        // @module('reviews') ... @endmodule: shown only while the client has that module switched on.
+        Blade::if('module', fn (string $module) => app(StoreFeatures::class)->on($module));
+        // @otp … @else … @endotp: whether WhatsApp codes are asked (CustomerOtp::enabled()).
+        Blade::if('otp', fn () => CustomerOtp::enabled());
+
         // Site chrome data shared with the storefront layout and its partials. Menus are
         // resolved for the template rendering the request (alias => cached tree).
         View::composer(['layouts.app', 'partials.*'], function (ViewInstance $view) {
             $template = template();
 
+            // Links into a module switched off for this client are left out (StoreFeatures).
             $menus = [];
             foreach ($template->menuLocations() as $alias => [$location]) {
-                $menus[$alias] = Menu::tree($location);
+                $menus[$alias] = app(StoreFeatures::class)->filterMenu(Menu::tree($location));
             }
 
             $view->with([
@@ -136,6 +225,98 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /** Sidebar toggle: the classic hamburger (☰) for both opening and collapsing, instead of chevrons. */
+    /**
+     * Every table shows its active filter chips in the toolbar, beside the search field, rather
+     * than in a separate row under it. The chips stay removable, with the same "remove all".
+     *
+     * The toolbar is drawn before Filament's own indicator row, so the row is hidden only for a
+     * table whose chips were already drawn up top. A table without a search field, filter
+     * button or column manager has no such spot and keeps the default row.
+     */
+    /**
+     * Every table shows its filters in a bar above the table that is always open (Above
+     * content), as most e-commerce admins do, so staff change a filter without opening anything
+     * first, and each filter applies as soon as it changes; the active filters also show as
+     * chips in the search row. No table sets this by hand (a
+     * table that called filtersLayout(), filtersFormColumns() or filtersFormWidth() itself
+     * would override the rule; don't).
+     *
+     * The bar is as wide as the table, so its fields sit side by side: 1 on a phone, 2 on a
+     * tablet, 3 on a laptop and 4 on a wide screen, however many filters the table has. A date
+     * filter with several fields takes two of those columns, and Reset sits at the end of the
+     * row (theme.css), so a typical bar is one line of fields.
+     */
+    private function registerTableFilterLayout(): void
+    {
+        Table::configureUsing(fn (Table $table) => $table
+            ->filtersLayout(FiltersLayout::AboveContent)
+            // A filter applies as soon as it is picked: no Apply button. The date-range picker
+            // has its own Apply in the calendar, so a range applies once both days are chosen.
+            ->deferFilters(false)
+            // Reset sits at the end of the fields, so the bar needs no heading line (theme.css hides it).
+            ->filtersResetActionPosition(FiltersResetActionPosition::Footer)
+            ->filtersFormColumns(['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4])
+            // A filter with several fields (From / Until) keeps them on one line, two columns wide,
+            // instead of stacking them in one column and making the bar twice as tall.
+            ->filtersFormSchema(fn (array $filters) => array_values(array_map(
+                function (Group $group, string $name) use ($table) {
+                    $filter = $table->getFilter($name);
+                    $fields = count($filter?->getSchemaComponents() ?? []);
+                    if ($fields < 2 || $filter->getColumnSpan() !== 1) { // a span set on the filter itself wins
+                        return $group;
+                    }
+
+                    return $group->columns(['default' => 1, 'sm' => min($fields, 2)])->columnSpan(['default' => 1, 'sm' => 2]);
+                },
+                $filters,
+                array_keys($filters),
+            ))));
+    }
+
+    /** A list longer than this can be searched by typing. */
+    public const SEARCHABLE_SELECT_FROM = 8;
+
+    /**
+     * Every select in the panels (form fields, table filters and inline table selects) opens the
+     * panel's own styled list rather than the browser's, so they all look the same. A list with
+     * more than SEARCHABLE_SELECT_FROM options, or one read from the database (categories,
+     * brands, products…, which grow), can also be searched by typing; a short fixed list (status,
+     * payment method) stays a plain pick. A select that sets native(), searchable() or preload()
+     * itself keeps its own choice.
+     */
+    private function registerSelects(): void
+    {
+        $long = fn (array $options) => count($options) > self::SEARCHABLE_SELECT_FROM;
+
+        Select::configureUsing(fn (Select $select) => $select
+            ->native(false)
+            // A relationship select answers first, so its options (which ask whether the
+            // select is searchable) are never read from inside this check.
+            ->searchable(fn () => $select->getRelationshipName() !== null || $long($select->getOptions()))
+            ->preload(fn () => $select->getRelationshipName() !== null));
+
+        SelectFilter::configureUsing(fn (SelectFilter $filter) => $filter
+            ->native(false)
+            ->searchable(fn () => $filter->queriesRelationships() || $long($filter->getOptions()))
+            ->preload(fn () => $filter->queriesRelationships()));
+
+        SelectColumn::configureUsing(fn (SelectColumn $column) => $column->native(false));
+
+        // A Yes / No filter left empty reads "All", like every other filter (Filament shows "-").
+        // The Deleted items filter keeps its own wording ("Hide deleted").
+        TernaryFilter::configureUsing(fn (TernaryFilter $filter) => $filter instanceof TrashedFilter ? $filter : $filter->placeholder('All'));
+    }
+
+    /**
+     * No "active filters" chips on any table: the filters bar above every table is always open
+     * and already shows what is picked, and Reset clears it. A non-blank result replaces
+     * Filament's chip row, so it is never drawn.
+     */
+    private function hideTableFilterIndicators(): void
+    {
+        FilamentView::registerRenderHook(TablesRenderHook::FILTER_INDICATORS, fn () => new HtmlString('<span hidden></span>'));
+    }
+
     private function registerPanelIcons(): void
     {
         $menu = Heroicon::Bars3;

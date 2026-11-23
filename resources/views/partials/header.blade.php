@@ -30,7 +30,7 @@
             <button type="button" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60 lg:hidden {{ request()->routeIs('home') ? '-ml-2' : '' }}" @click="$store.ui.openMenu()" aria-label="Open menu">
                 <x-ico name="menu" :size="22" />
             </button>
-            <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary">
+            <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary" data-menu-area="header">
                 @foreach($headerItems as $item)
                     @php
                         $hasMega = $item->children->isNotEmpty();
@@ -47,7 +47,7 @@
         </div>
 
         {{-- Center: wordmark --}}
-        <a href="{{ route('home') }}" aria-label="{{ $site['name'] ?? config('app.name') }} — home"
+        <a data-store-logo href="{{ route('home') }}" aria-label="{{ $site['name'] ?? config('app.name') }} — home"
            class="text-center font-serif leading-none tracking-[0.12em] transition-all duration-500"
            :class="scrolled ? 'text-[1.35rem]' : 'text-[1.6rem] lg:text-[1.85rem]'">
             {{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span>
@@ -58,14 +58,15 @@
             <button type="button" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openSearch()" aria-label="Search">
                 <x-ico name="search" :size="19" />
             </button>
-            <a href="{{ auth()->check() ? route('account.index') : route('login') }}" class="hidden h-10 w-10 place-items-center transition-opacity hover:opacity-60 sm:grid" aria-label="Account">
+            <x-account-menu wrapper="hidden sm:block" class="grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" aria-label="Account"
+                            panel="border border-ink/10 bg-ivory text-sm text-ink shadow-lg" item="hover:bg-cream" muted="text-smoke">
                 <x-ico name="user" :size="19" />
-            </a>
+            </x-account-menu>
             <a href="{{ route('account.wishlist') }}" class="relative hidden h-10 w-10 place-items-center transition-opacity hover:opacity-60 sm:grid" aria-label="Wishlist">
                 <x-ico name="heart" :size="19" />
                 <span x-cloak x-show="$store.wishlist.count > 0" class="absolute right-1 top-1.5 h-1.5 w-1.5 rounded-full bg-gold"></span>
             </a>
-            <button type="button" class="relative -mr-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openCart()" aria-label="Shopping bag">
+            <button type="button" class="relative -mr-2 grid h-10 w-10 place-items-center transition-opacity hover:opacity-60" @click="$store.ui.openCart()" aria-label="Open cart">
                 <x-ico name="bag" :size="19" />
                 <span x-cloak x-show="$store.cart.count > 0" x-text="$store.cart.count"
                       class="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.5625rem] tabular-nums"

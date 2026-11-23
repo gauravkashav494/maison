@@ -33,7 +33,7 @@ class HomeComposer
             : collect();
 
         // Tabbed blocks: each tab carries its own product list (loaded once, switched client-side).
-        $needs = Collection::active()->orderBy('sort_order')->limit($limit('needs_limit', 8))->get()
+        $needs = Collection::active()->limit($limit('needs_limit', 8))->get()
             ->map(fn (Collection $c) => ['model' => $c, 'products' => $c->products()->with('category')->active()->orderBy('collection_product.sort_order')->limit(8)->get()])
             ->filter(fn ($t) => $t['products']->isNotEmpty())->values();
 
@@ -41,7 +41,7 @@ class HomeComposer
             ->map(function (Category $c) use ($base) {
                 $ids = [$c->id, ...$c->children()->pluck('id')->all()];
 
-                return ['model' => $c, 'products' => $base()->whereIn('category_id', $ids)->limit(8)->get()];
+                return ['model' => $c, 'products' => $base()->inCategories($ids)->limit(8)->get()];
             })->filter(fn ($t) => $t['products']->isNotEmpty())->values();
 
         $view->with([

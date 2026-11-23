@@ -6,6 +6,8 @@ use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\ClientModules;
 use App\Filament\Resources\ClientRoles\Pages\CreateClientRole;
+use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
 use App\Models\Client;
@@ -13,8 +15,8 @@ use App\Models\ClientRole;
 use App\Models\ClientUser;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\PlatformActivity;
 use App\Models\Plan;
+use App\Models\PlatformActivity;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Setting;
@@ -195,6 +197,34 @@ class ClientPermissionsTest extends TestCase
         }
     }
 
+    public function test_staff_without_any_module_are_welcomed_and_told_who_to_ask(): void
+    {
+        $staff = ClientUser::create([
+            'client_id' => $this->alpha->id, 'name' => 'New Staff', 'email' => 'new@alpha.test',
+            'password' => 'password123', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'is_active' => true,
+        ]);
+        $this->actingAs($staff, 'client');
+
+        $this->get('/client')->assertSuccessful()
+            ->assertSee('Hello, New')
+            ->assertSee("haven't been given access to any section yet", false)
+            ->assertSee('Alpha Admin')->assertSee('admin@alpha.test');
+
+        // A role that grants nothing is the same as no role.
+        $staff->update(['client_role_id' => ClientRole::create(['client_id' => $this->alpha->id, 'name' => 'Empty', 'permissions' => []])->id]);
+        $this->get('/client')->assertSee('Hello, New');
+    }
+
+    public function test_the_welcome_goes_once_any_module_is_granted(): void
+    {
+        $this->actingAs($this->staff(['orders.view']), 'client');
+        $this->get('/client')->assertSuccessful()->assertDontSee('Hello, Alpha');
+
+        $this->flushSession();
+        $this->actingAs($this->alphaAdmin, 'client');
+        $this->get('/client')->assertSuccessful()->assertDontSee('Hello, Alpha');
+    }
+
     public function test_a_role_grants_exactly_what_it_lists(): void
     {
         $this->actingAs($this->staff(['products.view']), 'client');
@@ -279,6 +309,37 @@ class ClientPermissionsTest extends TestCase
         );
     }
 
+    public function test_the_customer_list_filters_by_the_date_customers_joined(): void
+    {
+        $joined = function (string $name, $when) {
+            $customer = Customer::create(['client_id' => $this->alpha->id, 'name' => $name, 'email' => strtolower($name).'@alpha.test', 'password' => 'password123', 'is_active' => true]);
+            $customer->forceFill(['created_at' => $when])->save();
+
+            return $customer;
+        };
+        $old = $joined('Old', now()->subDays(30));
+        $mid = $joined('Mid', now()->subDays(10)->setTime(23, 30));
+        $new = $joined('New', now());
+
+        $this->enterClientPanel($this->staff(['customers.view']));
+        // The picker's state: "dd/mm/yyyy - dd/mm/yyyy".
+        $range = fn (int $from, int $until) => ['joined' => now()->subDays($from)->format('d/m/Y').' - '.now()->subDays($until)->format('d/m/Y')];
+
+        Livewire::test(ListCustomers::class)
+            ->assertCanSeeTableRecords([$old, $mid, $new])
+            // A range, inclusive at both ends (a late-evening sign-up still counts for its day).
+            ->filterTable('joined', $range(12, 10))
+            ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
+            // One day: the same date at both ends.
+            ->filterTable('joined', $range(10, 10))
+            ->assertCanSeeTableRecords([$mid])->assertCanNotSeeTableRecords([$old, $new])
+            // Up to today.
+            ->filterTable('joined', $range(10, 0))
+            ->assertCanSeeTableRecords([$mid, $new])->assertCanNotSeeTableRecords([$old])
+            ->resetTableFilters()
+            ->assertCanSeeTableRecords([$old, $mid, $new]);
+    }
+
     // ---- Writes that do not pass through a page ---------------------------------------------
 
     public function test_a_view_only_role_cannot_flip_a_table_toggle(): void
@@ -286,7 +347,8 @@ class ClientPermissionsTest extends TestCase
         $this->enterClientPanel($this->staff(['products.view']));
 
         Livewire::test(ListProducts::class)
-            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false);
+            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false)
+            ->assertNotNotified();
 
         $this->assertTrue((bool) $this->alphaProduct->fresh()->is_active);
     }
@@ -295,8 +357,10 @@ class ClientPermissionsTest extends TestCase
     {
         $this->enterClientPanel($this->staff(['products.view', 'products.update']));
 
+        // A toast confirms the switch.
         Livewire::test(ListProducts::class)
-            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false);
+            ->call('updateTableColumnState', 'is_active', (string) $this->alphaProduct->id, false)
+            ->assertNotified('Product "'.$this->alphaProduct->name.'" is now hidden from the storefront.');
 
         $this->assertFalse((bool) $this->alphaProduct->fresh()->is_active);
     }
@@ -316,24 +380,59 @@ class ClientPermissionsTest extends TestCase
 
     // ---- Modules ----------------------------------------------------------------------------
 
-    public function test_a_module_switched_off_is_gone_even_for_the_client_admin(): void
+    public function test_a_module_switched_off_is_gone_for_the_client_admin_too(): void
     {
-        $this->alpha->update(['modules' => ['orders', 'customers']]);
+        $this->alpha->update(['modules' => ['orders']]);
         $this->actingAs($this->alphaAdmin->fresh(), 'client');
 
-        $this->get('/client/products')->assertForbidden();
-        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertForbidden();
         $this->get('/client/orders')->assertSuccessful();
-        $this->get('/client')->assertSuccessful()->assertDontSee('/client/products');
+        $this->get('/client/collections')->assertForbidden();
+        $this->get('/client/reviews')->assertForbidden();
+        $this->get('/client/services')->assertForbidden(); // still nothing the store does not support
     }
 
     public function test_a_module_switched_off_overrides_a_role_that_grants_it(): void
     {
-        $staff = $this->staff(['products.view']);
+        $staff = $this->staff(['collections.view']);
         $this->alpha->update(['modules' => ['orders']]);
         $this->actingAs($staff->fresh(), 'client');
 
-        $this->get('/client/products')->assertForbidden();
+        $this->get('/client/collections')->assertForbidden();
+    }
+
+    public function test_core_modules_stay_on_even_when_the_saved_list_leaves_them_out(): void
+    {
+        $this->alpha->update(['modules' => []]);
+        $this->actingAs($this->alphaAdmin->fresh(), 'client');
+
+        $this->get('/client/orders')->assertSuccessful();
+        $this->get('/client/products')->assertSuccessful();
+        $this->get('/client/products/'.$this->alphaProduct->id.'/edit')->assertSuccessful();
+        $this->get('/client/customers')->assertSuccessful();
+        $this->get('/client/categories')->assertSuccessful();
+        $this->get('/client/collections')->assertForbidden();
+        $this->get('/client/services')->assertForbidden(); // core for service businesses, but not this store
+    }
+
+    public function test_core_modules_are_the_ones_a_store_cannot_run_without(): void
+    {
+        $core = array_keys(array_filter(ClientModules::all(), fn (array $module) => $module['core']));
+
+        // taxes: once a store has classes, every product must pick one.
+        $this->assertEqualsCanonicalizing(['orders', 'customers', 'products', 'categories', 'taxes', 'services', 'service_requests', 'appearance'], $core);
+    }
+
+    public function test_fields_of_a_switched_off_module_leave_the_other_forms(): void
+    {
+        $this->enterClientPanel($this->alphaAdmin);
+        Livewire::test(EditProduct::class, ['record' => $this->alphaProduct->getRouteKey()])->assertFormFieldVisible('collection');
+        Livewire::test(ListProducts::class)->assertTableFilterVisible('collections');
+
+        $this->alpha->update(['modules' => []]);
+        $this->enterClientPanel($this->alphaAdmin->fresh());
+
+        Livewire::test(EditProduct::class, ['record' => $this->alphaProduct->getRouteKey()])->assertFormFieldHidden('collection');
+        Livewire::test(ListProducts::class)->assertTableFilterHidden('collections')->assertTableColumnHidden('collections.name');
     }
 
     public function test_a_client_with_no_module_list_has_everything_its_store_supports(): void
@@ -347,7 +446,9 @@ class ClientPermissionsTest extends TestCase
 
     public function test_every_client_screen_is_covered_by_the_catalogue(): void
     {
-        $accounts = ['ClientUser', 'ClientRole']; // managed by Client Admins only, by their own policies
+        // Accounts are managed by Client Admins only, by their own policies; the activity log is
+        // read-only and open to every staff member (their own lines, or the team's for an admin).
+        $accounts = ['ClientUser', 'ClientRole', 'PlatformActivity'];
 
         foreach (ClientPanelProvider::RESOURCES as $resource) {
             $model = $resource::getModel();

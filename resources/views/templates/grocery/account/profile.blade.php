@@ -14,9 +14,11 @@
         <form method="post" action="{{ route('account.password.update') }}" class="card space-y-3 p-4 sm:p-5" novalidate>
             @csrf @method('PUT')
             <p class="text-sm font-extrabold">Change password</p>
+            @if ($user->password !== null)
             <label class="block"><span class="label">Current password<span class="req" aria-hidden="true">*</span></span><input name="current_password" type="password" class="field @error('current_password') field-error @enderror" autocomplete="current-password">@error('current_password')<span class="error-text">{{ $message }}</span>@enderror</label>
-            <label class="block"><span class="label">New password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password">@error('password')<span class="error-text">{{ $message }}</span>@enderror</label>
-            <label class="block"><span class="label">Confirm new password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="field" autocomplete="new-password"></label>
+            @endif
+            <label class="block"><span class="label">New password<span class="req" aria-hidden="true">*</span></span><input name="password" type="password" class="field @error('password') field-error @enderror" autocomplete="new-password"><x-password-checklist />@error('password')<span class="error-text">{{ $message }}</span>@enderror</label>
+            <label class="block"><span class="label">Confirm new password<span class="req" aria-hidden="true">*</span></span><input name="password_confirmation" type="password" class="field" autocomplete="new-password"><x-password-match /></label>
             <button type="submit" class="btn btn-outline">Update password</button>
         </form>
     </div>

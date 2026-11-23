@@ -7,7 +7,7 @@
     <label><span class="label">City<span class="req" aria-hidden="true">*</span></span><input name="city" value="{{ $v('city') }}" class="field">@error('city')<p class="error">{{ $message }}</p>@enderror</label>
     <label><span class="label">State<span class="req" aria-hidden="true">*</span></span><input name="state" value="{{ $v('state') }}" class="field">@error('state')<p class="error">{{ $message }}</p>@enderror</label>
     <label><span class="label">Pincode<span class="req" aria-hidden="true">*</span></span><input name="postal_code" value="{{ $v('postal_code') }}" class="field" inputmode="numeric">@error('postal_code')<p class="error">{{ $message }}</p>@enderror</label>
-    <label><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="country" value="{{ $v('country') ?? 'India' }}" class="field">@error('country')<p class="error">{{ $message }}</p>@enderror</label>
+    <label><span class="label">Country<span class="req" aria-hidden="true">*</span></span><input name="country" value="India" readonly aria-readonly="true" title="We deliver within India only" class="field">@error('country')<p class="error">{{ $message }}</p>@enderror</label>
     <label><span class="label">Phone at this address</span><input name="phone" value="{{ $v('phone') }}" class="field" inputmode="tel">@error('phone')<p class="error">{{ $message }}</p>@enderror</label>
     <label class="flex items-center gap-2 self-end pb-3 text-sm"><input type="checkbox" name="is_default" value="1" class="check" @checked(old('is_default', $a?->is_default))> Set as default</label>
 </div>

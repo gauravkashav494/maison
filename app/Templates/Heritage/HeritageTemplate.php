@@ -48,6 +48,11 @@ class HeritageTemplate extends Template
         return ['name' => trim($this->setting('site.logo_primary', 'Annapurna').' '.$this->setting('site.logo_accent', '')), 'theme_color' => '#FFFCF5', 'background_color' => '#FFFCF5'];
     }
 
+    public function productFields(): array
+    {
+        return [self::PRODUCT_FIELDS_GROCERY, self::PRODUCT_FIELDS_NUTRITION, self::PRODUCT_FIELDS_ORDER_LIMIT];
+    }
+
     public function viewPath(): ?string
     {
         return 'templates/heritage';
@@ -104,7 +109,7 @@ class HeritageTemplate extends Template
         return [
             'navCategories' => Cache::remember(app(ClientDatabase::class)->cacheKey('heritage.nav_categories'), 600, fn () => Category::active()
                 ->topLevel()->where('show_in_menu', true)
-                ->with(['children' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')])
+                ->with(['children' => fn ($q) => $q->where('is_active', true)->where('show_in_menu', true)->orderBy('sort_order')])
                 ->get()),
         ];
     }

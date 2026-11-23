@@ -58,24 +58,32 @@
         {{-- Purchase panel --}}
         <div class="lg:col-span-5">
             <div class="lg:sticky lg:top-28">
-                <p class="eyebrow text-taupe">{{ $product->brand ?: $product->category?->name }}@if($product->brand && $product->category) <span class="text-taupe/60">·</span> {{ $product->category->name }}@endif</p>
+                <p class="eyebrow text-taupe">@if($product->brand)<a href="{{ \App\Models\Brand::urlFor($product->brand) }}" class="hover:text-ink">{{ $product->brand }}</a>@else{{ $product->category?->name }}@endif@if($product->brand && $product->category) <span class="text-taupe/60">·</span> {{ $product->category->name }}@endif</p>
                 <h1 class="mt-3 font-serif text-4xl leading-tight lg:text-5xl">{{ $product->name }}</h1>
                 <div class="mt-4 flex items-center gap-4">
                     <a href="#reviews" class="flex items-center gap-2"><x-rating :value="$product->rating" :count="$product->review_count" :size="11" /></a>
                     @if($product->sku)<span class="text-[0.6875rem] text-taupe">Ref. {{ $product->sku }}</span>@endif
                 </div>
-                <div class="mt-5 flex items-baseline gap-3 text-xl tabular-nums">
-                    <span class="{{ $product->is_on_sale ? 'text-rouge' : '' }}">{{ money($product->price) }}</span>
-                    @if($product->compare_at_price)<span class="text-sm text-smoke line-through">{{ money($product->compare_at_price) }}</span><span class="text-[0.625rem] uppercase tracking-[0.2em] text-rouge">−{{ $product->discount_percent }}%</span>@endif
+                {{-- Price and "was" price follow the chosen variant; the product's own until one is chosen. --}}
+                @php $base = $product->displayPricing(); @endphp
+                <div class="mt-5 flex items-baseline gap-3 text-xl tabular-nums" x-data="variantPricing(@js($product->pricingVariants()), @js($base))">
+                    <span class="{{ $base['compare_at_price'] ? 'text-rouge' : '' }}" :class="shown.compare_at_price && 'text-rouge'" x-text="shown.price_formatted">{{ $base['price_formatted'] }}</span>
+                    <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-sm text-smoke line-through" x-text="shown.compare_at_price_formatted">{{ $base['compare_at_price_formatted'] }}</span>
+                    <span x-show="shown.compare_at_price" @style(['display: none' => ! $base['compare_at_price']]) class="text-[0.625rem] uppercase tracking-[0.2em] text-rouge" x-text="'−' + shown.discount_percent + '%'">−{{ $base['discount_percent'] }}%</span>
                 </div>
                 <p class="mt-6 text-[0.9375rem] leading-relaxed text-smoke">{{ $product->description }}</p>
 
                 @if(!empty($product->colors))
                     <div class="mt-8">
                         <p class="mb-3 text-[0.6875rem] uppercase tracking-[0.2em]">Colour <span class="ml-2 text-smoke normal-case tracking-normal" x-text="color"></span></p>
-                        <div class="flex gap-3">
+                        <div class="flex flex-wrap items-center gap-3">
                             @foreach($product->colors as $c)
-                                <button type="button" @click="color = @js($c['name'])" aria-label="{{ $c['name'] }}" :aria-pressed="color === @js($c['name'])" class="h-8 w-8 rounded-full ring-1 ring-offset-2 ring-offset-ivory transition-all" :class="color === @js($c['name']) ? 'ring-ink' : 'ring-ink/15 hover:ring-ink/40'" style="background-color: {{ $c['hex'] }}"></button>
+                                @if(!empty($c['hex']))
+                                    <button type="button" @click="color = @js($c['name'])" aria-label="{{ $c['name'] }}" :aria-pressed="color === @js($c['name'])" class="h-8 w-8 rounded-full ring-1 ring-offset-2 ring-offset-ivory transition-all" :class="color === @js($c['name']) ? 'ring-ink' : 'ring-ink/15 hover:ring-ink/40'" style="background-color: {{ $c['hex'] }}"></button>
+                                @else
+                                    {{-- No swatch colour set for this value: shown as its name --}}
+                                    <button type="button" @click="color = @js($c['name'])" :aria-pressed="color === @js($c['name'])" class="min-w-14 border px-4 py-2 text-[0.75rem] uppercase tracking-wider transition-colors" :class="color === @js($c['name']) ? 'border-ink bg-ink text-ivory' : 'border-ink/20 hover:border-ink'">{{ $c['name'] }}</button>
+                                @endif
                             @endforeach
                         </div>
                     </div>
@@ -94,15 +102,15 @@
                 </div>
 
                 {{-- Any further attributes this product varies by (material, style, …) --}}
-                <x-variant-options :product="$product" />
+                <x-variant-options :product="$product" own-colour-picker />
 
                 <div class="mt-8 flex gap-3" x-ref="buy">
                     <div class="flex h-14 items-center border border-ink/20">
                         <button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="minus" :size="14" :stroke="1.5" /></button>
                         <span class="w-8 text-center text-sm tabular-nums" x-text="qty"></span>
-                        <button type="button" @click="qty++" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
+                        <button type="button" @click="incQty()" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
                     </div>
-                    <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Bag' : 'Sold out' }}</button>
+                    <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Cart' : 'Sold out' }}</button>
                     <button type="button" @click="$store.wishlist.toggle(p.id)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has(p.id)" class="grid h-14 w-14 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink"><x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has(p.id) && 'fill-ink'" /></button>
                 </div>
                 @if($product->in_stock)<button type="button" @click="add(true)" :disabled="$store.cart.busy" class="btn btn-outline btn-lg mt-3 w-full">Buy now</button>@endif
@@ -135,14 +143,14 @@
         </div>
     </div>
 
-    {{-- Sticky mobile add-to-bag --}}
+    {{-- Sticky mobile add-to-cart --}}
     <div x-cloak x-show="showSticky" x-transition class="above-tabs border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
         <div class="flex items-center gap-4">
             <div class="min-w-0 flex-1">
                 <p class="truncate font-serif text-base">{{ $product->name }}</p>
                 <p class="text-xs tabular-nums text-smoke">{{ money($product->price) }} <span x-show="size">· <span x-text="size"></span></span></p>
             </div>
-            <button type="button" @click="add()" class="btn btn-primary">Add to Bag</button>
+            <button type="button" @click="add()" class="btn btn-primary">Add to Cart</button>
         </div>
     </div>
 
@@ -160,6 +168,7 @@
 </section>
 
 {{-- Reviews --}}
+@module('reviews')
 <section id="reviews" class="container-luxe py-20 lg:py-28" x-data="reviewForm">
     <div class="grid gap-12 lg:grid-cols-12 lg:gap-16">
         <div class="lg:col-span-4">
@@ -209,7 +218,7 @@
                     </div>
                     @if($review->title)<h3 class="mt-3 font-serif text-2xl">{{ $review->title }}</h3>@endif
                     <p class="mt-2 text-[0.9375rem] leading-relaxed text-smoke">{{ $review->body }}</p>
-                    <p class="mt-3 text-[0.6875rem] uppercase tracking-[0.15em]">{{ $review->name }} <span class="ml-2 text-emerald-700">✓ Verified</span></p>
+                    <p class="mt-3 text-[0.6875rem] uppercase tracking-[0.15em]">{{ $review->name }}@if($review->is_verified_purchase) <span class="ml-2 text-emerald-700">✓ Verified purchase</span>@endif</p>
                 </article>
             @empty
                 <div class="border border-dashed border-ink/15 p-10 text-center text-sm text-smoke">Reviews appear here once approved.</div>
@@ -217,6 +226,7 @@
         </div>
     </div>
 </section>
+@endmodule
 
 {{-- Complete the look --}}
 @if($completeTheLook->isNotEmpty())

@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Clients\ClientContext;
-use App\Templates\TemplateManager;
 use Filament\Widgets\Widget;
 
 /** The public address of the client the session works in, ready to share with its customers. */
@@ -29,8 +28,6 @@ class StoreLink extends Widget
         return [
             'store' => $client,
             'url' => $client->publicUrl(),
-            'onMainDomain' => app(TemplateManager::class)->activeId() === $client->templateId(),
-            'mainUrl' => rtrim(config('app.url'), '/'),
         ];
     }
 }

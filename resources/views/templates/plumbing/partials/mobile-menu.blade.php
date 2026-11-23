@@ -1,5 +1,5 @@
 {{-- Mobile drawer: categories with expandable sub-categories, quick links, account, support --}}
-@php $p = tsetting('site'); $cats = $navCategories ?? collect(); $links = $menus['header'] ?? collect(); $phone = $p['support_phone'] ?? null; @endphp
+@php $p = tsetting('site'); $cats = $navCategories ?? collect(); $links = $menus['header'] ?? collect(); $phone = store_phone(); @endphp
 <div x-data="{ openCat: null }" x-show="$store.ui.menuOpen" x-cloak>
     <div class="overlay" x-show="$store.ui.menuOpen" x-transition.opacity @click="$store.ui.closeAll()"></div>
     <aside class="sheet inset-y-0 left-0 flex w-[88%] max-w-sm flex-col" x-show="$store.ui.menuOpen" x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" x-trap.noscroll="$store.ui.menuOpen" aria-label="Menu">
@@ -37,7 +37,7 @@
 
             @if($links->isNotEmpty())
                 <p class="px-4 pb-1 pt-4 text-xs font-bold uppercase tracking-wider text-mist">Quick links</p>
-                <ul class="px-2">
+                <ul class="px-2" data-menu-area="header">
                     @foreach($links as $item)<li><a href="{{ $item->href }}" class="flex items-center gap-2 rounded-lg px-2 py-2.5 text-sm font-semibold {{ $item->is_accent ? 'text-accent-dark' : '' }}">@if($item->is_accent)<x-ico name="percent" :size="16" />@endif{{ $item->label }}</a></li>@endforeach
                 </ul>
             @endif

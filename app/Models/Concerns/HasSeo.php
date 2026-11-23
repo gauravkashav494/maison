@@ -17,14 +17,27 @@ trait HasSeo
 
     public function seoDescription(): ?string
     {
-        $text = $this->meta_description ?: $this->seoFallbackDescription();
-
-        return $text ? str(strip_tags($text))->squish()->limit(160)->toString() : null;
+        return $this->meta_description
+            ? str(strip_tags($this->meta_description))->squish()->limit(160)->toString()
+            : $this->seoDefaultDescription();
     }
 
     public function seoImage(): ?string
     {
         return Media::url($this->og_image ?: $this->seoFallbackImage());
+    }
+
+    /** What the title is when meta_title is left blank (shown as a placeholder in the SEO module). */
+    public function seoDefaultTitle(): string
+    {
+        return $this->seoFallbackTitle();
+    }
+
+    public function seoDefaultDescription(): ?string
+    {
+        $text = $this->seoFallbackDescription();
+
+        return $text ? str(strip_tags($text))->squish()->limit(160)->toString() : null;
     }
 
     protected function seoFallbackTitle(): string

@@ -25,7 +25,7 @@ class PostForm
                         ->icon('heroicon-o-newspaper')
                         ->schema([
                             Grid::make(2)->schema([
-                                ...Fields::nameAndSlug('title', 'Title', scopeColumn: 'template'),
+                                Fields::nameWithAddress('/journal', 'title', 'Title'),
                                 Fields::templateVisibility()->live(),
                                 TextInput::make('category')->maxLength(60)->placeholder('Editorial, Style Notes, Campaign…'),
                                 TextInput::make('read_time')->maxLength(30)->placeholder('6 min read'),
@@ -36,7 +36,6 @@ class PostForm
                             RichEditor::make('body'),
                             Fields::image('image', 'Cover image (portrait 4:5)', 'journal')->required(),
                         ]),
-                    Fields::seoTab(),
                 ]),
             ]);
     }

@@ -1,9 +1,10 @@
 @extends('layouts.app', ['transparentHeader' => filled(setting('site.page_header_image'))])
 
 @section('content')
-    <x-page-hero eyebrow="Your selection" title="Shopping Bag" :breadcrumbs="['Shopping Bag' => null]" />
+    <x-page-hero eyebrow="Your selection" title="Cart" :breadcrumbs="['Cart' => null]" />
 
     <section class="container-luxe pb-28 pt-8 lg:py-16" x-data="{ code: '' }">
+        <x-cart-unavailable-notice :message="$unavailableNotice ?? null" />
         {{-- App-style sticky checkout bar (phones) --}}
         <div x-show="$store.cart.items.length" x-cloak class="above-tabs border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur lg:hidden">
             <div class="flex items-center gap-4">
@@ -12,8 +13,8 @@
             </div>
         </div>
 
-        <div x-show="$store.cart.loaded && !$store.cart.items.length" x-cloak class="py-16 text-center">
-            <p class="font-serif text-3xl">Your bag is empty</p>
+        <div x-show="$store.cart.loaded && !$store.cart.items.length && !$store.cart.unavailable?.length" x-cloak class="py-16 text-center">
+            <p class="font-serif text-3xl">Your cart is empty</p>
             <p class="mt-3 text-sm text-smoke">Discover the new season and the pieces that define it.</p>
             <a href="{{ route('shop.index') }}" class="btn btn-outline btn-lg mt-8">Continue shopping</a>
         </div>
@@ -60,6 +61,7 @@
                 </ul>
 
                 {{-- Promo code --}}
+                @module('coupons')
                 <div class="border-t border-ink/10 pt-6">
                     <p class="eyebrow mb-3 text-taupe">Promo code</p>
                     <template x-if="$store.cart.coupon">
@@ -76,6 +78,7 @@
                     </template>
                     <p x-show="$store.cart.couponError" x-text="$store.cart.couponError" class="mt-2 text-sm text-rouge"></p>
                 </div>
+                @endmodule
             </div>
 
             <aside class="lg:col-span-4">
@@ -85,9 +88,12 @@
                         <div class="flex justify-between"><dt class="text-smoke">Subtotal</dt><dd class="tabular-nums" x-text="$store.cart.subtotal_formatted"></dd></div>
                         <div class="flex justify-between" x-show="$store.cart.discount > 0"><dt class="text-smoke">Discount</dt><dd class="tabular-nums text-emerald-700" x-text="'− ' + $store.cart.discount_formatted"></dd></div>
                         <div class="flex justify-between"><dt class="text-smoke">Shipping <span class="text-[0.625rem]" x-text="'(' + $store.cart.shipping_method.name + ')'"></span></dt><dd class="tabular-nums" x-text="$store.cart.shipping_formatted"></dd></div>
-                        <div class="flex justify-between"><dt class="text-smoke" x-text="'Taxes (' + $store.cart.tax_label + ')'"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted"></dd></div>
+                        @if(shows_tax_row())
+                            <div class="flex justify-between"><dt class="text-smoke" x-text="$store.cart.tax_line"></dt><dd class="tabular-nums" x-text="$store.cart.tax_formatted"></dd></div>
+                        @endif
                         <div class="flex justify-between border-t border-ink/10 pt-3 text-base"><dt>Total</dt><dd class="tabular-nums" x-text="$store.cart.total_formatted"></dd></div>
                     </dl>
+                    @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
                     <a href="{{ route('checkout') }}" class="btn btn-primary btn-lg mt-6 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> Proceed to Checkout</a>
                     <p class="mt-4 text-center text-[0.6875rem] text-taupe">Secure checkout · Cards, UPI, wallets & COD</p>
                     <div class="mt-4 flex flex-wrap justify-center gap-1.5">

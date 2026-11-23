@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
 use App\Templates\TemplateManager;
 use BackedEnum;
@@ -52,8 +53,8 @@ class HeritageSettings extends Page
             Tabs::make('Heritage settings')->persistTabInQueryString()->tabs([
                 Tab::make('Brand & header')->icon('heroicon-o-building-storefront')->schema([
                     Section::make('Wordmark')->columns(3)->schema([
-                        TextInput::make("$g.logo_primary")->label('Wordmark — first word')->helperText('Serif, deep red.'),
-                        TextInput::make("$g.logo_accent")->label('Wordmark — accent word')->helperText('Italic, gold.'),
+                        TextInput::make("$g.logo_primary")->label('Wordmark — first word')->placeholder('Annapurna')->helperText('The main word of your store name, in a deep-red serif. Examples: Annapurna, Desi, Gaon.'),
+                        TextInput::make("$g.logo_accent")->label('Wordmark — accent word')->placeholder('Organics')->helperText('A second word in gold italic after the first. Examples: Organics, Roots, Kitchen — together "Annapurna Organics".'),
                         TextInput::make("$g.tagline")->label('Tagline'),
                     ]),
                     Section::make('Search & delivery')->columns(2)->schema([
@@ -82,10 +83,10 @@ class HeritageSettings extends Page
                 ]),
                 Tab::make('Support')->icon('heroicon-o-lifebuoy')->schema([
                     Grid::make(3)->schema([
-                        TextInput::make("$g.support_phone")->label('Support phone')->helperText('Falls back to Site settings → contact phone.'),
+                        PhoneInput::make("$g.support_phone")->label('Support phone (override)')->placeholder('Uses Site settings → Contact phone')->helperText('Only fill in to show a different number on this template.'),
                         TextInput::make("$g.support_hours")->label('Support hours'),
                         TextInput::make("$g.support_toll_free")->label('Toll-free number'),
-                        TextInput::make("$g.support_email")->label('Support email')->helperText('Falls back to Site settings → contact email.'),
+                        TextInput::make("$g.support_email")->label('Support email (override)')->placeholder('Uses Site settings → Client care email')->helperText('Only fill in to show a different address on this template.'),
                         TextInput::make("$g.gifting_email")->label('Corporate gifting email'),
                         TextInput::make("$g.whatsapp_number")->label('WhatsApp number')->helperText('International format, e.g. 919876543210.'),
                     ]),

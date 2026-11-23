@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Admin\PlatformModules;
 use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
 use App\Filament\Resources\Clients\ClientResource;
@@ -21,7 +22,7 @@ class RecentClients extends Widget
 
     public static function canView(): bool
     {
-        return app(ClientContext::class)->isSuperAdmin();
+        return app(ClientContext::class)->isSuperAdmin() && PlatformModules::current(PlatformModules::CLIENTS);
     }
 
     protected function getViewData(): array

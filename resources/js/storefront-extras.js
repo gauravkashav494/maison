@@ -3,6 +3,7 @@
  * reviews, recently viewed, coupons/shipping on the cart, checkout, cookie consent.
  * Imported by app.js after the core stores are defined.
  */
+import { gallerySlides, registerVariants, watchVariantGallery } from './variants';
 export default function registerExtras(Alpine, api) {
     /* ---- Cart extras: promo codes + shipping method ---------------------- */
     const cart = Alpine.store('cart');
@@ -82,14 +83,12 @@ export default function registerExtras(Alpine, api) {
         lightbox: false,
         zoom: { on: false, x: 50, y: 50 },
         showSticky: false,
-        get slides() {
-            const s = product.images.map((src) => ({ type: 'image', src }));
-            if (product.video_url) s.push({ type: 'video', src: product.video_url });
-            return s;
-        },
-        get current() { return this.slides[this.image]; },
+        // A combination with its own photos takes over the gallery when it is chosen.
+        get slides() { return gallerySlides(product, this); },
+        get current() { return this.slides[this.image] ?? this.slides[0]; },
         init() {
             Alpine.store('recent_products').push(product.slug);
+            watchVariantGallery(this, product);
             const anchor = this.$refs.buy;
             if (anchor) {
                 new IntersectionObserver(([e]) => { this.showSticky = !e.isIntersecting && e.boundingClientRect.top < 0; }, { threshold: 0 }).observe(anchor);
@@ -115,9 +114,21 @@ export default function registerExtras(Alpine, api) {
             const m = src.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/);
             return m ? `https://www.youtube.com/embed/${m[1]}?rel=0` : src;
         },
+        /** + button: up to the product's max quantity per order, then says so. */
+        incQty() {
+            const max = this.p.max_qty;
+            if (max && this.qty >= max) { Alpine.store('ui').notify(`You can order at most ${max} of this item.`); return; }
+            this.qty++;
+        },
         async add(buyNow = false) {
             if (!this.size) { this.$refs.sizes?.scrollIntoView({ block: 'center', behavior: 'smooth' }); this.sizeError = true; return; }
-            await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
+            try {
+                await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
+            } catch (e) {
+                // Over the max quantity per order or the stock: the server says which.
+                Alpine.store('ui').notify(e.payload?.message || 'Could not add this item.');
+                return;
+            }
             if (buyNow) window.location.href = '/checkout';
         },
         sizeError: false,
@@ -151,23 +162,61 @@ export default function registerExtras(Alpine, api) {
         codFee: init.codFee,
         sameAsBilling: true,
         submitting: false,
+        gst: init.gst || { seller: null, states: {}, india: [] },
+        initialCart: init.cart || {},
+        shipState: '',
+        shipCountry: '',
+        init() {
+            // The tax is named from the shipping address as it is typed, as the order will be.
+            const read = () => {
+                this.shipState = this.$el.querySelector('[name="shipping_state"]')?.value ?? '';
+                this.shipCountry = this.$el.querySelector('[name="shipping_country"]')?.value ?? '';
+            };
+            read();
+            this.$el.addEventListener('input', (e) => { if (['shipping_state', 'shipping_country'].includes(e.target.name)) read(); });
+            this.$el.addEventListener('change', (e) => { if (['shipping_state', 'shipping_country'].includes(e.target.name)) read(); });
+        },
+        /** As IndianStates::key(): lower case, "&" as "and", letters, digits and single spaces. */
+        gstKey(value) {
+            return String(value ?? '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+        },
+        /** "CGST + SGST", "IGST", or null (stays "GST"): as GstSupply::labelFor() when the order is placed. */
+        get gstSupply() {
+            if (!this.gst.seller) return null;
+            const country = this.gstKey(this.shipCountry);
+            if (country === '') return null;
+            if (!this.gst.india.includes(country)) return 'IGST';
+            const buyer = this.gst.states[this.gstKey(this.shipState)];
+            if (!buyer) return null;
+            return buyer === this.gst.seller ? 'CGST + SGST' : 'IGST';
+        },
+        /** The checkout's tax row(s): one GST or IGST row, or a CGST and an SGST row. */
+        get taxRows() {
+            const store = Alpine.store('cart');
+            const cart = store.loaded ? store : this.initialCart;
+            const line = cart.tax_line || 'GST';
+            const supply = this.gstSupply;
+            if (!supply || !(cart.tax > 0)) return [{ label: line, amount: cart.tax_formatted }];
+            if (supply === 'IGST') return [{ label: line.replace(/\bGST\b/, 'IGST'), amount: cart.tax_formatted }];
+            // Split per rate as the order will be (half to the centre, rounded; the rest to the state).
+            const round = (n) => Math.round(n * 100) / 100;
+            const cgst = round((cart.tax_rows || []).reduce((sum, r) => sum + round(r.amount / 2), 0));
+            const sgst = round(cart.tax - cgst);
+            const pct = (r) => (r === null || r === undefined || Number(r) <= 0) ? '' : ` (${Number((Number(r) / 2).toFixed(3))}%)`;
+            const prefix = cart.tax_inclusive ? 'Includes ' : '';
+            return [
+                { label: `${prefix}CGST${pct(cart.tax_rate)}`, amount: this.fmt(cgst) },
+                { label: `${prefix}SGST${pct(cart.tax_rate)}`, amount: this.fmt(sgst) },
+            ];
+        },
         async setShipping(code) { this.shipping = code; await Alpine.store('cart').setShipping(code); },
         get codExtra() { return this.payment === 'cod' ? this.codFee : 0; },
-        fmt(n) { return '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n)); },
+        fmt(n) { return '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); },
     }));
 
 
     /* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
-    Alpine.data('variantPricing', (variants) => ({
-        get current() {
-            const chosen = this.options || {};
-            const picked = Object.keys(chosen).filter((k) => chosen[k]);
-            return variants.find((v) => {
-                const names = Object.keys(v.options);
-                return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
-            }) || null;
-        },
-    }));
+    registerVariants(Alpine);
 
     /* ---- FAQ accordion / generic accordion -------------------------------- */
     Alpine.data('accordion', (first = null) => ({ open: first, toggle(k) { this.open = this.open === k ? null : k; } }));

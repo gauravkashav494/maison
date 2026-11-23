@@ -5,13 +5,14 @@
     $gs = tsetting('site');
     $crumbs = [];
     if ($category?->parent) { $crumbs[$category->parent->name] = $category->parent->url; }
+    if ($brand ?? null) { $crumbs['Brands'] = route('brands.index'); }
     $crumbs[$title] = null;
     $init = $filters + ['view' => $view];
     $sorts = ['' => 'Relevance', 'price-asc' => 'Price: low to high', 'price-desc' => 'Price: high to low', 'newest' => 'Newest first', 'rating' => 'Top rated'];
     $priceRanges = [[null, 49, 'Under ₹49'], [50, 99, '₹50 – ₹99'], [100, 199, '₹100 – ₹199'], [200, 499, '₹200 – ₹499'], [500, null, '₹500 & above']];
 @endphp
 <div x-data="shopFilters(@js($init))" @open-filters.window="open = true">
-    <x-page-head :title="$title" :text="$category?->description" :breadcrumbs="$crumbs" />
+    <x-page-head :title="$title" :text="$category?->description ?? ($brand ?? null)?->description" :breadcrumbs="$crumbs" />
 
     {{-- Sub-category chips --}}
     @if($facets['subcategories']->isNotEmpty())

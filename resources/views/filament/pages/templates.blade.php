@@ -1,14 +1,8 @@
 <x-filament-panels::page>
-    @php
-        $active = $this->getActiveId();
-        $activatedAt = $this->getActivatedAt();
-    @endphp
-
     <style>
         .tpl-intro { border-radius: .75rem; border: 1px solid rgb(0 0 0 / .08); background: #fff; padding: 1rem 1.25rem; font-size: .875rem; color: #4b5563; line-height: 1.5; }
         .tpl-grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
         .tpl-card { display: flex; flex-direction: column; overflow: hidden; border-radius: .75rem; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .05); outline: 1px solid rgb(0 0 0 / .08); }
-        .tpl-card.is-active { outline: 2px solid rgb(22 163 74); }
         .tpl-media { position: relative; aspect-ratio: 16 / 10; background: #f3f4f6; }
         .tpl-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
         .tpl-media .tpl-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #9ca3af; font-size: .875rem; }
@@ -29,16 +23,13 @@
     </style>
 
     <div class="tpl-intro">
-        Templates change only how the storefront looks. Products, categories, pages, navigation content, orders, customers, SEO and checkout settings are shared and never lost when you switch. Every URL stays the same.
+        Every store is built on one of these templates, chosen on the store itself, and visitors see that template on the store's own address. Here you can install a template's demo content, build its public theme preview and open its settings.
     </div>
 
     <div class="tpl-grid">
         @foreach($this->getTemplates() as $template)
-            @php
-                $isActive = $template->id() === $active;
-                $installed = $template->isInstalled();
-            @endphp
-            <div class="tpl-card {{ $isActive ? 'is-active' : '' }}">
+            @php $installed = $template->isInstalled(); @endphp
+            <div class="tpl-card">
                 <div class="tpl-media">
                     @if($template->thumbnail() && file_exists(public_path($template->thumbnail())))
                         <img src="{{ $template->thumbnail() }}?v={{ filemtime(public_path($template->thumbnail())) }}" alt="{{ $template->name() }} preview">
@@ -46,9 +37,6 @@
                         <div class="tpl-empty">No preview image yet</div>
                     @endif
                     <div class="tpl-badges">
-                        @if($isActive)
-                            <x-filament::badge color="success" icon="heroicon-m-check-circle">Active</x-filament::badge>
-                        @endif
                         @unless($installed)
                             <x-filament::badge color="warning">Not installed</x-filament::badge>
                         @endunless
@@ -64,19 +52,12 @@
                     <dl class="tpl-meta">
                         <div><dt>Identifier</dt><dd><code>{{ $template->id() }}</code></dd></div>
                         <div><dt>Menus</dt><dd>{{ count($template->menuLocations()) }} locations</dd></div>
-                        @if($isActive && $activatedAt)
-                            <div style="grid-column: span 2"><dt>Activated</dt><dd>{{ \Illuminate\Support\Carbon::parse($activatedAt)->diffForHumans() }}</dd></div>
-                        @endif
                     </dl>
 
                     <div class="tpl-actions">
-                        @if($isActive)
-                            <x-filament::button color="success" icon="heroicon-m-check-circle" disabled>Currently active</x-filament::button>
-                        @elseif($installed)
-                            {{ ($this->activateAction)(['template' => $template->id()]) }}
-                        @else
+                        @unless($installed)
                             {{ ($this->installAction)(['template' => $template->id()]) }}
-                        @endif
+                        @endunless
                         {{ ($this->previewAction)(['template' => $template->id()]) }}
                         {{ ($this->themeAction)(['template' => $template->id()]) }}
                         <div class="tpl-links">
@@ -93,10 +74,10 @@
         @endforeach
     </div>
 
-    <x-filament::section heading="How switching works" collapsible collapsed>
+    <x-filament::section heading="How templates work" collapsible collapsed>
         <ul class="tpl-help">
-            <li><strong>Preview</strong> shows a template to you only (a bar at the bottom of the storefront reminds you). Visitors keep seeing the active template.</li>
-            <li><strong>Activate</strong> makes the template live for everyone after a confirmation. Caches are cleared automatically.</li>
+            <li>A store's template is set on the store (Platform → Stores). Its subdomain or custom domain always shows that template; the main domain is this admin panel.</li>
+            <li><strong>Preview</strong> opens the template's public theme preview, a sample store visitors can browse but not order from. <strong>Set up / Update theme</strong> builds it.</li>
             <li>Each template has its own homepage content, navigation menus and header/footer settings under <em>Appearance</em>. Catalogue, pages, journal, orders, customers, promo codes, checkout and SEO defaults are shared.</li>
             <li>Products, categories and collections have a <em>Visible in</em> option (all templates or one template) so a grocery catalogue and a fashion catalogue can live side by side.</li>
         </ul>

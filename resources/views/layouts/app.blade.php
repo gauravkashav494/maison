@@ -19,7 +19,7 @@
 <body class="flex min-h-full flex-col">
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-ink focus:px-4 focus:py-2 focus:text-ivory">Skip to content</a>
 
-    @include('partials.header', ['transparent' => $transparentHeader ?? false])
+    @include('partials.header', ['transparent' => ($transparentHeader ?? false) && (! request()->filled('menu_preview') || request()->boolean('menu_preview_page'))])
 
     <main id="main" class="app-main-fixed flex-1">
         @yield('content')
@@ -32,6 +32,7 @@
     @include('partials.search-overlay')
     @include('partials.cart-drawer')
     @include('partials.quick-view')
+    <x-cart-notice />
     @include('partials.cookie-banner')
 
     @stack('scripts')

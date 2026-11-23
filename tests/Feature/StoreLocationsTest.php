@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Filament\Resources\Stores\Pages\CreateStore;
 use App\Models\Client;
@@ -66,7 +67,7 @@ class StoreLocationsTest extends TestCase
         $this->actingAs($this->alphaAdmin, 'client');
         Filament::setCurrentPanel(Filament::getPanel('client'));
         app(ClientContext::class)->resolveForIdentity($this->alphaAdmin);
-        app(\App\Admin\StoreContext::class)->resolve($this->alphaAdmin);
+        app(StoreContext::class)->resolve($this->alphaAdmin);
 
         Livewire::test(CreateStore::class)
             ->fillForm(['name' => 'New Shop', 'address' => '2 Test Street', 'city' => 'Pune'])
@@ -74,6 +75,24 @@ class StoreLocationsTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertDatabaseHas('stores', ['name' => 'New Shop', 'client_id' => $this->alpha->id, 'template' => 'fashion']);
+    }
+
+    public function test_locations_are_in_the_dragged_order_then_a_to_z(): void
+    {
+        $this->actingAs($this->alphaAdmin, 'client');
+        Filament::setCurrentPanel(Filament::getPanel('client'));
+        app(ClientContext::class)->resolveForIdentity($this->alphaAdmin);
+        app(StoreContext::class)->resolve($this->alphaAdmin);
+        // No sort order box: the order is set by dragging rows in the store locations list.
+        Livewire::test(CreateStore::class)->assertFormFieldDoesNotExist('sort_order');
+
+        $pune = $this->location($this->alpha, 'Pune Boutique');
+        $placed = $this->location($this->alpha, 'Placed');
+        $placed->update(['sort_order' => 1]);
+        $delhi = $this->location($this->alpha, 'Delhi Boutique');
+
+        // Delhi and Pune both sit at 0 (never dragged): A to Z, then the one placed at 1.
+        $this->assertSame([$delhi->id, $pune->id, $placed->id], Store::withoutGlobalScopes()->where('client_id', $this->alpha->id)->active()->pluck('id')->all());
     }
 
     public function test_the_stores_page_lists_only_the_clients_own_locations(): void
@@ -106,7 +125,7 @@ class StoreLocationsTest extends TestCase
 
         // No stores page, so no locations.
         $this->assertSame([], StoreLocationsSeeder::for('plumbing-services'));
-        $this->assertSame([], StoreLocationsSeeder::for('simple'));
+        $this->assertSame([], StoreLocationsSeeder::for('bulk'));
     }
 
     public function test_the_seeder_writes_the_locations_of_its_template_and_can_rerun(): void

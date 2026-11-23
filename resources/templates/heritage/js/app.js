@@ -9,6 +9,9 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
+import '../../../js/password-reveal';
+import '../../../js/phone-input';
 
 Alpine.plugin(intersect);
 Alpine.plugin(persist);
@@ -32,7 +35,7 @@ async function api(url, options = {}) {
     return res.json();
 }
 
-const inr = (n) => '₹' + new Intl.NumberFormat('en-IN').format(Math.round(n));
+const inr = (n) => '₹' + new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0);
 
 /* ---------------------------------------------------------------------------
    Stores
@@ -50,10 +53,10 @@ Alpine.store('ui', {
         this.quickViewLoading = true;
         try { this.quickView = await api(`/api/products/${slug}`); } finally { this.quickViewLoading = false; }
     },
-    notify(message, tone = 'ok') {
+    notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.toastTimer);
         this.toast = { message, tone };
-        this.toastTimer = setTimeout(() => { this.toast = null; }, 2400);
+        this.toastTimer = setTimeout(() => { this.toast = null; }, duration ?? 2400);
     },
 });
 
@@ -65,7 +68,20 @@ Alpine.store('cart', {
     tax: 0, tax_label: 'GST', tax_formatted: 'Included',
     total: 0, total_formatted: '₹0', recommendations: [],
     loaded: false, busy: false, couponError: null, couponBusy: false,
-    apply(data) { Object.assign(this, data); this.loaded = true; },
+    removed_notice: null, noticeBox: false, // <x-cart-unavailable-notice>
+    apply(data) {
+        Object.assign(this, data);
+        this.loaded = true;
+        // A product hidden or deleted since it was added: the server took it out, say which —
+        // in the box on the cart and checkout pages (<x-cart-unavailable-notice>), else a toast.
+        if (data.unavailable_notice) {
+            this.removed_notice = data.unavailable_notice;
+            if (!this.noticeBox) Alpine.store('ui').notify(data.unavailable_notice, 'error', 8000);
+        }
+        // An item no longer sold stays in the cart, greyed, until removed (<x-cart-unavailable-notice>
+        // lists it); said once in a toast, except on the cart and checkout pages, which list it.
+        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(data.unavailable_toast, 'error', 8000);
+    },
     async load() { this.apply(await api('/cart/items')); },
     get savings() { return this.items.reduce((s, i) => s + (i.product.compare_at_price ? (i.product.compare_at_price - i.product.price) * i.qty : 0), 0) + this.discount; },
     get savings_formatted() { return inr(this.savings); },
@@ -80,7 +96,11 @@ Alpine.store('cart', {
             Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
         } finally { this.busy = false; }
     },
-    async update(key, qty) { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); },
+    async update(key, qty) {
+        // Refused over the product's max quantity per order or its stock: say why.
+        try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
+        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart', 'error'); }
+    },
     async remove(key) { this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' })); },
     async applyCoupon(code) {
         this.couponError = null;
@@ -181,8 +201,8 @@ Alpine.data('hCard', (product) => ({
     product, qty: 1, added: false,
     size: product.sizes[0] ?? null,
     get multi() { return this.product.sizes.length > 1; },
-    get max() { return this.product.max_qty || 20; },
-    inc() { if (this.qty < this.max) this.qty++; },
+    get max() { return this.product.max_qty || Infinity; },
+    inc() { if (this.qty < this.max) this.qty++; else Alpine.store('ui').notify(`Maximum ${this.max} per order`, 'error'); },
     dec() { if (this.qty > 1) this.qty--; },
     async add() {
         if (!this.product.in_stock) return;
@@ -274,15 +294,13 @@ Alpine.data('productPage', (product) => ({
     options: {},
     p: product, image: 0, qty: 1, lightbox: false, showSticky: false, tab: 'description', zoom: { on: false, x: 50, y: 50 },
     size: product.sizes[0] ?? null,
-    get slides() {
-        const s = product.images.map((src) => ({ type: 'image', src }));
-        if (product.video_url) s.push({ type: 'video', src: product.video_url });
-        return s;
-    },
+    // A combination with its own photos takes over the gallery when it is chosen.
+    get slides() { return gallerySlides(product, this); },
     get inCart() { return Alpine.store('cart').qtyOf(this.p.id, this.size); },
-    get max() { return this.p.max_qty || 20; },
+    get max() { return this.p.max_qty || Infinity; },
     init() {
         Alpine.store('recent_products').push(product.slug);
+        watchVariantGallery(this, product);
         const anchor = this.$refs.buy;
         if (anchor) new IntersectionObserver(([e]) => { this.showSticky = !e.isIntersecting && e.boundingClientRect.top < 0; }, { threshold: 0 }).observe(anchor);
         let x0 = null;
@@ -352,17 +370,7 @@ window.addEventListener('keydown', (e) => { if (e.key === 'Escape') Alpine.store
 
 window.Alpine = Alpine;
 registerAppShell(Alpine);
+// Registered before start: the product page's price line is built when Alpine starts.
+registerVariants(Alpine);
 Alpine.start();
 Alpine.store('cart').load();
-
-/* ---- Variant pricing: the chosen combination decides price, SKU and stock ---- */
-Alpine.data('variantPricing', (variants) => ({
-    get current() {
-        const chosen = this.options || {};
-        const picked = Object.keys(chosen).filter((k) => chosen[k]);
-        return variants.find((v) => {
-            const names = Object.keys(v.options);
-            return names.length === picked.length && names.every((n) => chosen[n] === v.options[n]);
-        }) || null;
-    },
-}));

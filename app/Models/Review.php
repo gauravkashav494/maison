@@ -19,7 +19,10 @@ class Review extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_approved' => 'boolean'];
+    protected $casts = ['is_approved' => 'boolean', 'is_verified_purchase' => 'boolean'];
+
+    /** Star options for the admin filters, best first. */
+    public const RATING_OPTIONS = ['5' => '★★★★★ 5 stars', '4' => '★★★★☆ 4 stars', '3' => '★★★☆☆ 3 stars', '2' => '★★☆☆☆ 2 stars', '1' => '★☆☆☆☆ 1 star'];
 
     public function product(): BelongsTo
     {
@@ -37,15 +40,18 @@ class Review extends Model
         return $q->where('is_approved', true);
     }
 
-    /** Keep the denormalised rating/review_count on the product in sync. */
+    /**
+     * Keep the denormalised rating/review_count on the product in sync: the admin's baseline
+     * plus the approved reviews, so a new (or pending) review never wipes the typed figures.
+     */
     public static function syncProduct(int $productId): void
     {
-        $stats = static::approved()->where('product_id', $productId)->reorder()
-            ->selectRaw('count(*) as review_total, avg(rating) as rating_avg')->first();
-        Product::whereKey($productId)->update([
-            'review_count' => (int) ($stats->review_total ?? 0),
-            'rating' => round((float) ($stats->rating_avg ?? 0), 1),
-        ]);
+        $product = Product::withTrashed()->find($productId);
+        if (! $product) {
+            return;
+        }
+
+        Product::withTrashed()->whereKey($productId)->update($product->combinedReviewStats());
     }
 
     protected static function booted(): void
