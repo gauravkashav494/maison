@@ -12,7 +12,9 @@
         </div>
         <button type="submit" class="btn btn-primary btn-lg btn-block">Log in</button>
     </form>
-    <a href="{{ route('login.otp') }}" class="btn btn-outline btn-lg btn-block mt-3">Log in with WhatsApp code</a>
+    @otp
+        <a href="{{ route('login.otp') }}" class="btn btn-outline btn-lg btn-block mt-3">Log in with WhatsApp code</a>
+    @endotp
     <p class="mt-5 text-center text-sm text-slate">New here? <a href="{{ route('register') }}" class="font-bold text-leaf hover:underline">Create an account</a></p>
 </x-auth-shell>
 @endsection

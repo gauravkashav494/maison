@@ -13,7 +13,7 @@
             {{-- Contact & delivery address --}}
             <fieldset class="card p-4 sm:p-5">
                 <legend class="sr-only">Contact and delivery address</legend>
-                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-semibold">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2></div>@guest<p class="text-xs text-muted">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-red underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest</div>
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><div class="flex items-center gap-3"><span class="step-num">1</span><h2 class="text-base font-semibold">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2></div>@guest @otp<p class="text-xs text-muted">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="font-semibold text-red underline underline-offset-2">Log in</a> to use your saved addresses.</p>@endguest</div>
                 @if($salesOrder ?? false)
                     @include('partials.checkout.sales-order', ['labelClass' => 'label', 'fieldClass' => 'field', 'errorClass' => 'error-text', 'radioClass' => 'check'])
                 @else
@@ -137,7 +137,7 @@
                 @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-line-soft pt-3', 'labelClass' => 'text-sm font-serif', 'inputClass' => 'field h-10 min-w-0 flex-1 uppercase', 'buttonClass' => 'btn btn-outline h-10 shrink-0', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 rounded-lg bg-cream px-3 py-2 text-sm', 'removeClass' => 'shrink-0 text-xs text-muted hover:text-red', 'errorClass' => 'error-text mt-2'])
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-muted">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg btn-block mt-4"><x-ico name="lock" :size="14" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
-                @guest<p class="mt-2 text-center text-xs text-muted">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
+                @guest<p class="mt-2 text-center text-xs text-muted">We will send a code on WhatsApp to confirm your number and create your account.</p>@endotp @endguest
                 <p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-muted">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>.</p>
             </div>
         </aside>

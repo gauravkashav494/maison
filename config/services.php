@@ -68,6 +68,10 @@ return [
 
     // One-time codes customers receive on WhatsApp (sign-up, checkout, sign-in).
     'otp' => [
+        // Off (follows WHATSAPP_ENABLED unless OTP_ENABLED is set): no code is asked. Sign-up makes
+        // the account at once, a guest checks out as a guest, "Sign in with WhatsApp" is hidden
+        // and Forgot password emails a reset link. See App\Support\CustomerOtp::enabled().
+        'enabled' => (bool) env('OTP_ENABLED', env('WHATSAPP_ENABLED', false)),
         'length' => 6,
         'ttl' => 300,            // valid for 5 minutes
         'max_attempts' => 5,     // wrong entries before the code is void

@@ -15,7 +15,9 @@
         </div>
         <button type="submit" class="btn btn-primary btn-lg w-full">Sign in</button>
     </form>
-    <a href="{{ route('login.otp') }}" class="btn btn-outline btn-lg mt-4 w-full">Sign in with WhatsApp code</a>
+    @otp
+        <a href="{{ route('login.otp') }}" class="btn btn-outline btn-lg mt-4 w-full">Sign in with WhatsApp code</a>
+    @endotp
     <p class="mt-8 text-center text-sm text-smoke">New to Maison Élan? <a href="{{ route('register') }}" class="link-underline text-ink">Create an account</a></p>
 </x-auth-shell>
 @endsection

@@ -246,7 +246,9 @@ class CartController extends Controller
 
         // A shopper without an account proves the phone number with a WhatsApp code first. Once it
         // is entered, an account is made from these details and the order is placed (OtpController).
-        if (! $request->user()) {
+        // While codes are off the order is placed as a guest's: nobody is signed in to the account
+        // of a number they have not proven, and the order is kept against the email (GuestCustomer).
+        if (! $request->user() && CustomerOtp::enabled()) {
             if ($error = $otp->start(CustomerOtp::CHECKOUT, $data['phone'], $data)) {
                 return back()->withInput()->withErrors(['phone' => $error]);
             }

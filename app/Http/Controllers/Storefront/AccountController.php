@@ -16,6 +16,7 @@ use App\Models\Address;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Support\CustomerAccount;
 use App\Support\CustomerOtp;
 use App\Support\PhoneNumber;
 use App\Support\Seo;
@@ -111,6 +112,16 @@ class AccountController extends Controller
             return redirect()->route('login')->with('status', 'You have ordered with us before. We have emailed you a link to set your password and see your orders.');
         }
 
+        // While codes are off the account is made at once, with the phone left unverified
+        // (phone_verified_at empty). The form has already checked no account has this number.
+        if (! CustomerOtp::enabled()) {
+            $customer = CustomerAccount::create($clientId, $data['phone'], $data['name'], $data['email'] ?? null, $data['password'], verified: false);
+            Auth::login($customer);
+            $request->session()->regenerate();
+
+            return redirect()->route('account.index')->with('status', 'Welcome to '.setting('site.name', config('app.name')).'.');
+        }
+
         // The account is made once the phone number is proven with a WhatsApp code (OtpController).
         // The password waits with the code, encrypted, as it is still needed in plain form then.
         $error = $otp->start(CustomerOtp::REGISTER, $data['phone'], [
@@ -143,7 +154,9 @@ class AccountController extends Controller
 
     /**
      * Forgot password: a WhatsApp code to the phone number on the account. Once it is entered
-     * (OtpController::completeReset) the shopper chooses a new password here.
+     * (OtpController::completeReset) the shopper chooses a new password here. While codes are
+     * off, a reset link is emailed to the account's address instead (or the shopper is told to
+     * contact the store when it has none).
      */
     public function forgot(ForgotPasswordRequest $request, CustomerOtp $otp): RedirectResponse
     {
@@ -157,11 +170,29 @@ class AccountController extends Controller
             return back()->withInput()->withErrors(['phone' => 'We could not find an account with this number. Create one instead.']);
         }
 
+        // While codes are off, the reset link goes to the account's email instead.
+        if (! CustomerOtp::enabled()) {
+            if (blank($customer->email)) {
+                return back()->withInput()->withErrors(['phone' => 'This account has no email address to send a reset link to. Please contact the store to reset your password.']);
+            }
+            Password::broker('customers')->sendResetLink(['email' => $customer->email, 'client_id' => $clientId, 'is_active' => true]);
+
+            return back()->with('status', 'We have emailed a link to reset your password to '.self::maskEmail($customer->email).'.');
+        }
+
         if ($error = $otp->start(CustomerOtp::RESET, $phone, ['customer_id' => $customer->id])) {
             return back()->withInput()->withErrors(['phone' => $error]);
         }
 
         return redirect()->route('otp.verify');
+    }
+
+    /** "asha@example.com" → "a•••@example.com", to say where a reset link went without giving the address away. */
+    private static function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($name, 0, 1).'•••@'.$domain;
     }
 
     /** After a correct reset code: this session may set a new password for the account, briefly. */

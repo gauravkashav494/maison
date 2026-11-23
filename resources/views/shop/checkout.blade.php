@@ -152,7 +152,7 @@
                 @include('partials.checkout.promo-code', ['containerClass' => 'mt-4 border-t border-ink/10 pt-4', 'labelClass' => 'eyebrow text-taupe', 'inputClass' => 'input-luxe min-w-0 flex-1 uppercase', 'buttonClass' => 'shrink-0 border-b border-ink pb-2 text-[0.6875rem] uppercase tracking-[0.16em] hover:opacity-60 disabled:opacity-50', 'couponClass' => 'mt-2 flex items-center justify-between gap-2 bg-cream px-3 py-2 text-sm', 'removeClass' => 'shrink-0 text-[0.625rem] uppercase tracking-widest text-smoke hover:text-ink', 'errorClass' => 'mt-2 text-sm text-rouge'])
                 @if(prices_include_tax())<p class="mt-1 text-right text-xs text-smoke">Inclusive of all taxes</p>@endif
                 <button type="submit" :disabled="submitting || $store.cart.unavailable?.length > 0" class="btn btn-primary btn-lg mt-5 w-full"><x-ico name="lock" :size="12" :stroke="1.5" /> <span x-text="submitting ? 'Placing order…' : 'Place order'"></span></button>
-                @guest<p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-taupe">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
+                @guest @otp<p class="mt-3 text-center text-[0.6875rem] leading-relaxed text-taupe">We will send a code on WhatsApp to confirm your number and create your account.</p>@endotp @endguest
                 <p class="mt-4 text-center text-[0.6875rem] leading-relaxed text-taupe">By placing your order you agree to our <a href="/terms" class="underline">Terms</a> and <a href="/privacy" class="underline">Privacy Policy</a>. 30-day returns on every piece.</p>
             </div>
         </aside>

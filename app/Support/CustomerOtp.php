@@ -31,6 +31,15 @@ class CustomerOtp
     public function __construct(private readonly WhatsApp $whatsapp) {}
 
     /**
+     * Whether codes are asked at all (services.otp.enabled, which follows WHATSAPP_ENABLED). While
+     * off, no flow waits for a code that cannot arrive: see config/services.php.
+     */
+    public static function enabled(): bool
+    {
+        return (bool) config('services.otp.enabled');
+    }
+
+    /**
      * Sends a new code for the purpose and keeps it pending with its payload.
      * Returns null when the code is on its way, otherwise a message for the shopper.
      */

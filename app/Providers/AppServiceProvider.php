@@ -31,6 +31,7 @@ use App\Policies\StorefrontPolicy;
 use App\Policies\UserPolicy;
 use App\Support\Activity\ActivityLog;
 use App\Support\Activity\SignInActivity;
+use App\Support\CustomerOtp;
 use App\Support\DatabaseMacros;
 use App\Support\PasswordRules;
 use App\Templates\TemplateManager;
@@ -202,6 +203,8 @@ class AppServiceProvider extends ServiceProvider
 
         // @module('reviews') ... @endmodule: shown only while the client has that module switched on.
         Blade::if('module', fn (string $module) => app(StoreFeatures::class)->on($module));
+        // @otp … @else … @endotp: whether WhatsApp codes are asked (CustomerOtp::enabled()).
+        Blade::if('otp', fn () => CustomerOtp::enabled());
 
         // Site chrome data shared with the storefront layout and its partials. Menus are
         // resolved for the template rendering the request (alias => cached tree).

@@ -20,7 +20,9 @@
         </div>
         <button type="submit" class="bk-btn bk-btn-primary bk-btn-block !py-3 text-base">Sign in</button>
     </form>
-    <a href="{{ route('login.otp') }}" class="bk-btn bk-btn-outline bk-btn-block mt-3 !py-3 text-base">Sign in with WhatsApp code</a>
+    @otp
+        <a href="{{ route('login.otp') }}" class="bk-btn bk-btn-outline bk-btn-block mt-3 !py-3 text-base">Sign in with WhatsApp code</a>
+    @endotp
     <p class="bk-muted mt-6 text-center text-sm">New here? <a href="{{ route('register') }}" class="bk-link">Create a trade account</a></p>
 </x-auth-card>
 @endsection

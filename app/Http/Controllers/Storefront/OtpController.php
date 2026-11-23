@@ -11,9 +11,9 @@ use App\Http\Requests\Storefront\OtpLoginRequest;
 use App\Models\Customer;
 use App\Services\Cart;
 use App\Services\PlaceOrder;
+use App\Support\CustomerAccount;
 use App\Support\CustomerOtp;
 use App\Support\Seo;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +31,8 @@ use Illuminate\View\View;
  *  - reset:    forgot password; once the phone is proven the shopper chooses a new password.
  *
  * What each flow needs is kept with the pending code (CustomerOtp), never taken from this form.
+ * While codes are switched off (CustomerOtp::enabled()) no flow comes here, and the sign-in with
+ * a code sends the shopper to the password sign-in.
  */
 class OtpController extends Controller
 {
@@ -43,13 +45,20 @@ class OtpController extends Controller
 
     // ---- Sign in with a code -------------------------------------------------
 
-    public function loginForm(): View
+    public function loginForm(): View|RedirectResponse
     {
+        if (! CustomerOtp::enabled()) {
+            return $this->passwordOnly();
+        }
+
         return view('account.login-otp', ['seo' => Seo::simple('Sign in with WhatsApp', null, noindex: true)]);
     }
 
     public function sendLogin(OtpLoginRequest $request): RedirectResponse
     {
+        if (! CustomerOtp::enabled()) {
+            return $this->passwordOnly();
+        }
         $clientId = $this->clientId();
         abort_unless($clientId !== null, 404);
 
@@ -64,6 +73,12 @@ class OtpController extends Controller
         }
 
         return redirect()->route('otp.verify');
+    }
+
+    /** Codes are switched off: signing in is by password only. */
+    private function passwordOnly(): RedirectResponse
+    {
+        return redirect()->route('login')->with('status', 'Sign in with your phone number and password.');
     }
 
     // ---- Enter the code ------------------------------------------------------
@@ -194,33 +209,14 @@ class OtpController extends Controller
 
     // ---- Helpers ---------------------------------------------------------------
 
-    /** This client's account for the number (a password or a verified phone), if any. */
     private function accountFor(int $clientId, string $phone): ?Customer
     {
-        return Customer::where('client_id', $clientId)->where('phone', $phone)->accounts()->orderBy('id')->first();
+        return CustomerAccount::forPhone($clientId, $phone);
     }
 
-    /**
-     * A new account with a verified phone. The email is kept only when no other customer of
-     * this client has it (a guest record keeps its address, claimed through the emailed link).
-     */
     private function createAccount(int $clientId, string $phone, string $name, ?string $email, ?string $password = null): Customer
     {
-        $email = filled($email) ? strtolower(trim($email)) : null;
-        if ($email && Customer::withTrashed()->where('client_id', $clientId)->whereRaw('lower(email) = ?', [$email])->exists()) {
-            $email = null;
-        }
-
-        $attributes = ['client_id' => $clientId, 'name' => trim($name), 'phone' => $phone, 'is_active' => true];
-        try {
-            $customer = Customer::create($attributes + ['email' => $email, 'password' => $password]);
-        } catch (UniqueConstraintViolationException) {
-            // The address was taken a moment ago: the account is still made, without it.
-            $customer = Customer::create($attributes + ['email' => null, 'password' => $password]);
-        }
-        $customer->forceFill(['phone_verified_at' => now()])->save();
-
-        return $customer;
+        return CustomerAccount::create($clientId, $phone, $name, $email, $password);
     }
 
     private function signIn(Request $request, Customer $customer): void

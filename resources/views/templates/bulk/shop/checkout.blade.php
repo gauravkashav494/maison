@@ -143,7 +143,7 @@
             <button type="submit" class="bk-btn bk-btn-primary bk-btn-block mt-3 !py-2.5 text-sm" :disabled="submitting || $store.cart.unavailable?.length > 0">
                 <x-heroicon-o-check-circle aria-hidden="true" /><span x-text="submitting ? 'Placing order…' : 'Place order'">Place order</span>
             </button>
-            @guest<p class="bk-muted mt-3 text-center text-xs">We will send a code on WhatsApp to confirm your number and create your account.</p>@endguest
+            @guest @otp<p class="bk-muted mt-3 text-center text-xs">We will send a code on WhatsApp to confirm your number and create your account.</p>@endotp @endguest
             <p class="bk-muted mt-3 text-center text-xs">By placing this order you agree to our <a href="/terms" class="bk-link">terms</a> and <a href="/privacy" class="bk-link">privacy policy</a>.</p>
         </aside>
     </form>
