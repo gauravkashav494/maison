@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Products\Schemas;
 
 use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
+use App\Filament\Pages\StockLevels;
 use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
 use App\Clients\StoreFeatures;
@@ -13,7 +14,9 @@ use App\Filament\Resources\Taxes\Schemas\TaxForm;
 use App\Filament\Support\Fields;
 use App\Models\Category;
 use App\Models\Collection;
+use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\SyncToken;
 use App\Models\Tax;
 use App\Rules\WithinClientImageLimit;
@@ -36,12 +39,14 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
+use Filament\Support\Enums\IconPosition;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -72,7 +77,7 @@ class ProductForm
                 Tabs::make('Product')
                     ->persistTabInQueryString()
                     ->tabs([
-                        Tab::make('Details')
+                        Tab::make('Details')->badge(self::errorBadge('Details'))->badgeColor('danger')
                             ->icon('heroicon-o-tag')
                             ->schema([
                                 // One row: Category, Child category (and a Type box when the child category has
@@ -155,9 +160,10 @@ class ProductForm
                                             : 'Approved customer reviews are added to this number.'),
                                     TextInput::make('sort_order')->numeric()->default(0)->helperText('Lower numbers appear first.'),
                                 ]),
+                                self::tabButtons(create: false),
                             ]),
 
-                        Tab::make('Media')
+                        Tab::make('Media')->badge(self::errorBadge('Media'))->badgeColor('danger')
                             ->icon('heroicon-o-photo')
                             ->schema([
                                 Fields::image('images', 'Product images', 'products', multiple: true)
@@ -176,11 +182,12 @@ class ProductForm
                                     }),
                                 // Optional: a product without photos shows a neutral placeholder on the storefront.
                                 TextInput::make('video_url')->label('Product video (optional)')->url()->placeholder('https://…/video.mp4 or a YouTube link')->helperText('Shown as the last slide of the gallery.'),
+                                self::tabButtons(create: false),
                             ]),
 
                         // Price, stock and variants in one place, as on most stores: the product's price and
                         // stock, the options (with photos per colour), then each variant's own price and stock.
-                        Tab::make('Pricing & Variants')
+                        Tab::make('Pricing & Variants')->badge(self::errorBadge('Pricing & Variants'))->badgeColor('danger')
                             ->icon('heroicon-o-swatch')
                             ->schema([
                                 // The product's price and stock; a variant without its own price uses it.
@@ -234,6 +241,17 @@ class ProductForm
                                         // so this is not asked twice; it is saved as their total, which the shop
                                         // uses for "in stock" and the cart.
                                         TextInput::make('stock')->numeric()->minValue(0)->default(100)->required()
+                                            // What the product starts with when added; once saved, what is on the shelf now
+                                            // (the opening figure stays in the note under it).
+                                            ->label(fn (?Product $record) => $record?->exists ? 'Current stock' : 'Initial stock')
+                                            // Once ordered, stock changes in Inventory → Stock levels, with a reason
+                                            // (EditProduct saves it as it is now). Still sent, for the variants total.
+                                            ->disabled(fn (?Product $record) => self::stockLocked($record))
+                                            ->dehydrated()
+                                            ->hintIcon(fn (?Product $record) => self::stockLocked($record) ? 'heroicon-m-lock-closed' : null, tooltip: 'Locked: this product has been ordered')
+                                            ->hintColor('warning')
+                                            ->hintAction(fn (?Product $record) => self::adjustStockLink($record))
+                                            ->helperText(fn (?Product $record) => self::stockNote($record, self::stockLocked($record) ? self::STOCK_LOCKED_HELP : null))
                                             ->hidden(fn (Get $get) => (bool) $get('has_variants'))
                                             ->dehydratedWhenHidden()
                                             ->dehydrateStateUsing(fn ($state, Get $get) => $get('has_variants') ? self::combinationStock($get('variants')) : $state)
@@ -245,7 +263,7 @@ class ProductForm
                                             ->disabled()
                                             ->dehydrated(false)
                                             ->placeholder(fn (Get $get) => number_format(self::combinationStock($get('variants'))))
-                                            ->helperText('Total of the variants (step 2 below).')
+                                            ->helperText(fn (?Product $record) => self::stockNote($record, 'Total of the variants (step 2 below).'))
                                             ->visible(fn (Get $get) => (bool) $get('has_variants'))
                                             ->columnSpan(fn (Get $get) => ['lg' => self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)($get) ? 1 : 2]),
                                         TextInput::make('max_qty')
@@ -419,6 +437,11 @@ class ProductForm
                                         Text::make('Add at least one option in step 1 to list its variants.')
                                             ->color('gray')
                                             ->visible(fn (Get $get) => (bool) $get('has_variants') && self::definedAttributes($get, '') === []),
+                                        // Ordered: the stock of the variants it already has is locked (a new one can still take its stock).
+                                        Text::make(self::STOCK_LOCKED_HELP.' A variant you add here takes the stock you enter for it.')
+                                            ->color('warning')
+                                            ->icon('heroicon-m-lock-closed')
+                                            ->visible(fn (Get $get, ?Product $record) => (bool) $get('has_variants') && self::stockLocked($record)),
                                         // One compact row per combination: a column for each option, then its
                                         // own SKU, price, stock, availability and photos.
                                         Repeater::make('variants')
@@ -434,14 +457,14 @@ class ProductForm
                                             )
                                             ->visible(fn (Get $get) => (bool) $get('has_variants') && self::definedAttributes($get, '') !== [])
                                             ->addActionLabel('Add one variant')
-                                            ->table(fn (Get $get) => [
+                                            ->table(fn (Get $get, ?Product $record) => [
                                                 ...array_map(fn (array $attribute) => TableColumn::make($attribute['name'])->markAsRequired()->width('9rem'), self::definedAttributes($get, '')),
                                                 TableColumn::make('SKU')->width('11rem'),
                                                 TableColumn::make('MRP (₹)')->width('8rem'),
                                                 TableColumn::make('Tax')->width('9rem'),
                                                 TableColumn::make('Price incl. tax (₹)')->width('9rem'),
                                                 TableColumn::make('Price excl. tax (₹)')->width('9rem'),
-                                                TableColumn::make('Stock')->markAsRequired()->width('6rem'),
+                                                TableColumn::make($record?->exists ? 'Current stock' : 'Initial stock')->markAsRequired()->width('7rem'),
                                                 TableColumn::make('Available')->alignment('center')->width('6rem'),
                                             ])
                                             ->schema(fn (Get $get) => [
@@ -484,7 +507,12 @@ class ProductForm
                                                 self::variantPriceField(inclusive: false),
                                                 // Required: a blank stock used to copy the product's whole stock to
                                                 // every combination, so the store could sell many times what it had.
-                                                TextInput::make('stock')->label('Stock')->numeric()->integer()->minValue(0)->required()
+                                                TextInput::make('stock')->label(fn (?Product $record) => $record?->exists ? 'Current stock' : 'Initial stock')->numeric()->integer()->minValue(0)->required()
+                                                    // Locked on a variant the product already had once it has been ordered;
+                                                    // a variant added now takes its stock here. Still sent: EditProduct
+                                                    // saves the stock as it is now in its place.
+                                                    ->disabled(fn (Get $get, ?Product $record) => self::stockLocked($record) && self::isSavedVariant($record, (array) $get('options')))
+                                                    ->dehydrated()
                                                     // Updates the read-only total in Price & stock.
                                                     ->live(onBlur: true)
                                                     ->validationMessages(['required' => 'Enter how many of this variant you have (0 if none).']),
@@ -525,9 +553,10 @@ class ProductForm
                                             ->visible(fn (?Product $record, Get $get) => self::hasUncoveredLegacyList($record, $get, 'sizes'))
                                             ->reorderable(),
                                     ]),
+                                self::tabButtons(create: true),
                             ]),
 
-                        Tab::make('Grocery & nutrition')
+                        Tab::make('Grocery & nutrition')->badge(self::errorBadge('Grocery & nutrition'))->badgeColor('danger')
                             ->icon('heroicon-o-shopping-cart')
                             ->visible(self::uses(Template::PRODUCT_FIELDS_GROCERY, Template::PRODUCT_FIELDS_NUTRITION))
                             ->schema([
@@ -560,9 +589,10 @@ class ProductForm
                                             ->columns(2)->defaultItems(0)->addActionLabel('Add row')->reorderable()->columnSpan(2)
                                             ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
                                     ]),
+                                self::tabButtons(create: true),
                             ]),
 
-                        Tab::make('Plumbing specifications')
+                        Tab::make('Plumbing specifications')->badge(self::errorBadge('Plumbing specifications'))->badgeColor('danger')
                             ->icon('heroicon-o-wrench-screwdriver')
                             ->visible(self::uses(Template::PRODUCT_FIELDS_SPECIFICATIONS))
                             ->schema([
@@ -578,9 +608,40 @@ class ProductForm
                                         Textarea::make('applications')->label('Applications')->rows(3)->helperText('One application per line, e.g. "Hot and cold water lines".'),
                                         Textarea::make('installation_notes')->label('Installation / usage notes')->rows(3),
                                     ]),
+                                self::tabButtons(create: true),
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * The buttons at the foot of a tab while adding a product: "Next" on the tabs before Pricing &
+     * Variants (it only moves on: nothing is checked or saved), "Create" from Pricing & Variants
+     * on, which saves the whole form (CreateProduct has no Create button of its own). The tabs stay
+     * free to click. Editing keeps its usual Save button and none of these.
+     */
+    private static function tabButtons(bool $create): Actions
+    {
+        $actions = $create
+            ? [
+                Action::make('createFromTab')->label('Create')->icon('heroicon-m-check')
+                    ->alpineClickHandler('$wire.create()')->keyBindings(['mod+s']),
+                Action::make('createAnotherFromTab')->label('Create & add another')->color('gray')
+                    ->alpineClickHandler('$wire.createAnother()'),
+            ]
+            : [
+                Action::make('nextTab')->label('Next')->icon('heroicon-m-arrow-right')->iconPosition(IconPosition::After)->color('primary')
+                    // The tabs' own state: move to the tab after this one, and back to the top of the form.
+                    ->alpineClickHandler("tab = getTabs()[getTabs().indexOf(tab) + 1] ?? tab; \$el.closest('.fi-sc-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"),
+            ];
+
+        return Actions::make($actions)->visibleOn('create')->alignEnd();
+    }
+
+    /** A tab's red badge: how many of the fields on it a refused save complained about (ExplainsMissingFields). */
+    private static function errorBadge(string $tab): Closure
+    {
+        return fn ($livewire) => method_exists($livewire, 'errorCountOnTab') ? $livewire->errorCountOnTab($tab) : null;
     }
 
     /**
@@ -1449,6 +1510,80 @@ class ProductForm
     }
 
     /** Total stock of the combinations that can be bought; what the product's own stock is saved as. */
+    public const STOCK_LOCKED_HELP = 'This product has been ordered, so its stock can no longer be changed here. Use Inventory → Stock levels → Adjust stock: it keeps the reason for every change (stock received, return, damage, stock count).';
+
+    /** Per record object, like $ordered. */
+    private static ?\WeakMap $opening = null;
+
+    /**
+     * What the product started with: its "Opening stock" lines in the stock history (one per
+     * variant, added up). Null for a new product, or one added before the stock history began.
+     */
+    public static function openingStock(?Product $record): ?int
+    {
+        if (! $record?->exists) {
+            return null;
+        }
+        self::$opening ??= new \WeakMap;
+
+        return self::$opening[$record] ??= (function () use ($record) {
+            $lines = StockMovement::query()->where('product_id', $record->getKey())->where('reason', StockMovement::OPENING);
+
+            return $lines->exists() ? (int) $lines->sum('quantity') : null;
+        })();
+    }
+
+    /** "Started with 100." in front of $more, on a saved product whose opening stock is known. */
+    private static function stockNote(?Product $record, ?string $more): ?string
+    {
+        $opening = self::openingStock($record);
+        $started = $opening === null ? null : 'Started with '.number_format($opening).'.';
+
+        return trim(implode(' ', array_filter([$started, $more]))) ?: null;
+    }
+
+    /** "Adjust stock" next to a locked stock field, for staff who may adjust stock. */
+    private static function adjustStockLink(?Product $record): ?Action
+    {
+        if (! self::stockLocked($record) || ! ClientAccess::current('inventory', 'update')) {
+            return null;
+        }
+
+        return Action::make('adjustStockLink')->label('Adjust stock')->icon('heroicon-m-arrow-top-right-on-square')
+            ->url(StockLevels::getUrl(['tableSearch' => $record->sku ?: $record->name]), shouldOpenInNewTab: true);
+    }
+
+    /** Per record object, so a cached answer never outlives the request that loaded it. */
+    private static ?\WeakMap $ordered = null;
+
+    /**
+     * Has this product been ordered? Then its stock is locked on the product form: it moves with
+     * orders, deliveries and adjustments, and is changed in Inventory → Stock levels, where each
+     * change keeps its reason.
+     */
+    public static function stockLocked(?Product $record): bool
+    {
+        if (! $record?->exists) {
+            return false;
+        }
+
+        self::$ordered ??= new \WeakMap;
+
+        return self::$ordered[$record] ??= OrderItem::withTrashed()->where('product_id', $record->getKey())->exists();
+    }
+
+    /** Is this row a variant the product already has (not one being added)? */
+    private static function isSavedVariant(?Product $record, array $options): bool
+    {
+        if (! $record) {
+            return false;
+        }
+        $clean = fn (array $o) => collect($o)->map(fn ($v) => trim((string) $v))->filter(fn ($v) => $v !== '')->sortKeys()->all();
+        $wanted = $clean($options);
+
+        return $wanted !== [] && collect((array) $record->variants)->contains(fn ($v) => is_array($v) && $clean((array) ($v['options'] ?? [])) === $wanted);
+    }
+
     private static function combinationStock(mixed $variants): int
     {
         return (int) collect((array) $variants)

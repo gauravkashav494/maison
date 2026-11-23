@@ -34,8 +34,8 @@ class ServiceRequestsTable
                 SelectColumn::make('status')->options(ServiceRequest::STATUSES)->selectablePlaceholder(false),
             ])
             ->filters([
-                SelectFilter::make('type')->options(ServiceRequest::TYPES),
                 SelectFilter::make('status')->options(ServiceRequest::STATUSES),
+                SelectFilter::make('type')->options(ServiceRequest::TYPES),
                 TrashedFilter::make(),
             ])
             ->recordActions([RowActions::group([EditAction::make(), ...RowActions::trash()])])

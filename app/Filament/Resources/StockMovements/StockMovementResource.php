@@ -12,6 +12,11 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Tables\Filters\Indicator;
+use Filament\Tables\Filters\Filter;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -75,8 +80,7 @@ class StockMovementResource extends Resource
                 TextColumn::make('note')->placeholder('—')->wrap()->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('product_id')->label('Product')->searchable()
-                    ->options(fn () => Product::query()->orderBy('name')->pluck('name', 'id')->all()),
+                self::productFilter(),
                 // Movements of products in this category or any below it.
                 CategoryFilter::through('product'),
                 SelectFilter::make('reason')->label('Why')->options(StockMovement::REASONS)->multiple(),
@@ -86,6 +90,64 @@ class StockMovementResource extends Resource
             ->emptyStateHeading('No stock movements yet')
             ->emptyStateDescription('Sales, cancelled orders and stock adjustments show up here.')
             ->emptyStateIcon('heroicon-o-arrows-right-left');
+    }
+
+    /**
+     * Product, and for a product sold by variant one of its variants. Named "product_id" with its
+     * product in "value", as a plain select filter would be, so links from Stock levels
+     * (filters[product_id][value]=12) keep working.
+     */
+    private static function productFilter(): Filter
+    {
+        return Filter::make('product_id')
+            ->schema([
+                // Found by typing a name or SKU, not every product loaded into the page.
+                Select::make('value')->label('Product')->searchable()->native(false)
+                    ->getSearchResultsUsing(fn (string $search) => Product::query()
+                        ->where(fn (Builder $q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"))
+                        ->orderBy('name')->limit(50)->pluck('name', 'id')->all())
+                    ->getOptionLabelUsing(fn ($value) => Product::withTrashed()->find($value)?->name)
+                    ->live()
+                    ->afterStateUpdated(fn (Set $set) => $set('variant', null)),
+                Select::make('variant')->label('Variant')->native(false)
+                    // Always shown, so the bar keeps the same cells; usable once a product sold by variant is picked.
+                    ->placeholder('All variants')
+                    ->options(fn (Get $get) => self::variantOptions($get('value')))
+                    ->disabled(fn (Get $get) => self::variantOptions($get('value')) === []),
+            ])
+            ->query(fn (Builder $query, array $data) => $query
+                ->when(filled($data['value'] ?? null), fn (Builder $q) => $q->where('product_id', $data['value']))
+                ->when(filled($data['value'] ?? null) && filled($data['variant'] ?? null), fn (Builder $q) => $q->where('variant', $data['variant'])))
+            ->indicateUsing(function (array $data): array {
+                if (blank($data['value'] ?? null)) {
+                    return [];
+                }
+                $name = Product::withTrashed()->find($data['value'])?->name ?? 'Product #'.$data['value'];
+
+                return [Indicator::make('Product: '.$name.(filled($data['variant'] ?? null) ? ' ('.$data['variant'].')' : ''))];
+            });
+    }
+
+    /**
+     * A product's variants as the history names them ("M / Red"): the ones it has now and any
+     * that only remain in its history (renamed or removed since). Empty for a product not sold by variant.
+     *
+     * @return array<string, string>
+     */
+    private static function variantOptions(mixed $productId): array
+    {
+        $product = filled($productId) ? Product::withTrashed()->find($productId) : null;
+        if (! $product) {
+            return [];
+        }
+
+        $labels = $product->sellsVariants() ? array_column($product->variantList(), 'label') : [];
+        $labels = array_values(array_unique([
+            ...$labels,
+            ...StockMovement::query()->where('product_id', $product->getKey())->whereNotNull('variant')->distinct()->pluck('variant')->all(),
+        ]));
+
+        return array_combine($labels, $labels) ?: [];
     }
 
     public static function getPages(): array

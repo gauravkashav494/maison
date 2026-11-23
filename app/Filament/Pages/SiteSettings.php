@@ -155,6 +155,18 @@ class SiteSettings extends Page
                                             ])
                                             ->default('exclusive')->required(),
                                     ]),
+                                Section::make('Order numbers')
+                                    ->description('The number each order gets when it is placed, shown to the customer and on the order page.')
+                                    ->schema([
+                                        TextInput::make('checkout.order_prefix')->label('Order number prefix')
+                                            ->maxLength(5)->alphaNum()
+                                            ->placeholder(fn () => Order::defaultNumberPrefix(app(ClientContext::class)->client()?->name))
+                                            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
+                                            ->live(onBlur: true)
+                                            ->helperText(fn ($get) => 'Up to 5 letters or numbers. Leave blank to use the one shown in grey, made from your store\'s name. Orders are numbered like '
+                                                .(strtoupper((string) $get('checkout.order_prefix')) ?: Order::defaultNumberPrefix(app(ClientContext::class)->client()?->name))
+                                                .'-'.now()->format('ymd').'-K7QM: the date, then a random code. Changing it affects new orders only.'),
+                                    ]),
                                 Section::make('Invoice')
                                     ->description('Your details as the seller, printed at the top of every order invoice (PDF).')
                                     ->columns(2)

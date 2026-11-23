@@ -9,6 +9,8 @@ use App\Clients\ClientDatabase;
 use App\Clients\ClientPasswordBrokerManager;
 use App\Clients\StoreFeatures;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Support\RecordToast;
+use App\Filament\Support\TimestampColumns;
 use App\Filament\Support\ToggleToast;
 use App\Http\Controllers\Admin\PanelLogoutController;
 use App\Http\Responses\LoginResponse;
@@ -37,9 +39,19 @@ use App\Support\PasswordRules;
 use App\Templates\TemplateManager;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\ReplicateAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Auth\Http\Controllers\LogoutController;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Group;
 use Filament\Support\Facades\FilamentIcon;
@@ -49,6 +61,7 @@ use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Enums\FiltersResetActionPosition;
+use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -144,6 +157,15 @@ class AppServiceProvider extends ServiceProvider
         // Setting the URL here also stops resource list pages adding their default row link.
         Table::configureUsing(fn (Table $table) => $table->recordUrl(null));
 
+        // "Created at" and "Updated at" in every table's column menu, hidden until switched on.
+        TimestampColumns::register();
+
+        // "Apply columns" in a table's Columns menu applies the choice and closes the menu
+        // (Filament leaves it open). close() is the dropdown's own, around the menu.
+        Table::configureUsing(fn (Table $table) => $table->columnManagerApplyAction(
+            fn (Action $action) => $action->alpineClickHandler('applyTableColumnManager(); close()'),
+        ));
+
         // Filters apply as soon as they change (registerTableFilterLayout()), so there is no Apply
         // button. A table that opts back into an Apply button (deferFilters()) gets one that reads
         // "Apply", and in a filters dropdown it also closes the dropdown.
@@ -183,6 +205,7 @@ class AppServiceProvider extends ServiceProvider
             ->before(fn () => app(ActivityLog::class)->startGroup())
             ->after(fn () => app(ActivityLog::class)->flush()));
         $this->app->terminating(fn () => app(ActivityLog::class)->flush());
+        $this->registerRecordToasts();
 
         // Inline table edits write straight to the row without calling a policy.
         // A toast confirms each switch ("Visible turned on"), on every table.
@@ -255,22 +278,41 @@ class AppServiceProvider extends ServiceProvider
             ->deferFilters(false)
             // Reset sits at the end of the fields, so the bar needs no heading line (theme.css hides it).
             ->filtersResetActionPosition(FiltersResetActionPosition::Footer)
-            ->filtersFormColumns(['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4])
-            // A filter with several fields (From / Until) keeps them on one line, two columns wide,
-            // instead of stacking them in one column and making the bar twice as tall.
+            // Every field is one column wide. On a wide screen the bar has a column per field (4 to
+            // 6), so a table with up to six fields (Product + Variant counts as two) fits on one row.
+            ->filtersFormColumns(fn () => ['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => max(4, min(self::filterFieldCount($table), 6))])
+            // A filter with several fields (Product / Variant) keeps them on one line, two columns
+            // wide, so each of its fields is as wide as any other filter.
             ->filtersFormSchema(fn (array $filters) => array_values(array_map(
                 function (Group $group, string $name) use ($table) {
                     $filter = $table->getFilter($name);
-                    $fields = count($filter?->getSchemaComponents() ?? []);
-                    if ($fields < 2 || $filter->getColumnSpan() !== 1) { // a span set on the filter itself wins
+                    if (self::filterWidth($filter) < 2) {
                         return $group;
                     }
 
-                    return $group->columns(['default' => 1, 'sm' => min($fields, 2)])->columnSpan(['default' => 1, 'sm' => 2]);
+                    // Every breakpoint, not just sm: the filter's own span of 1 is stored as lg => 1.
+                    return $group->columns(['default' => 1, 'sm' => 2])
+                        ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 2, 'xl' => 2, '2xl' => 2]);
                 },
                 $filters,
                 array_keys($filters),
             ))));
+    }
+
+    /** Columns a filter takes in the bar: 2 for one with several fields, else 1. */
+    private static function filterWidth(?BaseFilter $filter): int
+    {
+        if ($filter === null || $filter->getColumnSpan() !== 1) { // a span set on the filter itself wins
+            return 1;
+        }
+
+        return count($filter->getSchemaComponents()) >= 2 ? 2 : 1;
+    }
+
+    /** Columns all of a table's filters take together. */
+    private static function filterFieldCount(Table $table): int
+    {
+        return array_sum(array_map(self::filterWidth(...), $table->getFilters()));
     }
 
     /** A list longer than this can be searched by typing. */
@@ -327,5 +369,54 @@ class AppServiceProvider extends ServiceProvider
             PanelsIconAlias::TOPBAR_CLOSE_SIDEBAR_BUTTON => Heroicon::XMark,
             PanelsIconAlias::TOPBAR_OPEN_SIDEBAR_BUTTON => $menu,
         ]);
+    }
+
+    /**
+     * Toasts that name the record instead of a bare "Deleted" / "Saved", on every table and modal
+     * ('Product "Linen Shirt" deleted' / 'Moved to the trash, so it can still be restored.').
+     * Create and Edit pages do the same through App\Filament\Support\Pages. An action given its
+     * own successNotificationTitle() keeps that title.
+     */
+    private function registerRecordToasts(): void
+    {
+        CreateAction::configureUsing(fn (CreateAction $action) => $action
+            ->successNotificationTitle(fn (?Model $record) => $record ? RecordToast::createdTitle($record) : 'Created'));
+
+        // Modal edits: the record and what changed, or "No changes to save".
+        EditAction::configureUsing(fn (EditAction $action) => $action
+            ->successNotification(fn (Notification $notification, ?Model $record) => $record && $notification->getTitle() === __('filament-actions::edit.single.notifications.saved.title')
+                ? RecordToast::saved($record, app(ActivityLog::class)->since())
+                : $notification));
+
+        DeleteAction::configureUsing(fn (DeleteAction $action) => $action
+            ->successNotificationTitle(fn (?Model $record) => ($record = RecordToast::subject($record, 'deleted')) ? RecordToast::deletedTitle($record) : 'Deleted')
+            ->successNotification(fn (Notification $notification, ?Model $record) => ($record = RecordToast::subject($record, 'deleted'))
+                ? $notification->body(RecordToast::deletedBody($record))
+                : $notification));
+
+        ForceDeleteAction::configureUsing(fn (ForceDeleteAction $action) => $action
+            ->successNotificationTitle(fn (?Model $record) => ($record = RecordToast::subject($record, 'deleted permanently')) ? RecordToast::forceDeletedTitle($record) : 'Deleted')
+            ->successNotification(fn (Notification $notification) => $notification->body('This can’t be undone.')));
+
+        RestoreAction::configureUsing(fn (RestoreAction $action) => $action
+            ->successNotificationTitle(fn (?Model $record) => $record ? RecordToast::restoredTitle($record) : 'Restored')
+            ->successNotification(fn (Notification $notification, ?Model $record) => $record
+                ? $notification->body(RecordToast::restoredBody($record))
+                : $notification));
+
+        ReplicateAction::configureUsing(fn (ReplicateAction $action) => $action
+            ->successNotificationTitle(fn (?Model $record) => $record ? RecordToast::replicatedTitle($record) : 'Duplicated'));
+
+        // Bulk: "3 products deleted" / "Linen Shirt, Silk Saree and 1 more.", from the lines the
+        // bulk action is holding for the activity log. Filament's own words if nothing was logged.
+        $bulk = function (BulkAction $action, string $verb): void {
+            $default = $action->getSuccessNotificationTitle();
+            $action
+                ->successNotificationTitle(fn () => RecordToast::bulkTitle($verb, $action->getModel()) ?? $default)
+                ->successNotification(fn (Notification $notification) => $notification->body(RecordToast::bulkBody($verb, $action->getModel())));
+        };
+        DeleteBulkAction::configureUsing(fn (DeleteBulkAction $action) => $bulk($action, 'deleted'));
+        ForceDeleteBulkAction::configureUsing(fn (ForceDeleteBulkAction $action) => $bulk($action, 'deleted permanently'));
+        RestoreBulkAction::configureUsing(fn (RestoreBulkAction $action) => $bulk($action, 'restored'));
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\ServiceAreas\Pages;
 
 use App\Filament\Resources\ServiceAreas\ServiceAreaResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateServiceArea extends CreateRecord
 {

@@ -7,7 +7,7 @@
 @php $id = (int) $product->id; @endphp
 
 <button type="button" x-data {{ $attributes->class('bk-heart') }}
-        @click="$store.wishlist.toggle({{ $id }})"
+        @click="$store.wishlist.toggle({{ $id }}, {{ Js::from($product->name) }})"
         :class="$store.wishlist.has({{ $id }}) && 'is-on'"
         :aria-pressed="$store.wishlist.has({{ $id }}).toString()"
         :aria-label="$store.wishlist.has({{ $id }}) ? @js('Remove '.$product->name.' from saved items') : @js('Save '.$product->name.' for later')"

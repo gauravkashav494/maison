@@ -4,11 +4,13 @@ namespace App\Filament\Support;
 
 use App\Models\PlatformActivity;
 use Closure;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\BaseFilter;
@@ -24,7 +26,8 @@ use Illuminate\Support\HtmlString;
  *
  *   Priya Sharma changed the price of product "Silk Saree" from ₹4,500.00 to ₹3,999.00
  *
- * The ⋮ menu opens the full line, with every changed field and its before and after values.
+ * "Details" in the ⋮ menu opens the line on its own page (the resource's view page), with every
+ * changed field and its before and after values.
  */
 class ActivityTable
 {
@@ -79,7 +82,8 @@ class ActivityTable
                 self::dateFilter(),
             ])))
             ->recordActions([RowActions::group([
-                ViewAction::make()->label('Details')->modalHeading('Activity details')->modalWidth('2xl'),
+                ViewAction::make()->label('Details')
+                    ->url(fn (PlatformActivity $record, $livewire) => $livewire::getResource()::getUrl('view', ['record' => $record])),
             ])])
             ->striped()
             ->emptyStateHeading('No activity yet')
@@ -87,31 +91,52 @@ class ActivityTable
             ->emptyStateIcon('heroicon-o-clipboard-document-list');
     }
 
-    /** The detail view: the sentence, when and where, and every changed field. */
+    /** The detail page: the sentence, who, when and where, and every changed field. */
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            TextEntry::make('activity')->hiddenLabel()->columnSpanFull()->size('lg')
-                ->state(fn (PlatformActivity $r) => self::sentence($r, true)),
-            Grid::make(3)->columnSpanFull()->schema([
-                TextEntry::make('created_at')->label('When')->dateTime('d M Y, H:i:s'),
-                TextEntry::make('area')->placeholder('—'),
-                TextEntry::make('ip')->label('IP address')->placeholder('—'),
-            ]),
-            RepeatableEntry::make('changes')->label('What changed')->columnSpanFull()
-                ->visible(fn (PlatformActivity $r) => filled($r->changes))
-                ->state(fn (PlatformActivity $r) => self::rows($r))
-                ->table([
-                    TableColumn::make('Field'),
-                    TableColumn::make('Before'),
-                    TableColumn::make('After'),
-                ])
-                ->schema([
-                    TextEntry::make('label'),
-                    TextEntry::make('old')->placeholder('—'),
-                    TextEntry::make('new')->placeholder('—'),
+            Section::make()->columnSpanFull()->schema([
+                TextEntry::make('activity')->hiddenLabel()->columnSpanFull()->size('lg')
+                    ->state(fn (PlatformActivity $r) => self::sentence($r, true)),
+                Grid::make(['default' => 1, 'sm' => 2, 'lg' => 4])->columnSpanFull()->schema([
+                    TextEntry::make('created_at')->label('When')->dateTime('d M Y, H:i:s'),
+                    TextEntry::make('action')->label('Action')->badge()
+                        ->formatStateUsing(fn (string $state) => self::ACTIONS[$state] ?? ucfirst($state))
+                        ->color(fn (string $state) => self::actionColor($state)),
+                    TextEntry::make('area')->placeholder('—'),
+                    TextEntry::make('ip')->label('IP address')->placeholder('—'),
+                    TextEntry::make('actor')->label('Who')->placeholder('System')
+                        ->helperText(fn (PlatformActivity $r) => $r->actor_type),
+                    TextEntry::make('subject')->label('Record')->placeholder('—'),
                 ]),
+            ]),
+            Section::make('What changed')->columnSpanFull()
+                ->visible(fn (PlatformActivity $r) => filled($r->changes))
+                ->schema([self::changesTable()]),
         ]);
+    }
+
+    private static function changesTable(): RepeatableEntry
+    {
+        return RepeatableEntry::make('changes')->hiddenLabel()->columnSpanFull()
+            ->state(fn (PlatformActivity $r) => self::rows($r))
+            ->table([
+                TableColumn::make('Field'),
+                TableColumn::make('Before'),
+                TableColumn::make('After'),
+            ])
+            ->schema([
+                TextEntry::make('label'),
+                TextEntry::make('old')->placeholder('—'),
+                TextEntry::make('new')->placeholder('—'),
+            ]);
+    }
+
+    /** "Back to activity log", for the detail page header. */
+    public static function backAction(string $url): Action
+    {
+        return Action::make('back')->label('Back to activity log')->icon('heroicon-m-arrow-left')
+            ->color('gray')->url($url);
     }
 
     /** "<b>Priya Sharma</b> changed …", or the sentence alone when the viewer is the actor. */
@@ -150,11 +175,20 @@ class ActivityTable
             return $side === 'new' ? ucfirst((string) $change['new']) : null;
         }
 
-        if ($change[$side] === null && ($change['old'] ?? null) === null && ($change['new'] ?? null) === null) {
-            return 'not shown';
+        if (($change['old'] ?? null) === null && ($change['new'] ?? null) === null) {
+            if (! empty($change['secret']) || preg_match('/password|token|secret|otp|api_key|hint/i', (string) ($change['field'] ?? ''))) {
+                return 'hidden'; // secrets are never kept
+            }
+
+            // Long text and lists keep a plain-text copy (or the changed rows) for this view.
+            if (array_key_exists('old_detail', $change) || array_key_exists('new_detail', $change)) {
+                return ($change[$side.'_detail'] ?? '') === '' ? 'empty' : $change[$side.'_detail'];
+            }
+
+            return 'not shown'; // logged before values were kept
         }
 
-        return $change[$side] === '' ? 'empty' : trim((string) $change[$side], '"');
+        return ($change[$side] ?? '') === '' ? 'empty' : trim((string) $change[$side], '"');
     }
 
     private static function dateFilter(): DateRangeFilter

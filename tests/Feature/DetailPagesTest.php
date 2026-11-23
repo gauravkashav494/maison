@@ -236,10 +236,21 @@ class DetailPagesTest extends TestCase
             $this->assertStringNotContainsString("path: 'tableDeferredFilters.", $panel, "{$url} no filter waits for Apply");
             $actions = substr($panel, (int) strpos($panel, 'fi-ta-filters-actions-ctn'), 3000);
             $this->assertStringContainsString('wire:click="resetTableFiltersForm"', $actions, "{$url} Reset at the end of the fields");
-            foreach (['default' => 1, 'sm' => 2, 'lg' => 3, 'xl' => 4] as $breakpoint => $count) {
+            // A column per field on a wide screen: 4 to 6, by how many fields the table has.
+            foreach (['default' => '1', 'sm' => '2', 'lg' => '3', 'xl' => '[456]'] as $breakpoint => $count) {
                 $this->assertMatchesRegularExpression("/--cols-{$breakpoint}:\\s*repeat\\({$count},/", $panel, "{$url} {$breakpoint} columns");
             }
         }
+
+        // A filter with two fields (Product + Variant) takes two columns at every width, and the
+        // bar gets a column per field on a wide screen, so every field is the same width.
+        $html = $this->page('/client/stock-movements')->getContent();
+        $panel = substr($html, (int) strpos($html, 'fi-ta-filters-above-content-ctn'));
+        $this->assertMatchesRegularExpression('/--cols-xl:\s*repeat\(5,/', $panel, 'one column per field');
+        $this->assertMatchesRegularExpression('/--col-span-lg:\s*span 2[^"]*--col-span-xl:\s*span 2/', $panel, 'Product + Variant span two columns');
+        // Orders has six filters: six columns, so they stay on one row.
+        $html = $this->page('/client/orders')->getContent();
+        $this->assertMatchesRegularExpression('/--cols-xl:\s*repeat\(6,/', substr($html, (int) strpos($html, 'fi-ta-filters-above-content-ctn')));
 
         // A date range is one picker with ready ranges (App\Filament\Support\DateRangeFilter),
         // not a From and an Until field.

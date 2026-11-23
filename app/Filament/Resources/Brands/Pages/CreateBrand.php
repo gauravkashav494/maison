@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Brands\Pages;
 
 use App\Filament\Resources\Brands\BrandResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateBrand extends CreateRecord
 {

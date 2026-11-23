@@ -8,6 +8,7 @@ use App\Clients\ClientTemplateSwitch;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
+use App\Filament\Support\Pages\EditRecord;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Support\PasswordRules;
@@ -19,14 +20,14 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\EditRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Wizard\Step;
 use Illuminate\Support\Str;
 
 class EditClient extends EditRecord
 {
-    use EditRecord\Concerns\HasWizard;
+    use HasWizard;
 
     protected static string $resource = ClientResource::class;
 

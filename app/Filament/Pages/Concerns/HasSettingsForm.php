@@ -108,33 +108,52 @@ trait HasSettingsForm
     {
         $state = $this->form->getState();
         $changed = [];
+        $describer = app(ActivityLog::class)->describer();
         foreach ($this->settingGroups() as $group) {
             // Merge, so values of fields hidden for this store (not in the form state) are kept.
             $stored = Setting::get($group, []);
             $stored = is_array($stored) ? $stored : [];
+            // What the form showed before this save (stored value, else the default it opened with).
+            $before = array_replace($this->defaultsFor($group), $stored);
             foreach ($state[$group] ?? [] as $key => $value) {
-                if (json_encode($stored[$key] ?? null) !== json_encode($value)) {
-                    $changed[] = $group.'.'.$key;
+                if (! $describer->sameValue($before[$key] ?? null, $value)) {
+                    $changed[$group.'.'.$key] = [$before[$key] ?? null, $value];
                 }
             }
             Setting::set($group, array_replace($stored, $state[$group] ?? []));
         }
 
-        $this->logSettingsChange($changed);
+        $labels = $this->logSettingsChange($changed);
+        $page = trim(strip_tags((string) $this->getTitle())) ?: 'Settings';
 
-        Notification::make()->success()->title('Settings saved')->send();
+        if ($labels === []) {
+            Notification::make()->info()->title('No changes made')->body('Nothing has changed since the last update.')->send();
+
+            return;
+        }
+
+        // "Store settings updated" / "Changed: store name, logo and 2 more."
+        $shown = array_slice($labels, 0, 3);
+        $more = count($labels) - count($shown);
+        $list = $more > 0
+            ? implode(', ', $shown).' and '.$more.' more'
+            : (count($shown) > 1 ? implode(', ', array_slice($shown, 0, -1)).' and '.end($shown) : $shown[0]);
+
+        Notification::make()->success()->title($page.' updated')->body('Changed: '.$list.'.')->send();
     }
 
     /**
      * One activity line per save, naming the fields by their form labels ("updated Site settings:
-     * store name, logo and 3 more"). Settings can hold keys and tokens, so values are never kept.
+     * store name, logo and 3 more"), with short values before and after. Keys, tokens and other
+     * secrets are named only (ActivityDescriber::settingChange).
      *
-     * @param  array<string>  $changed  "group.key" of every setting whose value changed
+     * @param  array<string, array{0: mixed, 1: mixed}>  $changed  "group.key" => [before, after] of every changed setting
+     * @return array<int, string> the changed fields' labels, for the toast
      */
-    protected function logSettingsChange(array $changed): void
+    protected function logSettingsChange(array $changed): array
     {
         if ($changed === []) {
-            return;
+            return [];
         }
 
         $labels = [];
@@ -144,13 +163,14 @@ trait HasSettingsForm
 
         $log = app(ActivityLog::class);
         $title = trim(strip_tags((string) $this->getTitle()));
-        $changes = array_map(fn (string $path) => [
-            'field' => $path,
-            'label' => Str::lower($labels[$path] ?? '') ?: $log->describer()->label(Str::afterLast($path, '.')),
-            'old' => null,
-            'new' => null,
-        ], $changed);
+        $changes = [];
+        foreach ($changed as $path => [$old, $new]) {
+            $label = Str::lower($labels[$path] ?? '') ?: $log->describer()->label(Str::afterLast($path, '.'));
+            $changes[] = $log->describer()->settingChange($path, $label, $old, $new);
+        }
 
         $log->record('updated', $log->describer()->settings($title, $changes), changes: $changes, area: 'Settings', subjectName: $title, subjectType: 'Settings');
+
+        return array_values(array_unique(array_column($changes, 'label')));
     }
 }

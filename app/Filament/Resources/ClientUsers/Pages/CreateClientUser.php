@@ -4,8 +4,8 @@ namespace App\Filament\Resources\ClientUsers\Pages;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\ClientUsers\ClientUserResource;
+use App\Filament\Support\Pages\CreateRecord;
 use App\Models\ClientUser;
-use Filament\Resources\Pages\CreateRecord;
 
 class CreateClientUser extends CreateRecord
 {

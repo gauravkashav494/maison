@@ -3,11 +3,11 @@
 namespace App\Filament\Resources\Menus\Pages;
 
 use App\Filament\Resources\Menus\MenuResource;
+use App\Filament\Support\Pages\EditRecord;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 

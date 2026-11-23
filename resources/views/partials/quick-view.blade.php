@@ -57,7 +57,7 @@
                         <button type="button" @click="incQty()" aria-label="Increase quantity" class="grid h-full w-11 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
                     </div>
                     <button type="button" @click="add()" :disabled="!size || $store.cart.busy" class="btn btn-primary flex-1" x-text="size ? 'Add to Cart' : 'Select a size'"></button>
-                    <button type="button" @click="$store.wishlist.toggle($store.ui.quickView.id)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has($store.ui.quickView.id)" class="grid h-12 w-12 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink">
+                    <button type="button" @click="$store.wishlist.toggle($store.ui.quickView.id, $store.ui.quickView.name)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has($store.ui.quickView.id)" class="grid h-12 w-12 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink">
                         <x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has($store.ui.quickView.id) && 'fill-ink'" />
                     </button>
                 </div>

@@ -48,8 +48,8 @@ class ReviewsRelationManager extends RelationManager
                 TextColumn::make('created_at')->label('Posted')->date('d M Y')->sortable(),
             ])
             ->filters([
-                SelectFilter::make('rating')->options(Review::RATING_OPTIONS)->multiple()->native(false),
                 TernaryFilter::make('is_approved')->label('Approved'),
+                SelectFilter::make('rating')->options(Review::RATING_OPTIONS)->multiple()->native(false),
             ])
             ->recordActions([RowActions::group([
                 Action::make('edit')->label('Edit')->icon('heroicon-m-pencil-square')

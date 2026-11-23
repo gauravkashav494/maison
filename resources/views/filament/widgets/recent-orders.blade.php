@@ -12,7 +12,7 @@
                 </div>
                 <div class="fi-admin-row-meta">
                     <span>{{ $order->items_count }} {{ Str::plural('item', $order->items_count) }}</span>
-                    <strong>{{ money((int) $order->total) }}</strong>
+                    <strong>{{ money($order->total) }}</strong>
                     <span class="fi-admin-pill {{ $pill($order->status) }}">{{ $order->statusLabel() }}</span>
                 </div>
             </a>

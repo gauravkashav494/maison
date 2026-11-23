@@ -70,14 +70,13 @@
                                         <button type="button" @click="step(@js($key), -1)" :disabled="!(qty[@js($key)] > 0)"
                                                 aria-label="Decrease quantity of {{ $product->name }}"><x-heroicon-o-minus /></button>
                                         <input type="number" inputmode="numeric" min="0" max="{{ $line['max'] }}" placeholder="0"
-                                               x-model.number="qty[@js($key)]" @change="clamp(@js($key))"
-                                               @keydown.enter.prevent="clamp(@js($key)); addAll()"
+                                               x-model.number="qty[@js($key)]" @change="change(@js($key))"
+                                               @keydown.enter.prevent="$el.blur()"
                                                aria-label="Quantity of {{ $product->name }}{{ $line['label'] ? ', '.$line['label'] : '' }}">
                                         <button type="button" @click="step(@js($key), 1)"
                                                 aria-label="Increase quantity of {{ $product->name }}"><x-heroicon-o-plus /></button>
                                     </span>
                                     <span class="bk-error" x-show="errors[@js($key)]" x-text="errors[@js($key)]" x-cloak></span>
-                                    <span class="bk-ok block" x-show="added[@js($key)]" x-text="added[@js($key)] + ' added'" x-cloak></span>
                                 @else
                                     <span class="bk-out-text text-sm">Unavailable</span>
                                 @endif
@@ -103,19 +102,16 @@
         </table>
     </div>
 
-    {{-- Appears once any quantity differs from what is in the cart; the boxes start at the cart's quantities. --}}
-    <div class="bk-sheetbar" x-show="filled.length" x-cloak
+    {{-- Quantities go straight into the cart; this shows what is in it. --}}
+    <div class="bk-sheetbar" x-show="$store.cart.count > 0" x-cloak
          x-transition:enter="transition duration-200" x-transition:enter-start="translate-y-4 opacity-0" x-transition:enter-end="translate-y-0 opacity-100">
         <p>
-            <strong x-text="filled.length"></strong> <span x-text="filled.length === 1 ? 'item' : 'items'"></span>,
-            <strong x-text="units"></strong> <span x-text="units === 1 ? 'unit' : 'units'"></span>
-            <span class="opacity-80">· about</span> <strong x-text="estimate"></strong>
+            <strong x-text="$store.cart.items.length"></strong> <span x-text="$store.cart.items.length === 1 ? 'item' : 'items'"></span>,
+            <strong x-text="$store.cart.count"></strong> <span x-text="$store.cart.count === 1 ? 'unit' : 'units'"></span>
+            <span class="opacity-80">·</span> <strong x-text="$store.cart.subtotal_formatted"></strong>
         </p>
-        <div class="flex gap-2">
-            <button type="button" class="bk-btn !border-white/40 text-white hover:!bg-white/10" @click="clear()">Clear</button>
-            <button type="button" class="bk-btn bk-btn-accent" :disabled="busy" @click="addAll()">
-                <x-heroicon-o-shopping-cart aria-hidden="true" /><span x-text="busy ? 'Adding…' : 'Add all to order'">Add all to order</span>
-            </button>
-        </div>
+        <a href="{{ route('cart') }}" class="bk-btn bk-btn-accent" @click.prevent="$store.ui.openCart()">
+            <x-heroicon-o-shopping-cart aria-hidden="true" /><span>View cart</span>
+        </a>
     </div>
 </div>

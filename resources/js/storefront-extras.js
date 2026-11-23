@@ -4,6 +4,7 @@
  * Imported by app.js after the core stores are defined.
  */
 import { gallerySlides, registerVariants, watchVariantGallery } from './variants';
+import { toasts } from './toast';
 export default function registerExtras(Alpine, api) {
     /* ---- Cart extras: promo codes + shipping method ---------------------- */
     const cart = Alpine.store('cart');
@@ -117,7 +118,7 @@ export default function registerExtras(Alpine, api) {
         /** + button: up to the product's max quantity per order, then says so. */
         incQty() {
             const max = this.p.max_qty;
-            if (max && this.qty >= max) { Alpine.store('ui').notify(`You can order at most ${max} of this item.`); return; }
+            if (max && this.qty >= max) { Alpine.store('ui').notify(toasts.maxQty(max, this.p.name), 'error'); return; }
             this.qty++;
         },
         async add(buyNow = false) {
@@ -126,7 +127,7 @@ export default function registerExtras(Alpine, api) {
                 await Alpine.store('cart').add(this.p.id, this.size, this.color, this.qty, !buyNow, this.options);
             } catch (e) {
                 // Over the max quantity per order or the stock: the server says which.
-                Alpine.store('ui').notify(e.payload?.message || 'Could not add this item.');
+                Alpine.store('ui').notify(toasts.cartFailed(e), 'error');
                 return;
             }
             if (buyNow) window.location.href = '/checkout';

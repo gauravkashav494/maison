@@ -18,12 +18,15 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -100,7 +103,7 @@ class StockLevels extends Page implements HasTable
                 ])
                 ->action(function (array $data) {
                     app(Inventory::class)->setLowStockLevel((int) $data['level']);
-                    Notification::make()->success()->title('Low-stock level saved')->send();
+                    Notification::make()->success()->title('Low-stock level updated')->send();
                 }),
         ];
     }
@@ -116,11 +119,13 @@ class StockLevels extends Page implements HasTable
                     ->square()->imageSize(40),
                 TextColumn::make('name')->label('Product')->searchable(['name', 'sku'])->sortable()->wrap()
                     ->description(fn (Product $record) => $record->sku),
+                // With a variant picked in the filter, the row shows that variant: its name, stock and status.
                 TextColumn::make('variants_summary')->label('Variants')->placeholder('—')->wrap()
-                    ->state(fn (Product $record) => self::variantSummary($record)),
-                TextColumn::make('stock')->label('In stock')->numeric()->sortable()->alignRight()->weight('medium'),
+                    ->state(fn (Product $record) => $this->pickedVariant($record)['label'] ?? self::variantSummary($record)),
+                TextColumn::make('stock')->label('In stock')->numeric()->sortable()->alignRight()->weight('medium')
+                    ->state(fn (Product $record) => $this->pickedVariant($record)['stock'] ?? $record->stock),
                 TextColumn::make('stock_status')->label('Status')->badge()
-                    ->state(fn (Product $record) => Inventory::status($record))
+                    ->state(fn (Product $record) => ($variant = $this->pickedVariant($record)) ? self::variantStatus((int) $variant['stock']) : Inventory::status($record))
                     ->formatStateUsing(fn (string $state) => Inventory::STATUSES[$state])
                     ->color(fn (string $state) => match ($state) {
                         Inventory::STATUS_OUT => 'danger',
@@ -129,16 +134,21 @@ class StockLevels extends Page implements HasTable
                     }),
                 IconColumn::make('is_active')->label('On sale')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
+            // Most used first: Status (what is out or low), then Category, then a product by name.
             ->filters([
                 SelectFilter::make('stock_status')->label('Status')->options(Inventory::STATUSES)
                     ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null) ? Inventory::whereStatus($query, $data['value']) : $query),
                 // Also finds the products in the categories below the one picked.
                 CategoryFilter::make(),
+                self::productFilter(),
             ])
             ->recordActions([RowActions::group([
                 $this->adjustAction(),
                 Action::make('history')->label('Stock history')->icon(Heroicon::OutlinedClock)
-                    ->url(fn (Product $record) => StockMovementResource::getUrl('index', ['filters' => ['product_id' => ['value' => $record->getKey()]]])),
+                    ->url(fn (Product $record) => StockMovementResource::getUrl('index', ['filters' => ['product_id' => array_filter([
+                        'value' => $record->getKey(),
+                        'variant' => $this->pickedVariant($record)['label'] ?? null, // the history of the variant picked here
+                    ])]])),
             ])])
             ->striped()
             ->emptyStateHeading('No products yet')
@@ -178,6 +188,80 @@ class StockLevels extends Page implements HasTable
 
                 Notification::make()->success()->title('Stock updated')->send();
             });
+    }
+
+    /**
+     * Product, and for a product sold by variant one of its variants. Rows are products, so a
+     * variant does not narrow them further: the row then shows that variant's stock and status.
+     */
+    private static function productFilter(): Filter
+    {
+        return Filter::make('product')
+            ->schema([
+                Select::make('value')->label('Product')->searchable()->native(false)
+                    ->options(fn () => Product::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->live()
+                    ->afterStateUpdated(fn (Set $set) => $set('variant', null)),
+                // Always shown, so the bar keeps the same cells; usable once a product sold by variant is picked.
+                Select::make('variant')->label('Variant')->native(false)
+                    ->placeholder('All variants')
+                    ->options(fn (Get $get) => self::variantChoices($get('value')))
+                    ->disabled(fn (Get $get) => self::variantChoices($get('value')) === []),
+            ])
+            ->query(fn (Builder $query, array $data) => $query
+                ->when(filled($data['value'] ?? null), fn (Builder $q) => $q->whereKey($data['value'])))
+            ->indicateUsing(function (array $data): array {
+                if (blank($data['value'] ?? null)) {
+                    return [];
+                }
+                $name = Product::query()->find($data['value'])?->name ?? 'Product #'.$data['value'];
+
+                return [Indicator::make('Product: '.$name.(filled($data['variant'] ?? null) ? ' ('.$data['variant'].')' : ''))];
+            });
+    }
+
+    /**
+     * A product's variants by name ("M / Red" => "M / Red"); empty for a product not sold by variant.
+     *
+     * @return array<string, string>
+     */
+    private static function variantChoices(mixed $productId): array
+    {
+        $product = filled($productId) ? Product::query()->find($productId) : null;
+        $labels = $product?->sellsVariants() ? array_column($product->variantList(), 'label') : [];
+
+        return array_combine($labels, $labels) ?: [];
+    }
+
+    /**
+     * The variant picked in the Product filter, when this row is that product.
+     *
+     * @return array{label: string, stock: int}|null
+     */
+    private function pickedVariant(Product $record): ?array
+    {
+        $filter = $this->tableFilters['product'] ?? [];
+        if (blank($filter['variant'] ?? null) || (string) ($filter['value'] ?? '') !== (string) $record->getKey() || ! $record->sellsVariants()) {
+            return null;
+        }
+
+        foreach ($record->variantList() as $variant) {
+            if ($variant['label'] === $filter['variant']) {
+                return ['label' => $variant['label'], 'stock' => (int) $variant['stock']];
+            }
+        }
+
+        return null;
+    }
+
+    /** Out of stock, Low stock or In stock for one variant's count. */
+    private static function variantStatus(int $stock): string
+    {
+        return match (true) {
+            $stock <= 0 => Inventory::STATUS_OUT,
+            $stock <= Inventory::lowStockLevel() => Inventory::STATUS_LOW,
+            default => Inventory::STATUS_IN,
+        };
     }
 
     /** "6 variants · 2 sold out · 1 low", for a product sold by variant. */

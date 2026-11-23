@@ -6,7 +6,7 @@
 <section class="g-container py-6">
     <div class="mx-auto max-w-3xl space-y-4">
         <form method="get" action="{{ route('track') }}" class="card grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-5" novalidate>
-            <label><span class="label">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. ME-2026-00123" class="field uppercase">@error('number')<span class="error-text">{{ $message }}</span>@enderror</label>
+            <label><span class="label">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. {{ \App\Models\Order::exampleNumber() }}" class="field uppercase">@error('number')<span class="error-text">{{ $message }}</span>@enderror</label>
             <label><span class="label">Email or phone<span class="req" aria-hidden="true">*</span></span><input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="field">@error('contact')<span class="error-text">{{ $message }}</span>@enderror</label>
             <button type="submit" class="btn btn-primary h-[46px]">Track</button>
             @if($error)<p class="error-text sm:col-span-3">{{ $error }}</p>@endif

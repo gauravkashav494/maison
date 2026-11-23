@@ -10,6 +10,7 @@
  * is never picked up. The template's app.js calls startStorefront() last for that reason.
  */
 import Alpine from 'alpinejs';
+import { toasts } from '../../../js/toast';
 
 const rupees = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -179,6 +180,7 @@ Alpine.data('tradeCard', (lines = [], initial = null) => ({
             this.qty = 1;
         } catch (e) {
             this.error = e.payload?.message || 'Could not be added. Please try again.';
+            Alpine.store('ui').notify(toasts.cartFailed(e), 'error');
         } finally {
             this.busy = false;
         }
@@ -278,13 +280,14 @@ Alpine.data('savedList', (url) => ({
 
 Alpine.data('orderSheet', (lines = []) => ({
     lines: Object.fromEntries(lines.map((l) => [l.key, l])),
-    // The quantity box of each line shows how many are in the cart. Changing one marks it
-    // `dirty`; "Add all to order" then sets the cart to the typed number (0 takes the line out).
+    // The quantity box of each line shows how many are in the cart, and changing it changes the
+    // cart (0 takes the line out). A box is `dirty` from the change until the cart has caught up,
+    // so a cart refresh from another line does not overwrite what was just typed.
     qty: {},
     dirty: {},
     errors: {},
-    added: {},
-    busy: false,
+    timers: {},
+    queue: Promise.resolve(),
 
     init() {
         this.sync();
@@ -303,15 +306,6 @@ Alpine.data('orderSheet', (lines = []) => ({
         }
     },
 
-    /** Lines whose box now differs from the cart. */
-    get filled() {
-        return Object.keys(this.dirty)
-            .filter((key) => this.lines[key] && (parseInt(this.qty[key], 10) || 0) !== this.inCart(key))
-            .map((key) => ({ ...this.lines[key], qty: parseInt(this.qty[key], 10) || 0 }));
-    },
-    get units() { return this.filled.reduce((n, l) => n + l.qty, 0); },
-    get estimate() { return rupees(this.filled.reduce((n, l) => n + l.qty * l.price, 0)); },
-
     clamp(key) {
         const line = this.lines[key];
         if (!line) return;
@@ -319,45 +313,49 @@ Alpine.data('orderSheet', (lines = []) => ({
         const n = clampQty(this.qty[key], line.max);
         this.qty[key] = n || '';
         this.dirty[key] = true;
-        delete this.added[key];
         // Held back to the most this line allows: say why, beside the row.
         if (wanted > line.max) this.errors[key] = line.limit_message;
         else delete this.errors[key];
     },
+    /** A typed quantity, once the box is left or Enter is pressed. */
+    change(key) {
+        this.clamp(key);
+        this.save(key);
+    },
     /** The − / + buttons: one at a time, held to 0…max like a typed quantity. */
     step(key, by) {
         this.qty[key] = (parseInt(this.qty[key], 10) || 0) + by;
-        this.clamp(key);
+        this.change(key);
     },
-    /** Puts every box back to what is in the cart. */
-    clear() { this.dirty = {}; this.errors = {}; this.sync(); },
 
-    async addAll() {
-        // A box typed into but never left has not been held to its limit yet.
-        Object.keys(this.dirty).forEach((key) => this.clamp(key));
-        const lines = this.filled;
-        if (!lines.length || this.busy) return;
-        this.busy = true;
-        this.errors = {};
+    // Quick clicks on + are gathered into one request, and requests go one at a time so the
+    // cart never sees an older quantity after a newer one.
+    save(key) {
+        clearTimeout(this.timers[key]);
+        this.timers[key] = setTimeout(() => {
+            this.timers[key] = null;
+            this.queue = this.queue.then(() => this.push(key));
+        }, 350);
+    },
+    async push(key) {
+        const line = this.lines[key];
+        const wanted = parseInt(this.qty[key], 10) || 0;
+        const existing = this.cartLine(key);
         const cart = Alpine.store('cart');
-        let changed = false;
         try {
-            for (const line of lines) {
-                const existing = this.cartLine(line.key);
-                try {
-                    if (existing) await cart.update(existing.key, line.qty);
-                    else await cart.add(line.product_id, null, null, line.qty, false, line.options);
-                    this.added[line.key] = line.qty;
-                    delete this.dirty[line.key];
-                    changed = true;
-                } catch (e) {
-                    this.errors[line.key] = e.payload?.message || 'Could not be added. Please try again.';
-                }
-            }
-            this.sync();
-            if (changed) Alpine.store('ui').openCart();
+            if (wanted === (existing?.qty || 0)) return;
+            if (!existing) await cart.add(line.product_id, null, null, wanted, false, line.options);
+            else if (wanted === 0) await cart.remove(existing.key);
+            else await cart.update(existing.key, wanted);
+        } catch (e) {
+            this.errors[key] = e.payload?.message || 'Could not update your cart. Please try again.';
+            Alpine.store('ui').notify(toasts.cartFailed(e, !existing), 'error');
         } finally {
-            this.busy = false;
+            // Changed again while this was on its way: that change is still to be sent.
+            if (!this.timers[key]) {
+                delete this.dirty[key];
+                this.sync();
+            }
         }
     },
 }));

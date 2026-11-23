@@ -69,6 +69,19 @@ class AccountMenuTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_logging_out_empties_the_cart(): void
+    {
+        $client = $this->store('fashion');
+        $customer = Customer::create(['client_id' => $client->id, 'name' => 'Asha Rao', 'email' => 'asha@example.test', 'password' => 'password123', 'is_active' => true]);
+
+        $this->actingAs($customer, 'web')
+            ->withSession(['cart' => ['items' => ['1|' => ['product_id' => 1, 'options' => [], 'size' => null, 'color' => null, 'qty' => 2]], 'coupon' => 'SAVE10']])
+            ->post($client->publicUrl().'/logout')->assertRedirect();
+
+        $this->assertFalse(session()->has('cart.items'));
+        $this->assertFalse(session()->has('cart.coupon'));
+    }
+
     public function test_a_customer_logging_out_keeps_the_staff_panel_signed_in(): void
     {
         $client = $this->store('fashion');

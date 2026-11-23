@@ -39,9 +39,10 @@ class ReviewsTable
                 TextColumn::make('created_at')->since()->sortable(),
             ])
             ->filters([
+                // First: the reviews still waiting for approval are the ones to act on.
+                TernaryFilter::make('is_approved')->label('Approved'),
                 // Several at once, e.g. 1 and 2 stars to find unhappy customers.
                 SelectFilter::make('rating')->options(Review::RATING_OPTIONS)->multiple()->native(false),
-                TernaryFilter::make('is_approved')->label('Approved'),
                 TernaryFilter::make('is_verified_purchase')->label('Verified purchase'),
                 TrashedFilter::make(),
             ])

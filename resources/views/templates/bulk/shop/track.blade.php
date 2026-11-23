@@ -11,7 +11,7 @@
 
     <form method="get" action="{{ route('track') }}" class="bk-card mt-4 grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end" novalidate>
         <label class="bk-label">Order number<span class="bk-req">*</span>
-            <input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. ME-260916-XXXX" class="bk-input uppercase" autocomplete="off">
+            <input name="number" value="{{ old('number', request('number')) }}" placeholder="e.g. {{ \App\Models\Order::exampleNumber() }}" class="bk-input uppercase" autocomplete="off">
             @error('number')<span class="bk-error">{{ $message }}</span>@enderror
         </label>
         <label class="bk-label">Email or phone<span class="bk-req">*</span>

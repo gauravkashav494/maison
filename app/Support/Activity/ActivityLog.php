@@ -26,6 +26,12 @@ class ActivityLog
     /** @var array<int, array<string, mixed>>|null lines held back during a bulk action */
     private ?array $held = null;
 
+    /** @var array<int, array<string, mixed>> the lines of the last bulk action written out, for its toast */
+    private array $lastGroup = [];
+
+    /** @var array<int, array<string, mixed>> every line written (or held) in this request, for the toasts */
+    private array $recent = [];
+
     public function __construct(private readonly ActivityDescriber $describe) {}
 
     public function describer(): ActivityDescriber
@@ -119,6 +125,7 @@ class ActivityLog
     {
         $this->flush();
         $this->held = [];
+        $this->lastGroup = [];
     }
 
     /** Writes what a bulk action held back: one summary line when it all reads as one thing. */
@@ -126,6 +133,7 @@ class ActivityLog
     {
         $held = $this->held;
         $this->held = null;
+        $this->lastGroup = $held ?? $this->lastGroup;
 
         if (! $held) {
             return;
@@ -134,7 +142,7 @@ class ActivityLog
         $kinds = array_unique(array_map(fn (array $e) => $e['action'].'|'.$e['subject_class'], $held));
 
         if (count($held) === 1 || count($kinds) > 1) {
-            array_walk($held, fn (array $e) => $this->write($e));
+            array_walk($held, fn (array $e) => $this->write($e, fresh: false));
 
             return;
         }
@@ -147,7 +155,37 @@ class ActivityLog
             'changes' => array_map(fn (array $e) => ['field' => 'record', 'label' => $e['subject'], 'old' => null, 'new' => $e['description']], $held),
             'fields' => null,
             'client_id' => count(array_unique(array_column($held, 'client_id'))) === 1 ? $first['client_id'] : null,
-        ] + $first);
+        ] + $first, fresh: false);
+    }
+
+    // ---- For the toasts ------------------------------------------------------------------------
+
+    /** Where the lines written from now on start, for since(). */
+    public function mark(): int
+    {
+        return count($this->recent);
+    }
+
+    /**
+     * The lines written (or held for a bulk action) after mark(); model lines carry `subject_class`
+     * and the `model` itself.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function since(int $mark = 0): array
+    {
+        return array_slice($this->recent, $mark);
+    }
+
+    /**
+     * The lines of the running bulk action, or of the last one once it has written them out
+     * (Filament sends a bulk action's toast after its after() hook has flushed).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function bulkLines(): array
+    {
+        return $this->held ?? $this->lastGroup;
     }
 
     // ---- Internals --------------------------------------------------------------------------
@@ -179,11 +217,17 @@ class ActivityLog
             'description' => $sentence,
             'changes' => $changes ?: null,
             'fields' => $fields ?: null,
-        ] + $this->actorColumns($actor));
+        ] + $this->actorColumns($actor), model: $model);
     }
 
-    private function write(array $entry): void
+    /** @param  bool  $fresh  false when a bulk action's held lines are written out (already in $recent) */
+    private function write(array $entry, bool $fresh = true, ?Model $model = null): void
     {
+        if ($fresh) {
+            // The model too: a toast still names a record that is gone once deleted.
+            $this->recent[] = $entry + ['model' => $model];
+        }
+
         if ($this->held !== null && isset($entry['subject_class'])) {
             $this->held[] = $entry;
 

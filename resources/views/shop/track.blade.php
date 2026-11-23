@@ -5,7 +5,7 @@
 
 <section class="container-luxe py-12 lg:py-16">
     <form method="get" action="{{ route('track') }}" class="mx-auto grid max-w-2xl gap-6 border border-ink/10 bg-cream p-6 sm:grid-cols-[1fr_1fr_auto] sm:items-end lg:p-8" novalidate>
-        <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="ME-260916-XXXX" class="input-luxe uppercase">@error('number')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
+        <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Order number<span class="req" aria-hidden="true">*</span></span><input name="number" value="{{ old('number', request('number')) }}" placeholder="{{ \App\Models\Order::exampleNumber() }}" class="input-luxe uppercase">@error('number')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
         <label><span class="block text-[0.6875rem] uppercase tracking-[0.2em] text-smoke">Email or phone<span class="req" aria-hidden="true">*</span></span><input name="contact" type="text" value="{{ old('contact', request('contact', request('email'))) }}" class="input-luxe">@error('contact')<span class="block text-xs text-rouge">{{ $message }}</span>@enderror</label>
         <button type="submit" class="btn btn-primary">Track</button>
         @if($error)<p class="text-sm text-rouge sm:col-span-3">{{ $error }}</p>@endif

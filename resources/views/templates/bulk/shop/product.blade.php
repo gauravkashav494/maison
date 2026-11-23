@@ -114,11 +114,10 @@
                                             <span class="bk-step">
                                                 <button type="button" @click="step(@js($key), -1)" :disabled="!(qty[@js($key)] > 0)" aria-label="Decrease {{ $line['label'] }}"><x-heroicon-o-minus /></button>
                                                 <input type="number" inputmode="numeric" min="0" max="{{ $line['max'] }}" placeholder="0"
-                                                       x-model.number="qty[@js($key)]" @change="clamp(@js($key))" aria-label="Quantity of size {{ $line['label'] }}">
+                                                       x-model.number="qty[@js($key)]" @change="change(@js($key))" @keydown.enter.prevent="$el.blur()" aria-label="Quantity of size {{ $line['label'] }}">
                                                 <button type="button" @click="step(@js($key), 1)" aria-label="Increase {{ $line['label'] }}"><x-heroicon-o-plus /></button>
                                             </span>
                                             <span class="bk-error" x-show="errors[@js($key)]" x-text="errors[@js($key)]" x-cloak></span>
-                                            <span class="bk-ok block" x-show="added[@js($key)]" x-text="added[@js($key)] + ' added'" x-cloak></span>
                                         @else
                                             <span class="bk-out-text text-sm">Unavailable</span>
                                         @endif
@@ -129,12 +128,12 @@
                     </table>
                     <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft px-3 py-2">
                         <p class="text-sm">
-                            <template x-if="filled.length"><span><strong x-text="units"></strong> units · about <strong x-text="estimate"></strong></span></template>
-                            <template x-if="!filled.length"><span class="bk-muted">Set a quantity against each size you need. Sizes already in your cart show their quantity.</span></template>
+                            <template x-if="$store.cart.count > 0"><span><strong x-text="$store.cart.count"></strong> units in cart · <strong x-text="$store.cart.subtotal_formatted"></strong></span></template>
+                            <template x-if="!($store.cart.count > 0)"><span class="bk-muted">Set a quantity against each size you need. It goes straight into your cart.</span></template>
                         </p>
-                        <button type="button" class="bk-btn bk-btn-primary" :disabled="busy || !filled.length" @click="addAll()">
-                            <x-heroicon-o-shopping-cart aria-hidden="true" /><span x-text="busy ? 'Adding…' : 'Add to order'">Add to order</span>
-                        </button>
+                        <a href="{{ route('cart') }}" class="bk-btn bk-btn-primary" @click.prevent="$store.ui.openCart()">
+                            <x-heroicon-o-shopping-cart aria-hidden="true" /><span>View cart</span>
+                        </a>
                     </div>
                 </div>
             @else

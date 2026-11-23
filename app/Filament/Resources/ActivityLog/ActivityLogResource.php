@@ -79,7 +79,10 @@ class ActivityLogResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => Pages\ListActivityLog::route('/')];
+        return [
+            'index' => Pages\ListActivityLog::route('/'),
+            'view' => Pages\ViewActivity::route('/{record}'),
+        ];
     }
 
     private static function seesEveryone(): bool

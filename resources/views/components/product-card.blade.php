@@ -31,7 +31,7 @@
         <button type="button"
                 :aria-label="$store.wishlist.has(product.id) ? 'Remove from wishlist' : 'Add to wishlist'"
                 :aria-pressed="$store.wishlist.has(product.id)"
-                @click="$store.wishlist.toggle(product.id)"
+                @click="$store.wishlist.toggle(product.id, product.name)"
                 class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ivory/85 text-ink backdrop-blur transition-all duration-500 lg:translate-y-1 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"
                 :class="$store.wishlist.has(product.id) && 'lg:translate-y-0 lg:opacity-100'">
             <x-ico name="heart" :size="15" :stroke="1.5" ::class="$store.wishlist.has(product.id) && 'fill-ink'" />

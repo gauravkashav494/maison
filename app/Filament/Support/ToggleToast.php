@@ -28,6 +28,8 @@ class ToggleToast
         'Published' => ['is now published', 'is now unpublished'],
         'Approved' => ['is now approved and shown on the storefront', 'is no longer approved and is hidden from the storefront'],
         'Featured' => ['is now featured', 'is no longer featured'],
+        'New' => ['is now marked as new', 'is no longer marked as new'],
+        'Best seller' => ['is now marked as a best seller', 'is no longer marked as a best seller'],
         'Popular' => ['is now marked as popular', 'is no longer marked as popular'],
         'Lead story' => ['is now the lead story', 'is no longer the lead story'],
         'Menu & homepage' => ['now shows in the navigation and homepage grid', 'no longer shows in the navigation and homepage grid'],

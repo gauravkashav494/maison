@@ -141,7 +141,9 @@ class AccountController extends Controller
         // Sign out the shopper only. The browser has one session for every guard, so invalidating
         // it would also sign out a staff account open in the admin or client panel in another tab.
         Auth::guard('web')->logout();
-        $request->session()->forget(['last_order_number', 'booking', 'customer_otp']);
+        // The bag is the shopper's too ('cart' holds every cart.* key): leaving it would show their
+        // items, coupon and count to whoever uses the browser next.
+        $request->session()->forget(['cart', 'last_order_number', 'booking', 'customer_otp']);
         $request->session()->regenerate();
 
         return redirect()->route('home');

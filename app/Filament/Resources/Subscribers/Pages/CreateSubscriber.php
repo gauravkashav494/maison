@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Subscribers\Pages;
 
 use App\Filament\Resources\Subscribers\SubscriberResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateSubscriber extends CreateRecord
 {

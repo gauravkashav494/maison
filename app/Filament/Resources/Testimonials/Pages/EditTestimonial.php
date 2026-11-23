@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\Testimonials\Pages;
 
 use App\Filament\Resources\Testimonials\TestimonialResource;
+use App\Filament\Support\Pages\EditRecord;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
-use Filament\Resources\Pages\EditRecord;
 
 class EditTestimonial extends EditRecord
 {

@@ -92,7 +92,7 @@
             document.addEventListener('submit', (event) => {
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                window.Alpine?.store('ui')?.notify('This is a preview with a sample item: no order is placed.', 6000);
+                window.Alpine?.store('ui')?.notify({ title: 'Preview only', body: 'This is a sample item, so no order is placed.' }, 6000);
             }, true);
         })();
         window.addEventListener('load', () => {

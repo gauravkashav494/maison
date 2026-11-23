@@ -160,6 +160,11 @@ class ClientPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-badge'))
             // Live checklist under every new-password field (App\Support\PasswordRules).
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.session-timeout', [
+                'signedIn' => filament()->auth()->check(),
+                'logoutUrl' => filament()->auth()->check() ? filament()->getLogoutUrl() : null,
+                'loginUrl' => filament()->getLoginUrl(),
+            ]))
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.partials.editable-tags'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))
