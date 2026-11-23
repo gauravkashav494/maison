@@ -13,6 +13,7 @@ use App\Support\GstSupply;
 use App\Support\GuestCustomer;
 use App\Support\Invoice;
 use App\Support\SalesOrder;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -66,6 +67,9 @@ class PlaceOrder
         }
 
         $this->cart->clear();
+
+        // The store's team sees it in the panel's notification bell.
+        StaffAlerts::newOrder($order);
 
         return $order;
     }

@@ -153,6 +153,9 @@ class ClientPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->globalSearch()
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            // The bell: new orders, customer cancellations, reviews, messages, bookings (App\Support\StaffAlerts).
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.partials.client-badge'))
             // Live checklist under every new-password field (App\Support\PasswordRules).

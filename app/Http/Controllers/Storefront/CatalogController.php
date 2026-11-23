@@ -17,6 +17,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Support\ReviewModeration;
 use App\Support\Seo;
+use App\Support\StaffAlerts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,7 +116,8 @@ class CatalogController extends Controller
         $data = $request->validated();
         $customer = $request->user();
         $verdict = app(ReviewModeration::class)->assess($product, $customer, $data);
-        $product->reviews()->create($data + $verdict + ['customer_id' => $customer?->id, 'template' => $product->template ?? template()->id()]);
+        $review = $product->reviews()->create($data + $verdict + ['customer_id' => $customer?->id, 'template' => $product->template ?? template()->id()]);
+        StaffAlerts::reviewSubmitted($review);
 
         return back()->with('review_status', $verdict['is_approved']
             ? 'Thank you — your review is now live.'
@@ -203,7 +205,7 @@ class CatalogController extends Controller
     {
         $data = $request->validated();
         unset($data['website']);
-        ContactMessage::create($data + ['template' => template()->id()]);
+        StaffAlerts::contactMessage(ContactMessage::create($data + ['template' => template()->id()]));
 
         return back()->with('contact_status', 'Thank you. Our client care team will reply within one business day.');
     }

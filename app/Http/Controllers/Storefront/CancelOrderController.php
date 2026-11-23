@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Support\StaffAlerts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -35,7 +36,9 @@ class CancelOrderController extends Controller
         }
 
         $reason = trim('Cancelled by customer'.(filled($data['reason'] ?? null) ? ': '.$data['reason'] : ''));
-        $order->transitionTo(Order::STATUS_CANCELLED, $reason, $customer);
+        if ($order->transitionTo(Order::STATUS_CANCELLED, $reason, $customer)) {
+            StaffAlerts::orderCancelledByCustomer($order);
+        }
 
         return $back->with('order_cancelled', $order->payment_status === 'paid'
             ? "Order {$order->number} has been cancelled. Your refund will be processed to the original payment method."

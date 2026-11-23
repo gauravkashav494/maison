@@ -80,6 +80,7 @@ Status key: ✅ works, tested · ⚠️ works, has a known issue (see section 2)
 | Settings pages per template, homepage builders, SEO, search listings | ✅ | |
 | Staff accounts, roles and permissions per module | ✅ | |
 | Activity log of every staff action | ✅ | Readable sentences, per client |
+| Notification bell in the client panel | ✅ | New orders, customer cancellations, reviews awaiting approval, contact messages, bookings. Only staff who may open that module see each alert (`App\Support\StaffAlerts`) |
 | Multi-client platform: subdomains, separate client databases, plans, super admin | ✅ | |
 
 ---

@@ -17,6 +17,7 @@ use App\Models\Testimonial;
 use App\Support\GuestCustomer;
 use App\Support\Media;
 use App\Support\Seo;
+use App\Support\StaffAlerts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -185,6 +186,7 @@ class ServicesController extends Controller
         }
 
         $booking = ServiceRequest::create($data);
+        StaffAlerts::serviceRequest($booking);
         $request->session()->put('booking.'.$booking->reference, true);
 
         return redirect()->to($booking->url);
@@ -227,6 +229,7 @@ class ServicesController extends Controller
         $data['customer_id'] = GuestCustomer::idFor($request->user(), $data['email'] ?? null, $data['name'], $data['phone']);
 
         $quote = ServiceRequest::create($data);
+        StaffAlerts::serviceRequest($quote);
         $request->session()->put('booking.'.$quote->reference, true);
 
         return redirect()->to($quote->url);
@@ -278,7 +281,7 @@ class ServicesController extends Controller
         $data = $request->validated();
         unset($data['website']);
         $data['subject'] = $data['service'] ?: 'Enquiry';
-        ContactMessage::create($data + ['template' => template()->id()]);
+        StaffAlerts::contactMessage(ContactMessage::create($data + ['template' => template()->id()]));
 
         return back()->with('contact_status', 'Thank you! We have received your message and will call you back shortly.');
     }
