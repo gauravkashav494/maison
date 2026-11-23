@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Storefront;
 
+use App\Models\Order;
 use Illuminate\Validation\Validator;
 
 /**
@@ -55,7 +56,7 @@ class TrackOrderRequest extends StorefrontRequest
     public function messages(): array
     {
         return [
-            'number.regex' => 'Order numbers contain only letters, digits and hyphens, e.g. ME-260916-AB12.',
+            'number.regex' => 'Order numbers contain only letters, digits and hyphens, e.g. '.Order::exampleNumber().'.',
             'contact.required' => 'Enter the email address or phone number used at checkout.',
         ] + parent::messages();
     }

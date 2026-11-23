@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Clients\ClientContext;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\UsesClientConnection;
@@ -123,13 +124,67 @@ class Order extends Model
         return $this->hasMany(OrderItem::class)->withTrashed();
     }
 
+    /**
+     * Characters of the random part: no 0/O, 1/I/L, so a number read out over the phone or
+     * copied from a screenshot cannot be mistaken. 31 characters, four of them: ~920,000
+     * numbers per store per day.
+     */
+    public const NUMBER_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+    /**
+     * A new order number for the store being served: "<prefix>-<yymmdd>-<4 random>", e.g.
+     * EFS-261123-K7QM. The prefix is the store's (Site settings → Checkout → Order numbers),
+     * else made from its name. Random rather than counted, so a number says nothing about how
+     * many orders a store takes and cannot be guessed from another. Unique within the store,
+     * as the (client_id, number) index requires.
+     */
     public static function generateNumber(): string
     {
+        $prefix = self::numberPrefix();
+        $clientId = app(ClientContext::class)->id();
+
         do {
-            $number = 'ME-'.now()->format('ymd').'-'.strtoupper(Str::random(4));
-        } while (static::where('number', $number)->exists());
+            $code = '';
+            for ($i = 0; $i < 4; $i++) {
+                $code .= self::NUMBER_ALPHABET[random_int(0, strlen(self::NUMBER_ALPHABET) - 1)];
+            }
+            $number = $prefix.'-'.now()->format('ymd').'-'.$code;
+        } while (static::withoutGlobalScopes()->withTrashed()->where('client_id', $clientId)->where('number', $number)->exists());
 
         return $number;
+    }
+
+    /** The store's order number prefix: its own setting, else made from its name. */
+    public static function numberPrefix(): string
+    {
+        $own = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) setting('checkout.order_prefix')));
+
+        return $own !== '' ? substr($own, 0, 5) : self::defaultNumberPrefix(app(ClientContext::class)->client()?->name);
+    }
+
+    /**
+     * A prefix from the store's name: the first letter of up to three words ("Ethnic Fashion
+     * Store" → EFS), or the first three letters of a one-word name ("Lumen" → LUM). ORD when
+     * the name gives nothing usable.
+     */
+    public static function defaultNumberPrefix(?string $name): string
+    {
+        $words = preg_split('/\s+/', strtoupper(Str::ascii((string) $name)), -1, PREG_SPLIT_NO_EMPTY);
+        $words = array_values(array_filter(array_map(fn (string $word) => preg_replace('/[^A-Z0-9]/', '', $word), $words)));
+
+        $prefix = match (count($words)) {
+            0 => '',
+            1 => substr($words[0], 0, 3),
+            default => implode('', array_map(fn (string $word) => $word[0], array_slice($words, 0, 3))),
+        };
+
+        return strlen($prefix) >= 2 ? $prefix : 'ORD';
+    }
+
+    /** What this store's numbers look like, for hints on the tracking form: "EFS-261123-XXXX". */
+    public static function exampleNumber(): string
+    {
+        return self::numberPrefix().'-'.now()->format('ymd').'-XXXX';
     }
 
     /** Payment status as shoppers see it on the storefront: "Pay on delivery" for COD. */
