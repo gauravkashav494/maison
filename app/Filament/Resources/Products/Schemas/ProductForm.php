@@ -14,6 +14,7 @@ use App\Filament\Support\Fields;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
+use App\Models\SyncToken;
 use App\Models\Tax;
 use App\Rules\WithinClientImageLimit;
 use App\Rules\WithinProductImageCap;
@@ -51,6 +52,18 @@ use Illuminate\Support\Str;
 
 class ProductForm
 {
+    /**
+     * A shop with an active sync token exchanges products with its billing software by SKU, so
+     * the product and each variant need their own SKU there.
+     */
+    public static function syncsWithBillingSoftware(): bool
+    {
+        $clientId = app(ClientContext::class)->id();
+
+        return $clientId !== null
+            && SyncToken::active()->where('client_id', $clientId)->exists();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -90,9 +103,13 @@ class ProductForm
                                     // Optional everywhere and always starts blank: staff type their own code.
                                     // A product without one is still sold from the catalogue, just not typed into the pad.
                                     TextInput::make('sku')->label('SKU')->maxLength(64)
-                                        ->helperText(fn (Get $get) => self::requiresSku($get)
-                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'
-                                            : null)
+                                        // Required when the shop syncs with its billing software, which matches items by SKU.
+                                        ->required(fn () => self::syncsWithBillingSoftware())
+                                        ->helperText(fn (Get $get) => match (true) {
+                                            self::syncsWithBillingSoftware() => 'Required: this shop syncs with its billing software, which identifies items by SKU.',
+                                            self::requiresSku($get) => 'Optional. Buyers can order by this code on the quick-order pad.',
+                                            default => null,
+                                        })
                                         ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
                                     TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
                                 ]),
@@ -443,7 +460,9 @@ class ProductForm
                                                         ->validationMessages(['required' => 'Choose a '.$attribute['name'].' (a value may have been removed from the option above).']),
                                                     self::definedAttributes($get, ''),
                                                 ),
-                                                TextInput::make('sku')->label('SKU')->maxLength(64)->placeholder(fn (Get $get) => $get('../../sku') ?: null),
+                                                TextInput::make('sku')->label('SKU')->maxLength(64)
+                                                    ->required(fn () => self::syncsWithBillingSoftware())
+                                                    ->placeholder(fn (Get $get) => self::syncsWithBillingSoftware() ? null : ($get('../../sku') ?: null)),
                                                 // The MRP, shown struck through when above the price. Blank uses the
                                                 // product's MRP, shown greyed as the placeholder.
                                                 TextInput::make('compare_at_price')->label('MRP')->numeric()->minValue(0)

@@ -40,7 +40,7 @@ Send it on every request as `Authorization: Bearer evs_…`. Use HTTPS only.
 
 | Data | Local system owns | EcomVision owns |
 |---|---|---|
-| Product | SKU, name, price, compare-at price, stock | slug, description, images, category, SEO, visibility |
+| Product | SKU, name, price, compare-at price, stock; each variant's SKU, options and price; the category while the product has none | slug, description, images, category once set, collections, SEO, visibility, variant images and on-sale flags |
 | Order | fulfilment status, carrier, tracking number | the order as placed |
 | Customer | adds customers EcomVision does not have; fills a blank phone | name, email, phone and active flag of an existing customer |
 
@@ -73,11 +73,27 @@ Each POST takes `{"items": [...]}`, up to 500 items.
 
 | Endpoint | Item fields (**required**) |
 |---|---|
-| `products` | **external_id**, **name**, **price**, sku, compare_at_price |
+| `products` | **external_id**, **name**, **price**, sku, compare_at_price, category, variants |
 | `stock` | **sku**, **on_hand**, price |
 | `customers` | **external_id**, **name**, **email**, phone |
 | `orders/status` | **number**, status, carrier, tracking_number, note |
 | `changes/*/ack` | **id**, **version**, external_id |
+
+On `products`, `category` and `variants` are optional:
+
+```json
+{"external_id": "ITM-88", "sku": "TEE", "name": "Tee", "price": 499, "category": "T-Shirts",
+ "variants": [{"sku": "TEE-BLK-M", "options": {"Color": "Black", "Size": "M"}},
+              {"sku": "TEE-BLK-L", "options": {"Color": "Black", "Size": "L"}, "price": 549}]}
+```
+
+* `category` is a name. It is matched without regard to case, created (out of the menu) when
+  missing, and applied only while the product has no category; after that the panel owns it.
+* `variants` (up to 200, 1–5 options each) are matched by SKU: new SKUs are added with stock 0,
+  known ones get their options and price updated, and a variant no longer sent is left alone.
+  Option names and values are matched to the product's existing spelling. A variant without
+  `price` sells at the product's price. A variant SKU that another product already uses is
+  rejected. Stock still arrives through `stock`, per variant SKU.
 
 `external_id` is the record's primary key in the local database. Prices and quantities are whole
 numbers; prices are whole rupees, so the agent decides how to round a decimal price.
@@ -107,6 +123,12 @@ committed. To step past a record the agent cannot process yet, pass its id as `a
 
 Passwords are never sent. Customer addresses are not in the customer feed; each order carries its
 own shipping address.
+
+A product created in the panel is in the products feed (with its category name and variants) so
+the local system can create it; acknowledge it with the local item id as `external_id`. It comes
+back when a variant is added, removed or given a new SKU or options, but not when only stock,
+price, images or availability change. While a client has an active sync token, the panel requires
+a SKU on every product and variant.
 
 ---
 

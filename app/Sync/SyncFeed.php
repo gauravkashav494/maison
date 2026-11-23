@@ -26,6 +26,7 @@ class SyncFeed
     {
         $rows = $this->query($resource)
             ->when($resource === 'orders', fn (Builder $q) => $q->with('items'))
+            ->when($resource === 'products', fn (Builder $q) => $q->with('category'))
             ->whereColumn('sync_version', '>', 'sync_acked_version')
             ->where('id', '>', $afterId)
             ->orderBy('id')
@@ -74,7 +75,11 @@ class SyncFeed
     private function presentProducts(Product $product): array
     {
         return $product->only(['id', 'external_id', 'sku', 'name', 'slug', 'description', 'price', 'compare_at_price', 'is_active', 'has_variants'])
-            + ['version' => $product->sync_version, 'variants' => $product->sellsVariants() ? $product->variantList() : []];
+            + [
+                'version' => $product->sync_version,
+                'category' => $product->category?->name,
+                'variants' => $product->sellsVariants() ? $product->variantList() : [],
+            ];
     }
 
     private function presentOrders(Order $order): array
