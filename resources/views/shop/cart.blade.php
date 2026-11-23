@@ -51,7 +51,7 @@
                                         <button type="button" @click="$store.cart.update(item.key, item.qty + 1)" aria-label="Increase" class="grid h-full w-9 place-items-center hover:bg-sand"><x-ico name="plus" :size="12" :stroke="1.5" /></button>
                                     </div>
                                     <div class="flex items-center gap-4 text-[0.625rem] uppercase tracking-widest text-smoke">
-                                        <button type="button" @click="$store.wishlist.toggle(item.product.id); $store.cart.remove(item.key)" class="hover:text-ink">Move to wishlist</button>
+                                        <button type="button" @click="$store.wishlist.toggle(item.product.id, item.product.name); $store.cart.remove(item.key)" class="hover:text-ink">Move to wishlist</button>
                                         <button type="button" @click="$store.cart.remove(item.key)" class="hover:text-ink">Remove</button>
                                     </div>
                                 </div>

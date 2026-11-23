@@ -9,6 +9,7 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import { makeToast } from '../../../js/toast';
 import '../../../js/password-reveal';
 import '../../../js/phone-input';
 
@@ -39,10 +40,10 @@ Alpine.store('ui', {
     openSearch() { this.closeAll(); this.searchOpen = true; },
     openContact() { this.closeAll(); this.contactOpen = true; },
     openLocation() { this.closeAll(); this.locationOpen = true; },
-    notify(message, tone = 'ok') {
+    notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.toastTimer);
-        this.toast = { message, tone };
-        this.toastTimer = setTimeout(() => { this.toast = null; }, 2400);
+        this.toast = makeToast(message, tone, duration);
+        this.toastTimer = setTimeout(() => { this.toast = null; }, this.toast.duration);
     },
 });
 
@@ -50,7 +51,7 @@ Alpine.store('ui', {
 Alpine.store('area', {
     current: Alpine.$persist(null).as('ps-area'),
     get name() { return this.current?.name || null; },
-    set(area) { this.current = area ? { name: area.name, slug: area.slug, response: area.response_time || null } : null; Alpine.store('ui').locationOpen = false; if (area) Alpine.store('ui').notify(`Showing services for ${area.name}`); },
+    set(area) { this.current = area ? { name: area.name, slug: area.slug, response: area.response_time || null } : null; Alpine.store('ui').locationOpen = false; if (area) Alpine.store('ui').notify({ title: `Showing services for ${area.name}`, body: area.response_time ? `Typical response time: ${area.response_time}.` : null }); },
 });
 
 Alpine.store('recent', {

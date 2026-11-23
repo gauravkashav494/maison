@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\ClientRoles\Pages;
 
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
+use App\Filament\Support\Pages\EditRecord;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
-use Filament\Resources\Pages\EditRecord;
 
 class EditClientRole extends EditRecord
 {

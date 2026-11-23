@@ -29,9 +29,15 @@
 
     @include('partials.footer')
     @include('partials.cart-drawer')
-    <x-cart-notice />
+    {{-- Above the order bar at the foot of the shop and category lists. --}}
+    <x-cart-notice bottom="6.5rem" />
     @include('partials.cookie-banner')
 
+    @include('partials.session-timeout', [
+        'signedIn' => auth('web')->check(),
+        'logoutUrl' => auth('web')->check() ? route('logout') : null,
+        'loginUrl' => route('login'),
+    ])
     @stack('scripts')
 </body>
 </html>

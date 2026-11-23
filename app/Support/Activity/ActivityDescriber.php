@@ -20,8 +20,9 @@ use Throwable;
  *   switched off promo code "DIWALI20"
  *   updated page "About us": title "About" → "About us", SEO description and 2 more
  *
- * Values are shown only for short, safe fields. Passwords, tokens, hints and OTPs are named but
- * never shown; long text, HTML, lists and JSON are named only ("changed the description").
+ * Passwords, tokens, hints and OTPs are named but never stored. Long text, HTML, lists and JSON
+ * are named only in the sentence ("changed the description"); their before and after are kept
+ * for the details view (plain text up to 600 characters, or only the list rows that changed).
  */
 class ActivityDescriber
 {
@@ -181,7 +182,123 @@ class ActivityDescriber
             $ignored[] = 'template';
         }
 
-        return array_values(array_diff(array_keys($model->getChanges()), $ignored));
+        $attributes = $model->getAttributes();
+        $fields = array_diff(array_keys($model->getChanges()), $ignored);
+
+        // Laravel counts "4500.00" → "4500", null → "" or a re-ordered JSON list as a change. Only
+        // a column whose value really differs makes the line.
+        // A list whose only difference is in worked-out values (a variant's price with tax after
+        // the tax changed) is not listed either: the change that caused it is.
+        return array_values(array_filter($fields, function (string $field) use ($model, $attributes) {
+            $old = $model->getRawOriginal($field);
+            $new = $attributes[$field] ?? null;
+            if ($this->sameValue($old, $new)) {
+                return false;
+            }
+            $old = $this->decoded($old);
+            $new = $this->decoded($new);
+
+            return ! (is_array($old) && is_array($new) && $this->listDiff($old, $new) === [[], []]);
+        }));
+    }
+
+    /**
+     * Whether two stored values mean the same: null and "" alike, numbers by value ("0.0" and 0),
+     * booleans as 0/1, and JSON by its decoded content with keys in any order.
+     */
+    public function sameValue(mixed $a, mixed $b): bool
+    {
+        return $this->normalise($a) === $this->normalise($b);
+    }
+
+    private function normalise(mixed $value): mixed
+    {
+        if ($value instanceof CarbonInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+        if (is_object($value)) {
+            $value = json_decode(json_encode($value), true);
+        }
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed !== '' && ($trimmed[0] === '[' || $trimmed[0] === '{')) {
+                $decoded = json_decode($trimmed, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $value = $decoded;
+                }
+            }
+        }
+        if (is_array($value)) {
+            if ($value === []) {
+                return null;
+            }
+            if (! array_is_list($value)) {
+                ksort($value);
+            }
+
+            return array_map(fn ($item) => $this->normalise($item), $value);
+        }
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        // Numbers by value, but not codes with a leading zero ("0123" is not 123).
+        if (is_int($value) || is_float($value) || (is_string($value) && preg_match('/^-?(0|[1-9]\d*)(\.\d+)?$/', $value))) {
+            return (string) ($value + 0);
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * A setting's before and after, as the activity log shows them. Secrets are named only.
+     *
+     * @return array{field: string, label: string, old: ?string, new: ?string, secret?: bool}
+     */
+    public function settingChange(string $path, string $label, mixed $old, mixed $new): array
+    {
+        $change = ['field' => $path, 'label' => $label, 'old' => null, 'new' => null];
+
+        if (preg_match(self::SECRET, $path)) {
+            return $change + ['secret' => true];
+        }
+
+        if (is_bool($old) || is_bool($new)) {
+            return array_merge($change, ['old' => $old ? 'on' : 'off', 'new' => $new ? 'on' : 'off', 'bool' => (bool) $new]);
+        }
+
+        $shortOld = $this->plainValue($old);
+        $shortNew = $this->plainValue($new);
+
+        return $shortOld === false || $shortNew === false
+            ? $change + $this->details($path, $old, $new)
+            : array_merge($change, ['old' => $shortOld, 'new' => $shortNew]);
+    }
+
+    /** A setting value as text: "" when empty, false when too long or not text (lists, HTML). */
+    private function plainValue(mixed $value): string|false
+    {
+        if ($value === null || $value === '' || $value === []) {
+            return '';
+        }
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+        if (! is_scalar($value)) {
+            return false;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        $text = (string) $value;
+
+        return mb_strlen($text) > 60 || str_contains($text, "\n") || $text !== strip_tags($text) ? false : '"'.$text.'"';
     }
 
     /**
@@ -253,7 +370,7 @@ class ActivityDescriber
         $change = ['field' => $field, 'label' => $this->label($field), 'old' => null, 'new' => null];
 
         if (preg_match(self::SECRET, $field)) {
-            return $change;
+            return $change + ['secret' => true];
         }
 
         try {
@@ -272,12 +389,176 @@ class ActivityDescriber
             $change['old'] = $change['new'] = null;
         }
 
-        // Shown only when both sides can be shown, so a long text never appears half.
+        // The sentence names a long text or a list only; the details view gets its before and after.
         if ($change['old'] === false || $change['new'] === false) {
             $change['old'] = $change['new'] = null;
+            try {
+                $change += $this->details($field, $model->getRawOriginal($field), $model->getAttributes()[$field] ?? null);
+            } catch (Throwable) {
+                // Named only.
+            }
         }
 
         return $change;
+    }
+
+    // ---- Long text and lists, for the details view ------------------------------------------
+
+    /** Longest before or after text kept for one field. */
+    private const DETAIL_LIMIT = 600;
+
+    /** Values inside a list row that are worked out from others, never a change of their own. */
+    private const DERIVED = ['price_incl_tax', 'price_excl_tax'];
+
+    /**
+     * Before and after of a long text (as plain text) or a list (only the rows that changed).
+     *
+     * @return array{old_detail?: string, new_detail?: string}
+     */
+    private function details(string $field, mixed $old, mixed $new): array
+    {
+        $old = $this->decoded($old);
+        $new = $this->decoded($new);
+
+        if (is_array($old) || is_array($new)) {
+            [$before, $after] = $this->listDiff(is_array($old) ? $old : [], is_array($new) ? $new : []);
+            $old = implode('; ', $before);
+            $new = implode('; ', $after);
+        } else {
+            $old = $this->plainText($old);
+            $new = $this->plainText($new);
+        }
+
+        return ['old_detail' => Str::limit($old, self::DETAIL_LIMIT), 'new_detail' => Str::limit($new, self::DETAIL_LIMIT)];
+    }
+
+    /** A JSON string as its array, anything else as it is. */
+    private function decoded(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && in_array(ltrim($value)[0] ?? '', ['[', '{'], true)) {
+            $decoded = json_decode($value, true);
+
+            return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+        }
+
+        return is_object($value) ? json_decode(json_encode($value), true) : $value;
+    }
+
+    private function plainText(mixed $value): string
+    {
+        if ($value === null || ! is_scalar($value)) {
+            return '';
+        }
+
+        $text = html_entity_decode(strip_tags(preg_replace('/<(br|\/p|\/li|\/h\d)\b[^>]*>/i', ' ', (string) $value)));
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
+    }
+
+    /**
+     * What differs between two lists, as readable parts for each side: "S: stock 22" → "S: stock 20",
+     * a row added or removed by its name. A list of plain values is shown whole.
+     *
+     * @return array{0: array<string>, 1: array<string>}
+     */
+    private function listDiff(array $old, array $new): array
+    {
+        $isRows = fn (array $list) => $list !== [] && array_is_list($list) && is_array(reset($list));
+
+        if (! $isRows($old) && ! $isRows($new)) {
+            if (array_is_list($old) && array_is_list($new)) {
+                if ($this->sameValue($old, $new)) {
+                    return [[], []];
+                }
+
+                return [[$this->inline($old) ?: 'empty'], [$this->inline($new) ?: 'empty']];
+            }
+
+            return $this->rowDiff(null, $old, $new);
+        }
+
+        $old = $this->byRowName($old);
+        $new = $this->byRowName($new);
+        $before = $after = [];
+
+        foreach (array_keys($old + $new) as $name) {
+            if (! isset($new[$name])) {
+                $before[] = $name;
+                $after[] = $name.' removed';
+            } elseif (! isset($old[$name])) {
+                $after[] = $name.' added';
+            } else {
+                [$b, $a] = $this->rowDiff($name, $old[$name], $new[$name]);
+                array_push($before, ...$b);
+                array_push($after, ...$a);
+            }
+        }
+
+        return [$before, $after];
+    }
+
+    /** @return array<string, array> rows keyed by a name a person knows them by */
+    private function byRowName(array $rows): array
+    {
+        $named = [];
+        foreach (array_values($rows) as $i => $row) {
+            $row = (array) $row;
+            $name = match (true) {
+                is_array($row['options'] ?? null) && $row['options'] !== [] => implode(' / ', array_map(fn ($v) => is_scalar($v) ? (string) $v : '', $row['options'])),
+                filled($row['name'] ?? null) && is_scalar($row['name']) => (string) $row['name'],
+                filled($row['label'] ?? null) && is_scalar($row['label']) => (string) $row['label'],
+                filled($row['title'] ?? null) && is_scalar($row['title']) => (string) $row['title'],
+                filled($row['sku'] ?? null) && is_scalar($row['sku']) => (string) $row['sku'],
+                default => '#'.($i + 1),
+            };
+            $named[isset($named[$name]) ? $name.' ('.($i + 1).')' : $name] = $row;
+        }
+
+        return $named;
+    }
+
+    /** @return array{0: array<string>, 1: array<string>} "S: price ₹4,999.00, stock 22" for each side */
+    private function rowDiff(?string $name, array $old, array $new): array
+    {
+        $b = $a = [];
+        foreach (array_keys($old + $new) as $key) {
+            if (in_array($key, self::DERIVED, true) || $this->sameValue($old[$key] ?? null, $new[$key] ?? null)) {
+                continue;
+            }
+            $label = $this->label((string) $key);
+            $b[] = $label.' '.$this->inlineValue((string) $key, $old[$key] ?? null);
+            $a[] = $label.' '.$this->inlineValue((string) $key, $new[$key] ?? null);
+        }
+
+        if ($b === []) {
+            return [[], []];
+        }
+        $prefix = $name === null ? '' : $name.': ';
+
+        return [[$prefix.implode(', ', $b)], [$prefix.implode(', ', $a)]];
+    }
+
+    private function inlineValue(string $key, mixed $value): string
+    {
+        return match (true) {
+            $value === null || $value === '' || $value === [] => 'empty',
+            is_bool($value) => $value ? 'on' : 'off',
+            in_array($key, self::MONEY, true) && is_numeric($value) => money($value),
+            is_array($value) => $this->inline($value) ?: 'empty',
+            default => Str::limit($this->plainText($value), 80),
+        };
+    }
+
+    /** A small list or map on one line: "S, M, L" or "Size S". */
+    private function inline(array $value): string
+    {
+        $parts = [];
+        foreach ($value as $key => $item) {
+            $text = is_array($item) ? $this->inline($item) : $this->inlineValue((string) $key, $item);
+            $parts[] = is_string($key) ? $key.' '.$text : $text;
+        }
+
+        return implode(', ', $parts);
     }
 
     public function label(string $field): string

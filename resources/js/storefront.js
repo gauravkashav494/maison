@@ -1,4 +1,5 @@
 import Alpine from 'alpinejs';
+import { makeToast, toasts } from './toast';
 import intersect from '@alpinejs/intersect';
 import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
@@ -43,13 +44,13 @@ Alpine.store('ui', {
     searchOpen: false,
     menuOpen: false,
     quickView: null,
-    // A short message (e.g. "You can order at most 5 of this item."), shown by <x-cart-notice>.
+    // A toast ({ title, body, tone }, see resources/js/toast.js), shown by <x-cart-notice>.
     notice: null,
     noticeTimer: null,
-    notify(message, duration = 3500) {
+    notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.noticeTimer);
-        this.notice = message;
-        this.noticeTimer = setTimeout(() => { this.notice = null; }, duration);
+        this.notice = makeToast(message, tone, duration);
+        this.noticeTimer = setTimeout(() => { this.notice = null; }, this.notice.duration);
     },
     get anyOpen() {
         return this.cartOpen || this.searchOpen || this.menuOpen || !!this.quickView;
@@ -102,11 +103,11 @@ Alpine.store('cart', {
         // in the box on the cart and checkout pages (<x-cart-unavailable-notice>), else a toast.
         if (data.unavailable_notice) {
             this.removed_notice = data.unavailable_notice;
-            if (!this.noticeBox) Alpine.store('ui').notify(data.unavailable_notice, 8000);
+            if (!this.noticeBox) Alpine.store('ui').notify(toasts.cartChanged(data.unavailable_notice), 'error', 8000);
         }
         // An item no longer sold stays in the cart, greyed, until removed (<x-cart-unavailable-notice>
         // lists it); said once in a toast, except on the cart and checkout pages, which list it.
-        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(data.unavailable_toast, 8000);
+        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(toasts.cartChanged(data.unavailable_toast), 'error', 8000);
     },
     async load() {
         this.apply(await api('/cart/items'));
@@ -123,7 +124,7 @@ Alpine.store('cart', {
     async update(key, qty) {
         // Refused over the product's max quantity per order or its stock: say why.
         try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
-        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart.'); }
+        catch (e) { Alpine.store('ui').notify(toasts.cartFailed(e, false), 'error'); }
     },
     async remove(key) {
         this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' }));
@@ -214,7 +215,7 @@ Alpine.data('productCard', (product) => ({
             await Alpine.store('cart').add(this.product.id, size, this.product.colors[0]?.name ?? null, 1, false);
         } catch (e) {
             this.added = false;
-            Alpine.store('ui').notify(e.payload?.message || 'Could not add this item.');
+            Alpine.store('ui').notify(toasts.cartFailed(e), 'error');
             return;
         }
         setTimeout(() => { this.added = false; Alpine.store('ui').openCart(); }, 450);
@@ -235,14 +236,14 @@ Alpine.data('quickView', () => ({
     /** + button: up to the product's max quantity per order, then says so. */
     incQty() {
         const max = this.$store.ui.quickView?.max_qty;
-        if (max && this.qty >= max) { this.$store.ui.notify(`You can order at most ${max} of this item.`); return; }
+        if (max && this.qty >= max) { this.$store.ui.notify(toasts.maxQty(max, this.$store.ui.quickView?.name), 'error'); return; }
         this.qty++;
     },
     async add() {
         const p = this.$store.ui.quickView;
         if (!p || !this.size) return;
         try { await this.$store.cart.add(p.id, this.size, this.color, this.qty, false); }
-        catch (e) { this.$store.ui.notify(e.payload?.message || 'Could not add this item.'); return; }
+        catch (e) { this.$store.ui.notify(toasts.cartFailed(e), 'error'); return; }
         this.$store.ui.quickView = null;
         setTimeout(() => this.$store.ui.openCart(), 200);
     },

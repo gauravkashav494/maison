@@ -42,11 +42,11 @@ class CategoriesTable
                     ->disabled(fn (Category $r) => ! Category::featurableIn($r->template)),
             ])
             ->filters([
-                TrashedFilter::make(),
                 TernaryFilter::make('parent_id')->label('Level')->nullable()->trueLabel('Child categories')->falseLabel('Top level')->queries(
                     true: fn ($q) => $q->whereNotNull('parent_id'),
                     false: fn ($q) => $q->whereNull('parent_id'),
                 ),
+                TrashedFilter::make(),
             ])
             ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
             ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);

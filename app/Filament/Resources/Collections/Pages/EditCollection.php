@@ -3,11 +3,11 @@
 namespace App\Filament\Resources\Collections\Pages;
 
 use App\Filament\Resources\Collections\CollectionResource;
+use App\Filament\Support\Pages\EditRecord;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
-use Filament\Resources\Pages\EditRecord;
 
 class EditCollection extends EditRecord
 {

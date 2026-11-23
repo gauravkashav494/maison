@@ -76,6 +76,9 @@ class PlatformActivityResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => Pages\ListPlatformActivities::route('/')];
+        return [
+            'index' => Pages\ListPlatformActivities::route('/'),
+            'view' => Pages\ViewPlatformActivity::route('/{record}'),
+        ];
     }
 }

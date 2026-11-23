@@ -87,12 +87,12 @@
                 @if(!empty($product->dietary_tags))<ul class="mt-4 flex flex-wrap gap-1.5">@foreach($product->dietary_tags as $t)<li class="badge badge-outline">{{ $t }}</li>@endforeach</ul>@endif
                 <div class="mt-5 flex items-center gap-3">
                     @if($product->in_stock)
-                        <div class="stepper stepper-lg"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-ico name="minus" :size="16" /></button><span x-text="qty"></span><button type="button" @click="qty < max ? qty++ : $store.ui.notify(`Maximum ${max} per order`, 'error')" aria-label="Increase quantity"><x-ico name="plus" :size="16" /></button></div>
+                        <div class="stepper stepper-lg"><button type="button" @click="qty = Math.max(1, qty - 1)" aria-label="Decrease quantity"><x-ico name="minus" :size="16" /></button><span x-text="qty"></span><button type="button" @click="qty < max ? qty++ : $store.ui.notify({ title: 'Order limit reached', body: `You can order up to ${max} of “${p.name}” at a time.` }, 'error')" aria-label="Increase quantity"><x-ico name="plus" :size="16" /></button></div>
                         <button type="button" @click="add()" class="btn btn-gold btn-lg flex-1 rounded-full">Add to Cart</button>
-                        <button type="button" @click="$store.wishlist.toggle(p.id)" class="grid h-[3.125rem] w-[3.125rem] shrink-0 place-items-center rounded-full border border-line bg-white text-muted hover:border-gold hover:text-red" :class="$store.wishlist.has(p.id) && '!text-red'" aria-label="Add to wishlist"><x-ico name="heart" :size="18" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
+                        <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="grid h-[3.125rem] w-[3.125rem] shrink-0 place-items-center rounded-full border border-line bg-white text-muted hover:border-gold hover:text-red" :class="$store.wishlist.has(p.id) && '!text-red'" aria-label="Add to wishlist"><x-ico name="heart" :size="18" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
                     @else
                         <button type="button" class="btn btn-lg flex-1 rounded-full bg-line text-muted" disabled>Sold out</button>
-                        <button type="button" @click="$store.wishlist.toggle(p.id)" class="btn btn-outline btn-lg rounded-full">Notify me</button>
+                        <button type="button" @click="$store.wishlist.keep(p.id, p.name)" class="btn btn-outline btn-lg rounded-full">Notify me</button>
                     @endif
                 </div>
                 @if($product->in_stock)<button type="button" @click="add(true)" class="mt-3 w-full text-center text-sm font-semibold text-red underline-offset-4 hover:underline">Buy it now</button>@endif

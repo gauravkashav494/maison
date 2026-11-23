@@ -107,22 +107,37 @@ class ClientQuota
                 return [];
             }
             $this->products()->select($columns)->cursor()->each(function (Product $product) use (&$paths) {
-                foreach ((array) $product->images as $path) {
-                    if (filled($path)) {
-                        $paths[(string) $path] = true;
-                    }
-                }
-                foreach ((array) $product->variants as $variant) {
-                    foreach ((array) ($variant['images'] ?? []) as $path) {
-                        if (filled($path)) {
-                            $paths[(string) $path] = true;
-                        }
-                    }
+                foreach (self::productImages($product) as $path) {
+                    $paths[$path] = true;
                 }
             });
 
             return array_keys($paths);
         }, []);
+    }
+
+    /**
+     * The image files one product holds: its gallery and any on a variant.
+     *
+     * @return array<string>
+     */
+    public static function productImages(Product $product): array
+    {
+        $paths = [];
+        foreach ((array) $product->images as $path) {
+            if (filled($path)) {
+                $paths[] = (string) $path;
+            }
+        }
+        foreach ((array) $product->variants as $variant) {
+            foreach ((array) ($variant['images'] ?? []) as $path) {
+                if (filled($path)) {
+                    $paths[] = (string) $path;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     public function imageLimit(): ?int

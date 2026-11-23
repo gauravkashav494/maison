@@ -3,7 +3,7 @@
     <div class="pcard-media">
         <a :href="p.url"><img :src="p.images[0]" :alt="p.name" loading="lazy"></a>
         <span x-show="p.discount_percent > 0" class="pcard-off" x-text="p.discount_percent + '% OFF'"></span>
-        <button type="button" @click="$store.wishlist.toggle(p.id)" class="absolute right-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-muted shadow-sm hover:text-red" :class="$store.wishlist.has(p.id) && '!text-red'" aria-label="Wishlist"><x-ico name="heart" :size="15" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
+        <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="absolute right-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-muted shadow-sm hover:text-red" :class="$store.wishlist.has(p.id) && '!text-red'" aria-label="Wishlist"><x-ico name="heart" :size="15" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
     </div>
     <div class="pcard-body">
         <h3 class="pcard-name"><a :href="p.url" class="hover:text-red" x-text="p.name"></a></h3>

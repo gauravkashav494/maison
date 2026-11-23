@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Taxes\Pages;
 
 use App\Filament\Resources\Taxes\TaxResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateTax extends CreateRecord
 {

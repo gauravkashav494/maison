@@ -17,7 +17,7 @@
             @if($product->is_best_seller)<span class="badge badge-best">Bestseller</span>@elseif($product->is_new)<span class="badge badge-new">New</span>@endif
         </div>
     </a>
-    <button type="button" @click="$store.wishlist.toggle({{ $product->id }})" class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has({{ $product->id }}) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
+    <button type="button" @click="$store.wishlist.toggle({{ $product->id }}, {{ Js::from($product->name) }})" class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has({{ $product->id }}) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
     <div class="pcard-body">
         <p class="pcard-brand">{{ $product->brand ?: $product->category?->name }}</p>
         <h3 class="pcard-name"><a href="{{ $product->url }}">{{ $product->name }}</a></h3>

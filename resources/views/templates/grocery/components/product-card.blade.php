@@ -15,7 +15,7 @@
         </span>
         @if(!$product->in_stock)<span class="absolute inset-0 grid place-items-center bg-white/70 text-xs font-extrabold uppercase tracking-wider text-slate">Out of stock</span>@endif
     </a>
-    <button type="button" @click="$store.wishlist.toggle(product.id)" :aria-pressed="$store.wishlist.has(product.id)" class="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(product.id) && 'text-berry'" aria-label="Save for later">
+    <button type="button" @click="$store.wishlist.toggle(product.id, product.name)" :aria-pressed="$store.wishlist.has(product.id)" class="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(product.id) && 'text-berry'" aria-label="Save for later">
         <x-ico name="heart" :size="15" ::class="$store.wishlist.has(product.id) && 'fill-current'" />
     </button>
 
@@ -49,7 +49,7 @@
                     </div>
                 </div>
             @else
-                <button type="button" @click="$store.wishlist.toggle(product.id); $store.ui.notify('We’ll save it to your list')" class="btn btn-ghost btn-sm text-xs">Notify</button>
+                <button type="button" @click="$store.wishlist.keep(product.id, product.name)" class="btn btn-ghost btn-sm text-xs">Notify</button>
             @endif
         </div>
     </div>

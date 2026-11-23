@@ -3,8 +3,8 @@
 namespace App\Filament\Resources\Menus\Pages;
 
 use App\Filament\Resources\Menus\MenuResource;
+use App\Filament\Support\Pages\CreateRecord;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\CreateRecord;
 
 class CreateMenu extends CreateRecord
 {

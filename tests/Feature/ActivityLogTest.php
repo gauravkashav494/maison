@@ -9,6 +9,7 @@ use App\Filament\Pages\SearchListings;
 use App\Filament\Pages\SeoSettings;
 use App\Filament\Pages\SiteSettings;
 use App\Filament\Pages\StockLevels;
+use App\Filament\Resources\ActivityLog\ActivityLogResource;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
@@ -25,6 +26,7 @@ use App\Models\StockMovement;
 use App\Models\Storefront;
 use App\Models\User;
 use App\Services\Inventory;
+use App\Support\Activity\ActivityLog;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Failed;
@@ -114,7 +116,7 @@ class ActivityLogTest extends TestCase
         $this->assertSame([['field' => 'price', 'label' => 'price', 'old' => '₹1,000.00', 'new' => '₹899.50']], $line->changes);
     }
 
-    public function test_several_changes_are_listed_and_long_text_is_named_but_not_copied(): void
+    public function test_several_changes_are_listed_and_long_text_is_named_in_the_sentence_only(): void
     {
         $this->enterClientPanel($this->admin);
         $description = str_repeat('Soft merino wool, hand finished. ', 10);
@@ -125,10 +127,90 @@ class ActivityLogTest extends TestCase
         $this->assertStringStartsWith('updated product "Alpha Jacket": ', $line->description);
         $this->assertStringContainsString('price ₹1,000.00 → ₹800.00', $line->description);
         $this->assertStringContainsString('and 1 more', $line->description);
-        $this->assertStringNotContainsString('merino', json_encode($line->getAttributes()));
+        $this->assertStringNotContainsString('merino', $line->description);
         $text = collect($line->changes)->firstWhere('field', 'description');
         $this->assertNull($text['old']);
         $this->assertNull($text['new']);
+
+        // The details view shows the text itself, before and after.
+        $row = collect(ActivityTable::rows($line))->firstWhere('label', 'Description');
+        $this->assertSame('empty', $row['old']);
+        $this->assertStringStartsWith('Soft merino wool, hand finished.', $row['new']);
+    }
+
+    public function test_a_rich_text_change_shows_its_words_before_and_after(): void
+    {
+        $this->coat->forceFill(['details' => '<p>Long wool coat.</p>'])->saveQuietly();
+        $this->enterClientPanel($this->admin);
+
+        $this->coat->update(['details' => '<p>Long wool coat. Full <strong>description</strong></p>']);
+
+        $row = collect(ActivityTable::rows($this->lastLine()))->firstWhere('label', 'Details');
+        $this->assertSame(['label' => 'Details', 'old' => 'Long wool coat.', 'new' => 'Long wool coat. Full description'], $row);
+    }
+
+    public function test_a_variants_change_shows_only_the_rows_that_changed(): void
+    {
+        $row = fn (string $size, int $stock, float $incl = 1050) => ['sku' => 'C-'.$size, 'price' => 1000, 'stock' => $stock, 'options' => ['Size' => $size], 'price_incl_tax' => $incl];
+        $this->coat->forceFill(['variants' => [$row('S', 22), $row('M', 30), $row('L', 5)]])->saveQuietly();
+        $this->enterClientPanel($this->admin);
+
+        $this->coat->update(['variants' => [$row('S', 20), $row('M', 30), $row('XL', 4)]]);
+
+        $line = $this->lastLine();
+        $this->assertSame('changed the variants of product "Alpha Coat"', $line->description);
+        $this->assertSame(
+            ['label' => 'Variants', 'old' => 'S: stock 22; L', 'new' => 'S: stock 20; L removed; XL added'],
+            collect(ActivityTable::rows($line))->firstWhere('label', 'Variants'),
+        );
+
+        // Only a worked-out value moved (the price with tax): no line of its own.
+        $before = PlatformActivity::count();
+        $this->coat->update(['variants' => [$row('S', 20, 1100), $row('M', 30, 1100), $row('XL', 4, 1100)]]);
+        $this->assertSame($before, PlatformActivity::count());
+    }
+
+    public function test_only_columns_whose_value_really_changed_are_listed(): void
+    {
+        $this->enterClientPanel($this->admin);
+        $this->coat->forceFill(['base_rating' => '0.0', 'variants' => ['b' => 2, 'a' => 1]])->saveQuietly();
+        $before = PlatformActivity::count();
+
+        // Same values written in another form: 0 for "0.0", the same JSON with its keys re-ordered.
+        $this->coat->update(['base_rating' => 0, 'variants' => ['a' => 1, 'b' => 2]]);
+        $this->assertSame($before, PlatformActivity::count());
+
+        $this->coat->update(['base_rating' => 0, 'price' => 900]);
+        $this->assertSame(['price'], array_column($this->lastLine()->changes, 'field'));
+    }
+
+    public function test_a_settings_save_keeps_before_and_after_of_the_changed_fields_only(): void
+    {
+        $this->enterClientPanel($this->admin);
+        Livewire::test(SiteSettings::class)->set('data.site.name', 'Alpha Atelier')->call('save');
+        $before = PlatformActivity::count();
+
+        Livewire::test(SiteSettings::class)->call('save');
+        $this->assertSame($before, PlatformActivity::count(), 'a save with nothing changed writes no line');
+
+        Livewire::test(SiteSettings::class)->set('data.site.name', 'Alpha House')->call('save')->assertHasNoErrors();
+
+        $line = $this->lastLine();
+        $this->assertCount(1, $line->changes);
+        $this->assertSame(['field' => 'site.name', 'old' => '"Alpha Atelier"', 'new' => '"Alpha House"'], array_intersect_key($line->changes[0], array_flip(['field', 'old', 'new'])));
+        $this->assertSame([['label' => 'Site name', 'old' => 'Alpha Atelier', 'new' => 'Alpha House']], ActivityTable::rows($line));
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+    }
+
+    public function test_a_secret_setting_is_named_but_its_value_is_hidden(): void
+    {
+        $change = app(ActivityLog::class)->describer()->settingChange('whatsapp.api_key', 'API key', 'old-key', 'new-key');
+
+        $this->assertNull($change['old']);
+        $this->assertNull($change['new']);
+        $line = new PlatformActivity(['changes' => [$change]]);
+        $this->assertSame([['label' => 'API key', 'old' => 'hidden', 'new' => 'hidden']], ActivityTable::rows($line));
     }
 
     public function test_switching_a_record_on_or_off_says_so(): void
@@ -221,6 +303,69 @@ class ActivityLogTest extends TestCase
         $this->assertStringContainsString('Alpha Scarf', $lines[0]->description);
         $this->assertCount(3, $lines[0]->changes);
         $this->assertSame($this->alpha->id, $lines[0]->client_id);
+    }
+
+    public function test_marking_products_new_or_best_seller_is_logged_one_line_per_bulk_action(): void
+    {
+        $scarf = $this->product('Alpha Scarf', 300);
+        $shawl = $this->product('Alpha Shawl', 700);
+        $shawl->update(['is_new' => true]); // already new: left alone
+        $this->enterClientPanel($this->admin);
+        $before = PlatformActivity::count();
+
+        Livewire::test(ListProducts::class)
+            ->callTableBulkAction('markNew', [$this->coat, $scarf, $shawl])
+            ->assertHasNoErrors();
+
+        $this->assertSame([true, true, true], [$this->coat->fresh()->is_new, $scarf->fresh()->is_new, $shawl->fresh()->is_new]);
+        $this->assertSame($before + 1, PlatformActivity::count());
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertStringContainsString('2 products', $line->description);
+        $this->assertStringContainsString('Alpha Scarf', $line->description);
+        $this->assertStringNotContainsString('Alpha Shawl', $line->description);
+        $this->assertSame(['Products', $this->alpha->id], [$line->area, $line->client_id]);
+        $this->assertSame(0, PlatformActivity::forClientStaff($this->beta->id)->count());
+
+        // One product switched in its row: the usual line.
+        $this->coat->update(['is_best_seller' => true]);
+        $this->assertStringContainsString('best seller', $this->lastLine()->description);
+    }
+
+    public function test_hiding_products_from_the_storefront_in_bulk_is_one_line(): void
+    {
+        $scarf = $this->product('Alpha Scarf', 300);
+        $this->enterClientPanel($this->admin);
+        $before = PlatformActivity::count();
+
+        Livewire::test(ListProducts::class)
+            ->callTableBulkAction('hideFromStorefront', [$this->coat, $scarf])
+            ->assertHasNoErrors();
+
+        $this->assertSame([false, false], [$this->coat->fresh()->is_active, $scarf->fresh()->is_active]);
+        $this->assertSame($before + 1, PlatformActivity::count());
+        $this->assertStringContainsString('2 products', $this->lastLine()->description);
+        $this->assertSame($this->alpha->id, $this->lastLine()->client_id);
+
+        Livewire::test(ListProducts::class)->callTableBulkAction('showOnStorefront', [$this->coat]);
+        $this->assertTrue($this->coat->fresh()->is_active);
+        $this->assertFalse($scarf->fresh()->is_active);
+    }
+
+    public function test_marking_needs_permission_to_edit_products(): void
+    {
+        $role = ClientRole::create(['client_id' => $this->alpha->id, 'name' => 'Viewer', 'permissions' => ['products.view']]);
+        $viewer = ClientUser::create([
+            'client_id' => $this->alpha->id, 'name' => 'Vik Viewer', 'email' => 'vik@alpha.test',
+            'password' => 'password123', 'role' => ClientUser::ROLE_ADMIN_STAFF, 'client_role_id' => $role->id, 'is_active' => true,
+        ]);
+        $this->enterClientPanel($viewer);
+
+        Livewire::test(ListProducts::class)
+            ->assertTableBulkActionHidden('markNew')
+            ->assertTableBulkActionHidden('markBestSeller')
+            ->assertTableBulkActionHidden('hideFromStorefront');
+        $this->assertFalse($this->coat->fresh()->is_new);
     }
 
     public function test_saving_settings_names_the_fields_by_their_labels(): void
@@ -410,23 +555,31 @@ class ActivityLogTest extends TestCase
             ->assertDontSee('Renamed By Beta');
     }
 
-    public function test_the_details_show_each_field_before_and_after(): void
+    public function test_the_details_open_on_their_own_page_with_each_field_before_and_after(): void
     {
         $this->enterClientPanel($this->admin);
         $this->coat->update(['price' => 1200]);
         $line = $this->lastLine();
 
-        // The modal mounts (Filament sends its body as a separate partial, so it is not in html()).
         Livewire::test(ListActivityLog::class)
             ->assertCanSeeTableRecords([$line])
-            ->mountAction(TestAction::make('view')->table($line))
-            ->assertActionMounted(TestAction::make('view')->table($line))
-            ->assertHasNoErrors();
+            ->assertActionHasUrl(TestAction::make('view')->table($line), ActivityLogResource::getUrl('view', ['record' => $line]));
 
-        $this->assertSame(
-            [['label' => 'Price', 'old' => '₹1,000.00', 'new' => '₹1,200.00']],
-            ActivityTable::rows($line),
-        );
+        $this->get('/client/activity-log/'.$line->id)->assertSuccessful()
+            ->assertSee('Activity details')
+            ->assertSee('Back to activity log')
+            ->assertSee('What changed')
+            ->assertSee('₹1,000.00')
+            ->assertSee('₹1,200.00');
+    }
+
+    public function test_another_clients_activity_page_is_not_found(): void
+    {
+        $this->seedLines();
+        $theirs = PlatformActivity::where('client_id', $this->beta->id)->firstOrFail();
+        $this->enterClientPanel($this->admin);
+
+        $this->get('/client/activity-log/'.$theirs->id)->assertNotFound();
     }
 
     public function test_other_staff_see_only_their_own_activity(): void
@@ -462,6 +615,10 @@ class ActivityLogTest extends TestCase
         $this->actingAs($operator, 'admin');
         $this->get('/clients/'.$this->alpha->id)->assertSuccessful()->assertDontSee('No activity yet');
         $this->get(PlatformActivityResource::getUrl('index'))->assertSuccessful();
+
+        $line = PlatformActivity::latest('id')->firstOrFail();
+        $this->get(PlatformActivityResource::getUrl('view', ['record' => $line]))->assertSuccessful()
+            ->assertSee('Activity details');
     }
 
     public function test_moving_a_clients_database_to_a_new_name_is_logged_for_that_client(): void

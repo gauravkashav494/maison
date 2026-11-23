@@ -9,6 +9,7 @@ import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
+import { makeToast, toasts } from '../../../js/toast';
 import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
 import '../../../js/password-reveal';
 import '../../../js/phone-input';
@@ -56,8 +57,8 @@ Alpine.store('ui', {
     pickSize(product) { this.sizePicker = product; },
     notify(message, tone = 'ok', duration = null) {
         clearTimeout(this.toastTimer);
-        this.toast = { message, tone };
-        this.toastTimer = setTimeout(() => { this.toast = null; }, duration ?? 2400);
+        this.toast = makeToast(message, tone, duration);
+        this.toastTimer = setTimeout(() => { this.toast = null; }, this.toast.duration);
     },
 });
 
@@ -77,11 +78,11 @@ Alpine.store('cart', {
         // in the box on the cart and checkout pages (<x-cart-unavailable-notice>), else a toast.
         if (data.unavailable_notice) {
             this.removed_notice = data.unavailable_notice;
-            if (!this.noticeBox) Alpine.store('ui').notify(data.unavailable_notice, 'error', 8000);
+            if (!this.noticeBox) Alpine.store('ui').notify(toasts.cartChanged(data.unavailable_notice), 'error', 8000);
         }
         // An item no longer sold stays in the cart, greyed, until removed (<x-cart-unavailable-notice>
         // lists it); said once in a toast, except on the cart and checkout pages, which list it.
-        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(data.unavailable_toast, 'error', 8000);
+        if (data.unavailable_toast && !this.noticeBox) Alpine.store('ui').notify(toasts.cartChanged(data.unavailable_toast), 'error', 8000);
     },
     async load() { this.apply(await api('/cart/items')); },
     get savings() {
@@ -94,21 +95,21 @@ Alpine.store('cart', {
         this.busy = true;
         try {
             this.apply(await api('/cart/items', { method: 'POST', body: { product_id: productId, size, color, qty, options } }));
-            if (open) Alpine.store('ui').openCart(); else Alpine.store('ui').notify('Added to cart');
+            if (open) Alpine.store('ui').openCart(); else Alpine.store('ui').notify(toasts.addedToCart(this, productId, size, qty));
         } catch (e) {
-            Alpine.store('ui').notify(e.payload?.message || 'Could not add this item', 'error');
+            Alpine.store('ui').notify(toasts.cartFailed(e), 'error');
         } finally { this.busy = false; }
     },
     async update(key, qty) {
         // Refused over the product's max quantity per order or its stock: say why.
         try { this.apply(await api(`/cart/items/${key}`, { method: 'PATCH', body: { qty } })); }
-        catch (e) { Alpine.store('ui').notify(e.payload?.message || 'Could not update your cart', 'error'); }
+        catch (e) { Alpine.store('ui').notify(toasts.cartFailed(e, false), 'error'); }
     },
     async remove(key) { this.apply(await api(`/cart/items/${key}`, { method: 'DELETE' })); },
     async inc(productId, size, max = null) {
         const line = this.line(productId, size);
         if (line) {
-            if (max && line.qty >= max) { Alpine.store('ui').notify(`Maximum ${max} per order`, 'error'); return; }
+            if (max && line.qty >= max) { Alpine.store('ui').notify(toasts.maxQty(max, line.product.name), 'error'); return; }
             await this.update(line.key, line.qty + 1);
         } else {
             await this.add(productId, size);
@@ -122,7 +123,7 @@ Alpine.store('cart', {
     async applyCoupon(code) {
         this.couponError = null;
         this.couponBusy = true;
-        try { this.apply(await api('/cart/coupon', { method: 'POST', body: { code } })); Alpine.store('ui').notify('Coupon applied'); }
+        try { this.apply(await api('/cart/coupon', { method: 'POST', body: { code } })); Alpine.store('ui').notify(toasts.couponApplied(this, code)); }
         catch (e) { this.couponError = e.payload?.errors?.code?.[0] || e.payload?.message || 'That code is not valid.'; }
         finally { this.couponBusy = false; }
     },
@@ -133,7 +134,16 @@ Alpine.store('cart', {
 Alpine.store('wishlist', {
     ids: Alpine.$persist([]).as('plumbing-wishlist'),
     has(id) { return this.ids.includes(id); },
-    toggle(id) { this.ids = this.has(id) ? this.ids.filter((x) => x !== id) : [id, ...this.ids]; Alpine.store('ui').notify(this.has(id) ? 'Saved to wishlist' : 'Removed from wishlist'); },
+    toggle(id, name = null) {
+        const saved = !this.has(id);
+        this.ids = saved ? [id, ...this.ids] : this.ids.filter((x) => x !== id);
+        Alpine.store('ui').notify(toasts.wishlist(saved, name, this.ids.length, 'wishlist'));
+    },
+    /** "Notify me" on an out-of-stock product: keep it in the list (never takes it out). */
+    keep(id, name = null) {
+        if (!this.has(id)) this.ids = [id, ...this.ids];
+        Alpine.store('ui').notify(toasts.keptForLater(name, 'wishlist'));
+    },
     get count() { return this.ids.length; },
 });
 
@@ -332,7 +342,7 @@ Alpine.data('productPage', (product) => ({
     },
     share() {
         if (navigator.share) navigator.share({ title: this.p.name, url: window.location.href }).catch(() => {});
-        else { navigator.clipboard?.writeText(window.location.href); Alpine.store('ui').notify('Link copied'); }
+        else { navigator.clipboard?.writeText(window.location.href); Alpine.store('ui').notify(toasts.linkCopied()); }
     },
 }));
 

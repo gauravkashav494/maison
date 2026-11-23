@@ -6,8 +6,12 @@ use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\Scopes\ClientOwned;
 use App\Filament\Pages\StockLevels;
+use App\Filament\Resources\Products\Pages\CreateProduct;
+use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientRole;
 use App\Models\ClientUser;
@@ -157,6 +161,108 @@ class InventoryTest extends TestCase
         $this->assertSame('Priya Sharma', StockMovement::withoutGlobalScopes()->latest('id')->value('by_name'));
     }
 
+    /** The product form needs a category to save. */
+    private function categorised(Product $product): Product
+    {
+        $category = Category::withoutGlobalScopes()->firstOrCreate(
+            ['client_id' => $this->alpha->id, 'slug' => 'coats'],
+            ['template' => 'fashion', 'name' => 'Coats', 'is_active' => true],
+        );
+        $product->update(['category_id' => $category->id]);
+
+        return $product->fresh();
+    }
+
+    public function test_saving_an_open_product_form_keeps_stock_that_moved_meanwhile(): void
+    {
+        $coat = $this->categorised($this->product('Alpha Coat', 12));
+        $this->enterClientPanel($this->admin);
+
+        // The form is opened, then an order takes 3 before it is saved with a new name.
+        $form = Livewire::test(EditProduct::class, ['record' => $coat->getRouteKey()]);
+        $coat->adjustStock(-3, [], StockMovement::SALE);
+        $form->fillForm(['name' => 'Alpha Coat Long'])->call('save')->assertHasNoFormErrors();
+
+        $coat->refresh();
+        $this->assertSame(['Alpha Coat Long', 9], [$coat->name, $coat->stock]);
+        $this->assertSame([['opening', 12, 12, null], ['sale', -3, 9, null]], $this->movements($coat));
+    }
+
+    public function test_saving_an_open_variant_form_keeps_each_variants_stock_that_moved_meanwhile(): void
+    {
+        $shirt = $this->categorised($this->shirt()); // S 4, M 10
+        $this->enterClientPanel($this->admin);
+
+        $form = Livewire::test(EditProduct::class, ['record' => $shirt->getRouteKey()]);
+        $shirt->adjustStock(5, ['Size' => 'S'], StockMovement::RECEIVED);
+        $form->fillForm(['name' => 'Linen Shirt Classic'])->call('save')->assertHasNoFormErrors();
+
+        $shirt->refresh();
+        $this->assertSame([9, 10], array_column($shirt->variantList(), 'stock'));
+        $this->assertSame(19, $shirt->stock);
+        $this->assertSame([['opening', 4, 4, 'S'], ['opening', 10, 10, 'M'], ['received', 5, 9, 'S']], $this->movements($shirt));
+    }
+
+    public function test_a_stock_typed_over_one_that_moved_meanwhile_is_not_saved_until_checked(): void
+    {
+        $coat = $this->categorised($this->product('Alpha Coat', 12));
+        $this->enterClientPanel($this->admin);
+
+        $form = Livewire::test(EditProduct::class, ['record' => $coat->getRouteKey()]);
+        $coat->adjustStock(-3, [], StockMovement::SALE);
+
+        // 20 was typed against the 12 the form showed: the 9 now on the shelf is not overwritten.
+        $form->fillForm(['stock' => 20])->call('save');
+        $this->assertSame(9, $coat->fresh()->stock);
+        $form->assertFormSet(['stock' => 9]);
+
+        // Typed again, knowing the stock now: saved.
+        $form->fillForm(['stock' => 20])->call('save')->assertHasNoFormErrors();
+        $this->assertSame(20, $coat->fresh()->stock);
+    }
+
+    public function test_an_ordered_products_stock_is_locked_on_the_form_and_saved_as_it_is(): void
+    {
+        $coat = $this->categorised($this->product('Alpha Coat', 12));
+        $shirt = $this->categorised($this->shirt());
+        foreach ([$coat, $shirt] as $product) {
+            $order = Order::withoutGlobalScopes()->create([
+                'client_id' => $this->alpha->id, 'template' => 'fashion', 'number' => 'ME-'.$product->id, 'email' => 'shopper@alpha.test',
+                'status' => 'confirmed', 'shipping_name' => 'Shopper', 'shipping_line1' => '1 Test Street', 'shipping_city' => 'Mumbai',
+                'shipping_state' => 'Maharashtra', 'shipping_postal_code' => '400001', 'shipping_country' => 'India', 'subtotal' => 1000, 'total' => 1000,
+            ]);
+            OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'name' => $product->name, 'price' => 1000, 'qty' => 1, 'total' => 1000]);
+        }
+        $this->enterClientPanel($this->admin);
+
+        Livewire::test(CreateProduct::class)->assertSee('Initial stock');
+        $form = Livewire::test(EditProduct::class, ['record' => $coat->getRouteKey()])
+            ->assertFormFieldDisabled('stock')
+            ->assertSee('Current stock')
+            ->assertSee('Started with 12.')
+            ->assertSee('its stock can no longer be changed here')
+            ->assertSee('Adjust stock');
+        $coat->adjustStock(-2, [], StockMovement::SALE);
+        // Whatever the form sends, the stock stays as it is now.
+        $form->set('data.stock', 50)->fillForm(['name' => 'Alpha Coat Long'])->call('save')->assertHasNoFormErrors();
+        $this->assertSame(['Alpha Coat Long', 10], [$coat->fresh()->name, $coat->fresh()->stock]);
+
+        // The existing variants are locked; one added now takes the stock typed for it.
+        $variants = array_values($shirt->variants);
+        $variants[0]['stock'] = 99;
+        $variants[] = ['options' => ['Size' => 'L'], 'price' => 1000, 'stock' => 7, 'is_active' => true];
+        Livewire::test(EditProduct::class, ['record' => $shirt->getRouteKey()])
+            ->fillForm([
+                'variant_attributes' => [['preset' => 'Size', 'name' => 'Size', 'values' => ['S', 'M', 'L']]],
+                'variants' => $variants,
+            ])
+            ->call('save')->assertHasNoFormErrors();
+
+        $shirt->refresh();
+        $this->assertSame(['S' => 4, 'M' => 10, 'L' => 7], array_column(array_map(fn ($v) => ['k' => $v['label'], 's' => $v['stock']], $shirt->variantList()), 's', 'k'));
+        $this->assertSame(21, $shirt->stock);
+    }
+
     // ---- Adjusting stock ----------------------------------------------------------------------
 
     public function test_staff_record_stock_received_damaged_and_counted(): void
@@ -223,13 +329,34 @@ class InventoryTest extends TestCase
         $this->assertSame(6, $vase->refresh()->stock);
     }
 
+    public function test_the_stock_levels_page_filters_by_product_and_shows_a_picked_variant(): void
+    {
+        $shirt = $this->shirt();
+        $coat = $this->product('Alpha Coat', 12);
+        $this->enterClientPanel($this->admin);
+
+        $page = Livewire::test(StockLevels::class)
+            ->filterTable('product', ['value' => $shirt->id])
+            ->assertCanSeeTableRecords([$shirt])->assertCanNotSeeTableRecords([$coat])
+            ->assertTableColumnStateSet('stock', 14, $shirt);
+
+        // A variant shows its own stock and status (4 left is low at the default level).
+        $page->filterTable('product', ['value' => $shirt->id, 'variant' => 'S'])
+            ->assertCanSeeTableRecords([$shirt])
+            ->assertTableColumnStateSet('variants_summary', 'S', $shirt)
+            ->assertTableColumnStateSet('stock', 4, $shirt)
+            ->assertTableColumnStateSet('stock_status', Inventory::lowStockLevel() >= 4 ? Inventory::STATUS_LOW : Inventory::STATUS_IN, $shirt);
+
+        $page->resetTableFilters()->assertCanSeeTableRecords([$shirt, $coat]);
+    }
+
     public function test_the_low_stock_level_can_be_changed(): void
     {
         $scarf = $this->product('Silk Scarf', 8);
         $this->enterClientPanel($this->admin);
         $this->assertSame(Inventory::STATUS_IN, Inventory::status($scarf));
 
-        Livewire::test(StockLevels::class)->callAction('lowStockLevel', ['level' => 10])->assertNotified('Low-stock level saved');
+        Livewire::test(StockLevels::class)->callAction('lowStockLevel', ['level' => 10])->assertNotified('Low-stock level updated');
 
         $this->assertSame(10, Inventory::lowStockLevel());
         $this->assertSame(Inventory::STATUS_LOW, Inventory::status($scarf->refresh()));
@@ -275,6 +402,45 @@ class InventoryTest extends TestCase
         $this->assertFalse(StockLevels::canAccess());
         $coat->adjustStock(-1, [], StockMovement::SALE);
         $this->assertSame(4, $coat->refresh()->stock);
+    }
+
+    public function test_the_stock_history_filters_by_product_and_then_by_variant(): void
+    {
+        $shirt = $this->shirt(); // opening S 4, M 10
+        $coat = $this->product('Alpha Coat', 5);
+        $this->enterClientPanel($this->admin);
+        $shirt->adjustStock(-2, ['Size' => 'M'], StockMovement::SALE);
+
+        $movements = fn (array $where) => StockMovement::where($where)->get();
+
+        // A product sold by variant: the Variant field appears, and narrows the list to one.
+        Livewire::test(ListStockMovements::class)
+            ->filterTable('product_id', ['value' => $shirt->id])
+            ->assertCanSeeTableRecords($movements(['product_id' => $shirt->id]))
+            ->assertCanNotSeeTableRecords($movements(['product_id' => $coat->id]))
+            ->assertTableFilterExists('product_id')
+            ->filterTable('product_id', ['value' => $shirt->id, 'variant' => 'M'])
+            ->assertCanSeeTableRecords($movements(['product_id' => $shirt->id, 'variant' => 'M']))
+            ->assertCanNotSeeTableRecords($movements(['product_id' => $shirt->id, 'variant' => 'S']));
+
+        // The link from Stock levels still opens the history of one product.
+        $this->get(StockMovementResource::getUrl('index', ['filters' => ['product_id' => ['value' => $coat->id]]]))->assertSuccessful();
+    }
+
+    public function test_the_product_list_filters_by_product_and_shows_a_picked_variants_stock(): void
+    {
+        $shirt = $this->shirt(); // S 4, M 10 → 14
+        $coat = $this->product('Alpha Coat', 5);
+        $this->enterClientPanel($this->admin);
+
+        Livewire::test(ListProducts::class)
+            ->filterTable('product', ['value' => $shirt->id])
+            ->assertCanSeeTableRecords([$shirt])
+            ->assertCanNotSeeTableRecords([$coat])
+            ->assertTableColumnStateSet('stock', 14, $shirt)
+            ->filterTable('product', ['value' => $shirt->id, 'variant' => 'S'])
+            ->assertCanSeeTableRecords([$shirt])
+            ->assertTableColumnStateSet('stock', 4, $shirt);
     }
 
     public function test_the_stock_history_filters_by_a_date_range(): void

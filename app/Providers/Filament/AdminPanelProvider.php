@@ -89,6 +89,11 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">', scopes: Login::class)
             // Live checklist under every new-password field (App\Support\PasswordRules).
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.password-checklist-assets'))
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('partials.session-timeout', [
+                'signedIn' => filament()->auth()->check(),
+                'logoutUrl' => filament()->auth()->check() ? filament()->getLogoutUrl() : null,
+                'loginUrl' => filament()->getLoginUrl(),
+            ]))
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.partials.editable-tags'))
             ->renderHook(PanelsRenderHook::USER_MENU_BEFORE, fn () => view('filament.partials.topbar-user'))
             ->renderHook(PanelsRenderHook::SIDEBAR_FOOTER, fn () => view('filament.partials.sidebar-footer'))

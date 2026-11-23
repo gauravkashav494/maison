@@ -3,7 +3,7 @@
 @section('content')
 @php
     $card = $product->toCard();
-    $shippingNote = '<p>Complimentary standard delivery on orders over '.money((int) setting('site.free_shipping_threshold', 0)).'; express delivery available at checkout. Orders placed before 14:00 IST ship the same business day.</p>';
+    $shippingNote = '<p>Complimentary standard delivery on orders over '.money(setting('site.free_shipping_threshold', 0)).'; express delivery available at checkout. Orders placed before 14:00 IST ship the same business day.</p>';
     $returnsNote = '<p>30 days to return or exchange, collected from your door at no charge. Pieces must be unworn with tags attached. Fragrances and earrings are final sale once opened. <a href="/returns">Read the full policy</a>.</p>';
     $accordion = [
         'description' => ['Description', $product->details ?: '<p>'.e($product->description).'</p>'],
@@ -111,7 +111,7 @@
                         <button type="button" @click="incQty()" aria-label="Increase quantity" class="grid h-full w-12 place-items-center hover:bg-sand"><x-ico name="plus" :size="14" :stroke="1.5" /></button>
                     </div>
                     <button type="button" @click="add()" :disabled="$store.cart.busy || !p.in_stock" class="btn btn-primary btn-lg flex-1">{{ $product->in_stock ? 'Add to Cart' : 'Sold out' }}</button>
-                    <button type="button" @click="$store.wishlist.toggle(p.id)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has(p.id)" class="grid h-14 w-14 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink"><x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has(p.id) && 'fill-ink'" /></button>
+                    <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" aria-label="Add to wishlist" :aria-pressed="$store.wishlist.has(p.id)" class="grid h-14 w-14 shrink-0 place-items-center border border-ink/20 transition-colors hover:border-ink"><x-ico name="heart" :size="16" :stroke="1.5" ::class="$store.wishlist.has(p.id) && 'fill-ink'" /></button>
                 </div>
                 @if($product->in_stock)<button type="button" @click="add(true)" :disabled="$store.cart.busy" class="btn btn-outline btn-lg mt-3 w-full">Buy now</button>@endif
                 <p class="mt-4 flex items-center gap-2 text-[0.75rem] {{ $product->in_stock ? 'text-smoke' : 'text-rouge' }}">

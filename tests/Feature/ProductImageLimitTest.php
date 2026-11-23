@@ -7,12 +7,14 @@ use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientUser;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Storefront;
+use Filament\Actions\RestoreAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -147,5 +149,65 @@ class ProductImageLimitTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame(2, ClientQuota::current()->imageCount());
+    }
+
+    /** @param array<int, string> $images */
+    private function product(string $slug, array $images, bool $trashed = false): Product
+    {
+        $product = Product::withoutGlobalScopes()->create([
+            'client_id' => $this->client->id, 'template' => 'fashion', 'category_id' => $this->category->id,
+            'name' => ucfirst($slug), 'slug' => $slug, 'price' => 1000, 'stock' => 5, 'is_active' => true,
+            'images' => $images,
+        ]);
+        if ($trashed) {
+            $product->delete();
+        }
+
+        return $product;
+    }
+
+    public function test_restoring_a_product_whose_images_would_pass_the_allowance_is_refused(): void
+    {
+        $this->signIn(imageLimit: 3);
+        $this->product('live', ['clients/1/products/a.jpg', 'clients/1/products/b.jpg']);
+        $binned = $this->product('binned', ['clients/1/products/c.jpg', 'clients/1/products/d.jpg'], trashed: true);
+
+        Livewire::test(EditProduct::class, ['record' => $binned->getRouteKey()])
+            ->callAction(RestoreAction::class)
+            ->assertNotified('Image limit reached');
+
+        $this->assertTrue(Product::withoutGlobalScopes()->withTrashed()->find($binned->id)->trashed());
+        $this->assertSame(2, ClientQuota::current()->imageCount());
+    }
+
+    public function test_restoring_a_product_that_fits_the_allowance_works(): void
+    {
+        $this->signIn(imageLimit: 4);
+        $this->product('live', ['clients/1/products/a.jpg', 'clients/1/products/b.jpg']);
+        // b.jpg is already counted on the live product, so this brings back two more, not three.
+        $binned = $this->product('binned', ['clients/1/products/b.jpg', 'clients/1/products/c.jpg', 'clients/1/products/d.jpg'], trashed: true);
+
+        Livewire::test(EditProduct::class, ['record' => $binned->getRouteKey()])
+            ->callAction(RestoreAction::class);
+
+        $this->assertFalse(Product::withoutGlobalScopes()->withTrashed()->find($binned->id)->trashed());
+        $this->assertSame(4, ClientQuota::current()->imageCount());
+    }
+
+    public function test_bulk_restore_counts_the_images_of_every_selected_product(): void
+    {
+        $this->signIn(imageLimit: 3);
+        $this->product('live', ['clients/1/products/a.jpg']);
+        // Each fits alone; together they would make four.
+        $one = $this->product('one', ['clients/1/products/b.jpg', 'clients/1/products/c.jpg'], trashed: true);
+        $two = $this->product('two', ['clients/1/products/d.jpg'], trashed: true);
+
+        Livewire::test(ListProducts::class)
+            ->filterTable('trashed', false)
+            ->callTableBulkAction('restore', [$one, $two])
+            ->assertNotified('Image limit reached');
+
+        $this->assertSame(2, Product::withoutGlobalScopes()->onlyTrashed()->count());
+        $this->assertSame(1, ClientQuota::current()->imageCount());
     }
 }

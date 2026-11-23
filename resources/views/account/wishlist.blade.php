@@ -13,7 +13,7 @@
             <template x-for="p in items" :key="p.id">
                 <article class="group relative">
                     <a :href="p.url" class="relative block aspect-[3/4] overflow-hidden bg-sand"><img :src="p.images[0]" :alt="p.name" class="img-cover img-zoom"></a>
-                    <button type="button" @click="$store.wishlist.toggle(p.id)" class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ivory/85 backdrop-blur" aria-label="Remove from wishlist"><x-ico name="close" :size="14" /></button>
+                    <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ivory/85 backdrop-blur" aria-label="Remove from wishlist"><x-ico name="close" :size="14" /></button>
                     <p class="mt-4 text-[0.5625rem] uppercase tracking-[0.2em] text-taupe" x-text="p.category"></p>
                     <a :href="p.url" class="mt-1 block font-serif text-[1.0625rem] leading-snug" x-text="p.name"></a>
                     <div class="mt-2 flex items-center justify-between">

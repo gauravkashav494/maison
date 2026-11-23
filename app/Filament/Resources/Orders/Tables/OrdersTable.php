@@ -61,6 +61,17 @@ class OrdersTable
                         $r->dispatched_at !== null => 'Dispatched '.$r->dispatched_at->format('d M Y'),
                         default => null,
                     }),
+                // When it was invoiced, went out, arrived or was cancelled; off until switched on in the Columns menu.
+                TextColumn::make('invoiced_at')->label('Invoiced')->dateTime('d M Y, H:i')->sortable()->placeholder('—')
+                    ->description(fn (Order $r) => $r->invoice_number)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('dispatched_at')->label('Dispatched')->dateTime('d M Y, H:i')->sortable()->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('delivered_at')->label('Delivered')->dateTime('d M Y, H:i')->sortable()->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('cancelled_at')->label('Cancelled')->dateTime('d M Y, H:i')->sortable()->placeholder('—')
+                    ->color('danger')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 // Several statuses at once, so "confirmed + processing" (still to fulfil) is one view.
@@ -68,10 +79,6 @@ class OrdersTable
                 SelectFilter::make('payment_method')->options(Order::PAYMENT_METHODS)->native(false),
                 // Orders with at least one product in this category or any below it.
                 CategoryFilter::through('items.product'),
-                // Each sales person's orders, or every sales order at once.
-                SelectFilter::make('salesperson_id')->label('Placed by sales person')->native(false)->searchable()
-                    ->options(fn () => Customer::where('client_id', app(ClientContext::class)->id() ?? 0)
-                        ->where('is_salesperson', true)->orderBy('name')->pluck('name', 'id')->all()),
                 TernaryFilter::make('sales_order')->label('Sales orders')
                     ->trueLabel('Sales orders only')->falseLabel('Customer orders only')
                     ->queries(
@@ -79,6 +86,10 @@ class OrdersTable
                         false: fn (Builder $q) => $q->whereNull('salesperson_id'),
                         blank: fn (Builder $q) => $q,
                     ),
+                // Each sales person's orders, or every sales order at once.
+                SelectFilter::make('salesperson_id')->label('Placed by sales person')->native(false)->searchable()
+                    ->options(fn () => Customer::where('client_id', app(ClientContext::class)->id() ?? 0)
+                        ->where('is_salesperson', true)->orderBy('name')->pluck('name', 'id')->all()),
 
                 // When it was placed: one picker with ready ranges (Today, Last 7 days, This month…);
                 // pick the same day twice for one day.

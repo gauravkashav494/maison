@@ -96,4 +96,13 @@ class DashboardOrderLinksTest extends TestCase
     {
         $this->assertListShows($this->cardUrl('Orders to fulfil'), ['NEW-CONFIRMED', 'NEW-PROCESSING', 'OLD-CONFIRMED']);
     }
+
+    public function test_recent_orders_show_the_total_with_paise(): void
+    {
+        Order::withoutGlobalScopes()->whereKey($this->orders['NEW-SHIPPED']->id)->update(['total' => 1234.56]);
+
+        $this->actingAs($this->admin, 'client')->get('/client')->assertSuccessful()
+            ->assertSee('₹1,234.56')
+            ->assertDontSee('₹1,234.00');
+    }
 }

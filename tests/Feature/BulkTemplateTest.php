@@ -299,14 +299,14 @@ class BulkTemplateTest extends TestCase
             ->assertSee('PK-CT-250')                 // each size on its own row
             ->assertSee('GL-NT-XL');
 
-        // A category is a list to order down: a row per size, a quantity box each, one button to add them all.
+        // A category is a list to order down: a row per size, a quantity box each that goes straight into the cart.
         $this->visit('/shop/cleaning')
             ->assertSuccessful()
             ->assertSee('orderSheet(', false)
             ->assertDontSee('tradeCard(', false)
             ->assertSee('Floor cleaner concentrate')
             ->assertSee('CL-FC-5L')
-            ->assertSee('Add all to order')
+            ->assertSee('View cart')
             ->assertDontSee('A4 copier paper');
         $this->visit('/shop/hygiene')->assertSuccessful()->assertSee('GL-NT-S')->assertSee('GL-NT-XL');
 
@@ -410,7 +410,7 @@ class BulkTemplateTest extends TestCase
         $this->visit('/collections/takeaway-packing')
             ->assertSuccessful()
             ->assertSee('orderSheet(', false)
-            ->assertSee('Add all to order')
+            ->assertSee('View cart')
             ->assertSee('PK-CT-250')
             ->assertSee('PK-CT-1000')
             ->assertSee('PK-KB-M')
@@ -623,14 +623,16 @@ class BulkTemplateTest extends TestCase
     {
         $product = $this->product('GL-NT');
 
-        // A heart on every product row (once per product, not per size) and in the header.
+        // A heart on every product row (once per product, not per size) and in the header. The
+        // heart passes the product's name too, for the "saved" message.
+        $heart = '$store.wishlist.toggle('.$product->id.', ';
         $shop = $this->visit('/shop')->assertSuccessful()
-            ->assertSee('$store.wishlist.toggle('.$product->id.')', false)
+            ->assertSee($heart, false)
             ->assertSee(route('account.wishlist'), false)
             ->assertSee('Saved items', false);
-        $this->assertSame(1, substr_count($shop->getContent(), '$store.wishlist.toggle('.$product->id.')'));
+        $this->assertSame(1, substr_count($shop->getContent(), $heart));
 
-        $this->visit('/product/'.$product->slug)->assertSee('$store.wishlist.toggle('.$product->id.')', false);
+        $this->visit('/product/'.$product->slug)->assertSee($heart, false);
     }
 
     public function test_the_saved_items_page_lists_saved_products_as_the_order_list(): void
@@ -645,7 +647,7 @@ class BulkTemplateTest extends TestCase
 
         // The list it asks for: the saved products in the order saved, every size a row with a quantity box.
         $list = $this->visit('/account/wishlist?ids='.$cleaner->id.','.$gloves->id.',999999')->assertSuccessful()
-            ->assertSee('orderSheet(', false)->assertSee('GL-NT-M')->assertSee('CL-FC-5L')->assertSee('Add all to order')
+            ->assertSee('orderSheet(', false)->assertSee('GL-NT-M')->assertSee('CL-FC-5L')->assertSee('View cart')
             ->assertDontSee('<html', false);
         $html = $list->getContent();
         $this->assertLessThan(strpos($html, 'GL-NT-M'), strpos($html, 'CL-FC-5L'), 'Saved items keep the order they were saved in.');

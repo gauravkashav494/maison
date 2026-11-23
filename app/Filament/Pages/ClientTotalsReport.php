@@ -81,8 +81,8 @@ class ClientTotalsReport extends Page implements HasTable
                 $count('staff', 'Staff'),
             ])
             ->filters([
-                SelectFilter::make('storefront_id')->label('Store')->options(fn () => Storefront::orderBy('name')->pluck('name', 'id')),
                 TernaryFilter::make('is_active')->label('Active'),
+                SelectFilter::make('storefront_id')->label('Store')->options(fn () => Storefront::orderBy('name')->pluck('name', 'id')),
             ])
             ->recordActions([
                 RowActions::group([

@@ -4,7 +4,7 @@ namespace App\Filament\Resources\ClientRoles\Pages;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\ClientRoles\ClientRoleResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateClientRole extends CreateRecord
 {

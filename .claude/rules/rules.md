@@ -55,6 +55,11 @@ Model events don't fire for any of these, so either use a normal model save or c
 - Status columns read their words from the model's `STATUSES` constant when it has one.
 - Secrets (anything matching `password|token|secret|otp|api_key|hint`) are named, never stored.
   New secret-like columns must match that pattern or be added to it.
+- Only secrets are kept out of the log. Long text, HTML and lists are named only in the sentence,
+  but their before and after are stored for the details view: plain text (up to 600 characters),
+  or for a list just the rows that changed ("S: stock 22" → "S: stock 20", "XL added").
+- Only columns whose value really changed are listed (`ActivityDescriber::sameValue()`): "4500.00"
+  vs 4500, null vs "" or re-ordered JSON is not a change. Settings pages log before and after too.
 
 ### What is deliberately not logged
 

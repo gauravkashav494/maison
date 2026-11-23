@@ -302,7 +302,7 @@ class SearchListings extends Page implements HasTable
             ->action(function (Model $record, array $data) {
                 // A normal model save, so the activity log names what changed.
                 $record->update($data);
-                Notification::make()->success()->title('SEO saved')->send();
+                Notification::make()->success()->title('SEO updated')->send();
             });
     }
 

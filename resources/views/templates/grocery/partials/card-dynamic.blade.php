@@ -4,7 +4,7 @@
         <img :src="p.images[0]" :alt="p.name" loading="lazy" class="img-cover">
         <span x-show="p.discount_percent > 0" class="badge badge-off absolute left-1.5 top-1.5" x-text="p.discount_percent + '% OFF'"></span>
     </a>
-    <button type="button" @click="$store.wishlist.toggle(p.id)" class="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(p.id) && 'text-berry'" aria-label="Save for later"><x-ico name="heart" :size="15" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
+    <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(p.id) && 'text-berry'" aria-label="Save for later"><x-ico name="heart" :size="15" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
     <div class="flex flex-1 flex-col pt-2.5">
         <div class="flex items-start gap-1.5">
             <span x-show="p.is_veg !== null" class="veg-mark mt-0.5" :class="p.is_veg === false && 'nonveg'"></span>

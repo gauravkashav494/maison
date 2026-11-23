@@ -4,7 +4,7 @@
         <img :src="p.images[0]" :alt="p.name" loading="lazy">
         <span x-show="p.discount_percent > 0" class="badge badge-off absolute left-2 top-2" x-text="p.discount_percent + '% off'"></span>
     </a>
-    <button type="button" @click="$store.wishlist.toggle(p.id)" class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has(p.id) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
+    <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has(p.id) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
     <div class="pcard-body">
         <p class="pcard-brand" x-text="p.brand || p.category"></p>
         <h3 class="pcard-name"><a :href="p.url" x-text="p.name"></a></h3>

@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Customers\Pages;
 
 use App\Clients\ClientContext;
 use App\Filament\Resources\Customers\CustomerResource;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Support\Pages\CreateRecord;
 
 class CreateCustomer extends CreateRecord
 {

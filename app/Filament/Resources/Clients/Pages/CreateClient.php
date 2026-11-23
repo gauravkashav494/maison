@@ -7,11 +7,12 @@ use App\Clients\ClientSetup;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
+use App\Filament\Support\Pages\CreateRecord;
 use App\Models\ClientUser;
 use App\Support\PasswordRules;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Wizard\Step;
 use Illuminate\Support\Facades\Cache;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 class CreateClient extends CreateRecord
 {
-    use CreateRecord\Concerns\HasWizard;
+    use HasWizard;
 
     protected static string $resource = ClientResource::class;
 
