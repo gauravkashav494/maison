@@ -17,7 +17,7 @@ php artisan serve                                   # http://127.0.0.1:8000
 > Node is managed by nvm-windows on this machine. If `npm` is not found, run `nvm use 22.23.2`
 > in an elevated terminal once, or call `C:\Users\pc2\AppData\Roaming\nvm\v22.23.2\npm.cmd`.
 
-**Admin panel:** http://127.0.0.1:8000/admin — `admin@maisonelan.com` / `password` (change this in Users or via tinker).
+**Admin panel:** http://127.0.0.1:8000/admin — `admin@ecomvision.in` / `password` (change this in Users or via tinker).
 
 ## What the CMS controls
 

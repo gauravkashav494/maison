@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Clients\ClientContext;
+use App\Clients\ClientDatabase;
 use App\Models\Menu;
 use Illuminate\Database\Seeder;
 
@@ -53,7 +54,9 @@ class BulkMenuSeeder extends Seeder
     private function menu(string $location, string $name, array $items): void
     {
         $menu = Menu::updateOrCreate(
-            ['location' => $location, 'client_id' => app(ClientContext::class)->id()],
+            // clients:provision opens the client's database without resolving the context: take the
+            // client from the open database then, or a re-run makes a second set of menus.
+            ['location' => $location, 'client_id' => app(ClientContext::class)->id() ?? app(ClientDatabase::class)->current()?->id],
             ['name' => $name, 'template' => 'bulk'],
         );
         $menu->allItems()->delete();

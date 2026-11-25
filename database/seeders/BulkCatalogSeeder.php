@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Clients\ClientContext;
+use App\Clients\ClientDatabase;
 use App\Models\Category;
 use App\Models\Collection;
 use App\Models\Product;
@@ -23,7 +24,10 @@ class BulkCatalogSeeder extends Seeder
     {
         // In a shared database the lookups must stay inside this client, or a re-run would
         // reach another client's rows; in a client database it is simply the only client.
-        $client = ['client_id' => app(ClientContext::class)->id()];
+        // clients:provision opens the client's database without resolving the context, so the
+        // client is taken from the open database then: otherwise a re-run would look for rows
+        // with no client, miss the stamped ones and add the whole catalogue a second time.
+        $client = ['client_id' => app(ClientContext::class)->id() ?? app(ClientDatabase::class)->current()?->id];
 
         $categories = [
             ['slug' => 'cleaning', 'name' => 'Cleaning Chemicals', 'tagline' => 'Floor, surface, kitchen and washroom'],

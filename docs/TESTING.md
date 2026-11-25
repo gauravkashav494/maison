@@ -11,12 +11,16 @@ Client panel: <http://127.0.0.1:8000/client/login>
 
 | Who | Email | Password | Panel |
 |---|---|---|---|
-| SuperAdmin | `admin@maisonelan.com` | `password` | `/admin` |
-| Client Admin — Fashion | `fashion@maisonelan.com` | `password` | `/client` |
-| Client Admin — Grocery | `grocery@maisonelan.com` | `password` | `/client` |
-| Client Admin — Heritage | `heritage@maisonelan.com` | `password` | `/client` |
-| Client Admin — Plumbing | `plumbing@maisonelan.com` | `password` | `/client` |
-| Client Admin — Plumbing Services | `plumbing-services@maisonelan.com` | `password` | `/client` |
+| SuperAdmin | `admin@ecomvision.in` | `password` | `/admin` |
+| Client Admin — Fashion | `admin@demo-fashion.test` | `password` | `/client` |
+| Client Admin — Grocery | `admin@demo-grocery.test` | `password` | `/client` |
+| Client Admin — Heritage | `admin@demo-heritage.test` | `password` | `/client` |
+| Client Admin — Plumbing | `admin@demo-plumbing.test` | `password` | `/client` |
+| Client Admin — Plumbing Services | `admin@demo-plumbing-services.test` | `password` | `/client` |
+| Client Admin — Bulk Order | `admin@demo-bulk.test` | `password` | `/client` |
+
+Each demo store also has a staff account with the ready-made Manager role:
+`staff@<subdomain>.test`. Both are made by `php artisan db:seed --class=DemoStaffSeeder`.
 
 SuperAdmins are managed under **Platform → Super Admins**; a client's own staff under
 **Team → Staff** (on `/client`, Client Admins only) or **Platform → Clients** on `/admin`.
@@ -35,7 +39,7 @@ allowances. `tests/Feature/ClientIsolationTest.php` is the one to read first.
 
 ## 1. Two panels, two kinds of account
 
-**As a Client Admin** (e.g. `grocery@maisonelan.com` at `/client`)
+**As a Client Admin** (e.g. `admin@demo-grocery.test` at `/client`)
 
 - The topbar shows `MANAGING Indian Grocery Store` with no way to change it.
 - The sidebar has that client's modules only — no Platform group, no Clients, no Plans, no
