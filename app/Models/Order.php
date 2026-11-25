@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 use LogicException;
 
 class Order extends Model
@@ -31,6 +30,7 @@ class Order extends Model
         'shipping_cost' => 'float',
         'subtotal' => 'float',
         'discount' => 'float',
+        'coupon_value' => 'float',
         'tax' => 'float',
         'tax_rate' => 'float',
         'prices_include_tax' => 'boolean',
@@ -107,7 +107,7 @@ class Order extends Model
         return $this->belongsTo(Customer::class, 'salesperson_id')->withTrashed();
     }
 
-    /** Placed by a sales person: no delivery, the store's own address is on the order. */
+    /** Placed by a sales person, for themselves or a customer (SalesOrder). */
     public function isSalesOrder(): bool
     {
         return $this->salesperson_id !== null;
@@ -132,16 +132,18 @@ class Order extends Model
     public const NUMBER_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
     /**
-     * A new order number for the store being served: "<prefix>-<yymmdd>-<4 random>", e.g.
-     * EFS-261123-K7QM. The prefix is the store's (Site settings → Checkout → Order numbers),
-     * else made from its name. Random rather than counted, so a number says nothing about how
-     * many orders a store takes and cannot be guessed from another. Unique within the store,
-     * as the (client_id, number) index requires.
+     * A new order number for the store being served: "<client id>-<yymmdd>-<4 random>", e.g.
+     * 14-261123-K7QM. A sales person's order for themselves is led by the storefront the store
+     * runs on as well: "<storefront id>-<client id>-<yymmdd>-<4 random>", e.g. 5-14-261123-K7QM,
+     * so it is told apart from orders for customers at a glance. Random rather than counted, so a
+     * number says nothing about how many orders a store takes and cannot be guessed from another.
+     * Unique within the store, as the (client_id, number) index requires.
      */
-    public static function generateNumber(): string
+    public static function generateNumber(bool $salesSelf = false): string
     {
-        $prefix = self::numberPrefix();
         $clientId = app(ClientContext::class)->id();
+        $storefrontId = app(ClientContext::class)->client()?->storefront_id;
+        $prefix = $salesSelf && $storefrontId ? $storefrontId.'-'.self::numberPrefix() : self::numberPrefix();
 
         do {
             $code = '';
@@ -154,37 +156,21 @@ class Order extends Model
         return $number;
     }
 
-    /** The store's order number prefix: its own setting, else made from its name. */
+    /** What every order number of the store being served starts with: its client id. */
     public static function numberPrefix(): string
     {
-        $own = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) setting('checkout.order_prefix')));
-
-        return $own !== '' ? substr($own, 0, 5) : self::defaultNumberPrefix(app(ClientContext::class)->client()?->name);
+        return (string) (app(ClientContext::class)->id() ?: 'ORD');
     }
 
     /**
-     * A prefix from the store's name: the first letter of up to three words ("Ethnic Fashion
-     * Store" → EFS), or the first three letters of a one-word name ("Lumen" → LUM). ORD when
-     * the name gives nothing usable.
+     * What this store's numbers look like, for hints on the tracking form and in Site settings:
+     * "14-261123-K7QM", or "5-14-261123-K7QM" for a sales person's order for themselves.
      */
-    public static function defaultNumberPrefix(?string $name): string
+    public static function exampleNumber(bool $salesSelf = false, string $code = 'XXXX'): string
     {
-        $words = preg_split('/\s+/', strtoupper(Str::ascii((string) $name)), -1, PREG_SPLIT_NO_EMPTY);
-        $words = array_values(array_filter(array_map(fn (string $word) => preg_replace('/[^A-Z0-9]/', '', $word), $words)));
+        $storefrontId = app(ClientContext::class)->client()?->storefront_id;
 
-        $prefix = match (count($words)) {
-            0 => '',
-            1 => substr($words[0], 0, 3),
-            default => implode('', array_map(fn (string $word) => $word[0], array_slice($words, 0, 3))),
-        };
-
-        return strlen($prefix) >= 2 ? $prefix : 'ORD';
-    }
-
-    /** What this store's numbers look like, for hints on the tracking form: "EFS-261123-XXXX". */
-    public static function exampleNumber(): string
-    {
-        return self::numberPrefix().'-'.now()->format('ymd').'-XXXX';
+        return ($salesSelf && $storefrontId ? $storefrontId.'-' : '').self::numberPrefix().'-'.now()->format('ymd').'-'.$code;
     }
 
     /** Payment status as shoppers see it on the storefront: "Pay on delivery" for COD. */
@@ -466,6 +452,23 @@ class Order extends Model
     public function getUrlAttribute(): string
     {
         return route('orders.confirmation', $this->number);
+    }
+
+    /**
+     * Label for this order's discount row: "Discount (TC9X2D · 10% off)". It uses the type and
+     * value the code had when the order was placed; an older order without them asks the code as
+     * it is now.
+     */
+    public function discountLine(): string
+    {
+        $offer = Coupon::describeOffer($this->coupon_type, $this->coupon_value);
+        if (! $offer && $this->coupon_code) {
+            $offer = Coupon::withTrashed()->whereRaw('lower(code) = ?', [strtolower($this->coupon_code)])->first()?->describe();
+        }
+
+        $parts = array_filter([$this->coupon_code, $offer]);
+
+        return $parts ? 'Discount ('.implode(' · ', $parts).')' : 'Discount';
     }
 
     /** Label for this order's tax row, as it applied when the order was placed. */

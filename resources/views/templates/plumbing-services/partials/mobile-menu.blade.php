@@ -4,7 +4,9 @@
     <div class="overlay" x-show="$store.ui.menuOpen" x-transition.opacity @click="$store.ui.menuOpen = false"></div>
     <aside class="sheet inset-y-0 left-0 flex w-[86vw] max-w-sm flex-col" x-show="$store.ui.menuOpen" x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" x-trap.noscroll="$store.ui.menuOpen" role="dialog" aria-modal="true" aria-label="Menu">
         <div class="app-header safe-top flex h-[3.75rem] items-center justify-between pl-3 pr-2">
+            <x-store-logo size="h-9" :on-dark="true">
             <span class="flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-white text-primary"><x-ico name="droplet" :size="20" :stroke="2" /></span><span class="font-display text-lg font-extrabold">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-accent">{{ $p['logo_accent'] ?? 'Care' }}</span></span></span>
+            </x-store-logo>
             <button type="button" @click="$store.ui.menuOpen = false" class="icon-btn text-white hover:bg-white/15" aria-label="Close"><x-ico name="close" :size="22" /></button>
         </div>
         <div class="flex-1 overflow-y-auto p-3">

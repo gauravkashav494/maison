@@ -82,6 +82,22 @@ class CouponLimitTest extends TestCase
             ]);
     }
 
+    public function test_the_order_keeps_what_the_code_gave_for_the_order_page_and_invoice(): void
+    {
+        $coupon = $this->coupon();
+        $this->checkout($this->cartWithCoupon(), $this->customer('a@alpha.test'))->assertRedirect();
+
+        $order = Order::withoutGlobalScopes()->firstOrFail();
+        $this->assertSame($coupon->id, $order->coupon_id);
+        $this->assertSame('percent', $order->coupon_type);
+        $this->assertSame(10.0, $order->coupon_value);
+        $this->assertSame(100.0, $order->discount);
+
+        // Changing the code later does not change what this order says it gave.
+        $coupon->update(['value' => 25]);
+        $this->assertSame('Discount (SAVE10 · 10% off)', $order->fresh()->discountLine());
+    }
+
     public function test_two_checkouts_cannot_both_take_the_last_use(): void
     {
         $coupon = $this->coupon(['usage_limit' => 1]);

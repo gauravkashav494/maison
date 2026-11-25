@@ -145,7 +145,7 @@ export default function registerExtras(Alpine, api) {
             const fetchList = async () => {
                 const l = mode === 'wishlist' ? Alpine.store('wishlist').ids : Alpine.store('recent_products').slugs.filter((s) => s !== exclude);
                 if (!l.length) { this.items = []; this.loading = false; return; }
-                const q = mode === 'wishlist' ? `ids=${l.join(',')}` : `slugs=${l.join(',')}`;
+                const q = mode === 'wishlist' ? Alpine.store('wishlist').query : `slugs=${l.join(',')}`;
                 try { this.items = await api(`/api/products?${q}`); } finally { this.loading = false; }
             };
             await fetchList();

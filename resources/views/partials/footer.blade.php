@@ -16,7 +16,9 @@
     <div class="container-luxe">
         <div class="grid gap-10 border-b border-ivory/10 py-10 md:py-14 lg:grid-cols-12 lg:gap-16">
             <div class="lg:col-span-5">
+                <x-store-logo size="h-12" :on-dark="true">
                 <p class="font-serif text-3xl tracking-[0.12em]">{{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span></p>
+                </x-store-logo>
                 @if(!empty($site['footer_blurb']))<p class="mt-4 max-w-sm text-sm leading-relaxed text-ivory/60">{{ $site['footer_blurb'] }}</p>@endif
                 <div class="mt-6 flex items-center gap-5 text-ivory/70">
                     @foreach($socials as [$icon, $url, $label])

@@ -22,8 +22,10 @@
 
     <div class="ps-container relative flex h-[4.5rem] items-center gap-3 2xl:gap-6">
         <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5" aria-label="{{ $biz['name'] }} home">
+            <x-store-logo size="h-11">
             <span class="grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-glow"><x-ico name="droplet" :size="24" :stroke="2" /></span>
             <span class="font-display text-[1.35rem] font-extrabold tracking-tight text-deep">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-bright">{{ $p['logo_accent'] ?? 'Care' }}</span></span>
+            </x-store-logo>
         </a>
 
         <nav class="flex min-w-0 flex-1 items-center justify-center gap-0 xl:gap-1" aria-label="Main">

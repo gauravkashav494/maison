@@ -419,4 +419,63 @@ class CustomerOtpTest extends TestCase
 
         $this->assertFalse((new WhatsApp)->sendTemplate('9876543210', 'otp', ['482913']));
     }
+
+    // ---- One customer per phone: an earlier guest record becomes the account -----------------
+
+    public function test_signing_up_with_a_guests_number_turns_that_guest_into_the_account(): void
+    {
+        // From an earlier checkout, saved in another shape, with its own email.
+        $guest = Customer::create(['client_id' => $this->client->id, 'name' => 'A Rao', 'email' => 'old@example.test', 'phone' => '+91 98765 43210', 'is_active' => true]);
+
+        $this->register(['phone' => '9876543210'])->assertSessionHasNoErrors()->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('account.index'));
+
+        $customer = Customer::sole();
+        $this->assertSame($guest->id, $customer->id, 'No second customer: the guest record is the account.');
+        $this->assertAuthenticatedAs($customer, 'web');
+        $this->assertSame('Asha Rao', $customer->name);
+        $this->assertSame('9876543210', $customer->phone);
+        $this->assertNotNull($customer->phone_verified_at);
+        $this->assertTrue(Hash::check('Str0ng-pass-123', $customer->password));
+        $this->assertSame('old@example.test', $customer->email, 'An email already on the record is kept.');
+    }
+
+    public function test_a_code_checkout_with_a_guests_number_keeps_the_order_on_that_guest(): void
+    {
+        // A phone-only customer, e.g. added by a sales person.
+        $guest = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'email' => null, 'phone' => '9876543210', 'is_active' => true]);
+
+        $this->checkout()->assertRedirect(route('otp.verify'));
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha']);
+
+        $this->assertSame(1, Customer::count());
+        $this->assertSame($guest->id, Order::withoutGlobalScopes()->sole()->customer_id);
+        $this->assertSame('asha@example.test', $guest->fresh()->email, 'The email typed at checkout fills an empty one.');
+        $this->assertNotNull($guest->fresh()->phone_verified_at);
+    }
+
+    public function test_a_disabled_guest_record_is_not_signed_in_when_claimed(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'phone' => '9876543210', 'is_active' => false]);
+
+        $this->register(['email' => null]);
+        $this->enterOtp(session: [Client::SESSION_KEY => 'alpha'])->assertRedirect(route('login'))->assertSessionHasErrors('phone');
+
+        $this->assertGuest('web');
+        $this->assertSame(1, Customer::count());
+        $this->assertFalse(Customer::sole()->is_active, 'A record the store disabled stays disabled.');
+    }
+
+    public function test_an_account_is_found_by_its_number_in_any_saved_shape(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'phone' => '+91 98765 43210', 'password' => 'Str0ng-pass-123', 'is_active' => true]);
+
+        $this->register(['phone' => '9876543210', 'email' => null])->assertSessionHasErrors(['phone' => 'An account with this phone number already exists. Try signing in instead.']);
+        $this->assertSame(1, Customer::count());
+        $this->assertCount(0, $this->whatsapp->sent);
+
+        // And a code sign-in finds it the same way.
+        $this->onStore()->post('/login/otp', ['phone' => '9876543210'])->assertSessionHasNoErrors();
+        $this->assertCount(1, $this->whatsapp->sent);
+    }
 }

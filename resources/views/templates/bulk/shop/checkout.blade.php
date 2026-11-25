@@ -32,14 +32,14 @@
         <div class="space-y-3">
             <section class="bk-card p-4 sm:p-5">
                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <h2 class="flex items-center gap-2.5 text-base font-extrabold"><span class="bk-step-no">1</span>@if($salesOrder ?? false)Who is this order for? @else Contact &amp; delivery address @endif</h2>
+                    <h2 class="flex items-center gap-2.5 text-base font-extrabold"><span class="bk-step-no">1</span>Contact &amp; delivery address</h2>
                     @guest
                         <p class="bk-muted text-sm"><a href="{{ route('login') }}?redirect=checkout" class="bk-link">Sign in</a> to use your saved address</p>
                     @endguest
                 </div>
                 @if($salesOrder ?? false)
-                    @include('partials.checkout.sales-order', ['labelClass' => 'bk-label', 'fieldClass' => 'bk-input', 'errorClass' => 'bk-error', 'radioClass' => 'accent-[var(--bk-brand)]'])
-                @else
+                    @include('partials.checkout.sales-order', ['errorClass' => 'bk-error', 'radioClass' => 'accent-[var(--bk-brand)]'])
+                @endif
                 <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-12">
                     <x-phone-field :value="$user?->phone ?? $address?->phone" required class="col-span-2 sm:col-span-4" />
                     <x-checked-field name="shipping_name" label="Name or business" rule="name" attribute="full name" :value="$address?->name ?? $user?->name" required autocomplete="name" class="col-span-2 sm:col-span-4" />
@@ -56,12 +56,9 @@
                         <input type="checkbox" name="save_address" value="1" checked class="accent-[var(--bk-brand)]"> Save this address for next time
                     </label>
                 @endauth
-                @endif
             </section>
 
             <div class="bk-card overflow-hidden">
-            {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
-            @unless($salesOrder ?? false)
             <section>
                 <h2 class="flex items-center gap-2.5 px-4 py-3 text-base font-extrabold sm:px-5"><span class="bk-step-no">2</span>Delivery</h2>
                 @error('shipping_method')<p class="bk-error px-4 sm:px-5">{{ $message }}</p>@enderror
@@ -80,7 +77,6 @@
                     @endforeach
                 </div>
             </section>
-            @endunless
 
             <section class="border-t border-[var(--bk-line)]">
                 <h2 class="flex items-center gap-2.5 px-4 py-3 text-base font-extrabold sm:px-5"><span class="bk-step-no">3</span>Payment</h2>

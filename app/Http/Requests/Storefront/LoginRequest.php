@@ -8,7 +8,7 @@ class LoginRequest extends StorefrontRequest
     public function rules(): array
     {
         return [
-            'phone' => $this->phone(),
+            'phone' => $this->phone(mobileOnly: false),
             'password' => ['required', 'string', 'max:255'],
             'remember' => ['nullable', 'boolean'],
         ];

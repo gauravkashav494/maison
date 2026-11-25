@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Categories\Tables;
 
 use App\Admin\StoreContext;
+use App\Filament\Resources\Categories\CategoryDeleteActions;
 use App\Filament\Support\RowActions;
 use App\Models\Category;
 use App\Support\Media;
@@ -48,7 +49,7 @@ class CategoriesTable
                 ),
                 TrashedFilter::make(),
             ])
-            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...RowActions::trash()])])
-            ->toolbarActions([BulkActionGroup::make(RowActions::trashBulk())]);
+            ->recordActions([RowActions::group([ViewAction::make(), EditAction::make(), ...CategoryDeleteActions::trash()])])
+            ->toolbarActions([BulkActionGroup::make(CategoryDeleteActions::trashBulk())]);
     }
 }

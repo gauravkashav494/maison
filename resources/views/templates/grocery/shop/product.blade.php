@@ -37,7 +37,7 @@
                         @if($product->discount_percent > 0)<span class="badge badge-off">{{ $product->discount_percent }}% OFF</span>@endif
                         @if($product->is_new)<span class="badge badge-new">NEW</span>@endif
                     </span>
-                    <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(p.id) && 'text-berry'" aria-label="Save for later"><x-ico name="heart" :size="18" ::class="$store.wishlist.has(p.id) && 'fill-current'" /></button>
+                    <button type="button" @click="$store.wishlist.toggle(p.id, p.name, choice)" class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate shadow-sm hover:text-berry" :class="$store.wishlist.has(p.id, choice) && 'text-berry'" aria-label="Save for later"><x-ico name="heart" :size="18" ::class="$store.wishlist.has(p.id, choice) && 'fill-current'" /></button>
                     <template x-if="slides.length > 1">
                         <div>
                             <button type="button" @click="prev()" class="rail-btn absolute left-2 top-1/2 -translate-y-1/2" aria-label="Previous image"><x-ico name="chevron-left" :size="18" /></button>
@@ -108,7 +108,7 @@
                         @if($product->max_qty)<p class="w-full text-xs text-slate">Max {{ $product->max_qty }} per order</p>@endif
                     @else
                         <span class="badge badge-warn">Currently out of stock</span>
-                        <button type="button" @click="$store.wishlist.keep(p.id, p.name)" class="btn btn-outline">Notify me</button>
+                        <button type="button" @click="$store.wishlist.keep(p.id, p.name, choice)" class="btn btn-outline">Notify me</button>
                     @endif
                 </div>
 

@@ -46,7 +46,7 @@ class OrdersTable
                         : $state),
                 TextColumn::make('created_at')->label('Placed')->dateTime('d M Y, H:i')->sortable(),
                 TextColumn::make('shipping_name')->label('Customer')->searchable()->description(fn (Order $r) => $r->email),
-                // Orders a sales person placed (for themselves or a customer): no delivery.
+                // Orders a sales person placed (for themselves or a customer).
                 TextColumn::make('salesperson.name')->label('Placed by')->badge()->color('info')->placeholder('—')->toggleable(),
                 TextColumn::make('items_count')->counts('items')->label('Items')->alignRight(),
                 TextColumn::make('total')->formatStateUsing(fn (float $state) => money($state))->sortable()->alignRight(),

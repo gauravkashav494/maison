@@ -113,6 +113,72 @@ class OrderInvoiceTest extends TestCase
         }
     }
 
+    public function test_the_invoice_says_what_the_promo_code_gave(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+        $this->order->forceFill(['discount' => 200, 'coupon_code' => 'SAVE10', 'coupon_type' => 'percent', 'coupon_value' => 10])->save();
+
+        $html = view('invoices.order', Invoice::for($this->order)->data())->render();
+        $this->assertStringContainsString(e('Discount (SAVE10 · 10% off)'), $html);
+    }
+
+    public function test_the_store_name_heads_the_invoice_when_it_differs_from_the_registered_name(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+        Setting::set('site', array_replace((array) Setting::get('site'), ['name' => 'Alpha Home']));
+
+        $html = view('invoices.order', Invoice::for($this->order)->data())->render();
+        $this->assertStringContainsString('<p class="store-brand">Alpha Home</p>', $html);
+        // The registered name still sits with the GSTIN, below the store name.
+        $this->assertMatchesRegularExpression('/Alpha Home<\/p>\s*<p class="seller-name">Alpha Retail Pvt Ltd<\/p>/', $html);
+
+        // The same name is not printed twice.
+        Setting::set('site', array_replace((array) Setting::get('site'), ['name' => 'alpha retail pvt ltd']));
+        $html = view('invoices.order', Invoice::for($this->order)->data())->render();
+        $this->assertStringNotContainsString('store-brand">', $html);
+    }
+
+    public function test_an_older_order_without_a_kept_store_name_prints_as_before(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+        $this->order->update(['seller' => ['name' => 'Alpha Old Name', 'address' => [], 'gstin' => null, 'state' => 'Maharashtra', 'email' => null, 'phone' => null, 'note' => null]]);
+
+        $html = view('invoices.order', Invoice::for($this->order->refresh())->data())->render();
+        $this->assertStringNotContainsString('store-brand">', $html);
+    }
+
+    public function test_an_invoice_without_hsn_codes_has_no_hsn_column(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+
+        $html = view('invoices.order', Invoice::for($this->order)->data())->render();
+
+        $this->assertStringNotContainsString('>HSN</th>', $html);
+    }
+
+    public function test_the_invoice_shows_each_lines_hsn_code(): void
+    {
+        app(ClientContext::class)->resolveForPublic($this->client);
+        OrderItem::create(['order_id' => $this->order->id, 'name' => 'Steel Plate', 'sku' => 'PLT-1', 'hsn_code' => '73239390', 'price' => 0, 'qty' => 1, 'total' => 0]);
+
+        $html = view('invoices.order', Invoice::for($this->order->refresh())->data())->render();
+
+        $this->assertStringContainsString('>HSN</th>', $html);
+        $this->assertStringContainsString('73239390', $html);
+        // The line without a code shows a dash in that column.
+        $this->assertMatchesRegularExpression('/TIF-1<\/td>\s*<td class="muted nowrap">—<\/td>/u', $html);
+    }
+
+    public function test_an_order_keeps_the_hsn_code_its_product_had_when_placed(): void
+    {
+        $order = $this->placeOrderAtCheckout(hsn: '7323');
+        $this->assertSame('7323', $order->items()->sole()->hsn_code);
+
+        Product::withoutGlobalScopes()->where('slug', 'steel-tiffin')->update(['hsn_code' => '9999']);
+
+        $this->assertSame('7323', $order->items()->sole()->hsn_code);
+    }
+
     public function test_an_order_placed_before_seller_details_were_kept_reads_todays_settings(): void
     {
         app(ClientContext::class)->resolveForPublic($this->client);
@@ -269,12 +335,12 @@ class OrderInvoiceTest extends TestCase
     }
 
     /** Places an order at checkout as a guest, after the shared order took INV/26-27/0001. */
-    private function placeOrderAtCheckout(): Order
+    private function placeOrderAtCheckout(?string $hsn = null): Order
     {
         $this->order->update(['invoice_number' => 'INV/26-27/0001', 'invoice_fy' => '26-27', 'invoice_seq' => 1]);
         $product = Product::withoutGlobalScopes()->create([
             'client_id' => $this->client->id, 'template' => 'fashion', 'name' => 'Steel Tiffin',
-            'slug' => 'steel-tiffin', 'sku' => 'TIF-1', 'price' => 1000, 'stock' => 10, 'is_active' => true,
+            'slug' => 'steel-tiffin', 'sku' => 'TIF-1', 'hsn_code' => $hsn, 'price' => 1000, 'stock' => 10, 'is_active' => true,
         ]);
         $checkout = Setting::where('key', 'client:'.$this->client->id.':checkout')->first()->value;
         Setting::updateOrCreate(['key' => 'client:'.$this->client->id.':checkout'], ['value' => ['shipping_methods' => [['code' => 'standard', 'name' => 'Standard', 'cost' => 0]]] + $checkout]);

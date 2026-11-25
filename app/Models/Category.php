@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\CategoryInUseException;
 use App\Models\Concerns\BelongsToClient;
 use App\Models\Concerns\BelongsToTemplate;
 use App\Models\Concerns\GeneratesSlug;
@@ -49,6 +50,49 @@ class Category extends Model
                 ]);
             }
         });
+
+        // A sub-category must never point at a parent in the trash: it would show as "Top level"
+        // in the panel yet be missing from every storefront menu. The panel refuses these with a
+        // message first (CategoryDeleteActions); this is the backstop for any other code.
+        static::deleting(function (Category $category) {
+            if (! $category->isForceDeleting() && ($reason = $category->whyNotDeletable())) {
+                throw new CategoryInUseException($reason);
+            }
+        });
+
+        static::restoring(function (Category $category) {
+            if ($reason = $category->whyNotRestorable()) {
+                throw new CategoryInUseException($reason);
+            }
+        });
+    }
+
+    /** Why this category can't go to the trash (it still has sub-categories), or null when it can. */
+    public function whyNotDeletable(): ?string
+    {
+        $names = $this->children()->pluck('name');
+        if ($names->isEmpty()) {
+            return null;
+        }
+
+        return sprintf('"%s" still has %s: %s. Move them to another category or delete them first.',
+            $this->name,
+            $names->count() === 1 ? '1 sub-category' : $names->count().' sub-categories',
+            $names->take(3)->join(', ').($names->count() > 3 ? ' and '.($names->count() - 3).' more' : ''));
+    }
+
+    /** Why this category can't come back from the trash (its parent is still there), or null when it can. */
+    public function whyNotRestorable(): ?string
+    {
+        if (blank($this->parent_id)) {
+            return null;
+        }
+
+        $parent = self::withoutGlobalScopes()->withTrashed()->find($this->parent_id);
+
+        return $parent?->trashed()
+            ? sprintf('Its parent category "%s" is in the trash. Restore "%s" first.', $parent->name, $parent->name)
+            : null;
     }
 
     public function parent(): BelongsTo

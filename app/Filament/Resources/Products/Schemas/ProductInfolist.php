@@ -43,7 +43,7 @@ class ProductInfolist
                                 ->map(fn ($c) => $c->id === $r->category_id ? $c->name.' (main)' : $c->name)->values()->all())
                             ->url(fn (Product $r) => $r->category ? CategoryResource::getUrl('view', ['record' => $r->category]) : null)
                             ->placeholder('—'),
-                        TextEntry::make('sku')->label('SKU')->copyable()->placeholder('—'),
+                        TextEntry::make('sku')->label('SKU / Barcode')->copyable()->placeholder('—'),
                         TextEntry::make('brand')->placeholder('—'),
                         TextEntry::make('material')->label('Primary material')->placeholder('—'),
                         TextEntry::make('description')->label('Short description')->columnSpanFull()->placeholder('—'),
@@ -69,7 +69,7 @@ class ProductInfolist
 
                 Section::make('Variants')
                     ->icon('heroicon-o-swatch')
-                    ->description('Price, SKU and stock are set per variant.')
+                    ->description('Price, SKU / barcode, HSN code and stock are set per variant; a blank HSN code uses the product\'s.')
                     ->visible(fn (Product $r) => $r->variantAttributes() !== [] && $r->sellsVariants())
                     ->schema([
                         RepeatableEntry::make('variant_rows')->hiddenLabel()
@@ -77,12 +77,13 @@ class ProductInfolist
                             ->schema([
                                 TextEntry::make('label')->hiddenLabel()->weight('medium'),
                                 TextEntry::make('sku')->hiddenLabel()->placeholder('—')->color('gray'),
+                                TextEntry::make('hsn_code')->hiddenLabel()->prefix('HSN ')->placeholder('No HSN')->color('gray'),
                                 TextEntry::make('price')->hiddenLabel()->formatStateUsing(fn ($state) => money((float) $state)),
                                 TextEntry::make('compare_at_price')->hiddenLabel()->formatStateUsing(fn ($state) => 'was '.money((float) $state))->placeholder('—')->color('gray'),
                                 TextEntry::make('stock')->hiddenLabel()->formatStateUsing(fn ($state) => $state.' in stock'),
                                 IconEntry::make('is_active')->hiddenLabel()->boolean(),
                             ])
-                            ->columns(6),
+                            ->columns(7),
                     ]),
 
                 Section::make('Grocery details')
@@ -130,6 +131,15 @@ class ProductInfolist
                     ->icon('heroicon-o-banknotes')
                     ->schema([
                         TextEntry::make('price')->inlineLabel()->formatStateUsing(fn (float $state) => money($state))->weight('bold'),
+                        // As the form shows them: the tax and the price on each side of it.
+                        TextEntry::make('tax.option_label')->label('Tax')->inlineLabel()->placeholder('No tax (0%)'),
+                        TextEntry::make('price_incl_tax')->label('Incl. tax')->inlineLabel()
+                            ->formatStateUsing(fn ($state) => money((float) $state))
+                            ->visible(fn (Product $r) => (float) $r->tax_rate > 0 && $r->price_incl_tax !== null),
+                        TextEntry::make('price_excl_tax')->label('Excl. tax')->inlineLabel()
+                            ->formatStateUsing(fn ($state) => money((float) $state))
+                            ->visible(fn (Product $r) => (float) $r->tax_rate > 0 && $r->price_excl_tax !== null),
+                        TextEntry::make('hsn_code')->label('HSN code')->inlineLabel()->copyable()->placeholder('—'),
                         TextEntry::make('compare_at_price')->label('Compare-at')->inlineLabel()
                             ->formatStateUsing(fn ($state, Product $r) => money((float) $state).($r->discount_percent ? " ({$r->discount_percent}% off)" : ''))
                             ->visible(fn (Product $r) => (float) $r->compare_at_price > 0),

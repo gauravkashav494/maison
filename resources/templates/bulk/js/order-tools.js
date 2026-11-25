@@ -256,8 +256,8 @@ Alpine.data('shopSearch', () => ({
    Product page: every size of one product, each with its own quantity box
 --------------------------------------------------------------------------- */
 /**
- * Saved items page: the wishlist lives on the device, so its ids are sent to the page's own
- * route (?ids=…) and the order list that comes back is put in place (x-html starts its Alpine
+ * Saved items page: the wishlist lives on the device, so its entries are sent to the page's own
+ * route (?items=…) and the order list that comes back is put in place (x-html starts its Alpine
  * parts). It reloads when a heart on the list takes an item off.
  */
 Alpine.data('savedList', (url) => ({
@@ -268,10 +268,10 @@ Alpine.data('savedList', (url) => ({
         this.$watch('$store.wishlist.ids', () => this.load());
     },
     async load() {
-        const ids = Alpine.store('wishlist').ids;
-        if (!ids.length) { this.html = ''; this.loading = false; return; }
+        const store = Alpine.store('wishlist');
+        if (!store.ids.length) { this.html = ''; this.loading = false; return; }
         try {
-            const res = await fetch(`${url}?ids=${ids.join(',')}`, { headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } });
+            const res = await fetch(`${url}?${store.query}`, { headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } });
             this.html = res.ok ? (await res.text()).trim() : '';
         } catch { this.html = ''; }
         this.loading = false;

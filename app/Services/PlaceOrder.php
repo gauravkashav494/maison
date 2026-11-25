@@ -12,7 +12,6 @@ use App\Models\StockMovement;
 use App\Support\GstSupply;
 use App\Support\GuestCustomer;
 use App\Support\Invoice;
-use App\Support\SalesOrder;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Used by the checkout form for a signed-in customer, and after the WhatsApp code for a
  * shopper who checked out without an account. A sales person's order comes here prepared by
- * SalesOrder::prepare(): no address, the customer it is for and `salesperson_id`.
+ * SalesOrder::prepare(): delivered like any other, to the customer it is for, with `salesperson_id`.
  */
 class PlaceOrder
 {
@@ -45,9 +44,7 @@ class PlaceOrder
         if ($cart['unavailable'] !== []) {
             throw new InsufficientStockException([]);
         }
-        // A sales order is handed over at the store: no cash-on-delivery handling fee.
-        $salesOrder = filled($data['salesperson_id'] ?? null);
-        $codFee = $data['payment_method'] === 'cod' && ! $salesOrder ? (float) setting('checkout.cod_fee', 0) : 0.0;
+        $codFee = $data['payment_method'] === 'cod' ? (float) setting('checkout.cod_fee', 0) : 0.0;
 
         // Orders, items and stock live on the client connection; addresses and coupons may live on
         // the central one. Wrap both so a late failure doesn't leave a half-placed order behind.
@@ -82,8 +79,12 @@ class PlaceOrder
         $coupon = $this->lockAndCheckCoupon($this->cart->appliedCouponCode(), $cart['coupon'] !== null, $customer, $data['phone'] ?? null);
         $salesOrder = filled($data['salesperson_id'] ?? null);
 
+        // A sales person ordering for themselves (not for a customer they serve) gets the
+        // storefront-led number (Order::generateNumber()).
+        $salesSelf = $salesOrder && $customer && (int) $customer->id === (int) $data['salesperson_id'];
+
         $order = Order::create([
-            'number' => Order::generateNumber(),
+            'number' => Order::generateNumber($salesSelf),
             'template' => template()->id(),
             // A guest's order is kept against a customer record for their email (when they give one), as on most stores.
             'customer_id' => GuestCustomer::idFor($customer, $data['email'] ?? null, $data['shipping_name'], $data['phone']),
@@ -105,18 +106,19 @@ class PlaceOrder
             'subtotal' => $cart['subtotal'],
             'discount' => $cart['discount'],
             'coupon_code' => $cart['coupon']['code'] ?? null,
+            // The code as it is now, so the order and invoice keep saying "10% off" if it changes later.
+            'coupon_id' => $coupon?->getKey(),
+            'coupon_type' => $coupon?->type,
+            'coupon_value' => $coupon?->value,
             'tax' => $cart['tax'],
             'tax_rate' => $cart['tax_rate'],
-            // GST becomes IGST or CGST + SGST by where the order is shipped; a sales order is
-            // handed over at the counter, within the seller's own state.
-            'tax_label' => $salesOrder
-                ? GstSupply::labelFor(SalesOrder::supplyState(), 'India')
-                : GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
+            // GST becomes IGST or CGST + SGST by where the order is shipped.
+            'tax_label' => GstSupply::labelFor($data['shipping_state'], $data['shipping_country']),
             'prices_include_tax' => $cart['tax_inclusive'],
             // Who sold it, as the invoice prints it: a later change of GSTIN or address leaves this order's invoice as it was.
             'seller' => Invoice::sellerDetails(),
             'total' => $cart['total'] + $codFee,
-            'estimated_delivery' => $salesOrder ? null : now()->addDays(5),
+            'estimated_delivery' => now()->addDays(5),
             'notes' => $data['notes'] ?? null,
             'status_history' => [['status' => 'confirmed', 'at' => now()->toIso8601String(), 'note' => $salesOrder ? 'Order placed by sales' : 'Order placed']],
         ]);
@@ -126,6 +128,9 @@ class PlaceOrder
                 'product_id' => $line['product']['id'],
                 'name' => $line['product']['name'],
                 'sku' => $products[$line['product']['id']]->sku,
+                // Kept with the line, so the invoice shows the code the goods were sold under:
+                // the variant's own when it has one, else the product's.
+                'hsn_code' => $products[$line['product']['id']]->hsnCodeFor($line['options'] ?? []),
                 'image' => $line['product']['images'][0] ?? null,
                 'size' => $line['size'],
                 'color' => $line['color'],
@@ -149,7 +154,7 @@ class PlaceOrder
             Coupon::whereKey($coupon->getKey())->increment('used_count');
         }
 
-        if ($customer && $saveAddress && ! $salesOrder) {
+        if ($customer && $saveAddress) {
             $customer->addresses()->create([
                 'name' => $data['shipping_name'],
                 'phone' => $data['phone'],

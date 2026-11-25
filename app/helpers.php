@@ -2,6 +2,7 @@
 
 use App\Models\Setting;
 use App\Models\Tax;
+use App\Support\Media;
 use App\Templates\Template;
 use App\Templates\TemplateManager;
 use Illuminate\Support\HtmlString;
@@ -114,6 +115,14 @@ if (! function_exists('tsetting')) {
     function tsetting(string $key, mixed $default = null): mixed
     {
         return template()->setting($key, $default);
+    }
+}
+
+if (! function_exists('store_logo_url')) {
+    /** The store's uploaded logo (Site settings → Brand), or null to show the template's text wordmark. */
+    function store_logo_url(): ?string
+    {
+        return Media::url(setting('site.logo') ?: null);
     }
 }
 

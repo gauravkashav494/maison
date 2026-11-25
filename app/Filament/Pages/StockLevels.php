@@ -126,7 +126,8 @@ class StockLevels extends Page implements HasTable
                     ->state(fn (Product $record) => $this->pickedVariant($record)['stock'] ?? $record->stock),
                 TextColumn::make('stock_status')->label('Status')->badge()
                     ->state(fn (Product $record) => ($variant = $this->pickedVariant($record)) ? self::variantStatus((int) $variant['stock']) : Inventory::status($record))
-                    ->formatStateUsing(fn (string $state) => Inventory::STATUSES[$state])
+                    ->formatStateUsing(fn (string $state, Product $record) => $this->statusLabel($record, $state))
+                    ->tooltip(fn (Product $record) => $this->pickedVariant($record) ? null : self::variantStockNames($record))
                     ->color(fn (string $state) => match ($state) {
                         Inventory::STATUS_OUT => 'danger',
                         Inventory::STATUS_LOW => 'warning',
@@ -264,22 +265,69 @@ class StockLevels extends Page implements HasTable
         };
     }
 
-    /** "6 variants · 2 sold out · 1 low", for a product sold by variant. */
+    /**
+     * The status badge text. A product sold by variant whose own total is still above zero but
+     * has a variant at 0 says so ("1 variant sold out") instead of a plain "Low stock", so staff
+     * don't read it as the whole product running out.
+     */
+    private function statusLabel(Product $record, string $state): string
+    {
+        if ($state === Inventory::STATUS_LOW && ! $this->pickedVariant($record) && ($out = count(self::variantStock($record)['out']))) {
+            return $out.' '.str('variant')->plural($out).' sold out';
+        }
+
+        return Inventory::STATUSES[$state];
+    }
+
+    /**
+     * A product's on-sale variants by stock: the names of those sold out and those low.
+     *
+     * @return array{count: int, out: list<string>, low: list<string>}
+     */
+    private static function variantStock(Product $product): array
+    {
+        if (! $product->sellsVariants()) {
+            return ['count' => 0, 'out' => [], 'low' => []];
+        }
+
+        $variants = array_filter($product->variantList(), fn (array $v) => $v['is_active']);
+        $level = Inventory::lowStockLevel();
+
+        return [
+            'count' => count($variants),
+            'out' => array_values(array_map(fn (array $v) => $v['label'], array_filter($variants, fn (array $v) => $v['stock'] <= 0))),
+            'low' => array_values(array_map(fn (array $v) => $v['label'].' ('.$v['stock'].')', array_filter($variants, fn (array $v) => $v['stock'] > 0 && $v['stock'] <= $level))),
+        ];
+    }
+
+    /** "Sold out: M / Blue · Low: S / Red (3)" — every name, for the status badge tooltip. */
+    private static function variantStockNames(Product $product): ?string
+    {
+        $stock = self::variantStock($product);
+
+        return implode(' · ', array_filter([
+            $stock['out'] ? 'Sold out: '.implode(', ', $stock['out']) : null,
+            $stock['low'] ? 'Low: '.implode(', ', $stock['low']) : null,
+        ])) ?: null;
+    }
+
+    /**
+     * "4 variants · Sold out: M / Blue · Low: S / Red (3)", for a product sold by variant, so the
+     * row says which variant needs stock. Long lists name the first three and count the rest.
+     */
     private static function variantSummary(Product $product): ?string
     {
         if (! $product->sellsVariants()) {
             return null;
         }
 
-        $variants = array_filter($product->variantList(), fn (array $v) => $v['is_active']);
-        $level = Inventory::lowStockLevel();
-        $out = count(array_filter($variants, fn (array $v) => $v['stock'] <= 0));
-        $low = count(array_filter($variants, fn (array $v) => $v['stock'] > 0 && $v['stock'] <= $level));
+        $stock = self::variantStock($product);
+        $names = fn (array $labels) => implode(', ', array_slice($labels, 0, 3)).(count($labels) > 3 ? ' +'.(count($labels) - 3).' more' : '');
 
         return implode(' · ', array_filter([
-            count($variants).' '.str('variant')->plural(count($variants)),
-            $out ? $out.' sold out' : null,
-            $low ? $low.' low' : null,
+            $stock['count'].' '.str('variant')->plural($stock['count']),
+            $stock['out'] ? 'Sold out: '.$names($stock['out']) : null,
+            $stock['low'] ? 'Low: '.$names($stock['low']) : null,
         ]));
     }
 }

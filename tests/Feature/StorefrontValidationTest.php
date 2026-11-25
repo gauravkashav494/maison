@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Address;
 use App\Models\Client;
 use App\Models\Customer;
 use App\Models\Plan;
@@ -57,6 +58,36 @@ class StorefrontValidationTest extends TestCase
             'password' => 'short',
             'password_confirmation' => 'different',
         ])->assertSessionHasErrors(['name', 'email', 'phone', 'password']);
+    }
+
+    public function test_only_a_mobile_number_is_accepted_when_one_is_entered(): void
+    {
+        // Landlines with their area code (Amritsar 0183, Delhi 011) and numbers starting 1 to 5.
+        foreach (['0183 250 0000', '011 2345 6789', '5123456789', '1234567890'] as $landline) {
+            $this->onStore()->post('/register', [
+                'name' => 'Ravi', 'phone' => $landline, 'password' => 'password123', 'password_confirmation' => 'password123',
+            ])->assertSessionHasErrors(['phone' => 'Please enter a 10-digit mobile number starting with 6, 7, 8 or 9, e.g. 9876543210.']);
+        }
+        $this->assertSame(0, Customer::withoutGlobalScopes()->count());
+
+        foreach (['6012345678', '7012345678', '8012345678'] as $mobile) {
+            $this->onStore()->post('/register', [
+                'name' => 'Ravi', 'phone' => $mobile, 'password' => 'password123', 'password_confirmation' => 'password123',
+            ])->assertSessionDoesntHaveErrors('phone');
+        }
+    }
+
+    public function test_signing_in_still_takes_an_older_number_that_is_not_a_mobile(): void
+    {
+        // Saved before numbers were limited to mobiles: the account must still be reachable.
+        $customer = Customer::withoutGlobalScopes()->create([
+            'client_id' => Client::where('subdomain', 'alpha')->value('id'), 'name' => 'Ravi', 'phone' => '1201201201',
+            'password' => 'password123', 'is_active' => true,
+        ]);
+
+        $this->onStore()->post('/login', ['phone' => '1201201201', 'password' => 'password123'])->assertSessionHasNoErrors();
+
+        $this->assertAuthenticatedAs($customer, 'web');
     }
 
     public function test_a_valid_registration_goes_through(): void
@@ -120,7 +151,7 @@ class StorefrontValidationTest extends TestCase
 
         // Short forms are read and stored in full.
         $post(['country' => 'IN', 'state' => 'ka'])->assertSessionHasNoErrors()->assertRedirect();
-        $saved = \App\Models\Address::withoutGlobalScopes()->latest('id')->first();
+        $saved = Address::withoutGlobalScopes()->latest('id')->first();
         $this->assertSame(['Karnataka', 'India'], [$saved->state, $saved->country]);
     }
 

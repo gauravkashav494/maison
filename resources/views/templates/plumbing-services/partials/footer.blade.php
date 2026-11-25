@@ -5,8 +5,10 @@
         <div class="ps-container grid gap-8 py-10 lg:grid-cols-12 lg:py-14">
             <div class="lg:col-span-4">
                 <a href="{{ route('home') }}" class="flex items-center gap-2.5">
+                    <x-store-logo size="h-10">
                     <span class="grid h-10 w-10 place-items-center rounded-xl bg-primary text-white"><x-ico name="droplet" :size="22" :stroke="2" /></span>
                     <span class="font-display text-xl font-extrabold text-deep">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-bright">{{ $p['logo_accent'] ?? 'Care' }}</span></span>
+                    </x-store-logo>
                 </a>
                 <p class="mt-4 text-sm leading-relaxed text-slate">{{ $p['footer_blurb'] ?? '' }}</p>
                 <ul class="mt-5 space-y-2.5 text-sm">

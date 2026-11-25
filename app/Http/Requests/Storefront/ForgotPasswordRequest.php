@@ -7,6 +7,6 @@ class ForgotPasswordRequest extends StorefrontRequest
 {
     public function rules(): array
     {
-        return ['phone' => $this->phone()];
+        return ['phone' => $this->phone(mobileOnly: false)];
     }
 }

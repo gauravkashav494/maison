@@ -4,7 +4,9 @@
     <div class="mx-auto grid max-w-4xl overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-line lg:grid-cols-2">
         <div class="band-deep relative hidden flex-col justify-between overflow-hidden p-8 lg:flex">
             <div class="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-bright/40 blur-3xl"></div>
+            <x-store-logo size="h-10" :on-dark="true" class="relative self-start">
             <div class="relative flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-white text-primary"><x-ico name="droplet" :size="20" :stroke="2" /></span><span class="font-display text-lg font-extrabold">{{ $p['logo_primary'] ?? 'Pipe' }}<span class="text-accent">{{ $p['logo_accent'] ?? 'Care' }}</span></span></div>
+            </x-store-logo>
             <div class="relative">
                 <p class="font-display text-2xl font-extrabold leading-tight">Your bookings, addresses and history in one place.</p>
                 <ul class="mt-4 space-y-2 text-sm text-white/85">

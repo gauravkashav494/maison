@@ -16,22 +16,13 @@ class CheckoutRequest extends StorefrontRequest
         $payments = array_keys(Order::checkoutPaymentMethods());
         $shipping = collect(app(Cart::class)->shippingMethods())->pluck('code')->filter()->all();
 
-        // A sales person gives no address (the store's is used) and chooses no delivery: only who
-        // the order is for, and that customer's name and phone (SalesOrder::prepare()).
-        if (SalesOrder::active()) {
-            $forCustomer = $this->input('order_for') === SalesOrder::FOR_CUSTOMER;
+        // A sales person also says who the order is for (SalesOrder::prepare()); the contact and
+        // address are then that person's, checked as for any order.
+        $salesOrder = SalesOrder::active() ? [
+            'order_for' => ['required', Rule::in([SalesOrder::FOR_SELF, SalesOrder::FOR_CUSTOMER])],
+        ] : [];
 
-            return [
-                'order_for' => ['required', Rule::in([SalesOrder::FOR_SELF, SalesOrder::FOR_CUSTOMER])],
-                'phone' => $this->phone(required: $forCustomer),
-                'email' => $this->email(required: false),
-                'shipping_name' => $this->personName(required: $forCustomer),
-                'payment_method' => ['required', 'string', Rule::in($payments)],
-                'notes' => ['nullable', 'string', 'max:500'],
-            ];
-        }
-
-        return [
+        return $salesOrder + [
             'phone' => $this->phone(),
             'email' => $this->email(required: false),
             'shipping_name' => $this->personName(),
@@ -57,7 +48,7 @@ class CheckoutRequest extends StorefrontRequest
             'shipping_method.in' => 'That delivery method is not available.',
             'order_for.required' => 'Please choose who this order is for.',
             'order_for.in' => 'Please choose who this order is for.',
-        ] + (SalesOrder::active() ? [
+        ] + (SalesOrder::active() && $this->input('order_for') === SalesOrder::FOR_CUSTOMER ? [
             'phone.required' => 'Please enter the customer\'s phone number.',
             'shipping_name.required' => 'Please enter the customer\'s name.',
         ] : []) + parent::messages();

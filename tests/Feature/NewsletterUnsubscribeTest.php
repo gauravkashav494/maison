@@ -71,6 +71,24 @@ class NewsletterUnsubscribeTest extends TestCase
         $this->onStore()->get($url)->assertOk()->assertSee('You’re unsubscribed');
     }
 
+    public function test_the_same_email_cannot_subscribe_twice(): void
+    {
+        $this->subscribe('riya@example.com');
+
+        $this->onStore()->postJson('/newsletter', ['email' => 'Riya@Example.com'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email' => 'This email is already subscribed to our newsletter.']);
+        $this->assertSame(1, Subscriber::withoutGlobalScopes()->where('email', 'riya@example.com')->count());
+    }
+
+    public function test_the_same_email_can_subscribe_on_another_clients_store(): void
+    {
+        $this->subscribe('riya@example.com', 'alpha');
+
+        $this->onStore('beta')->postJson('/newsletter', ['email' => 'riya@example.com'])->assertOk();
+        $this->assertSame(2, Subscriber::withoutGlobalScopes()->where('email', 'riya@example.com')->count());
+    }
+
     public function test_signing_up_again_opts_back_in_with_the_same_row(): void
     {
         $subscriber = $this->subscribe('riya@example.com');

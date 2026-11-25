@@ -17,12 +17,12 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Order numbers: the store's own prefix, the date and a random code without look-alike
- * characters (EFS-261123-K7QM), unique within the store.
+ * Order numbers: the client id, the date and a random code without look-alike characters
+ * (14-261123-K7QM), unique within the store. A sales person's own orders are led by the
+ * storefront id too (see SalesOrderTest).
  */
 class OrderNumberTest extends TestCase
 {
@@ -74,40 +74,18 @@ class OrderNumberTest extends TestCase
         return Order::withoutGlobalScopes()->latest('id')->firstOrFail();
     }
 
-    public static function names(): array
-    {
-        return [
-            'three words' => ['Ethnic Fashion Store', 'EFS'],
-            'more than three' => ['Maison Élan Fine Fashion', 'MEF'],
-            'two words' => ['Bulk Order', 'BO'],
-            'one word' => ['Lumen', 'LUM'],
-            'punctuation and accents' => ['Café & Co.', 'CC'],
-            'digits' => ['24 Seven Mart', '2SM'],
-            'nothing usable' => ['', 'ORD'],
-            'too short' => ['X', 'ORD'],
-        ];
-    }
-
-    #[DataProvider('names')]
-    public function test_the_default_prefix_comes_from_the_store_name(string $name, string $prefix): void
-    {
-        $this->assertSame($prefix, Order::defaultNumberPrefix($name));
-    }
-
-    public function test_an_order_is_numbered_with_the_stores_prefix_the_date_and_a_clear_code(): void
+    public function test_an_order_is_numbered_with_the_client_id_the_date_and_a_clear_code(): void
     {
         $order = $this->placeOrder();
 
-        $this->assertMatchesRegularExpression('/^EFS-'.now()->format('ymd').'-'.self::CODE.'$/', $order->number);
+        $this->assertMatchesRegularExpression('/^'.$this->client->id.'-'.now()->format('ymd').'-'.self::CODE.'$/', $order->number);
     }
 
-    public function test_the_store_can_choose_its_own_prefix(): void
+    public function test_an_old_prefix_setting_no_longer_changes_the_number(): void
     {
-        $this->checkoutSettings(['order_prefix' => 'ef']);
+        $this->checkoutSettings(['order_prefix' => 'EF']);
 
-        $order = $this->placeOrder();
-
-        $this->assertMatchesRegularExpression('/^EF-\d{6}-'.self::CODE.'$/', $order->number);
+        $this->assertStringStartsWith($this->client->id.'-', $this->placeOrder()->number);
     }
 
     public function test_numbers_never_repeat_within_a_store(): void
@@ -121,11 +99,10 @@ class OrderNumberTest extends TestCase
     {
         $this->withSession([Client::SESSION_KEY => 'alpha'])->get('/track-order')
             ->assertOk()
-            ->assertSee('EFS-'.now()->format('ymd').'-XXXX', false)
-            ->assertDontSee('ME-260916', false);
+            ->assertSee($this->client->id.'-'.now()->format('ymd').'-XXXX', false);
     }
 
-    public function test_the_prefix_is_set_in_site_settings_and_checked(): void
+    public function test_site_settings_show_the_format_without_a_prefix_to_set(): void
     {
         $admin = ClientUser::create([
             'client_id' => $this->client->id, 'name' => 'Priya Sharma', 'email' => 'priya@alpha.test',
@@ -136,16 +113,11 @@ class OrderNumberTest extends TestCase
         app(ClientContext::class)->resolveForIdentity($admin);
         app(StoreContext::class)->resolve($admin, $this->client->templateId());
 
+        $date = now()->format('ymd');
         Livewire::test(SiteSettings::class)
-            ->set('data.checkout.order_prefix', 'efs-1')
-            ->call('save')
-            ->assertHasErrors(['data.checkout.order_prefix']);
-
-        Livewire::test(SiteSettings::class)
-            ->set('data.checkout.order_prefix', 'ef26')
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $this->assertSame('EF26', Setting::forClient($this->client->id, 'checkout')['order_prefix']);
+            ->assertSee('Order numbers')
+            ->assertSee("{$this->client->id}-{$date}-K7QM")
+            ->assertSee("{$this->client->storefront_id}-{$this->client->id}-{$date}-K7QM")
+            ->assertDontSee('Order number prefix');
     }
 }

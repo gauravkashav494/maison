@@ -171,7 +171,9 @@ class CategorySubcategoriesTest extends TestCase
             ->assertHasNoFormErrors();
         $this->assertSame('oxford-shirt', $product->fresh()->slug);
 
-        // A slug in the trash still counts as taken: restoring it must not clash.
+        // A slug in the trash still counts as taken: restoring it must not clash. Its sub-category
+        // goes first, as a category with sub-categories can't be deleted.
+        $men->children()->get()->each->delete();
         $men->delete();
         $this->assertSame('men-2', Category::create(['name' => 'Men', 'is_active' => true])->slug);
     }

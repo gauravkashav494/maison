@@ -50,7 +50,9 @@
         <a data-store-logo href="{{ route('home') }}" aria-label="{{ $site['name'] ?? config('app.name') }} — home"
            class="text-center font-serif leading-none tracking-[0.12em] transition-all duration-500"
            :class="scrolled ? 'text-[1.35rem]' : 'text-[1.6rem] lg:text-[1.85rem]'">
+            <x-store-logo size="h-9 lg:h-11" max="max-w-[12rem]" class="mx-auto">
             {{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span>
+            </x-store-logo>
         </a>
 
         {{-- Right: actions --}}

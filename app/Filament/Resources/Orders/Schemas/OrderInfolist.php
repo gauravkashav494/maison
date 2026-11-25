@@ -81,7 +81,7 @@ class OrderInfolist
                     ->label(fn (Order $r) => 'Subtotal ('.$r->items->sum('qty').' '.Str::plural('unit', $r->items->sum('qty')).')')
                     ->formatStateUsing(fn (float $state) => money($state)),
                 $row('discount')
-                    ->label(fn (Order $r) => $r->coupon_code ? "Discount ({$r->coupon_code})" : 'Discount')
+                    ->label(fn (Order $r) => $r->discountLine())
                     ->formatStateUsing(fn (float $state) => '−'.money($state))
                     ->color('success')
                     ->visible(fn (Order $r) => $r->discount > 0),
@@ -157,7 +157,7 @@ class OrderInfolist
 
     private static function address(): Section
     {
-        return Section::make(fn (Order $r) => $r->isSalesOrder() ? 'Store address (no delivery)' : 'Shipping address')
+        return Section::make(fn (Order $r) => $r->isSalesOrder() && blank($r->shipping_line1) ? 'Store address (no delivery)' : 'Shipping address')
             ->icon('heroicon-o-map-pin')
             ->schema([
                 TextEntry::make('shipping_address')->hiddenLabel()

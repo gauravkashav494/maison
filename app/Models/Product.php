@@ -830,7 +830,7 @@ class Product extends Model
      * price is null unless it is above the variant's price, so a variant priced above the
      * product's compare-at price shows no discount.
      *
-     * @return array<int, array{options:array<string,string>, sku:?string, price:float, compare_at_price:?float, stock:int, is_active:bool, label:string, images:array<int,string>}>
+     * @return array<int, array{options:array<string,string>, sku:?string, hsn_code:?string, price:float, compare_at_price:?float, stock:int, is_active:bool, label:string, images:array<int,string>}>
      */
     public function variantList(): array
     {
@@ -856,6 +856,8 @@ class Product extends Model
             $variants[] = [
                 'options' => $options,
                 'sku' => filled($variant['sku'] ?? null) ? (string) $variant['sku'] : $this->sku,
+                // A variant that is different goods (another material, say) can have its own HSN code.
+                'hsn_code' => filled($variant['hsn_code'] ?? null) ? (string) $variant['hsn_code'] : $this->hsn_code,
                 'price' => $price,
                 'compare_at_price' => $compareAt > $price ? $compareAt : null,
                 'stock' => $stock === null || $stock === '' ? (int) $this->stock : (int) $stock,
@@ -988,6 +990,12 @@ class Product extends Model
         return $variant ? $variant['compare_at_price'] : null;
     }
 
+    /** HSN code of a chosen combination: the variant's own, else the product's. */
+    public function hsnCodeFor(array $options = []): ?string
+    {
+        return $this->sellsVariants() ? ($this->findVariant($options)['hsn_code'] ?? $this->hsn_code) : $this->hsn_code;
+    }
+
     /** Price of a chosen combination (the product's own price when it does not sell variants). */
     public function priceFor(array $options = []): float
     {
@@ -1065,6 +1073,10 @@ class Product extends Model
             ],
             'colors' => $this->colors ?? [],
             'sizes' => $this->sizes ?? [],
+            // The options a shopper actually picks (more than one value), so a heart on the
+            // product page can save the exact choice (resources/js/saved-items.js).
+            'choices' => array_values(array_map(fn (array $a) => ['name' => $a['name'], 'values' => $a['values']],
+                array_filter($this->variantAttributes(), fn (array $a) => count($a['values']) > 1))),
             'rating' => $this->rating,
             'review_count' => $this->review_count,
             'is_new' => $this->is_new,

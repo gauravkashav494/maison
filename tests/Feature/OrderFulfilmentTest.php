@@ -238,7 +238,7 @@ class OrderFulfilmentTest extends TestCase
         $order = $this->order();
         $order->forceFill([
             'phone' => '9876543210', 'payment_method' => 'upi', 'payment_status' => 'paid',
-            'shipping_method' => 'Standard', 'discount' => 100, 'coupon_code' => 'TRADE10', 'notes' => 'Leave at reception',
+            'shipping_method' => 'Standard', 'discount' => 100, 'coupon_code' => 'TRADE10', 'coupon_type' => 'percent', 'coupon_value' => 10, 'notes' => 'Leave at reception',
         ])->save();
         $this->order()->forceFill(['total' => 2500])->save(); // the same customer's earlier order
         $this->actingAs($this->staff, 'client');
@@ -250,7 +250,7 @@ class OrderFulfilmentTest extends TestCase
             ->assertSee('Dispatch')                                                   // the next step, on the page
             ->assertSeeInOrder(['Items', 'Payment', 'Order timeline'])                 // main column
             ->assertSeeInOrder(['Customer', 'Shipping address', 'Delivery', 'Customer note']) // side cards
-            ->assertSee('Discount (TRADE10)')
+            ->assertSee('Discount (TRADE10 · 10% off)')
             ->assertSee('UPI · Paid')
             ->assertSee('2 orders')                                                   // customer history by email
             ->assertSee('Leave at reception')

@@ -7,6 +7,7 @@ use App\Clients\ClientProvisioner;
 use App\Clients\ClientTemplateSwitch;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Clients\Schemas\ClientBusinessDetails;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Filament\Support\Pages\EditRecord;
 use App\Models\Client;
@@ -35,7 +36,8 @@ class EditClient extends EditRecord
     public function getSteps(): array
     {
         return [
-            ...ClientForm::steps(),
+            // The business details open the first step, above the client and its store.
+            ...ClientForm::steps(before: [ClientBusinessDetails::section()]),
             Step::make('Client admins')->icon('heroicon-o-user-circle')
                 ->description('Who signs in to run the store')
                 ->schema([$this->adminsSection()]),
@@ -103,6 +105,22 @@ class EditClient extends EditRecord
             });
     }
 
+    /** The business details live in the store's own settings, not on the client row. */
+    protected array $business = [];
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return $data + ['business' => ClientBusinessDetails::load($this->getRecord())];
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $this->business = $data['business'] ?? [];
+        unset($data['business']);
+
+        return $data;
+    }
+
     /** Never save a store without an active admin: nobody could sign in to it. */
     protected function beforeSave(): void
     {
@@ -163,6 +181,7 @@ class EditClient extends EditRecord
      */
     protected function afterSave(): void
     {
+        ClientBusinessDetails::save($this->getRecord(), $this->business);
         $this->notifyDatabaseChange($this->getRecord());
 
         $client = $this->getRecord()->refresh();

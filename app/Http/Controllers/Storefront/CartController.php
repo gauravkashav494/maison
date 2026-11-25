@@ -15,6 +15,7 @@ use App\Models\Subscriber;
 use App\Services\Cart;
 use App\Services\PlaceOrder;
 use App\Support\CustomerOtp;
+use App\Support\PhoneNumber;
 use App\Support\SalesOrder;
 use App\Support\Seo;
 use Illuminate\Http\JsonResponse;
@@ -205,26 +206,38 @@ class CartController extends Controller
             'previewCart' => $preview,
             'shippingMethods' => $this->cart->shippingMethods(),
             'paymentMethods' => $payments,
-            'codFee' => $salesOrder ? 0.0 : (float) setting('checkout.cod_fee', 0),
+            'codFee' => (float) setting('checkout.cod_fee', 0),
             'user' => $user,
             'address' => $default,
             'unavailableNotice' => $unavailableNotice,
-            // A sales person: who the order is for instead of an address and a delivery method.
+            // A sales person also chooses who the order is for: themselves or a customer.
             'salesOrder' => $salesOrder,
             'seo' => Seo::simple('Checkout', null, noindex: true),
         ]);
     }
 
-    /** Private, client-scoped lookup used to fill a known customer's name for a sales order. */
+    /** Private, client-scoped lookup used to fill a known customer's details for a sales order. */
     public function salesCustomerLookup(Request $request): JsonResponse
     {
         $salesperson = SalesOrder::salesperson();
         abort_unless($salesperson, 404);
 
-        $data = $request->validate(['phone' => ['required', 'string', 'regex:/^\d{10}$/']]);
+        $data = $request->validate(['phone' => ['required', 'string', 'regex:'.PhoneNumber::INDIA_MOBILE]]);
         $customer = SalesOrder::existingCustomerByPhone((int) $salesperson->client_id, $data['phone']);
 
-        return response()->json(['name' => $customer?->name, 'email' => $customer?->email]);
+        $address = $customer?->addresses()->where('is_default', true)->first() ?? $customer?->addresses()->first();
+
+        return response()->json([
+            'name' => $customer?->name,
+            'email' => $customer?->email,
+            'address' => $address ? [
+                'shipping_line1' => $address->line1,
+                'shipping_line2' => $address->line2,
+                'shipping_city' => $address->city,
+                'shipping_state' => $address->state,
+                'shipping_postal_code' => $address->postal_code,
+            ] : null,
+        ]);
     }
 
     public function placeOrder(CheckoutRequest $request, PlaceOrder $placeOrder, CustomerOtp $otp): RedirectResponse
@@ -256,14 +269,17 @@ class CartController extends Controller
             return redirect()->route('otp.verify');
         }
 
-        // A sales person: no address (the store's is used), for themselves or a customer they serve.
+        // A sales person orders for themselves or a customer they serve. The address is saved to
+        // their own account only: a customer's details are never changed from a sales checkout.
         $customer = $request->user();
+        $saveAddress = $request->boolean('save_address');
         if ($salesperson = SalesOrder::salesperson()) {
             [$data, $customer] = SalesOrder::prepare($data, $salesperson);
+            $saveAddress = $saveAddress && $customer->is($salesperson);
         }
 
         try {
-            $order = $placeOrder($data, $customer, ! $salesperson && $request->boolean('save_address'));
+            $order = $placeOrder($data, $customer, $saveAddress);
         } catch (InsufficientStockException|CouponUnavailableException) {
             // Bought by someone else (or in another window) meanwhile, or the coupon ran out: the
             // cart now holds what is left, and the checkout page says what changed before the

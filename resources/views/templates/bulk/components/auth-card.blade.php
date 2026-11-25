@@ -16,7 +16,9 @@
     <div class="bk-card mx-auto grid max-w-4xl overflow-hidden md:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
         <aside class="bk-auth-panel hidden p-6 md:flex md:flex-col lg:p-7"
                @if($image) style="--bk-auth-img: url('{{ str_replace(["'", '(', ')'], ['%27', '%28', '%29'], $image) }}')" @endif>
+            <x-store-logo size="h-10" :on-dark="true" class="self-start">
             <p class="bk-logo"><span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span><span>{{ $storeName }}<small>Trade supplies</small></span></p>
+            </x-store-logo>
             <p class="mt-6 text-xl font-extrabold leading-tight">Your trade account</p>
             <ul class="mt-4 space-y-3 text-sm">
                 <li class="flex gap-3"><x-heroicon-o-arrow-path class="size-5 shrink-0" aria-hidden="true" /><span><strong class="block">Repeat any order</strong><span class="opacity-75">Load a past order into the bulk order and add it again.</span></span></li>

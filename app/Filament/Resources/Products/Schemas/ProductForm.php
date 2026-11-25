@@ -4,11 +4,11 @@ namespace App\Filament\Resources\Products\Schemas;
 
 use App\Admin\StoreContext;
 use App\Clients\ClientAccess;
-use App\Filament\Pages\StockLevels;
 use App\Clients\ClientContext;
 use App\Clients\ClientQuota;
 use App\Clients\StoreFeatures;
 use App\Filament\Forms\Components\ImagePicker;
+use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\Brands\Schemas\BrandForm;
 use App\Filament\Resources\Taxes\Schemas\TaxForm;
 use App\Filament\Support\Fields;
@@ -37,18 +37,18 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
-use Filament\Support\Enums\IconPosition;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\IconPosition;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -67,13 +67,11 @@ class ProductForm
                         Tab::make('Details')->badge(self::errorBadge('Details'))->badgeColor('danger')
                             ->icon('heroicon-o-tag')
                             ->schema([
-                                // One row: Category, Child category (and a Type box when the child category has
-                                // types under it), then two extra places. Grid::make() alone means 2 columns on
-                                // large screens, which would win over these.
-                                Grid::make(null)
-                                    ->columns(fn (Get $get) => ['default' => 1, 'md' => $count = self::shownCategoryLevels($get) + count(self::EXTRA_CATEGORIES), 'lg' => $count])
-                                    ->schema(self::categoryFields()),
                                 Grid::make(2)->schema([
+                                    // First: the product's own name, then its brand, then where it is listed.
+                                    TextInput::make('name')->required()->maxLength(255)
+                                        // The URL slug is made from it on save (GeneratesSlug) and kept when renamed.
+                                        ->helperText(fn (?Model $record) => $record?->slug ? 'Page address: /product/'.$record->slug : 'The page address is made from the name when saved.'),
                                     // Picked from the brand master (Catalogue → Brands); a new one can be added here.
                                     Select::make('brand_id')
                                         ->label('Brand')
@@ -88,19 +86,13 @@ class ProductForm
                                         ->visible(fn () => ! StoreFeatures::enabled('brands'))
                                         ->datalist(fn () => Product::query()->whereNotNull('brand')->distinct()->pluck('brand')->all())
                                         ->helperText('Used by the shop Brand filter.'),
-                                    // Picked in this order: category, brand, then the product's own name.
-                                    TextInput::make('name')->required()->maxLength(255)
-                                        // The URL slug is made from it on save (GeneratesSlug) and kept when renamed.
-                                        ->helperText(fn (?Model $record) => $record?->slug ? 'Page address: /product/'.$record->slug : 'The page address is made from the name when saved.'),
-                                    // Optional everywhere and always starts blank: staff type their own code.
-                                    // A product without one is still sold from the catalogue, just not typed into the pad.
-                                    TextInput::make('sku')->label('SKU')->maxLength(64)
-                                        ->helperText(fn (Get $get) => self::requiresSku($get)
-                                            ? 'Optional. Buyers can order by this code on the quick-order pad.'
-                                            : null)
-                                        ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id())),
-                                    TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
                                 ]),
+                                // One row: Category, Child category (and a Type box when the child category has
+                                // types under it), then two extra places. Grid::make() alone means 2 columns on
+                                // large screens, which would win over these.
+                                Grid::make(null)
+                                    ->columns(fn (Get $get) => ['default' => 1, 'md' => $count = self::shownCategoryLevels($get) + count(self::EXTRA_CATEGORIES), 'lg' => $count])
+                                    ->schema(self::categoryFields()),
                                 Textarea::make('description')
                                     ->label('Short description')
                                     ->rows(3)
@@ -109,8 +101,12 @@ class ProductForm
                                 RichEditor::make('details')
                                     ->label('Full description')
                                     ->toolbarButtons(['bold', 'italic', 'underline', 'bulletList', 'orderedList', 'h3', 'link', 'undo', 'redo']),
+                                // The material for the shop filter sits with the fuller materials text.
                                 Grid::make(2)->schema([
-                                    Textarea::make('materials')->rows(3),
+                                    Group::make([
+                                        TextInput::make('material')->label('Primary material')->maxLength(80)->datalist(fn () => Product::query()->whereNotNull('material')->distinct()->pluck('material')->all())->helperText('Used by the shop Material filter.'),
+                                        Textarea::make('materials')->rows(3),
+                                    ]),
                                     Textarea::make('care')->label('Care instructions')->rows(3),
                                 ]),
                                 // One collection per product. Stored in collection_product (which also keeps the
@@ -215,11 +211,26 @@ class ProductForm
                                                 self::syncPrices($get, $set, prices_include_tax());
                                                 $set('variants', self::variantRowsWithPrices((array) $get('variants'), self::selectedTaxRate($get('tax_id'))));
                                             }),
+                                        // GST classification of the goods: 4, 6 or 8 digits.
+                                        self::hsnCodeField()->placeholder('e.g. 6109')
+                                            ->helperText(fn (Get $get) => $get('has_variants')
+                                                ? 'Optional. The GST classification of the goods. For variants without their own.'
+                                                : 'Optional. The GST classification of the goods.'),
                                         self::priceField(inclusive: true),
                                         self::priceField(inclusive: false),
                                         // The saved price: whichever of the two above the store's prices are entered as.
                                         // Variants without their own price use it (their placeholder reads it).
                                         Hidden::make('price'),
+                                        // Beside the stock, as on most stores. Optional everywhere and always starts
+                                        // blank: staff type their own code. A product without one is still sold from
+                                        // the catalogue, just not typed into the pad. Variants without their own use it.
+                                        TextInput::make('sku')->label('SKU / Barcode')->maxLength(64)
+                                            ->helperText(fn (Get $get) => implode(' ', array_filter([
+                                                self::requiresSku($get) ? 'Optional. Buyers can order by this code on the quick-order pad.' : null,
+                                                $get('has_variants') ? 'For variants without their own.' : null,
+                                            ])) ?: null)
+                                            ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id()))
+                                            ->columnSpan(['lg' => 2]),
                                         // Selling as variant: each variant has its own stock (step 2 below),
                                         // so this is not asked twice; it is saved as their total, which the shop
                                         // uses for "in stock" and the cart.
@@ -238,7 +249,7 @@ class ProductForm
                                             ->hidden(fn (Get $get) => (bool) $get('has_variants'))
                                             ->dehydratedWhenHidden()
                                             ->dehydrateStateUsing(fn ($state, Get $get) => $get('has_variants') ? self::combinationStock($get('variants')) : $state)
-                                            ->columnSpan(fn (Get $get) => ['lg' => self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)($get) ? 1 : 2]),
+                                            ->columnSpan(['lg' => 2]),
                                         // Read-only while selling as variant: the total of the variants' stock,
                                         // shown greyed in the field's place. Not saved itself (`stock` above is).
                                         TextInput::make('variant_stock_total')
@@ -248,12 +259,13 @@ class ProductForm
                                             ->placeholder(fn (Get $get) => number_format(self::combinationStock($get('variants'))))
                                             ->helperText(fn (?Product $record) => self::stockNote($record, 'Total of the variants (step 2 below).'))
                                             ->visible(fn (Get $get) => (bool) $get('has_variants'))
-                                            ->columnSpan(fn (Get $get) => ['lg' => self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)($get) ? 1 : 2]),
+                                            ->columnSpan(['lg' => 2]),
                                         TextInput::make('max_qty')
                                             ->label('Max quantity per order')
                                             ->numeric()->minValue(1)->maxValue(99)
                                             ->placeholder('No limit')
-                                            ->visible(self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT)),
+                                            ->visible(self::uses(Template::PRODUCT_FIELDS_ORDER_LIMIT))
+                                            ->columnSpan(['lg' => 2]),
                                     ]),
 
                                 // Step 1: the options (what the customer chooses).
@@ -442,7 +454,8 @@ class ProductForm
                                             ->addActionLabel('Add one variant')
                                             ->table(fn (Get $get, ?Product $record) => [
                                                 ...array_map(fn (array $attribute) => TableColumn::make($attribute['name'])->markAsRequired()->width('9rem'), self::definedAttributes($get, '')),
-                                                TableColumn::make('SKU')->width('11rem'),
+                                                TableColumn::make('SKU / Barcode')->width('11rem'),
+                                                TableColumn::make('HSN code')->width('8rem'),
                                                 TableColumn::make('MRP (₹)')->width('8rem'),
                                                 TableColumn::make('Tax')->width('9rem'),
                                                 TableColumn::make('Price incl. tax (₹)')->width('9rem'),
@@ -466,7 +479,11 @@ class ProductForm
                                                         ->validationMessages(['required' => 'Choose a '.$attribute['name'].' (a value may have been removed from the option above).']),
                                                     self::definedAttributes($get, ''),
                                                 ),
-                                                TextInput::make('sku')->label('SKU')->maxLength(64)->placeholder(fn (Get $get) => $get('../../sku') ?: null),
+                                                TextInput::make('sku')->label('SKU / Barcode')->maxLength(64)->placeholder(fn (Get $get) => $get('../../sku') ?: null),
+                                                // Only for a variant that is different goods (another material, say).
+                                                // Blank uses the product's HSN code, shown greyed as the placeholder.
+                                                self::hsnCodeField()
+                                                    ->placeholder(fn (Get $get) => $get('../../hsn_code') ?: null),
                                                 // The MRP, shown struck through when above the price. Blank uses the
                                                 // product's MRP, shown greyed as the placeholder.
                                                 TextInput::make('compare_at_price')->label('MRP')->numeric()->minValue(0)
@@ -1006,6 +1023,16 @@ class ProductForm
         }
 
         return (float) (Tax::query()->withTrashed()->whereKey($taxId)->value('rate') ?? 0);
+    }
+
+    /** An HSN code: 4, 6 or 8 digits, spaces dropped, blank saved as null. */
+    private static function hsnCodeField(): TextInput
+    {
+        return TextInput::make('hsn_code')->label('HSN code')
+            ->maxLength(8)
+            ->regex('/^\d{4}(\d{2}){0,2}$/')
+            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? preg_replace('/\s+/', '', $state) : null)
+            ->validationMessages(['regex' => 'Enter 4, 6 or 8 digits, e.g. 6109 or 61091000.']);
     }
 
     /** "6 variants · 24 in stock · ₹1,299–₹1,499" for the Variants header. */

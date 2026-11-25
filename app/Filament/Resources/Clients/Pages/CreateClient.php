@@ -6,6 +6,7 @@ use App\Clients\ClientProvisioner;
 use App\Clients\ClientSetup;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Filament\Resources\Clients\Schemas\ClientBusinessDetails;
 use App\Filament\Resources\Clients\Schemas\ClientForm;
 use App\Filament\Support\Pages\CreateRecord;
 use App\Models\ClientUser;
@@ -27,11 +28,15 @@ class CreateClient extends CreateRecord
     /** The first Client Admin, taken out of the form data before the client row is saved. */
     protected array $admin = [];
 
+    /** The first step's business details, saved into the new client's settings (ClientBusinessDetails). */
+    protected array $business = [];
+
     /** Creating a client is a guided wizard; each step is checked by the server before the next. */
     public function getSteps(): array
     {
         return [
-            ...ClientForm::steps(),
+            // The business details open the first step, above the client and its store.
+            ...ClientForm::steps(before: [ClientBusinessDetails::section()]),
             Step::make('Client admin')->icon('heroicon-o-user-circle')
                 ->description('Who signs in to run the store')
                 ->schema([$this->adminSection()]),
@@ -56,7 +61,8 @@ class CreateClient extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $this->admin = $data['admin'] ?? [];
-        unset($data['admin']);
+        $this->business = $data['business'] ?? [];
+        unset($data['admin'], $data['business']);
 
         return $data;
     }
@@ -71,6 +77,7 @@ class CreateClient extends CreateRecord
     protected function afterCreate(): void
     {
         $this->createAdmin();
+        ClientBusinessDetails::save($this->getRecord(), $this->business, creating: true);
 
         // Only once the client row is committed, or the background process may not find it yet.
         $client = $this->getRecord();
