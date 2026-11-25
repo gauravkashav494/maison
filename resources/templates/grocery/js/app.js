@@ -10,6 +10,7 @@ import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
 import { makeToast, toasts } from '../../../js/toast';
+import { chosenOptions, tidy, withSavedItems } from '../../../js/saved-items';
 import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
 import '../../../js/password-reveal';
 import '../../../js/phone-input';
@@ -139,21 +140,16 @@ Alpine.store('cart', {
     async setShipping(code) { this.apply(await api('/cart/shipping', { method: 'POST', body: { code } })); },
 });
 
-Alpine.store('wishlist', {
+Alpine.store('wishlist', withSavedItems({
+    // Entries (see saved-items.js): product ids, or { id, options } for an exact size.
     ids: Alpine.$persist([]).as('grocery-wishlist'),
-    has(id) { return this.ids.includes(id); },
-    toggle(id, name = null) {
-        const saved = !this.has(id);
-        this.ids = saved ? [id, ...this.ids] : this.ids.filter((x) => x !== id);
-        Alpine.store('ui').notify(toasts.wishlist(saved, name, this.ids.length, 'list'));
-    },
-    /** "Notify me" on an out-of-stock product: keep it in the list (never takes it out). */
-    keep(id, name = null) {
-        if (!this.has(id)) this.ids = [id, ...this.ids];
+    init() { this.ids = tidy(this.ids); },
+    /** "Notify me" on an out-of-stock product or size: keep it in the list (never takes it out). */
+    keep(id, name = null, options = null) {
+        this.add(id, options);
         Alpine.store('ui').notify(toasts.keptForLater(name, 'list'));
     },
-    get count() { return this.ids.length; },
-});
+}, { notify: (saved, name, count) => Alpine.store('ui').notify(toasts.wishlist(saved, name, count, 'list')) }));
 
 Alpine.store('recent', {
     terms: Alpine.$persist([]).as('grocery-recent-searches'),
@@ -237,6 +233,8 @@ Alpine.data('gCard', (product) => ({
     get qty() { return Alpine.store('cart').qtyOf(this.product.id, this.size); },
     add() {
         if (!this.product.in_stock) return;
+        // A saved size (Saved items): exactly what was saved.
+        if (this.product.saved?.options) { Alpine.store('cart').add(this.product.id, this.size, null, 1, false, this.product.saved.options); return; }
         if (this.multi) { Alpine.store('ui').pickPack(this.product); return; }
         Alpine.store('cart').inc(this.product.id, this.size, this.product.max_qty);
     },
@@ -330,6 +328,8 @@ Alpine.data('shopFilters', (initial) => ({
 
 Alpine.data('productPage', (product) => ({
     options: {},
+    // What a heart here saves: the size / colour picked, or null until each option is picked.
+    get choice() { return chosenOptions(product, this); },
     p: product,
     image: 0,
     size: product.sizes.length === 1 ? product.sizes[0] : (product.sizes[0] ?? null),
@@ -383,7 +383,7 @@ Alpine.data('productRail', (mode) => ({
         const fetchList = async () => {
             const l = mode === 'wishlist' ? Alpine.store('wishlist').ids : Alpine.store('recent_products').slugs.filter((s) => s !== exclude);
             if (!l.length) { this.items = []; this.loading = false; return; }
-            const q = mode === 'wishlist' ? `ids=${l.join(',')}` : `slugs=${l.join(',')}`;
+            const q = mode === 'wishlist' ? Alpine.store('wishlist').query : `slugs=${l.join(',')}`;
             try { this.items = await api(`/api/products?${q}`); } finally { this.loading = false; }
         };
         await fetchList();

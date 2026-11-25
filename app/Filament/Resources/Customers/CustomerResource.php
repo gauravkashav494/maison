@@ -12,6 +12,7 @@ use App\Filament\Support\PasswordHintColumn;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Customer;
+use App\Support\CustomerPhone;
 use App\Support\PasswordRules;
 use App\Support\PhoneNumber;
 use BackedEnum;
@@ -72,13 +73,29 @@ class CustomerResource extends Resource
                 TextInput::make('name')->required()->maxLength(120),
                 PhoneInput::make('phone')
                     ->required()
+                    // One customer per phone number within a client, whatever shape it was saved in.
+                    ->rule(fn (Get $get, ?Customer $record) => CustomerPhone::uniqueRule(
+                        fn () => $get('client_id') ?: $clients->id(),
+                        $record?->getKey(),
+                        'Another customer of this store already has this phone number.',
+                    ))
                     // Customer sign-in uses national digits, so keep the stored customer phone
                     // in that same canonical form even though the input displays +91.
                     ->dehydrateStateUsing(fn (?string $state) => filled($state) ? PhoneNumber::national('IN', $state) : null),
                 // Optional: a customer may be known by phone only (they sign in with their phone). Without
                 // an email they get no order emails and cannot reset a forgotten password.
                 TextInput::make('email')->email()->maxLength(190)
-                    ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id() ?? 0))
+                    // Saved in lower case and unique within the client whatever its case, also across
+                    // its deleted customers (as the database key is), like the storefront's checks.
+                    ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtolower(trim($state)) : null)
+                    ->rule(fn (Get $get, ?Customer $record) => function (string $attribute, mixed $value, \Closure $fail) use ($get, $record, $clients): void {
+                        $clientId = $get('client_id') ?: $clients->id();
+                        if ($clientId && filled($value) && Customer::withTrashed()->where('client_id', $clientId)
+                            ->whereRaw('lower(email) = ?', [strtolower(trim((string) $value))])
+                            ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))->exists()) {
+                            $fail('Another customer of this store already has this email address.');
+                        }
+                    })
                     ->helperText('Optional. Needed to receive order emails and to reset a forgotten password.'),
                 PasswordRules::field(TextInput::make('password'), 'Leave blank to keep the current password. Sales people need a password to sign in.')
                     ->required(fn (Get $get, ?Customer $record) => (bool) $get('is_salesperson') && blank($record?->password))

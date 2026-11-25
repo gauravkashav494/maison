@@ -4,7 +4,9 @@
     <div class="overlay" x-show="$store.ui.menuOpen" x-transition.opacity @click="$store.ui.closeAll()"></div>
     <div class="sheet sheet-left" x-show="$store.ui.menuOpen" x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" x-trap.noscroll="$store.ui.menuOpen" x-data="accordion()">
         <div class="flex items-center justify-between border-b border-line px-5 py-4">
+            <x-store-logo size="h-8">
             <span class="font-serif text-xl"><span class="font-semibold text-red">{{ $h['logo_primary'] ?? 'Annapurna' }}</span> <span class="italic text-gold">{{ $h['logo_accent'] ?? 'Organics' }}</span></span>
+            </x-store-logo>
             <button type="button" @click="$store.ui.closeAll()" class="grid h-9 w-9 place-items-center rounded-lg hover:bg-cream" aria-label="Close"><x-ico name="close" :size="20" /></button>
         </div>
         <div class="flex-1 overflow-y-auto">

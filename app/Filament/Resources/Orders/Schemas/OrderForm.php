@@ -16,9 +16,9 @@ class OrderForm
 {
     public static function configure(Schema $schema): Schema
     {
-        // A sales order (placed by a sales person) carries no address, so none is asked for. The
-        // columns are not nullable: a blank field is saved as an empty string.
-        $needsAddress = fn (?Order $record) => ! $record?->salesperson_id;
+        // An older sales order was handed over at the store and carries no address, so none is
+        // asked for. The columns are not nullable: a blank field is saved as an empty string.
+        $needsAddress = fn (?Order $record) => ! $record?->salesperson_id || filled($record->getOriginal('shipping_line1'));
 
         return $schema
             ->columns(1)

@@ -27,6 +27,7 @@ use App\Templates\Bulk\OrderLines;
 use App\Templates\TemplateManager;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -623,16 +624,21 @@ class BulkTemplateTest extends TestCase
     {
         $product = $this->product('GL-NT');
 
-        // A heart on every product row (once per product, not per size) and in the header. The
-        // heart passes the product's name too, for the "saved" message.
+        // A product with sizes: a heart on every size row, saving exactly that size, and none for
+        // the product as a whole. The heart passes the product's name too, for the "saved" message.
         $heart = '$store.wishlist.toggle('.$product->id.', ';
+        $sizes = count(OrderLines::for($product));
         $shop = $this->visit('/shop')->assertSuccessful()
-            ->assertSee($heart, false)
+            ->assertSee($heart.Js::from($product->name).', '.Js::from(['Size' => 'M']).')', false)
             ->assertSee(route('account.wishlist'), false)
             ->assertSee('Saved items', false);
-        $this->assertSame(1, substr_count($shop->getContent(), $heart));
+        $this->assertSame($sizes, substr_count($shop->getContent(), $heart));
+        $this->assertStringNotContainsString($heart.Js::from($product->name).', null)', $shop->getContent());
 
-        $this->visit('/product/'.$product->slug)->assertSee($heart, false);
+        // The product page: the heart on the photo saves the product, one per size row saves that size.
+        $page = $this->visit('/product/'.$product->slug)->getContent();
+        $this->assertStringContainsString($heart.Js::from($product->name).', null)', $page);
+        $this->assertSame($sizes + 1, substr_count($page, $heart));
     }
 
     public function test_the_saved_items_page_lists_saved_products_as_the_order_list(): void
@@ -652,10 +658,64 @@ class BulkTemplateTest extends TestCase
         $html = $list->getContent();
         $this->assertLessThan(strpos($html, 'GL-NT-M'), strpos($html, 'CL-FC-5L'), 'Saved items keep the order they were saved in.');
 
+        // The sizes sit under one heading row for their product (name, heart, how many sizes),
+        // and each size row names the product too.
+        $sizes = count(OrderLines::for($gloves));
+        $this->assertGreaterThan(1, $sizes);
+        $this->assertSame(1, substr_count($html, 'bk-product'), 'Only the product with sizes gets a heading row.');
+        $this->assertSame($sizes, substr_count($html, 'is-size'));
+        $list->assertSee($sizes.' sizes');
+        $this->assertSame($sizes + 1, substr_count($html, '>'.e($gloves->name).'</a>'), 'The heading and every size row name the product.');
+        $this->assertSame(2, substr_count($html, '$store.wishlist.toggle('), 'One heart per saved product.');
+
+        // The shop's list is not grouped.
+        $this->assertStringNotContainsString('bk-product', $this->visit('/shop')->getContent());
+
         // A product of another client is never shown, nor an inactive one.
         $cleaner->update(['is_active' => false]);
         $this->visit('/account/wishlist?ids='.$cleaner->id)->assertSuccessful()->assertDontSee('CL-FC-5L');
         $this->assertSame('', trim($this->visit('/account/wishlist?ids=')->getContent()));
+    }
+
+    public function test_saved_sizes_show_only_those_sizes_on_the_saved_items_list(): void
+    {
+        $gloves = $this->product('GL-NT');
+        $cleaner = $this->product('CL-FC-5L');
+        $list = fn (array $entries) => $this->visit('/account/wishlist?items='.urlencode(json_encode($entries)))->assertSuccessful();
+        $heart = fn (?array $options) => '$store.wishlist.toggle('.$gloves->id.', '.Js::from($gloves->name).', '.Js::from($options).')';
+
+        // Two sizes saved: their rows only, under one heading, each with its own heart.
+        $html = $list([['id' => $gloves->id, 'options' => ['Size' => 'M']], $cleaner->id, ['id' => $gloves->id, 'options' => ['Size' => 'L']]])
+            ->assertSee('GL-NT-M')->assertSee('GL-NT-L')->assertDontSee('GL-NT-S')->assertDontSee('GL-NT-XL')
+            ->assertSee('2 sizes saved')->assertSee('CL-FC-5L')
+            ->getContent();
+        $this->assertSame(1, substr_count($html, 'bk-product'));
+        $this->assertStringContainsString($heart(['Size' => 'M']), $html);
+        $this->assertStringContainsString($heart(['Size' => 'L']), $html);
+        $this->assertStringContainsString($heart(null), $html, 'The heading heart takes the whole product off.');
+
+        // One size saved: one plain row, its heart that size's.
+        $html = $list([['id' => $gloves->id, 'options' => ['Size' => 'M']]])->assertSee('GL-NT-M')->assertDontSee('GL-NT-L')->getContent();
+        $this->assertSame(0, substr_count($html, 'bk-product'));
+        $this->assertSame(1, substr_count($html, '$store.wishlist.toggle('));
+        $this->assertStringContainsString($heart(['Size' => 'M']), $html);
+
+        // Saved without a size, as well as a size: every size, under "All 4 sizes".
+        $sizes = count(OrderLines::for($gloves));
+        $list([$gloves->id, ['id' => $gloves->id, 'options' => ['Size' => 'M']]])
+            ->assertSee("All {$sizes} sizes")->assertSee('GL-NT-S')->assertSee('GL-NT-XL');
+
+        // A size taken off sale stays, marked, with its heart to remove it.
+        $variants = $gloves->variants;
+        foreach ($variants as $i => $variant) {
+            if (($variant['options']['Size'] ?? null) === 'L') {
+                $variants[$i]['is_active'] = false;
+            }
+        }
+        $gloves->update(['variants' => $variants]);
+        $html = $list([['id' => $gloves->id, 'options' => ['Size' => 'M']], ['id' => $gloves->id, 'options' => ['Size' => 'L']]])
+            ->assertSee('GL-NT-M')->assertDontSee('GL-NT-L')->assertSee('No longer available')->getContent();
+        $this->assertStringContainsString($heart(['Size' => 'L']), $html);
     }
 
     public function test_a_signed_in_buyers_saved_items_are_kept_on_the_account(): void
@@ -679,13 +739,18 @@ class BulkTemplateTest extends TestCase
         // Every page hands the account's list to the wishlist store, to merge with the device's.
         $this->visit('/shop')->assertSee('<meta name="account-wishlist" content="['.$cleaner->id.','.$gloves->id.']" data-account="'.$customer->id.'">', false);
 
+        // A size is kept as the size; the same size spelt another way counts once.
+        $this->putJson($url, ['ids' => [['id' => $gloves->id, 'options' => ['Size' => 'M']], ['id' => $gloves->id, 'options' => ['size' => 'm']], $cleaner->id]])
+            ->assertOk()->assertExactJson(['ids' => [['id' => $gloves->id, 'options' => ['Size' => 'M']], $cleaner->id]]);
+        $this->assertSame([['id' => $gloves->id, 'options' => ['Size' => 'M']], $cleaner->id], $customer->fresh()->wishlist);
+
         // Emptied too.
         $this->putJson($url, ['ids' => []])->assertOk()->assertExactJson(['ids' => []]);
         $this->assertSame([], $customer->fresh()->wishlist);
         $this->putJson($url, ['ids' => 'nope'])->assertUnprocessable();
     }
 
-    public function test_phone_numbers_are_ten_digits(): void
+    public function test_phone_numbers_are_ten_digit_mobiles(): void
     {
         $line = collect(OrderLines::for($this->product('PK-CT')))->firstWhere('sku', 'PK-CT-500');
         $this->order(['product_id' => $line['product_id'], 'options' => $line['options'], 'qty' => 1])->assertSuccessful();
@@ -702,11 +767,11 @@ class BulkTemplateTest extends TestCase
             $this->assertSame('9876543210', StorefrontRequest::normalisePhone($ok), $ok);
         }
 
-        // …and refuses anything that is not 10 digits, with a message that says so.
-        foreach (['12345', '98765432101', '98785456456444564654564', '98765abc43', '+1 415 555 0100'] as $bad) {
+        // …and refuses anything that is not a 10-digit mobile number (a landline too), with a message that says so.
+        foreach (['12345', '98765432101', '98785456456444564654564', '98765abc43', '+1 415 555 0100', '0183 250 0000'] as $bad) {
             $this->withSession([Client::SESSION_KEY => 'trade'])->from('/checkout')->post('/checkout', [
                 'email' => 'buyer@example.test', 'phone' => $bad,
-            ])->assertSessionHasErrors(['phone' => 'Please enter a 10-digit phone number, e.g. 9876543210.']);
+            ])->assertSessionHasErrors(['phone' => 'Please enter a 10-digit mobile number starting with 6, 7, 8 or 9, e.g. 9876543210.']);
         }
     }
 

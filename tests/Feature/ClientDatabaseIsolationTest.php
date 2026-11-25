@@ -309,6 +309,7 @@ class ClientDatabaseIsolationTest extends TestCase
         Livewire::test(CreateClient::class)
             ->fillForm([
                 'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id,
+                'business' => ['business_name' => 'Delta Traders'],
                 'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
             ])
             ->call('create')
@@ -402,6 +403,7 @@ class ClientDatabaseIsolationTest extends TestCase
         Livewire::test(CreateClient::class)
             ->fillForm([
                 'name' => 'Delta', 'subdomain' => 'delta-db', 'storefront_id' => $this->alpha->storefront_id, 'sample_products' => $choice,
+                'business' => ['business_name' => 'Delta Traders'],
                 'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
             ])
             ->call('create')

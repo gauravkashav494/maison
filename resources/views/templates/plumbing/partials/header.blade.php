@@ -30,8 +30,10 @@
         <button type="button" @click="$store.ui.openMenu()" class="icon-btn shrink-0 lg:hidden {{ $isHome ? '-ml-2' : '' }}" aria-label="Open menu"><x-ico name="menu" :size="22" /></button>
 
         <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+            <x-store-logo size="h-9 lg:h-11">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-deep text-white lg:h-11 lg:w-11"><x-ico name="droplet" :size="22" :stroke="2" /></span>
             <span class="font-display text-xl font-800 leading-none tracking-tight lg:text-[1.45rem]"><span class="font-extrabold text-deep">{{ $p['logo_primary'] ?? 'Plumb' }}</span><span class="font-extrabold text-bright">{{ $p['logo_accent'] ?? 'Kart' }}</span></span>
+            </x-store-logo>
         </a>
 
         {{-- Prominent search (desktop) --}}

@@ -21,8 +21,10 @@
     <div class="bk-top">
         <div class="bk-wrap flex flex-wrap items-center gap-x-3 gap-y-2 py-2 sm:gap-x-4 lg:flex-nowrap lg:py-2">
             <a data-store-logo href="{{ url('/') }}" class="bk-logo order-1 min-w-0 flex-1 basis-0 lg:flex-none lg:basis-auto">
+                <x-store-logo size="h-9">
                 <span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span>
                 <span class="min-w-0 truncate">{{ $storeName }}<small class="truncate">Trade supplies</small></span>
+                </x-store-logo>
             </a>
 
             <form method="get" action="{{ route('search') }}" role="search" class="bk-search order-3 w-full lg:order-2 lg:mx-4 lg:w-auto">

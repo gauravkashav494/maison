@@ -8,6 +8,7 @@ use App\Clients\ClientProvisioner;
 use App\Clients\ClientQuota;
 use App\Clients\ClientSetup;
 use App\Models\Client;
+use App\Support\IndianStates;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Grid;
@@ -50,6 +51,11 @@ class ClientInfolist
                             ->icon(fn (Client $r) => $r->domain ? 'heroicon-m-check-badge' : null)->iconColor('success')
                             ->placeholder('Not set — the store uses its subdomain'),
                     ]),
+
+                Section::make('Business details')
+                    ->icon('heroicon-o-briefcase')
+                    ->description('From the store\'s Site settings; change them under Edit → Business details.')
+                    ->schema(self::businessEntries()),
 
                 Section::make('Modules')
                     ->icon('heroicon-o-squares-2x2')
@@ -118,6 +124,30 @@ class ClientInfolist
                     ]),
             ]),
         ]);
+    }
+
+    /** One line per business detail, read from the client's own settings. */
+    private static function businessEntries(): array
+    {
+        $entries = [];
+        foreach (ClientBusinessDetails::displayLabels() as $field => $label) {
+            $entries[] = TextEntry::make('business_'.$field)->label($label)->inlineLabel()
+                ->state(fn (Client $r) => self::business($r)[$field] ?? null)
+                ->formatStateUsing(fn (?string $state) => match (true) {
+                    $state && $field === 'state' => IndianStates::label($state),
+                    $state && $field === 'address' => implode(', ', array_filter(array_map('trim', preg_split('/\\R/', $state)))),
+                    default => $state,
+                })
+                ->copyable(in_array($field, ['gstin', 'pan', 'contact_email'], true))
+                ->placeholder('—');
+        }
+
+        return $entries;
+    }
+
+    private static function business(Client $client): array
+    {
+        return ClientBusinessDetails::load($client);
     }
 
     private static function moduleOn(Client $client, string $label): bool

@@ -38,8 +38,10 @@
         {{-- Brand + contact --}}
         <div class="lg:col-span-4">
             <a href="{{ route('home') }}" class="flex items-center gap-2">
+                <x-store-logo size="h-10" :on-dark="true">
                 <span class="grid h-10 w-10 place-items-center rounded-xl bg-white text-deep"><x-ico name="droplet" :size="22" :stroke="2" /></span>
                 <span class="font-display text-xl font-extrabold tracking-tight">{{ $p['logo_primary'] ?? 'Plumb' }}<span class="text-accent">{{ $p['logo_accent'] ?? 'Kart' }}</span></span>
+                </x-store-logo>
             </a>
             <p class="mt-4 max-w-sm text-sm leading-relaxed text-white/70">{{ $p['footer_blurb'] ?? ($site['footer_blurb'] ?? '') }}</p>
             <ul class="mt-5 space-y-2.5 text-sm">

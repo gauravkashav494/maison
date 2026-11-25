@@ -18,7 +18,8 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Support\CustomerAccount;
 use App\Support\CustomerOtp;
-use App\Support\PhoneNumber;
+use App\Support\CustomerPhone;
+use App\Support\SavedItems;
 use App\Support\Seo;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
@@ -65,18 +66,8 @@ class AccountController extends Controller
         $credentials = $request->safe()->only(['phone', 'password']);
         $clientId = $this->clientId();
 
-        // New customer records use the display form (+91 95017 32031), while older records
-        // and storefront forms may use national digits. Match both saved forms of this phone.
-        $phone = $credentials['phone'];
-        $formattedPhone = PhoneNumber::format('IN', $phone);
-        $phoneForms = array_values(array_unique(array_filter([
-            $phone,
-            $formattedPhone,
-            $formattedPhone ? preg_replace('/\s+/', '', $formattedPhone) : null,
-            '91'.$phone,
-            '0'.$phone,
-            substr($phone, 0, 5).' '.substr($phone, 5),
-        ])));
+        // Numbers have been saved in more than one shape (+91 95017 32031, 9501732031…): match them all.
+        $phoneForms = CustomerPhone::forms($credentials['phone']);
         $credentials['phone'] = fn ($query) => $query->whereIn('phone', $phoneForms);
 
         // The client is part of the credentials, so an account of another client never matches.
@@ -115,6 +106,20 @@ class AccountController extends Controller
         // While codes are off the account is made at once, with the phone left unverified
         // (phone_verified_at empty). The form has already checked no account has this number.
         if (! CustomerOtp::enabled()) {
+            // A phone is unique within the store, and an unproven number cannot claim an earlier
+            // guest's orders: that guest sets a password from an emailed link instead, or, with
+            // no email on record, the store sets up the account (Customers → edit → password).
+            if ($guest = CustomerAccount::guestForPhone($clientId, $data['phone'])) {
+                if (filled($guest->email) && $guest->is_active) {
+                    Password::broker('customers')->sendResetLink(['email' => $guest->email, 'client_id' => $clientId, 'is_active' => true]);
+
+                    return redirect()->route('login')->with('status', 'You have ordered with us before. We have emailed you a link to set your password and see your orders.');
+                }
+
+                return back()->withInput($request->except('password', 'password_confirmation'))
+                    ->withErrors(['phone' => 'This phone number has ordered with us before. Please contact the store to set up your account.']);
+            }
+
             $customer = CustomerAccount::create($clientId, $data['phone'], $data['name'], $data['email'] ?? null, $data['password'], verified: false);
             Auth::login($customer);
             $request->session()->regenerate();
@@ -334,18 +339,16 @@ class AccountController extends Controller
 
     /**
      * The wishlist page. The list itself lives on the device (localStorage), so a template that
-     * draws saved items on the server (Bulk: the order list) asks again with ?ids=… and gets just
-     * the list back. Only a template with an `account.wishlist-items` view answers that.
+     * draws saved items on the server (Bulk: the order list) asks again with ?items=… (the saved
+     * entries; ?ids=… from older pages) and gets just the list back. Only a template with an
+     * `account.wishlist-items` view answers that.
      */
     public function wishlist(Request $request): View
     {
-        if ($request->has('ids') && view()->exists('account.wishlist-items')) {
-            $ids = collect(explode(',', (string) $request->query('ids')))
-                ->map(fn ($id) => (int) $id)->filter()->unique()->take(100)->values();
-            $products = $ids->isEmpty() ? collect() : Product::with('category')->active()->whereIn('id', $ids)->get()
-                ->sortBy(fn (Product $p) => $ids->search($p->id))->values();
+        if (($request->has('items') || $request->has('ids')) && view()->exists('account.wishlist-items')) {
+            $entries = SavedItems::parse((string) $request->query('items', $request->query('ids', '')));
 
-            return view('account.wishlist-items', ['products' => $products]);
+            return view('account.wishlist-items', ['saved' => SavedItems::resolve($entries)]);
         }
 
         return view('account.wishlist', ['seo' => Seo::simple('Wishlist', null, noindex: true)]);
@@ -353,21 +356,22 @@ class AccountController extends Controller
 
     /**
      * Saves a signed-in buyer's Saved items to the account: the whole list, newest first, as the
-     * storefront's wishlist store sends it after every change. Only this store's products are kept.
+     * storefront's wishlist store sends it after every change. Each entry is a product id or
+     * {id, options} for an exact size (see SavedItems). Only this store's products are kept.
      */
     public function saveWishlist(Request $request): JsonResponse
     {
-        $data = $request->validate(['ids' => ['present', 'array', 'max:200'], 'ids.*' => ['integer', 'min:1']]);
-        $ids = collect($data['ids'])->map(fn ($id) => (int) $id)->unique()->values();
-        $known = $ids->isEmpty() ? collect() : Product::whereIn('id', $ids)->pluck('id')->flip();
-        $ids = $ids->filter(fn ($id) => $known->has($id))->values()->all();
+        $request->validate(['ids' => ['present', 'array', 'max:200']]);
+        $entries = SavedItems::parse($request->input('ids'));
+        $known = $entries ? Product::whereIn('id', array_column($entries, 'id'))->pluck('id')->flip() : collect();
+        $entries = SavedItems::forStorage(array_values(array_filter($entries, fn (array $e) => $known->has($e['id']))));
 
         $customer = $request->user();
-        if ($customer->wishlist !== $ids) {
-            $customer->forceFill(['wishlist' => $ids])->save();
+        if ($customer->wishlist !== $entries) {
+            $customer->forceFill(['wishlist' => $entries])->save();
         }
 
-        return response()->json(['ids' => $ids]);
+        return response()->json(['ids' => $entries]);
     }
 
     // ---- Addresses ---------------------------------------------------------

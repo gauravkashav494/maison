@@ -61,6 +61,21 @@ class Setting extends Model
     }
 
     /**
+     * Writes values into a specific client's own copy of a group, outside that client's request
+     * (e.g. while the platform creates the client). A client that has no copy yet starts from
+     * its defaults, so saving a few values never drops the rest of the group.
+     */
+    public static function mergeForClient(Client $client, string $group, array $values): void
+    {
+        $current = static::forClient($client->id, $group)
+            ?? (in_array($group, self::CLIENT_OWNED, true) ? static::clientDefaults($group, $client->name) : null)
+            ?? [];
+
+        static::updateOrCreate(['key' => 'client:'.$client->id.':'.$group], ['value' => array_replace($current, $values)]);
+        Cache::forget('settings.all');
+    }
+
+    /**
      * Key of the current client's own copy of a group, or null outside a client's request.
      *
      * Settings are stored per client, so two clients on one store never edit each other's
@@ -74,14 +89,14 @@ class Setting extends Model
         return $clients->isLocked() && $clients->id() ? 'client:'.$clients->id().':'.$group : null;
     }
 
-    /** Starting values for a client-owned group, with ":name" filled in from the current client. */
-    private static function clientDefaults(string $group): ?array
+    /** Starting values for a client-owned group, with ":name" filled in from the given or current client. */
+    private static function clientDefaults(string $group, ?string $name = null): ?array
     {
         $defaults = config('client_defaults.'.$group);
         if (! is_array($defaults)) {
             return null;
         }
-        $name = (string) (app(ClientContext::class)->client()?->name ?? '');
+        $name ??= (string) (app(ClientContext::class)->client()?->name ?? '');
 
         array_walk_recursive($defaults, function (&$value) use ($name) {
             if (is_string($value)) {

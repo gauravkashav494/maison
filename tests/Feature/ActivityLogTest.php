@@ -5,12 +5,15 @@ namespace Tests\Feature;
 use App\Admin\StoreContext;
 use App\Clients\ClientContext;
 use App\Clients\ClientDatabase;
+use App\Clients\ClientSetup;
 use App\Filament\Pages\SearchListings;
 use App\Filament\Pages\SeoSettings;
 use App\Filament\Pages\SiteSettings;
 use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\ActivityLogResource;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
+use App\Filament\Resources\Clients\Pages\CreateClient;
+use App\Filament\Resources\Clients\Pages\EditClient;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\ActivityTable;
@@ -116,6 +119,18 @@ class ActivityLogTest extends TestCase
         $this->assertSame([['field' => 'price', 'label' => 'price', 'old' => '₹1,000.00', 'new' => '₹899.50']], $line->changes);
     }
 
+    public function test_a_changed_hsn_code_reads_with_its_label(): void
+    {
+        $this->enterClientPanel($this->admin);
+
+        $this->coat->update(['hsn_code' => '6201']);
+
+        $line = $this->lastLine();
+        $this->assertSame('set the HSN code of product "Alpha Coat" to "6201"', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::where('client_id', $this->beta->id)->count());
+    }
+
     public function test_several_changes_are_listed_and_long_text_is_named_in_the_sentence_only(): void
     {
         $this->enterClientPanel($this->admin);
@@ -163,6 +178,14 @@ class ActivityLogTest extends TestCase
             ['label' => 'Variants', 'old' => 'S: stock 22; L', 'new' => 'S: stock 20; L removed; XL added'],
             collect(ActivityTable::rows($line))->firstWhere('label', 'Variants'),
         );
+
+        // A variant's own HSN code reads by its label.
+        $this->coat->update(['variants' => [$row('S', 20) + ['hsn_code' => '620530'], $row('M', 30), $row('XL', 4)]]);
+        $this->assertSame(
+            ['label' => 'Variants', 'old' => 'S: HSN code empty', 'new' => 'S: HSN code 620530'],
+            collect(ActivityTable::rows($this->lastLine()))->firstWhere('label', 'Variants'),
+        );
+        $this->coat->update(['variants' => [$row('S', 20), $row('M', 30), $row('XL', 4)]]);
 
         // Only a worked-out value moved (the price with tax): no line of its own.
         $before = PlatformActivity::count();
@@ -648,6 +671,57 @@ class ActivityLogTest extends TestCase
             DB::purge($databases->connectionNameFor($this->alpha));
             File::delete([database_path($from.'.sqlite'), database_path($to.'.sqlite')]);
         }
+    }
+
+    public function test_editing_a_clients_business_details_is_logged_for_that_client(): void
+    {
+        $this->actingAs(User::create([
+            'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
+            'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
+        ]), 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(EditClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->set('data.business.business_name', 'Alpha Retail Pvt Ltd')
+            ->set('data.business.gstin', '03AAACA1234A1Z5')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $line = PlatformActivity::where('description', 'like', '%business details%')->sole();
+        $this->assertSame('updated', $line->action);
+        // The PAN and state came from the GSTIN.
+        $this->assertSame('updated the business details of client "Alpha": registered business name, GSTIN, PAN and state the business sells from', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame(0, PlatformActivity::where('client_id', $this->beta->id)->where('description', 'like', '%business details%')->count());
+    }
+
+    public function test_the_business_details_of_a_new_client_are_logged_for_that_client(): void
+    {
+        $this->mock(ClientSetup::class, fn ($mock) => $mock->shouldReceive('startInBackground'));
+        $this->actingAs(User::create([
+            'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
+            'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
+        ]), 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(CreateClient::class)
+            ->fillForm([
+                'business' => ['business_name' => 'Delta Traders', 'gstin' => '03AAACA1234A1Z5', 'pan' => 'AAACA1234A'],
+                'name' => 'Delta', 'subdomain' => 'delta', 'storefront_id' => $this->alpha->storefront_id,
+                'admin' => ['name' => 'Delta Owner', 'email' => 'owner@delta.test', 'password' => 'secret-pass1'],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+        $delta = Client::where('subdomain', 'delta')->sole();
+
+        $line = PlatformActivity::where('description', 'like', 'added the business details%')->sole();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('added the business details of client "Delta"', $line->description);
+        $this->assertSame($delta->id, $line->client_id);
+        // The state came from the GSTIN.
+        $this->assertSame(['registered business name', 'GSTIN', 'PAN', 'state the business sells from'], array_column($line->changes, 'label'));
+        $this->assertSame('"03AAACA1234A1Z5"', $line->changes[1]['new']);
+        $this->assertSame(0, PlatformActivity::whereIn('client_id', [$this->alpha->id, $this->beta->id])->where('description', 'like', 'added the business details%')->count());
     }
 
     public function test_lines_older_than_a_year_are_pruned(): void

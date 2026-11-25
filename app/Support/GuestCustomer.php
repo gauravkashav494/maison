@@ -30,10 +30,13 @@ class GuestCustomer
         return self::forEmail($email, $name, $phone)?->id;
     }
 
-    /** Only ever fills an empty phone; a saved number is never replaced from a checkout. */
+    /**
+     * Only ever fills an empty phone; a saved number is never replaced from a checkout. A number
+     * another customer of the client already has is left off (one customer per phone).
+     */
     private static function fillMissingPhone(Customer $customer, ?string $phone): void
     {
-        if (blank($customer->phone) && filled($phone)) {
+        if (blank($customer->phone) && filled($phone) && ! CustomerPhone::taken((int) $customer->client_id, $phone, $customer->id)) {
             $customer->forceFill(['phone' => trim($phone)])->saveQuietly();
         }
     }
@@ -64,7 +67,8 @@ class GuestCustomer
                 'client_id' => $clientId,
                 'name' => filled($name) ? trim($name) : strstr($email, '@', true),
                 'email' => $email,
-                'phone' => filled($phone) ? $phone : null,
+                // One customer per phone: a number another customer has stays on the order only.
+                'phone' => filled($phone) && ! CustomerPhone::taken($clientId, $phone) ? $phone : null,
                 'password' => null,
                 'is_active' => true,
             ]);

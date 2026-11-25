@@ -10,6 +10,7 @@ import focus from '@alpinejs/focus';
 import collapse from '@alpinejs/collapse';
 import registerAppShell from '../../../js/app-shell';
 import { makeToast, toasts } from '../../../js/toast';
+import { chosenOptions, tidy, withSavedItems } from '../../../js/saved-items';
 import { gallerySlides, registerVariants, watchVariantGallery } from '../../../js/variants';
 import '../../../js/password-reveal';
 import '../../../js/phone-input';
@@ -129,21 +130,16 @@ Alpine.store('saved', {
     remove(item) { this.items = this.items.filter((s) => !(s.id === item.id && s.size === item.size)); },
 });
 
-Alpine.store('wishlist', {
+Alpine.store('wishlist', withSavedItems({
+    // Entries (see saved-items.js): product ids, or { id, options } for an exact size.
     ids: Alpine.$persist([]).as('heritage-wishlist'),
-    has(id) { return this.ids.includes(id); },
-    toggle(id, name = null) {
-        const saved = !this.has(id);
-        this.ids = saved ? [id, ...this.ids] : this.ids.filter((x) => x !== id);
-        Alpine.store('ui').notify(toasts.wishlist(saved, name, this.ids.length, 'wishlist'));
-    },
-    /** "Notify me" on an out-of-stock product: keep it in the list (never takes it out). */
-    keep(id, name = null) {
-        if (!this.has(id)) this.ids = [id, ...this.ids];
+    init() { this.ids = tidy(this.ids); },
+    /** "Notify me" on an out-of-stock product or size: keep it in the list (never takes it out). */
+    keep(id, name = null, options = null) {
+        this.add(id, options);
         Alpine.store('ui').notify(toasts.keptForLater(name, 'wishlist'));
     },
-    get count() { return this.ids.length; },
-});
+}, { notify: (saved, name, count) => Alpine.store('ui').notify(toasts.wishlist(saved, name, count, 'wishlist')) }));
 
 Alpine.store('recent', {
     terms: Alpine.$persist([]).as('heritage-recent-searches'),
@@ -216,8 +212,10 @@ Alpine.data('hCard', (product) => ({
     dec() { if (this.qty > 1) this.qty--; },
     async add() {
         if (!this.product.in_stock) return;
-        if (!this.size) { Alpine.store('ui').showQuickView(this.product.slug); return; }
-        await Alpine.store('cart').add(this.product.id, this.size, null, this.qty, false);
+        // A saved size (Saved items) goes in with exactly the options saved.
+        const saved = this.product.saved?.options || null;
+        if (!this.size && !saved) { Alpine.store('ui').showQuickView(this.product.slug); return; }
+        await Alpine.store('cart').add(this.product.id, this.size, null, this.qty, false, saved);
         this.added = true; setTimeout(() => { this.added = false; }, 1400);
         this.qty = 1;
     },
@@ -302,6 +300,8 @@ Alpine.data('shopFilters', (initial) => ({
 
 Alpine.data('productPage', (product) => ({
     options: {},
+    // What a heart here saves: the size / colour picked, or null until each option is picked.
+    get choice() { return chosenOptions(product, this); },
     p: product, image: 0, qty: 1, lightbox: false, showSticky: false, tab: 'description', zoom: { on: false, x: 50, y: 50 },
     size: product.sizes[0] ?? null,
     // A combination with its own photos takes over the gallery when it is chosen.
@@ -344,7 +344,7 @@ Alpine.data('productRail', (mode) => ({
         const fetchList = async () => {
             const l = mode === 'wishlist' ? Alpine.store('wishlist').ids : Alpine.store('recent_products').slugs.filter((s) => s !== exclude);
             if (!l.length) { this.items = []; this.loading = false; return; }
-            const q = mode === 'wishlist' ? `ids=${l.join(',')}` : `slugs=${l.join(',')}`;
+            const q = mode === 'wishlist' ? Alpine.store('wishlist').query : `slugs=${l.join(',')}`;
             try { this.items = await api(`/api/products?${q}`); } finally { this.loading = false; }
         };
         await fetchList();

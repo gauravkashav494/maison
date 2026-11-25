@@ -150,7 +150,11 @@ class OtpController extends Controller
             return redirect()->route('login')->withErrors(['phone' => 'An account with this phone number already exists. Try signing in instead.']);
         }
 
+        // An earlier guest record with this number becomes the account (CustomerAccount::create).
         $customer = $this->createAccount($clientId, $phone, $data['name'], $data['email'] ?? null, Crypt::decryptString($data['password']));
+        if (! $customer->is_active) {
+            return redirect()->route('login')->withErrors(['phone' => 'The account for this number is disabled. Please contact the store.']);
+        }
         $this->signIn($request, $customer);
 
         return redirect()->route('account.index')->with('status', 'Welcome to '.setting('site.name', config('app.name')).'.');
@@ -165,6 +169,10 @@ class OtpController extends Controller
             return redirect()->route('checkout')->withErrors(['phone' => 'The account for this number is disabled. Please contact the store.']);
         }
         $customer ??= $this->createAccount($clientId, $phone, $data['shipping_name'], $data['email'] ?? null);
+        // A claimed guest record the store disabled.
+        if (! $customer->is_active) {
+            return redirect()->route('checkout')->withErrors(['phone' => 'The account for this number is disabled. Please contact the store.']);
+        }
         $this->signIn($request, $customer);
 
         if (empty(app(Cart::class)->toArray()['items'])) {

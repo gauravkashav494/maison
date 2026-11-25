@@ -4,6 +4,7 @@ namespace App\Http\Requests\Storefront;
 
 use App\Support\IndianStates;
 use App\Support\PasswordRules;
+use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -91,10 +92,14 @@ abstract class StorefrontRequest extends FormRequest
         return [$required ? 'required' : 'nullable', 'string', 'email:rfc,filter', 'max:190'];
     }
 
-    /** Exactly 10 digits (after normalisePhone() has removed spacing and any +91 or leading 0). */
-    protected function phone(bool $required = true): array
+    /**
+     * A 10-digit mobile number (after normalisePhone() has removed spacing and any +91 or leading
+     * 0): landlines are refused wherever a number is entered. A lookup by a number already on an
+     * account or order ($mobileOnly false) takes any 10 digits, so older numbers still match.
+     */
+    protected function phone(bool $required = true, bool $mobileOnly = true): array
     {
-        return [$required ? 'required' : 'nullable', 'string', 'regex:/^\d{10}$/'];
+        return [$required ? 'required' : 'nullable', 'string', 'regex:'.($mobileOnly ? PhoneNumber::INDIA_MOBILE : '/^\d{10}$/')];
     }
 
     /** Address lines: anything printable, but at least a few characters. */
@@ -159,7 +164,7 @@ abstract class StorefrontRequest extends FormRequest
             'prohibited' => 'Your submission could not be accepted.',
             'name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
             'shipping_name.regex' => 'The :attribute may only contain letters, spaces, dots, apostrophes and hyphens.',
-            'phone.regex' => 'Please enter a 10-digit :attribute, e.g. 9876543210.',
+            'phone.regex' => 'Please enter a 10-digit mobile number starting with 6, 7, 8 or 9, e.g. 9876543210.',
             'postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
             'shipping_postal_code.regex' => 'Please enter a valid 6-digit PIN code.',
             'city.regex' => 'The :attribute may only contain letters, spaces and . \' - &.',

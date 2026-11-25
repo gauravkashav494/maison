@@ -7,6 +7,7 @@ use App\Clients\StoreFeatures;
 use App\Filament\Auth\Login;
 use App\Filament\Forms\Components\PhoneInput;
 use App\Filament\Pages\Concerns\HasSettingsForm;
+use App\Filament\Resources\Clients\Schemas\ClientBusinessDetails;
 use App\Filament\Support\Fields;
 use App\Models\Order;
 use App\Support\IndianStates;
@@ -26,6 +27,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\HtmlString;
@@ -64,14 +66,21 @@ class SiteSettings extends Page
                         Tab::make('Brand')->icon('heroicon-o-building-storefront')->schema([
                             TextInput::make('site.name')->label('Site name')->required(),
                             Textarea::make('site.description')->rows(2)->helperText('Used as the default site description.'),
-                            Callout::make('Logo, header and footer')
-                                ->description('Set under Appearance → your template\'s Settings page: wordmark, announcement or promo bar, footer and support details.')
+                            // One logo for the whole store: header, mobile menu, footer, sign-in page and
+                            // invoices. Without one, each shows the template's text wordmark.
+                            Fields::image('site.logo', 'Logo', 'branding')
+                                ->maxSize(2048)
+                                ->helperText('Optional. Shown in the store header, menu, footer, sign-in page and on invoices. Without one, the store shows its name as text. A wide PNG or SVG with a transparent background works best, about 400×120.'),
+                            Callout::make('Header and footer')
+                                ->description('The text wordmark (shown when there is no logo), announcement or promo bar, footer and support details are set under Appearance → your template\'s Settings page.')
                                 ->info(),
                         ]),
                         Tab::make('Contact & social')->icon('heroicon-o-at-symbol')->schema([
                             Grid::make(2)->schema([
                                 TextInput::make('site.contact_email')->email()->label('Client care email'),
                                 PhoneInput::make('site.contact_phone')->label('Phone'),
+                                TextInput::make('site.contact_person')->label('Owner / contact person')->maxLength(120)
+                                    ->helperText('For your records; not shown on the store.'),
                             ]),
                             Callout::make('Used everywhere on the store')
                                 ->description('Shown on the storefront, in emails and in search-engine data. A template can show a different support phone or email: Appearance → its Settings page → Support.')
@@ -155,17 +164,16 @@ class SiteSettings extends Page
                                             ])
                                             ->default('exclusive')->required(),
                                     ]),
+                                // Read only: every number is made from ids (Order::generateNumber()), so there is nothing to set.
                                 Section::make('Order numbers')
                                     ->description('The number each order gets when it is placed, shown to the customer and on the order page.')
                                     ->schema([
-                                        TextInput::make('checkout.order_prefix')->label('Order number prefix')
-                                            ->maxLength(5)->alphaNum()
-                                            ->placeholder(fn () => Order::defaultNumberPrefix(app(ClientContext::class)->client()?->name))
-                                            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
-                                            ->live(onBlur: true)
-                                            ->helperText(fn ($get) => 'Up to 5 letters or numbers. Leave blank to use the one shown in grey, made from your store\'s name. Orders are numbered like '
-                                                .(strtoupper((string) $get('checkout.order_prefix')) ?: Order::defaultNumberPrefix(app(ClientContext::class)->client()?->name))
-                                                .'-'.now()->format('ymd').'-K7QM: the date, then a random code. Changing it affects new orders only.'),
+                                        Text::make(fn () => new HtmlString(
+                                            '<ul class="list-disc space-y-1 ps-5">'
+                                            .'<li>Orders by customers, and a sales person\'s orders for a customer: <strong>'.e(Order::exampleNumber(code: 'K7QM')).'</strong> (your store number, the date, then a random code).</li>'
+                                            .'<li>A sales person\'s orders for themselves: <strong>'.e(Order::exampleNumber(salesSelf: true, code: 'K7QM')).'</strong> (the storefront number first).</li>'
+                                            .'</ul>'
+                                        )),
                                     ]),
                                 Section::make('Invoice')
                                     ->description('Your details as the seller, printed at the top of every order invoice (PDF).')
@@ -175,11 +183,16 @@ class SiteSettings extends Page
                                             ->maxLength(120)->helperText('Leave blank to use the site name.'),
                                         TextInput::make('checkout.invoice_gstin')->label('GSTIN')
                                             ->maxLength(15)->placeholder('22AAAAA0000A1Z5')
-                                            // Format: 2-digit state code, 10-character PAN, entity number, Z, check character.
-                                            ->regex('/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/')
+                                            ->regex(ClientBusinessDetails::GSTIN_PATTERN)
                                             ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
                                             ->validationMessages(['regex' => 'Enter a valid 15-character GSTIN, e.g. 22AAAAA0000A1Z5.'])
                                             ->helperText('Leave blank if you are not GST-registered.'),
+                                        TextInput::make('checkout.invoice_pan')->label('PAN')
+                                            ->maxLength(10)->placeholder('AAAAA0000A')
+                                            ->regex(ClientBusinessDetails::PAN_PATTERN)
+                                            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? strtoupper(trim($state)) : null)
+                                            ->validationMessages(['regex' => 'Enter a valid 10-character PAN, e.g. AAAAA0000A.'])
+                                            ->helperText('The business\'s PAN, for your records.'),
                                         // With the shipping state, decides IGST or CGST + SGST on each order.
                                         Select::make('checkout.invoice_state')->label('State you sell from')
                                             ->options(IndianStates::options())->searchable()->native(false)

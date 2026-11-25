@@ -10,7 +10,7 @@ class BookingLookupRequest extends StorefrontRequest
     {
         return [
             'reference' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-]+$/'],
-            'phone' => $this->phone(),
+            'phone' => $this->phone(mobileOnly: false),
         ];
     }
 

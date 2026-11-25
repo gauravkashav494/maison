@@ -34,7 +34,7 @@
     <dl class="bk-totals mt-3">
         <dt>Subtotal</dt><dd>{{ money($order->subtotal) }}</dd>
         @if($order->discount)
-            <dt>Discount{{ $order->coupon_code ? " ({$order->coupon_code})" : '' }}</dt><dd>− {{ money($order->discount) }}</dd>
+            <dt>{{ $order->discountLine() }}</dt><dd>− {{ money($order->discount) }}</dd>
         @endif
         <dt>Delivery{{ $order->shipping_method ? " · {$order->shipping_method}" : '' }}</dt><dd>{{ $order->shipping_cost ? money($order->shipping_cost) : 'Free' }}</dd>
         @if($order->tax > 0)@foreach($order->taxRows() as $t)<dt>{{ tax_line($t['label'], $t['rate'], (bool) $order->prices_include_tax) }}</dt><dd>{{ money($t['amount']) }}</dd>@endforeach @endif

@@ -20,6 +20,8 @@
     .nowrap { white-space: nowrap; }
     h1 { font-size: 20px; margin: 0; letter-spacing: 1px; }
     .seller-name { font-size: 15px; font-weight: bold; margin: 0 0 2px; }
+    .store-brand { font-size: 20px; font-weight: bold; letter-spacing: .5px; margin: 0 0 6px; }
+    .store-logo { max-height: 56px; max-width: 220px; margin: 0 0 8px; }
     .head-cell { padding-bottom: 14px; border-bottom: 2px solid #1f2328; }
     .meta td { padding: 1px 0; }
     .meta .k { color: #6a737d; padding-right: 10px; }
@@ -54,6 +56,12 @@
 <table class="head">
     <tr>
         <td class="head-cell" style="width: 58%">
+            {{-- The store's name as shoppers know it, then the registered business that sells (GST). --}}
+            @if($logo ?? null)
+                <img class="store-logo" src="{{ $logo }}" alt="{{ $seller['brand'] ?? $seller['name'] }}">
+            @elseif(filled($seller['brand'] ?? null) && strcasecmp(trim($seller['brand']), trim($seller['name'])) !== 0)
+                <p class="store-brand">{{ $seller['brand'] }}</p>
+            @endif
             <p class="seller-name">{{ $seller['name'] }}</p>
             @foreach($seller['address'] as $line)<div>{{ $line }}</div>@endforeach
             @if($seller['phone'] || $seller['email'])<div class="muted">{{ collect([$seller['phone'], $seller['email']])->filter()->implode(' · ') }}</div>@endif
@@ -107,6 +115,7 @@
             <th style="width: 5%">#</th>
             <th>Item</th>
             <th style="width: 16%">SKU</th>
+            @if($itemHsn ?? false)<th style="width: 10%">HSN</th>@endif
             <th class="right" style="width: 8%">Qty</th>
             <th class="right" style="width: 14%">Rate</th>
             @if($itemRates)<th class="right" style="width: 9%">{{ $taxLabel === 'CGST + SGST' ? 'GST' : $taxLabel }}</th>@endif
@@ -119,6 +128,7 @@
                 <td>{{ $i + 1 }}</td>
                 <td>{{ $item->name }}@if($opt = $item->optionsLabel())<div class="opt">{{ $opt }}</div>@endif</td>
                 <td class="muted">{{ $item->sku ?: '—' }}</td>
+                @if($itemHsn ?? false)<td class="muted nowrap">{{ $item->hsn_code ?: '—' }}</td>@endif
                 <td class="right">{{ $item->qty }}</td>
                 <td class="right nowrap">{{ money($item->price) }}</td>
                 @if($itemRates)<td class="right nowrap">{{ $item->tax_rate !== null ? \App\Models\Tax::rateLabel((float) $item->tax_rate) : '—' }}</td>@endif
@@ -135,7 +145,7 @@
             <table>
                 <tr><td class="muted">Subtotal</td><td class="right nowrap">{{ money($order->subtotal) }}</td></tr>
                 @if($order->discount > 0)
-                    <tr><td class="muted">Discount @if($order->coupon_code)({{ $order->coupon_code }})@endif</td><td class="right nowrap">− {{ money($order->discount) }}</td></tr>
+                    <tr><td class="muted">{{ $order->discountLine() }}</td><td class="right nowrap">− {{ money($order->discount) }}</td></tr>
                 @endif
                 <tr><td class="muted">Shipping &amp; handling</td><td class="right nowrap">{{ $order->shipping_cost > 0 ? money($order->shipping_cost) : 'Free' }}</td></tr>
                 @if(! $inclusive)

@@ -14,6 +14,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -41,6 +42,10 @@ class ProductsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
+            // Newest first. reorder() drops the collection's built-in pivot order, which would
+            // otherwise sort ahead of this; the column is qualified because of the pivot join.
+            ->modifyQueryUsing(fn (Builder $query) => $query->reorder())
+            ->defaultSort('products.created_at', 'desc')
             ->columns([
                 ImageColumn::make('image')->label('')->state(fn (Product $r) => Media::url($r->images[0] ?? null))->square()->imageSize(40),
                 TextColumn::make('name')->searchable()->description(fn (Product $r) => $r->sku),

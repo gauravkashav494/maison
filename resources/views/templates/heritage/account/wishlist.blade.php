@@ -11,7 +11,7 @@
             </div>
         </template>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            <template x-for="p in items" :key="p.id">
+            <template x-for="p in items" :key="p.saved ? p.saved.key : p.id">
                 <div>@include('partials.card-dynamic')</div>
             </template>
         </div>

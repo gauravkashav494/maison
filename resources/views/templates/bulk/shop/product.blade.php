@@ -100,10 +100,17 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php $choiceNames = array_column(array_filter($product->variantAttributes(), fn (array $a) => count($a['values']) > 1), 'name'); @endphp
                             @foreach($lines as $line)
                                 @php $key = $line['key']; @endphp
                                 <tr>
-                                    <td class="font-bold" data-label="Size">{{ $line['label'] ?? '—' }}</td>
+                                    {{-- The heart saves exactly this size; the one on the photo saves the product. --}}
+                                    <td class="font-bold" data-label="Size">
+                                        <span class="flex items-center justify-between gap-2">
+                                            <span>{{ $line['label'] ?? '—' }}</span>
+                                            <x-wishlist-button :product="$product" :options="array_intersect_key($line['options'], array_flip($choiceNames))" />
+                                        </span>
+                                    </td>
                                     <td class="bk-code" data-label="Code">{{ $line['sku'] ?: '—' }}</td>
                                     <td class="is-num font-bold" data-label="Price">{{ $line['price_formatted'] }}</td>
                                     @if($showStock)

@@ -177,4 +177,68 @@ class OtpSwitchedOffTest extends TestCase
         $this->onStore()->get('/login')->assertOk()->assertDontSee(route('login.otp'), false);
         $this->onStore()->get('/forgot-password')->assertOk()->assertSee('Email me a reset link');
     }
+
+    // ---- One customer per phone, with codes off --------------------------------------------
+
+    private function signUp(array $overrides = [])
+    {
+        return $this->onStore()->post('/register', $overrides + [
+            'name' => 'Asha Rao', 'email' => 'asha@example.test', 'phone' => '9876543210',
+            'password' => 'Str0ng-pass-123', 'password_confirmation' => 'Str0ng-pass-123',
+        ]);
+    }
+
+    public function test_a_guests_number_gets_the_emailed_link_instead_of_a_second_account(): void
+    {
+        Notification::fake();
+        // An unproven number cannot claim a guest's orders: the guest's own email proves it.
+        $guest = Customer::create(['client_id' => $this->client->id, 'name' => 'A Rao', 'email' => 'old@example.test', 'phone' => '+91 98765 43210', 'is_active' => true]);
+
+        $this->signUp()->assertSessionHasNoErrors()->assertRedirect(route('login'))->assertSessionHas('status');
+
+        $this->assertSame(1, Customer::count());
+        $this->assertGuest('web');
+        $this->assertNull($guest->fresh()->password);
+        Notification::assertSentTo($guest, ResetPassword::class);
+    }
+
+    public function test_a_guests_number_without_an_email_is_sent_to_the_store(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'A Rao', 'email' => null, 'phone' => '9876543210', 'is_active' => true]);
+
+        $this->signUp()->assertSessionHasErrors(['phone' => 'This phone number has ordered with us before. Please contact the store to set up your account.']);
+
+        $this->assertSame(1, Customer::count());
+        $this->assertGuest('web');
+    }
+
+    public function test_a_guest_checkout_never_gives_a_second_customer_a_number_already_in_use(): void
+    {
+        $owner = Customer::create(['client_id' => $this->client->id, 'name' => 'Owner', 'email' => 'owner@example.test', 'phone' => '+91 98765 43210', 'password' => 'old-pass-1', 'is_active' => true]);
+
+        // A new email with that number: a new guest record, without the number.
+        $this->checkout(['email' => 'new@example.test'])->assertSessionHasNoErrors();
+
+        $guest = Customer::where('email', 'new@example.test')->sole();
+        $this->assertNull($guest->phone);
+        $order = Order::withoutGlobalScopes()->sole();
+        $this->assertSame($guest->id, $order->customer_id);
+        $this->assertSame('9876543210', $order->phone, 'The order keeps the number typed.');
+        $this->assertSame('+91 98765 43210', $owner->fresh()->phone);
+    }
+
+    public function test_the_profile_cannot_take_another_customers_number(): void
+    {
+        Customer::create(['client_id' => $this->client->id, 'name' => 'Ravi', 'phone' => '+91 91234 56789', 'is_active' => true]);
+        $asha = Customer::create(['client_id' => $this->client->id, 'name' => 'Asha', 'email' => 'asha@example.test', 'phone' => '9876543210', 'password' => 'Str0ng-pass-123', 'is_active' => true]);
+
+        $this->actingAs($asha, 'web')->onStore()->put('/account/profile', ['name' => 'Asha', 'email' => 'asha@example.test', 'phone' => '9123456789'])
+            ->assertSessionHasErrors(['phone' => 'Another account already uses this phone number.']);
+        $this->assertSame('9876543210', $asha->fresh()->phone);
+
+        // Their own number again is fine.
+        $this->actingAs($asha, 'web')->onStore()->put('/account/profile', ['name' => 'Asha R', 'email' => 'asha@example.test', 'phone' => '9876543210'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Asha R', $asha->fresh()->name);
+    }
 }

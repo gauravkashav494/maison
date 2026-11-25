@@ -2,7 +2,9 @@
 <section class="g-container py-8 lg:py-14">
     <div class="mx-auto grid max-w-4xl overflow-hidden rounded-2xl border border-line bg-white lg:grid-cols-2">
         <div class="hidden flex-col justify-between bg-leaf p-8 text-white lg:flex">
+            <x-store-logo size="h-10" :on-dark="true" class="self-start">
             <div class="flex items-center gap-2"><span class="grid h-9 w-9 place-items-center rounded-xl bg-white/15"><x-ico name="leaf" :size="20" /></span><span class="text-lg font-extrabold">{{ tsetting('site.logo_primary', 'Maison') }}{{ tsetting('site.logo_accent', 'Fresh') }}</span></div>
+            </x-store-logo>
             <div>
                 <p class="text-2xl font-extrabold leading-tight">Groceries in minutes, every day.</p>
                 <ul class="mt-4 space-y-2 text-sm text-white/85">

@@ -62,6 +62,7 @@ class ActivityDescriber
         'show_in_menu' => 'feature in menu & homepage',
         'compare_at_price' => 'compare-at price',
         'sku' => 'SKU',
+        'hsn_code' => 'HSN code',
         'extra_category_1' => 'category tag 1',
         'extra_category_2' => 'category tag 2',
         'url' => 'URL',

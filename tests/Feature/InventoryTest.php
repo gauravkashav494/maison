@@ -350,6 +350,26 @@ class InventoryTest extends TestCase
         $page->resetTableFilters()->assertCanSeeTableRecords([$shirt, $coat]);
     }
 
+    public function test_the_stock_levels_page_names_the_sold_out_variant(): void
+    {
+        $gloves = $this->product('Nitrile Gloves', 800, [
+            'has_variants' => true,
+            'variant_attributes' => [['name' => 'Size', 'values' => ['S', 'M', 'L']]],
+            'variants' => [
+                ['options' => ['Size' => 'S'], 'price' => 100, 'stock' => 400, 'is_active' => true],
+                ['options' => ['Size' => 'M'], 'price' => 100, 'stock' => 0, 'is_active' => true],
+                ['options' => ['Size' => 'L'], 'price' => 100, 'stock' => 400, 'is_active' => true],
+            ],
+        ]);
+        $this->enterClientPanel($this->admin);
+
+        // The product itself is not out of stock: one variant is, and the row says which.
+        Livewire::test(StockLevels::class)
+            ->assertTableColumnStateSet('variants_summary', '3 variants · Sold out: M', $gloves)
+            ->assertTableColumnStateSet('stock_status', Inventory::STATUS_LOW, $gloves)
+            ->assertTableColumnFormattedStateSet('stock_status', '1 variant sold out', $gloves);
+    }
+
     public function test_the_low_stock_level_can_be_changed(): void
     {
         $scarf = $this->product('Silk Scarf', 8);

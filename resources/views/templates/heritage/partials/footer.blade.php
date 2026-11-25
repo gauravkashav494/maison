@@ -31,7 +31,9 @@
         {{-- Logo, social, copyright --}}
         <div class="max-md:pb-6">
             <a href="{{ route('home') }}" class="inline-grid h-[115px] w-[115px] place-items-center rounded-full border-2 border-gold bg-cream text-red">
+                <x-store-logo size="h-14" max="max-w-[90px]">
                 <span class="flex flex-col items-center leading-none"><x-ico name="diamond" :size="14" :stroke="1.8" /><span class="mt-1 font-serif text-[0.8rem] font-semibold uppercase tracking-[0.1em]">{{ Str::substr($h['logo_primary'] ?? 'Annapurna', 0, 9) }}</span><span class="text-[0.65rem] uppercase tracking-[0.2em] text-gold">{{ $h['logo_sub'] ?? '' }}</span></span>
+                </x-store-logo>
             </a>
             <p class="mt-5 max-w-sm text-base leading-[22px] text-cream/85">{{ $h['footer_blurb'] ?? ($site['footer_blurb'] ?? '') }}</p>
             <div class="mt-5 flex gap-2.5">

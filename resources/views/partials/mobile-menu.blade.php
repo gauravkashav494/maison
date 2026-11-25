@@ -8,7 +8,9 @@
            x-transition:leave="transition duration-400 ease-[var(--ease-luxe)]" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
            class="absolute inset-y-0 left-0 flex w-[88%] max-w-md flex-col bg-ivory text-ink" role="dialog" aria-modal="true" aria-label="Menu">
         <div class="flex h-[4.5rem] items-center justify-between border-b border-ink/10 px-5">
+            <x-store-logo size="h-8">
             <span class="font-serif text-xl tracking-[0.12em]">{{ $site['logo_primary'] ?? 'MAISON' }} <span class="italic font-light">{{ $site['logo_accent'] ?? 'Élan' }}</span></span>
+            </x-store-logo>
             <button type="button" @click="$store.ui.closeAll()" aria-label="Close" class="-mr-2 grid h-10 w-10 place-items-center"><x-ico name="close" :size="20" /></button>
         </div>
 

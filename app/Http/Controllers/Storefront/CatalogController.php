@@ -16,6 +16,7 @@ use App\Models\Post;
 use App\Models\Product;
 use App\Models\Store;
 use App\Support\ReviewModeration;
+use App\Support\SavedItems;
 use App\Support\Seo;
 use App\Support\StaffAlerts;
 use Illuminate\Http\JsonResponse;
@@ -129,9 +130,16 @@ class CatalogController extends Controller
         return response()->json(Product::with('category')->active()->where('slug', $slug)->firstOrFail()->toCard());
     }
 
-    /** Batch lookup used by "recently viewed" and the wishlist page (client-side lists of slugs/ids). */
+    /**
+     * Batch lookup used by "recently viewed" (?slugs=…) and the Saved items page (?items=…, the
+     * saved entries: one card per entry, an exact size showing that size; see SavedItems).
+     */
     public function productsJson(Request $request): JsonResponse
     {
+        if ($request->has('items')) {
+            return response()->json(SavedItems::resolve(SavedItems::parse((string) $request->query('items')))->map(SavedItems::card(...))->values());
+        }
+
         $slugs = array_filter(explode(',', (string) $request->query('slugs', '')));
         $ids = array_filter(explode(',', (string) $request->query('ids', '')));
         $query = Product::with('category')->active();

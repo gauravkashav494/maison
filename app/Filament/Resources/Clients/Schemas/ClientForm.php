@@ -27,15 +27,21 @@ class ClientForm
         return $schema->columns(1)->components(array_values(static::sections()));
     }
 
-    /** The wizard steps shared by the create and edit pages (create adds a "Client admin" step). */
-    public static function steps(): array
+    /**
+     * The wizard steps shared by the create and edit pages (each adds its admins step). The pages
+     * put the business details at the top of the first step, so the business and the store it
+     * runs are filled in together.
+     *
+     * @param  array<int, Section>  $before  sections shown above the client's own in the first step
+     */
+    public static function steps(array $before = []): array
     {
         $sections = static::sections();
 
         return [
-            Step::make('Client & store')->icon('heroicon-o-building-storefront')
-                ->description('Who they are and which store they run')
-                ->schema([$sections['client']]),
+            Step::make('Business & store')->icon('heroicon-o-building-storefront')
+                ->description('The business behind it and the store it runs')
+                ->schema([...$before, $sections['client']]),
             Step::make('Plan & limits')->icon('heroicon-o-credit-card')
                 ->description('Allowances for products, images and storage')
                 ->schema([$sections['plan']]),
@@ -57,9 +63,14 @@ class ClientForm
     public static function sections(): array
     {
         return [
-            'client' => Section::make('Client')->columns(2)->schema([
-                TextInput::make('name')->required()->maxLength(120)->live(onBlur: true)
-                    ->afterStateUpdated(fn ($set, $get, $state) => blank($get('subdomain')) ? $set('subdomain', Str::slug((string) $state)) : null),
+            'client' => Section::make('Store')->columns(2)->schema([
+                // The trading name shoppers see. It starts the store's site name, logo text and SEO
+                // title when the client is created; after that those are the client's own (Site settings).
+                TextInput::make('name')->label('Store name')->required()->maxLength(120)->live(onBlur: true)
+                    ->afterStateUpdated(fn ($set, $get, $state) => blank($get('subdomain')) ? $set('subdomain', Str::slug((string) $state)) : null)
+                    ->helperText(fn (?Client $record) => $record
+                        ? 'The name used for this client across the platform. The store\'s own site name is changed in its Site settings.'
+                        : 'The name shoppers see. Usually the same as the registered business name above; change it if they trade under a brand. It also becomes the store\'s site name and title, which the client can change later.'),
                 TextInput::make('subdomain')->label('Subdomain')
                     ->suffix(fn () => '.'.Client::baseDomain())
                     ->placeholder('acme')
@@ -85,7 +96,7 @@ class ClientForm
                         ? 'Fixed: the store\'s address and its database are named after it.'
                         : 'The store\'s web address. It also names the database, so it cannot be changed later.'),
                 Select::make('storefront_id')
-                    ->label('Store')
+                    ->label('Store template')
                     // Only active stores can be chosen; an existing client keeps its own store listed even
                     // after that store is deactivated, so editing it does not blank the field.
                     ->options(fn (?Client $record) => self::selectableStorefronts($record))
@@ -102,7 +113,7 @@ class ClientForm
                         // applied: start it on each time the choice changes.
                         $set('move_content', true);
                     })
-                    ->helperText('The store (template) this client runs. Two clients may run the same store; they share no data.'),
+                    ->helperText('The store design and catalogue type this client runs. Two clients may run the same template; they share no data.'),
                 // Changing the store of an existing client to one with another template: offer to
                 // bring their catalogue along, or it disappears from their site (it stays in admin).
                 Toggle::make('move_content')

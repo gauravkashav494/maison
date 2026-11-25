@@ -11,9 +11,10 @@ use App\Models\Setting;
 use App\Models\Store;
 use App\Models\Storefront;
 use App\Support\Invoice;
-use App\Support\SalesOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -70,27 +71,79 @@ class SalesOrderTest extends TestCase
         $this->as($customer)->postJson('/cart/items', ['product_id' => $this->product->id, 'options' => [], 'qty' => 2])->assertSuccessful();
     }
 
+    /** A delivery address in Maharashtra (the seller is in Punjab): IGST. */
+    private function address(array $extra = []): array
+    {
+        return $extra + [
+            'shipping_line1' => '4 Marine Drive', 'shipping_city' => 'Mumbai', 'shipping_state' => 'Maharashtra',
+            'shipping_postal_code' => '400001', 'shipping_country' => 'India', 'shipping_method' => 'standard',
+            'payment_method' => 'cod',
+        ];
+    }
+
+    /** A sales person's order for themselves, with their own contact details. */
+    private function selfOrder(array $extra = []): array
+    {
+        return $this->address($extra + ['order_for' => 'self', 'shipping_name' => 'Ravi Sales', 'phone' => '9000000001']);
+    }
+
     private function latestOrder(): Order
     {
         return Order::withoutGlobalScopes()->latest('id')->firstOrFail();
     }
 
-    public function test_checkout_page_asks_who_the_order_is_for_instead_of_an_address(): void
+    public function test_checkout_page_asks_who_the_order_is_for_and_the_delivery_address(): void
     {
         $this->addToCart($this->salesperson);
 
         $this->as($this->salesperson)->get('/checkout')->assertOk()
-            ->assertSee('Who is this order for?')
             ->assertSee('name="order_for"', false)
-            ->assertDontSee('name="shipping_line1"', false)
-            ->assertDontSee('name="shipping_method"', false);
+            ->assertSee('name="shipping_line1"', false)
+            ->assertSee('name="shipping_method"', false);
     }
 
-    public function test_sales_person_orders_for_themselves_with_no_address_and_no_delivery_charge(): void
+    /**
+     * The "Myself / A customer" switch is an Alpine script written in Blade. A line ending in
+     *
+     * @js(...) loses its line break (PHP drops the newline after ?>), joining the next line on
+     * and breaking the whole script: choosing "A customer" then left the sales person's details
+     * in the fields. Each statement of the rendered script must stay on its own line.
+     */
+    public function test_the_order_for_switch_script_keeps_each_statement_on_its_own_line(): void
     {
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'payment_method' => 'cod'])
+        $html = $this->as($this->salesperson)->get('/checkout')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/x-data="\{\s*orderFor:/', $html);
+        $script = html_entity_decode(Str::between($html, 'x-data="{', '}" class="mt-3"'));
+
+        // A value straight followed, after spaces, by another statement on the same line.
+        $this->assertDoesNotMatchRegularExpression("/'(self|customer)' {2,}(this|const|let|box|if)\\b/", $script);
+        $this->assertStringContainsString("const from = to === 'self' ? 'customer' : 'self';", $script);
+        $this->assertStringContainsString("const self = this.orderFor === 'self';", $script);
+    }
+
+    /** The same trap anywhere: no view line may end in @js(...). */
+    public function test_no_view_line_ends_in_a_js_directive(): void
+    {
+        $balanced = '\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)';
+        $found = [];
+        foreach (File::allFiles(resource_path('views')) as $file) {
+            foreach (preg_split('/\R/', $file->getContents()) as $i => $line) {
+                if (preg_match('/@js'.$balanced.'\s*$/', $line)) {
+                    $found[] = $file->getRelativePathname().':'.($i + 1);
+                }
+            }
+        }
+
+        $this->assertSame([], $found, 'End these lines with ";" or "," so the next line is not joined on.');
+    }
+
+    public function test_sales_person_orders_for_themselves_with_a_delivery_address(): void
+    {
+        $this->addToCart($this->salesperson);
+
+        $this->as($this->salesperson)->post('/checkout', $this->selfOrder(['save_address' => 1]))
             ->assertSessionHasNoErrors()->assertRedirect();
 
         $order = $this->latestOrder();
@@ -98,31 +151,53 @@ class SalesOrderTest extends TestCase
         $this->assertSame($this->salesperson->id, (int) $order->salesperson_id);
         $this->assertSame('Ravi Sales', $order->shipping_name);
         $this->assertSame('9000000001', $order->phone);
-        $this->assertSame('', $order->shipping_line1);
-        $this->assertSame('', $order->shipping_city);
-        $this->assertSame('', $order->shipping_state);
-        $this->assertSame('', $order->shipping_postal_code);
-        $this->assertSame('', $order->shipping_country);
-        $this->assertSame([$order->shipping_name], $order->shippingAddressLines());
-        $this->assertSame('No delivery (sales order)', $order->shipping_method);
-        // No delivery charge and no cash-on-delivery fee.
-        $this->assertEquals(0, $order->shipping_cost);
-        $this->assertEquals(2000, $order->total);
-        $this->assertNull($order->estimated_delivery);
-        // Sold at the counter, within the seller's own state.
-        $this->assertSame('CGST + SGST', $order->tax_label);
-        $this->assertSame('Punjab (03)', Invoice::for($order)->data()['placeOfSupply']);
+        $this->assertSame('4 Marine Drive', $order->shipping_line1);
+        $this->assertSame('Mumbai', $order->shipping_city);
+        $this->assertSame('Maharashtra', $order->shipping_state);
+        $this->assertSame('Standard', $order->shipping_method);
+        // Delivered like any order: delivery charge, cash-on-delivery fee and a delivery date.
+        $this->assertEquals(290, $order->shipping_cost); // 250 delivery + 40 cash-on-delivery fee
+        $this->assertNotNull($order->estimated_delivery);
+        // GST by where it is delivered: out of the seller's state.
+        $this->assertSame('IGST', $order->tax_label);
+        $order->setStatus(Order::STATUS_DISPATCHED);
+        $this->assertSame('Maharashtra (27)', Invoice::for($order->refresh())->data()['placeOfSupply']);
         $this->assertTrue($order->isSalesOrder());
-        $this->assertSame(0, $this->salesperson->addresses()->count());
+        // Their own order: the address is saved to their account when asked.
+        $this->assertSame(1, $this->salesperson->addresses()->count());
+        // Numbered <storefront id>-<client id>-<date>-<code>.
+        $this->assertMatchesRegularExpression('/^'.$this->client->storefront_id.'-'.$this->client->id.'-'.now()->format('ymd').'-[A-Z2-9]{4}$/', $order->number);
+    }
+
+    public function test_a_sales_order_needs_a_delivery_address(): void
+    {
+        $this->addToCart($this->salesperson);
+
+        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'shipping_name' => 'Ravi Sales', 'phone' => '9000000001', 'payment_method' => 'cod'])
+            ->assertSessionHasErrors(['shipping_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_method']);
+
+        $this->assertSame(0, Order::withoutGlobalScopes()->count());
+    }
+
+    public function test_an_older_sales_order_without_an_address_is_still_supplied_in_the_sellers_state(): void
+    {
+        $this->addToCart($this->salesperson);
+        $this->as($this->salesperson)->post('/checkout', $this->selfOrder())->assertSessionHasNoErrors();
+        $order = $this->latestOrder();
+        $order->forceFill(['shipping_line1' => '', 'shipping_city' => '', 'shipping_state' => '', 'shipping_postal_code' => '', 'shipping_country' => ''])->save();
+
+        $order->setStatus(Order::STATUS_DISPATCHED);
+
+        $this->assertSame('Punjab (03)', Invoice::for($order->refresh())->data()['placeOfSupply']);
     }
 
     public function test_sales_person_orders_for_a_new_customer(): void
     {
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', [
-            'order_for' => 'customer', 'shipping_name' => 'Meena Kaur', 'phone' => '+91 98765 43210', 'payment_method' => 'cod',
-        ])->assertSessionHasNoErrors()->assertRedirect();
+        $this->as($this->salesperson)->post('/checkout', $this->address([
+            'order_for' => 'customer', 'shipping_name' => 'Meena Kaur', 'phone' => '+91 98765 43210', 'save_address' => 1,
+        ]))->assertSessionHasNoErrors()->assertRedirect();
 
         $order = $this->latestOrder();
         $customer = Customer::where('phone', '9876543210')->firstOrFail();
@@ -132,8 +207,13 @@ class SalesOrderTest extends TestCase
         $this->assertSame($customer->id, (int) $order->customer_id);
         $this->assertSame($this->salesperson->id, (int) $order->salesperson_id);
         $this->assertSame('Meena Kaur', $order->shipping_name);
-        $this->assertSame('', $order->shipping_line1);
-        $this->assertEquals(0, $order->shipping_cost);
+        $this->assertSame('4 Marine Drive', $order->shipping_line1);
+        $this->assertEquals(290, $order->shipping_cost); // 250 delivery + 40 cash-on-delivery fee
+        // A customer's details are never saved from a sales checkout, nor to the sales person's account.
+        $this->assertSame(0, $customer->addresses()->count());
+        $this->assertSame(0, $this->salesperson->addresses()->count());
+        // Numbered like the customer's own orders: <client id>-<date>-<code>.
+        $this->assertMatchesRegularExpression('/^'.$this->client->id.'-'.now()->format('ymd').'-[A-Z2-9]{4}$/', $order->number);
     }
 
     public function test_sales_person_orders_for_an_existing_customer_by_phone(): void
@@ -144,9 +224,9 @@ class SalesOrderTest extends TestCase
         ]);
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', [
-            'order_for' => 'customer', 'shipping_name' => 'Someone Else', 'phone' => '9876543210', 'payment_method' => 'cod',
-        ])->assertSessionHasNoErrors()->assertRedirect();
+        $this->as($this->salesperson)->post('/checkout', $this->address([
+            'order_for' => 'customer', 'shipping_name' => 'Someone Else', 'phone' => '9876543210',
+        ]))->assertSessionHasNoErrors()->assertRedirect();
 
         $this->assertSame($existing->id, (int) $this->latestOrder()->customer_id);
         // An existing customer is never changed from a sales checkout.
@@ -154,13 +234,32 @@ class SalesOrderTest extends TestCase
         $this->assertSame(2, Customer::count());
     }
 
+    public function test_the_customer_lookup_gives_a_known_customers_saved_address(): void
+    {
+        $existing = Customer::create([
+            'client_id' => $this->client->id, 'name' => 'Meena K', 'email' => 'meena@example.test',
+            'phone' => '9876543210', 'password' => 'password123', 'is_active' => true,
+        ]);
+        $existing->addresses()->create([
+            'name' => 'Meena K', 'phone' => '9876543210', 'line1' => '4 Marine Drive', 'city' => 'Mumbai',
+            'state' => 'Maharashtra', 'postal_code' => '400001', 'country' => 'India', 'is_default' => true,
+        ]);
+
+        $this->as($this->salesperson)->postJson(route('checkout.sales-customer'), ['phone' => '9876543210'])->assertOk()
+            ->assertJson(['name' => 'Meena K', 'email' => 'meena@example.test', 'address' => [
+                'shipping_line1' => '4 Marine Drive', 'shipping_city' => 'Mumbai', 'shipping_state' => 'Maharashtra', 'shipping_postal_code' => '400001',
+            ]]);
+        $this->as($this->salesperson)->postJson(route('checkout.sales-customer'), ['phone' => '9123456789'])->assertOk()
+            ->assertJson(['name' => null, 'address' => null]);
+    }
+
     public function test_a_customer_order_needs_the_customers_name_and_phone(): void
     {
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'customer', 'payment_method' => 'cod'])
+        $this->as($this->salesperson)->post('/checkout', $this->address(['order_for' => 'customer']))
             ->assertSessionHasErrors(['phone', 'shipping_name']);
-        $this->as($this->salesperson)->post('/checkout', ['payment_method' => 'cod'])
+        $this->as($this->salesperson)->post('/checkout', $this->address(['shipping_name' => 'Ravi Sales', 'phone' => '9000000001']))
             ->assertSessionHasErrors(['order_for']);
 
         $this->assertSame(0, Order::withoutGlobalScopes()->count());
@@ -202,7 +301,7 @@ class SalesOrderTest extends TestCase
         Cache::forget('settings.all');
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'payment_method' => 'cod'])
+        $this->as($this->salesperson)->post('/checkout', $this->selfOrder())
             ->assertSessionHasNoErrors()->assertRedirect();
         $order = $this->latestOrder();
         $this->assertSame('Alpha Retail Pvt Ltd', $order->seller['name']);
@@ -215,11 +314,30 @@ class SalesOrderTest extends TestCase
             'invoice_state' => '27', 'invoice_address' => '1 New Street, Pune', 'invoice_note' => 'New note.'] + $setting->value]);
         Cache::forget('settings.all');
 
+        $order->refresh()->setStatus(Order::STATUS_DISPATCHED);
         $data = Invoice::for($order->refresh())->data();
         $this->assertSame('Alpha Retail Pvt Ltd', $data['seller']['name']);
         $this->assertSame('03AAACA1234A1Z5', $data['seller']['gstin']);
         $this->assertSame('Thank you.', $data['seller']['note']);
-        $this->assertSame('Punjab (03)', $data['placeOfSupply']);
+        $this->assertSame('Maharashtra (27)', $data['placeOfSupply']);
+    }
+
+    public function test_a_sales_order_gets_its_invoice_only_when_dispatched(): void
+    {
+        $this->addToCart($this->salesperson);
+        $this->as($this->salesperson)->post('/checkout', $this->selfOrder())
+            ->assertSessionHasNoErrors()->assertRedirect();
+
+        $order = $this->latestOrder();
+        $this->assertTrue($order->isSalesOrder());
+        $this->assertNull($order->invoice_number);
+        $this->assertFalse($order->hasInvoice());
+
+        $order->setStatus(Order::STATUS_DISPATCHED);
+
+        $order->refresh();
+        $this->assertNotNull($order->invoice_number);
+        $this->assertTrue($order->hasInvoice());
     }
 
     public function test_without_a_gst_state_the_tax_is_plain_gst(): void
@@ -229,11 +347,10 @@ class SalesOrderTest extends TestCase
         Cache::forget('settings.all');
         $this->addToCart($this->salesperson);
 
-        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'payment_method' => 'cod'])
+        $this->as($this->salesperson)->post('/checkout', $this->selfOrder())
             ->assertSessionHasNoErrors()->assertRedirect();
 
         $order = $this->latestOrder();
         $this->assertSame('GST', $order->tax_label);
-        $this->assertSame(SalesOrder::shippingMethod()['name'], $order->shipping_method);
     }
 }

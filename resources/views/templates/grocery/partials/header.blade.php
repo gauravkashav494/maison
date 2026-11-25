@@ -25,10 +25,12 @@
         @unless(request()->routeIs('home'))<button type="button" @click="$store.app.back()" class="-ml-2 grid h-10 w-9 shrink-0 place-items-center rounded-lg text-ink hover:bg-paper lg:hidden" aria-label="Back"><x-ico name="arrow-left" :size="22" /></button>@endunless
         {{-- Logo --}}
         <a data-store-logo href="{{ route('home') }}" class="flex shrink-0 items-center gap-2" aria-label="{{ $site['name'] ?? config('app.name') }} — home">
+            <x-store-logo size="h-9 lg:h-10">
             <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
             <span class="text-[1.2rem] font-extrabold leading-none tracking-tight">
                 <span class="text-leaf-dark">{{ $g['logo_primary'] ?? 'Maison' }}</span><span class="text-saffron">{{ $g['logo_accent'] ?? 'Fresh' }}</span>
             </span>
+            </x-store-logo>
         </a>
 
         {{-- Location --}}

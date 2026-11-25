@@ -33,7 +33,9 @@
 
     <div class="bk-wrap grid gap-6 py-7 sm:grid-cols-2 lg:grid-cols-4">
         <div>
+            <x-store-logo size="h-10" :on-dark="true">
             <p class="bk-logo"><span class="bk-logo-mark"><x-heroicon-o-cube aria-hidden="true" /></span><span>{{ $storeName }}</span></p>
+            </x-store-logo>
             <p class="mt-3 leading-relaxed">{{ tsetting('site.footer_blurb', '') }}</p>
             @if($socials)
                 <div class="mt-4 flex items-center gap-2">

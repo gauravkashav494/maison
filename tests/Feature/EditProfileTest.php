@@ -90,7 +90,8 @@ class EditProfileTest extends TestCase
                 ->assertHasFormErrors(['phone']);
         }
 
-        foreach (['+91 05876 5432', '+91 1800 1234567', '+999 1234567', '98765'] as $invalid) {
+        // Mobiles only: a landline with its area code (Delhi 011, Amritsar 0183) is refused.
+        foreach (['+91 05876 5432', '+91 1800 1234567', '+999 1234567', '98765', '011 2345 6789', '+91 183 250 0000', '5123456789'] as $invalid) {
             $this->assertNull(PhoneNumber::normalise($invalid), $invalid);
         }
 

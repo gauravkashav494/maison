@@ -46,7 +46,7 @@
                     </div>
                     <div class="absolute right-3 top-3 flex gap-1.5">
                         <button type="button" @click="share()" class="grid h-9 w-9 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-primary" aria-label="Share"><x-ico name="share" :size="16" /></button>
-                        <button type="button" @click="$store.wishlist.toggle(p.id, p.name)" class="grid h-9 w-9 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has(p.id) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
+                        <button type="button" @click="$store.wishlist.toggle(p.id, p.name, choice)" class="grid h-9 w-9 place-items-center rounded-full bg-white/95 text-slate shadow-sm hover:text-danger" :class="$store.wishlist.has(p.id, choice) && 'text-danger'" aria-label="Save to wishlist"><x-ico name="heart" :size="16" /></button>
                     </div>
                     <template x-if="slides.length > 1"><div><button type="button" @click="prev()" class="rail-btn absolute left-3 top-1/2 -translate-y-1/2" aria-label="Previous image"><x-ico name="chevron-left" :size="18" /></button><button type="button" @click="next()" class="rail-btn absolute right-3 top-1/2 -translate-y-1/2" aria-label="Next image"><x-ico name="chevron-right" :size="18" /></button></div></template>
                 </div>

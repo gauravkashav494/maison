@@ -34,8 +34,10 @@
         {{-- Brand --}}
         <div class="max-sm:pb-6 lg:col-span-4">
             <a href="{{ route('home') }}" class="flex items-center gap-2">
+                <x-store-logo size="h-10">
                 <span class="grid h-9 w-9 place-items-center rounded-xl bg-leaf text-white"><x-ico name="leaf" :size="20" :stroke="2.2" /></span>
                 <span class="text-xl font-extrabold tracking-tight"><span class="text-leaf-dark">{{ $g['logo_primary'] ?? 'Maison' }}</span><span class="text-saffron">{{ $g['logo_accent'] ?? 'Fresh' }}</span></span>
+                </x-store-logo>
             </a>
             <p class="mt-4 max-w-sm text-sm leading-relaxed text-slate">{{ $g['footer_blurb'] ?? ($site['footer_blurb'] ?? '') }}</p>
             <ul class="mt-5 space-y-2 text-sm">

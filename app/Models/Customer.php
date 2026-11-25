@@ -19,8 +19,8 @@ use Illuminate\Support\Carbon;
  * shopping with two clients has two accounts, and neither client can see the other's.
  * They have no admin access of any kind.
  *
- * A sales person (is_salesperson, set only in the admin) is a customer account whose orders
- * need no delivery address: see SalesOrder.
+ * A sales person (is_salesperson, set only in the admin) is a customer account that can also
+ * order for the customers it serves: see SalesOrder.
  */
 class Customer extends Authenticatable
 {
@@ -82,7 +82,7 @@ class Customer extends Authenticatable
         return $this->password !== null || $this->phone_verified_at !== null;
     }
 
-    /** A sales person: checks out without a delivery address, for themselves or for a customer (SalesOrder). */
+    /** A sales person: checks out for themselves or for a customer (SalesOrder). */
     public function isSalesperson(): bool
     {
         return (bool) $this->is_salesperson;

@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources\Categories\Pages;
 
+use App\Filament\Resources\Categories\CategoryDeleteActions;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Support\StorefrontLink;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewCategory extends ViewRecord
@@ -22,7 +22,7 @@ class ViewCategory extends ViewRecord
                 ->color('primary')
                 ->hidden(fn () => $this->getRecord()->trashed() || ! $this->getRecord()->is_active)
                 ->url(fn () => StorefrontLink::to($this->getRecord(), 'shop/'.$this->getRecord()->slug), shouldOpenInNewTab: true),
-            RestoreAction::make(),
+            CategoryDeleteActions::restore(),
             EditAction::make(),
         ];
     }

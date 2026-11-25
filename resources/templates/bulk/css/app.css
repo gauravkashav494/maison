@@ -549,6 +549,18 @@ h1, h2, h3 { font-family: inherit; letter-spacing: -.01em; }
 .bk-list .bk-group th { background: var(--bk-brand-soft); color: var(--bk-brand-ink); text-align: left; font-size: .75rem; font-weight: 800;
   letter-spacing: .07em; text-transform: uppercase; padding: .55rem .75rem; border-bottom: 1px solid var(--bk-line); }
 .bk-list .bk-group:hover { background: transparent; }
+/* Saved items: a product with several sizes is one heading row, its sizes indented under it
+   (lined up with the name) and a firmer line before the next product. */
+.bk-list .bk-product th { background: var(--bk-card); color: inherit; font-size: .9375rem; letter-spacing: normal; text-transform: none;
+  font-weight: inherit; padding: .5rem .75rem .25rem; border-bottom: 0; }
+.bk-list tr.is-size td { border-bottom-style: dashed; }
+.bk-list tr.is-size td:first-child { padding-left: 3.75rem; }
+.bk-list tr.is-last-size td { border-bottom-style: solid; }
+@media (max-width: 767px) {
+  .bk-list.is-stack tbody tr.is-size { padding-left: 1.75rem; border-bottom-style: dashed; }
+  .bk-list.is-stack tbody tr.is-last-size { border-bottom-style: solid; }
+  .bk-list.is-stack tbody tr.bk-product { border-bottom: 0; }
+}
 @media (max-width: 767px) {
   .bk-list.is-stack tbody tr.bk-group { padding: 0; }
   .bk-list.is-stack .bk-group th { display: block; }

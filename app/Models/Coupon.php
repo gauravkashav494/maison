@@ -95,11 +95,20 @@ class Coupon extends Model
 
     public function describe(): string
     {
-        return match ($this->type) {
-            'percent' => rtrim(rtrim(number_format($this->value, 2, '.', ''), '0'), '.').'% off',
-            'fixed' => money($this->value).' off',
+        return static::describeOffer($this->type, (float) $this->value) ?? $this->code;
+    }
+
+    /**
+     * "10% off", "₹200.00 off" or "Free shipping" for a code's type and value; also used for the
+     * copy an order keeps of the code it was placed with. Null for an unknown type.
+     */
+    public static function describeOffer(?string $type, ?float $value): ?string
+    {
+        return match ($type) {
+            'percent' => rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.').'% off',
+            'fixed' => money((float) $value).' off',
             'free_shipping' => 'Free shipping',
-            default => $this->code,
+            default => null,
         };
     }
 }

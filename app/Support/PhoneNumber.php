@@ -14,6 +14,9 @@ class PhoneNumber
 {
     public const DEFAULT_COUNTRY = 'IN';
 
+    /** An Indian mobile number's 10 national digits: they start with 6, 7, 8 or 9 (landlines are refused). */
+    public const INDIA_MOBILE = '/^[6-9]\d{9}$/';
+
     /**
      * Countries offered in the phone field and accepted on save. India only for now; add a code
      * from COUNTRIES here and the field shows its country dropdown again.
@@ -22,7 +25,8 @@ class PhoneNumber
 
     /** @var array<string, array{name: string, dial: string, pattern: string, example: string, hint: string}> */
     public const COUNTRIES = [
-        'IN' => ['name' => 'India', 'dial' => '91', 'pattern' => '/^[1-9]\d{9}$/', 'digits' => 10, 'groups' => [5, 5], 'example' => '9876543210', 'hint' => '10 digits: a mobile, or a landline with its area code'],
+        // Mobile numbers only: 10 digits starting with 6, 7, 8 or 9 (landlines are refused).
+        'IN' => ['name' => 'India', 'dial' => '91', 'pattern' => self::INDIA_MOBILE, 'digits' => 10, 'groups' => [5, 5], 'example' => '9876543210', 'hint' => '10-digit mobile number starting with 6, 7, 8 or 9'],
         // One entry for +1: the number alone cannot tell the two apart.
         'US' => ['name' => 'United States / Canada', 'dial' => '1', 'pattern' => '/^[2-9]\d{2}[2-9]\d{6}$/', 'example' => '201 555 0123', 'hint' => '10 digits: area code and number'],
         'GB' => ['name' => 'United Kingdom', 'dial' => '44', 'pattern' => '/^[1-37]\d{8,9}$/', 'example' => '7400 123456', 'hint' => '9 or 10 digits after the leading 0'],

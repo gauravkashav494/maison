@@ -1,5 +1,6 @@
 import Alpine from 'alpinejs';
 import { makeToast, toasts } from './toast';
+import { tidy, withSavedItems } from './saved-items';
 import intersect from '@alpinejs/intersect';
 import persist from '@alpinejs/persist';
 import focus from '@alpinejs/focus';
@@ -140,35 +141,31 @@ Alpine.store('cart', {
 --------------------------------------------------------------------------- */
 const accountWishlist = document.querySelector('meta[name="account-wishlist"]');
 
-Alpine.store('wishlist', {
+Alpine.store('wishlist', withSavedItems({
+    // Entries (see saved-items.js): product ids, or { id, options } for an exact size.
     ids: Alpine.$persist([]).as('elan-wishlist'),
     owner: Alpine.$persist(null).as('elan-wishlist-owner'),
-    has(id) { return this.ids.includes(id); },
-    toggle(id) {
-        this.ids = this.has(id) ? this.ids.filter((x) => x !== id) : [id, ...this.ids];
-        this.save();
-    },
-    get count() { return this.ids.length; },
     init() {
+        this.ids = tidy(this.ids);
         if (!accountWishlist) {
             if (this.owner) { this.ids = []; this.owner = null; } // signed out
             return;
         }
         let saved = [];
-        try { saved = JSON.parse(accountWishlist.content || '[]').map(Number).filter(Boolean); } catch { /* none */ }
+        try { saved = tidy(JSON.parse(accountWishlist.content || '[]')); } catch { /* none */ }
         const account = accountWishlist.dataset.account;
         const device = this.owner === null || this.owner === account ? this.ids : [];
-        const merged = [...new Set([...device, ...saved])];
+        const merged = tidy([...device, ...saved]);
         this.ids = merged;
         this.owner = account;
-        if (merged.length !== saved.length || merged.some((id, i) => id !== saved[i])) this.save();
+        if (JSON.stringify(merged) !== JSON.stringify(saved)) this.save();
     },
     async save() {
         if (!accountWishlist) return;
         try { await api('/account/wishlist', { method: 'PUT', body: { ids: this.ids } }); }
         catch { /* kept on the device; saved with the next change */ }
     },
-});
+}, { changed() { this.save(); } }));
 
 Alpine.store('recent', {
     terms: Alpine.$persist([]).as('elan-recent-searches'),

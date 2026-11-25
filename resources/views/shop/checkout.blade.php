@@ -20,12 +20,12 @@
             {{-- Contact & shipping address --}}
             <fieldset>
                 <legend class="flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">01</span><span class="font-serif text-xl">@if($salesOrder ?? false)Who is this order for? @else Contact &amp; shipping @endif</span></span>
+                    <span class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">01</span><span class="font-serif text-xl">Contact &amp; shipping</span></span>
                     @guest<span class="text-xs text-smoke">Have an account? <a href="{{ route('login') }}?redirect=checkout" class="underline underline-offset-4">Sign in</a></span>@endguest
                 </legend>
                 @if($salesOrder ?? false)
-                    @include('partials.checkout.sales-order', ['labelClass' => 'block text-[0.625rem] uppercase tracking-[0.18em] text-smoke', 'fieldClass' => 'input-luxe', 'errorClass' => 'text-xs text-rouge', 'radioClass' => 'accent-ink'])
-                @else
+                    @include('partials.checkout.sales-order', ['errorClass' => 'text-xs text-rouge', 'radioClass' => 'accent-ink'])
+                @endif
                 <div class="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-12">
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Phone<span class="req" aria-hidden="true">*</span></span><input name="phone" type="tel" value="{{ $old('phone', $user?->phone ?? $address?->phone) }}" class="{{ $field }}" autocomplete="tel">@error('phone')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                     <label class="col-span-2 sm:col-span-4"><span class="{{ $label }}">Full name<span class="req" aria-hidden="true">*</span></span><input name="shipping_name" value="{{ $old('shipping_name', $address?->name ?? $user?->name) }}" class="{{ $field }}" autocomplete="name">@error('shipping_name')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
@@ -38,11 +38,8 @@
                     <label class="sm:col-span-3"><span class="{{ $label }}">Country<span class="req" aria-hidden="true">*</span></span><input name="shipping_country" value="India" readonly aria-readonly="true" title="We deliver within India only" class="{{ $field }}" autocomplete="country-name">@error('shipping_country')<span class="text-xs text-rouge">{{ $message }}</span>@enderror</label>
                 </div>
                 @auth<label class="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" name="save_address" value="1" class="accent-ink" checked> Save this address to my account</label>@endauth
-                @endif
             </fieldset>
 
-            {{-- A sales person's order is not delivered (SalesOrder): no delivery method to choose. --}}
-            @unless($salesOrder ?? false)
             {{-- Shipping method --}}
             <fieldset>
                 <legend class="flex items-baseline gap-2"><span class="font-serif text-lg text-taupe">02</span><span class="font-serif text-xl">Delivery method<span class="req" aria-hidden="true">*</span></span></legend>
@@ -60,7 +57,6 @@
                     @endforeach
                 </div>
             </fieldset>
-            @endunless
 
             {{-- Payment --}}
             <fieldset>
