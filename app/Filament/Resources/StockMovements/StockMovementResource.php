@@ -59,7 +59,7 @@ class StockMovementResource extends Resource
                 TextColumn::make('reason')->label('Why')->badge()
                     ->formatStateUsing(fn (StockMovement $r) => $r->reasonLabel())
                     ->color(fn (StockMovement $r) => match ($r->reason) {
-                        StockMovement::SALE => 'info',
+                        StockMovement::SALE, StockMovement::SHOP_SALE => 'info',
                         StockMovement::DAMAGED => 'danger',
                         StockMovement::RECEIVED, StockMovement::RETURNED, StockMovement::CANCELLED => 'success',
                         default => 'gray',
@@ -74,7 +74,7 @@ class StockMovementResource extends Resource
                 TextColumn::make('by_name')->label('By')
                     ->placeholder(fn (StockMovement $r) => match ($r->reason) {
                         StockMovement::SALE => 'Customer',
-                        StockMovement::SYNCED => 'Sync agent',
+                        StockMovement::SYNCED, StockMovement::SHOP_SALE => 'Sync agent',
                         default => 'System',
                     }),
                 TextColumn::make('note')->placeholder('—')->wrap()->toggleable(),

@@ -350,7 +350,7 @@ class SyncInbound
                     $product->price = $item['price'];
                 }
 
-                return $this->saved($product, $sku);
+                return $this->saved($product, $sku, $item);
             });
         }, $items);
     }
@@ -366,16 +366,20 @@ class SyncInbound
         $product->variants = $variants;
         $product->stock = array_sum(array_map(fn (array $variant) => (int) ($variant['stock'] ?? 0), $variants));
 
-        return $this->saved($product, $item['sku']);
+        return $this->saved($product, $item['sku'], $item);
     }
 
-    private function saved(Product $product, string $sku): array
+    private function saved(Product $product, string $sku, array $item = []): array
     {
         if (! $product->isDirty()) {
             return SyncResult::of($sku, SyncResult::UNCHANGED);
         }
-        // Shown in the stock history as the local system's count, not a product-form edit.
-        $product->stockChangeReason = StockMovement::SYNCED;
+        // In the stock history with the local system's reason (stock received, a counter sale,
+        // a count…), as the Adjust stock screen records it; "From local system" when it gives none.
+        // Not a product-form edit either way.
+        $product->stockChangeReason = StockMovement::LOCAL_REASONS[$item['reason'] ?? ''] ?? StockMovement::SYNCED;
+        $product->stockChangeNote = $item['note'] ?? null;
+        $product->stockChangeBy = 'Sync agent';
         $product->save();
 
         return SyncResult::of($sku, SyncResult::UPDATED, ['stock' => (int) $product->stock]);

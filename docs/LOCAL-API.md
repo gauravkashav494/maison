@@ -12,7 +12,8 @@ What goes in each direction:
 
 | Data | Direction | Endpoint |
 |---|---|---|
-| Product master (with variants and stock) | your software → agent | `GET /products` |
+| Product master (with variants) | your software → agent | `GET /products` |
+| Stock levels, with why each one changed | your software → agent | `GET /stock` |
 | Customer master | your software → agent | `GET /customers` |
 | Web orders | agent → your software | `POST /orders` |
 | Changes to web orders (cancelled, invoice number) | agent → your software | `POST /orders/{number}/update` |
@@ -38,7 +39,7 @@ What goes in each direction:
 
 ### Paging and "changed since"
 
-The product and customer lists send only what has changed, a page at a time:
+The product, stock and customer lists send only what has changed, a page at a time:
 
 ```
 GET /products?changed_since=2026-11-23T10:00:00+05:30&page=1&per_page=500
@@ -70,7 +71,6 @@ GET /products?changed_since=2026-11-23T10:00:00+05:30&page=1&per_page=500
       "price": 45.00,
       "mrp": 50.00,
       "tax_rate": 18,
-      "on_hand": 120,
       "category": "Bath & Body",
       "brand": "Lux",
       "unit": "pcs",
@@ -85,15 +85,14 @@ GET /products?changed_since=2026-11-23T10:00:00+05:30&page=1&per_page=500
       "price": 499.00,
       "mrp": 699.00,
       "tax_rate": 5,
-      "on_hand": 8,
       "category": "T-Shirts",
       "brand": "Acme",
       "unit": "pcs",
       "is_active": true,
       "updated_at": "2026-11-23T13:10:00+05:30",
       "variants": [
-        {"sku": "TEE-BLK-M", "options": {"Colour": "Black", "Size": "M"}, "price": 499.00, "on_hand": 8, "is_active": true},
-        {"sku": "TEE-BLK-L", "options": {"Colour": "Black", "Size": "L"}, "price": 549.00, "on_hand": 0, "is_active": true}
+        {"sku": "TEE-BLK-M", "options": {"Colour": "Black", "Size": "M"}, "price": 499.00, "is_active": true},
+        {"sku": "TEE-BLK-L", "options": {"Colour": "Black", "Size": "L"}, "price": 549.00, "is_active": true}
       ]
     }
   ]
@@ -109,28 +108,82 @@ GET /products?changed_since=2026-11-23T10:00:00+05:30&page=1&per_page=500
 | `prices_include_tax` | yes | At the top of the response: `true` if `price` includes GST, `false` if GST is added on top |
 | `mrp` | no | Shown as the struck-out price when it is higher than `price` |
 | `tax_rate` | recommended | GST %: 0, 5, 12, 18, 28 or 40 |
-| `on_hand` | yes | Quantity available to sell now: a whole number, never negative. For items with variants, give it on each variant; the item's own `on_hand` is then their total |
 | `category`, `brand` | no | Names, not IDs |
 | `unit` | no | pcs, kg, box… |
 | `is_active` | yes | `false` for discontinued items |
-| `updated_at` | yes | Last change to any field above, stock and variants included |
-| `variants` | no | Only for items sold in sizes or colours. Each variant has its own unique `sku`, 1 to 5 `options`, its `on_hand` and an optional `price` (the item's price when left out) |
+| `updated_at` | yes | Last change to any field above, variants included (a stock change alone doesn't count here: it goes in `/stock`) |
+| `variants` | no | Only for items sold in sizes or colours. Each variant has its own unique `sku`, 1 to 5 `options` and an optional `price` (the item's price when left out) |
 
-**Stock rules:**
-
-- **A stock change counts as a change.** When `on_hand` changes (a sale at the counter, goods
-  received, a web order imported), update `updated_at`, so the item appears in the next
-  `changed_since` list.
-- **Reduce stock as soon as you import a web order.** `on_hand` must already exclude web orders you
-  have accepted, or the same stock is sold twice.
-
-Images and descriptions are managed on the online store, so they aren't needed here.
+Stock is not part of this list. It comes from `GET /stock` (section 3). Images and descriptions are
+managed on the online store, so they aren't needed here.
 
 ---
 
-## 3. Customer master: `GET /customers`
+## 3. Stock levels: `GET /stock`
 
-Same paging and `changed_since` as products.
+The quantity in hand of every item and variant, with why it last changed. It works like the
+**Inventory → Stock levels** screen on the online store, where staff adjust stock as stock
+received, a customer return, damaged or lost, or a stock count. The reason you send is shown the
+same way in the store's stock history.
+
+Same paging and `changed_since` as section 1: list each SKU whose stock changed at or after that
+time.
+
+```json
+{
+  "server_time": "2026-11-23T14:05:00+05:30",
+  "page": 1,
+  "has_more": false,
+  "items": [
+    {"sku": "SOAP-LUX-100", "item_external_id": "ITM-1001", "on_hand": 120, "reason": "received", "note": "GRN-2231", "updated_at": "2026-11-23T11:42:10+05:30"},
+    {"sku": "TEE-BLK-M", "item_external_id": "ITM-2040", "on_hand": 8, "reason": "sale", "note": "Bill 55012", "updated_at": "2026-11-23T13:10:00+05:30"},
+    {"sku": "TEE-BLK-L", "item_external_id": "ITM-2040", "on_hand": 0, "reason": "count", "note": "Monthly stock count", "updated_at": "2026-11-23T13:40:00+05:30"},
+    {"sku": "MUG-CER-01", "item_external_id": "ITM-3100", "on_hand": 14, "reason": "damaged", "note": "2 broken in transit", "updated_at": "2026-11-23T13:55:00+05:30"},
+    {"sku": "BAG-JUTE-L", "item_external_id": "ITM-3205", "on_hand": 6, "reason": "returned", "note": "Credit note CN-118", "updated_at": "2026-11-23T14:01:00+05:30"}
+  ]
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `sku` | yes | One row per SKU you sell: the item's SKU, or for an item with variants each **variant's** SKU (not the item's) |
+| `item_external_id` | no | The item's `external_id`, to help us check |
+| `on_hand` | yes | The **full quantity in hand now**: a whole number, never negative. Not the change |
+| `reason` | recommended | Why it last changed (table below) |
+| `note` | no | Up to 255 characters, e.g. the GRN, bill or credit-note number. Shown beside the change |
+| `updated_at` | yes | When the stock last changed |
+
+**Reasons** (the same as the online store's Adjust stock screen, plus counter sales):
+
+| `reason` | Use it for | Shown online as |
+|---|---|---|
+| `sale` | A sale at the counter or a bill in your software | Sold in shop |
+| `received` | A purchase or goods received | Stock received |
+| `returned` | Goods a customer brought back | Customer return |
+| `damaged` | Damaged, expired, lost or written off | Damaged or lost |
+| `count` | A physical stock count or a manual correction | Stock count |
+| empty or left out | Anything else | From local system |
+
+Any other value is refused, so send `null` rather than a reason of your own.
+
+**Stock rules:**
+
+- **`on_hand` is always the whole quantity.** The online store works out the difference from the
+  last level it had and records that, with your reason. So a missed or repeated row never makes the
+  stock wrong.
+- **Several changes between two calls:** send the latest level with the reason of the latest change.
+  The store records one line for the total difference. If you can, keep the call interval short.
+- **Reduce stock as soon as you import a web order**, in the same transaction (section 5). `on_hand`
+  must already exclude web orders you have accepted, or the same stock is sold twice. Leave `reason`
+  empty for this change: the online store already recorded that sale.
+- **Put stock back for a cancelled web order** (section 6), also with `reason` empty.
+- Without `changed_since`, return every SKU. The agent does this daily to correct any drift.
+
+---
+
+## 4. Customer master: `GET /customers`
+
+Same paging and `changed_since` as section 1.
 
 ```json
 {
@@ -166,14 +219,14 @@ Customers are matched with online-store accounts by phone, or else by email.
 
 ---
 
-## 4. Web orders: `POST /orders`
+## 5. Web orders: `POST /orders`
 
 The agent sends each new online order, one per request. Please save it as a sale or order in your
 software and **reduce stock** for its lines, in one transaction.
 
 ```json
 {
-  "number": "ME-261123-AB12",
+  "number": "EFS-261123-K7QM",
   "placed_at": "2026-11-23T13:58:41+05:30",
   "status": "confirmed",
   "customer": {
@@ -208,6 +261,10 @@ software and **reduce stock** for its lines, in one transaction.
 }
 ```
 
+- `number` is the online order number, e.g. `EFS-261123-K7QM`: the store's prefix (2 to 5 letters
+  or digits, set in the store's settings, otherwise taken from its name), the date as YYMMDD, and 4
+  random characters. It is at most 20 characters long and unique within the store. Keep it as
+  text, and use it to find the order in `POST /orders/{number}/update` and `GET /order-status`.
 - `customer.external_id` is filled in when the shopper is already in your customer master.
   Otherwise it is `null`. Create the customer, or use a "Web customer" account, as you prefer.
 - `payment_method` is `cod`, `upi`, `card`, `netbanking` or `wallet`.
@@ -226,7 +283,7 @@ software and **reduce stock** for its lines, in one transaction.
 
 ---
 
-## 5. Changes to a web order: `POST /orders/{number}/update`
+## 6. Changes to a web order: `POST /orders/{number}/update`
 
 The agent sends this when something changes on the online store after the order was sent to you:
 the customer cancels, the address is corrected, or the tax invoice number is issued on dispatch.
@@ -250,7 +307,7 @@ the customer cancels, the address is corrected, or the tax invoice number is iss
 
 ---
 
-## 6. Order fulfilment: `GET /order-status` (recommended)
+## 7. Order fulfilment: `GET /order-status` (recommended)
 
 When orders are packed and dispatched from your software, list the web orders whose status changed,
 so the customer sees tracking online. It uses the same `changed_since` and `server_time` as
@@ -261,7 +318,7 @@ section 1.
   "server_time": "2026-11-23T17:30:00+05:30",
   "items": [
     {
-      "number": "ME-261123-AB12",
+      "number": "EFS-261123-K7QM",
       "status": "shipped",
       "carrier": "BlueDart",
       "tracking_number": "BD123456789",
@@ -272,13 +329,13 @@ section 1.
 }
 ```
 
-- Use the statuses listed in section 5. Status moves forward only: confirmed → processing →
+- Use the statuses listed in section 6. Status moves forward only: confirmed → processing →
   shipped → out_for_delivery → delivered, or → cancelled before dispatch.
 - Include only orders that came from the online store (those received through `POST /orders`).
 
 ---
 
-## 7. Health check: `GET /health`
+## 8. Health check: `GET /health`
 
 ```json
 {"ok": true, "software": "ShopMaster", "version": "4.2.1", "server_time": "2026-11-23T14:05:00+05:30"}
@@ -289,12 +346,14 @@ later, so nothing is lost while your software is closed.
 
 ---
 
-## 8. Checklist before going live
+## 9. Checklist before going live
 
 - [ ] Every item and variant has a unique `sku`, and every record has a fixed `external_id`.
-- [ ] `/products` and `/customers` support `changed_since` and paging, and report `server_time`.
-- [ ] `/products` gives `on_hand` for every item and variant, a stock change updates `updated_at`,
-      and `on_hand` already excludes imported web orders.
+- [ ] `/products`, `/stock` and `/customers` support `changed_since` and paging, and report
+      `server_time`.
+- [ ] `/stock` has one row per SKU (each variant's own SKU), `on_hand` is the full quantity,
+      `reason` is one of `sale`, `received`, `returned`, `damaged`, `count` or empty, and `on_hand`
+      already excludes imported web orders.
 - [ ] `POST /orders` is safe to repeat (same `number` → `exists`) and reduces stock in the same
       transaction.
 - [ ] A cancelled order restocks exactly once.

@@ -42,12 +42,29 @@ class StockMovement extends Model
 
     public const EDITED = 'edited';
 
-    // The count the client's own system (MS Access / SQL Server) sent through the sync agent.
+    // The count the client's own system (MS Access / SQL Server) sent through the sync agent,
+    // when it gives no reason of its own.
     public const SYNCED = 'synced';
+
+    // Sold at the shop counter, in the client's own system.
+    public const SHOP_SALE = 'shop_sale';
+
+    /**
+     * Reasons the local system may give for a stock change (POST /api/sync/v1/stock), as the
+     * Adjust stock screen records them; "sale" is a counter sale there.
+     */
+    public const LOCAL_REASONS = [
+        'sale' => self::SHOP_SALE,
+        'received' => self::RECEIVED,
+        'returned' => self::RETURNED,
+        'damaged' => self::DAMAGED,
+        'count' => self::COUNT,
+    ];
 
     /** Why the stock moved, as shown in the history. */
     public const REASONS = [
         self::SALE => 'Sold',
+        self::SHOP_SALE => 'Sold in shop',
         self::CANCELLED => 'Order cancelled',
         self::RECEIVED => 'Stock received',
         self::RETURNED => 'Customer return',
@@ -105,7 +122,7 @@ class StockMovement extends Model
     }
 
     /** Writes one movement of $product's stock; nothing when the stock did not change (except a count). */
-    public static function log(Product $product, int $quantity, int $stockAfter, string $reason, ?array $options = null, ?Order $order = null, ?string $note = null): ?self
+    public static function log(Product $product, int $quantity, int $stockAfter, string $reason, ?array $options = null, ?Order $order = null, ?string $note = null, ?string $by = null): ?self
     {
         if ($quantity === 0 && $reason !== self::COUNT) {
             return null;
@@ -124,7 +141,7 @@ class StockMovement extends Model
             'note' => filled($note) ? mb_substr(trim((string) $note), 0, 255) : null,
             'order_id' => $order?->getKey(),
             'order_number' => $order?->number,
-            'by_name' => app(ActivityLog::class)->actor()?->name,
+            'by_name' => app(ActivityLog::class)->actor()?->name ?? $by,
         ]);
     }
 }

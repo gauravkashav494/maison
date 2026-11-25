@@ -74,7 +74,7 @@ Each POST takes `{"items": [...]}`, up to 500 items.
 | Endpoint | Item fields (**required**) |
 |---|---|
 | `products` | **external_id**, **name**, **price**, sku, compare_at_price, category, brand, tax_rate, variants |
-| `stock` | **sku**, **on_hand**, price |
+| `stock` | **sku**, **on_hand**, price, reason, note |
 | `customers` | **external_id**, **name**, **email or phone** (at least one) |
 | `orders/status` | **number**, status, carrier, tracking_number, note |
 | `changes/*/ack` | **id**, **version**, external_id |
@@ -112,8 +112,26 @@ Payments & tax). EcomVision works out the other one from the product's tax.
 `+91 98765 43210` and `098765 43210` are the same number). A customer may have no email, as in the
 admin. A matched customer that already has another `external_id` is rejected.
 
-**Stock** pushed through `stock` is written to the stock history (Inventory → Stock movements)
-as "From local system".
+**Stock** pushed through `stock` is written to the stock history (Inventory → Stock movements),
+by "Sync agent", with the reason the local system gives, as on the Adjust stock screen:
+
+| `reason` | In the stock history |
+|---|---|
+| `sale` | Sold in shop (a counter sale) |
+| `received` | Stock received |
+| `returned` | Customer return |
+| `damaged` | Damaged or lost |
+| `count` | Stock count |
+| left out | From local system |
+
+`note` (up to 255 characters, e.g. a GRN or bill number) is shown beside it. `on_hand` is always
+the full quantity, never a difference, so the stock is right even when a reason is wrong or a
+change was missed; the history line records the difference from the previous level. An unknown
+`reason` rejects the row.
+
+```json
+{"items": [{"sku": "SOAP-LUX-100", "on_hand": 120, "reason": "received", "note": "GRN-2231"}]}
+```
 
 A valid request answers 200 with one result per item. A bad row does not stop the others:
 
@@ -130,7 +148,7 @@ Sending the same batch twice is safe, so retry freely after a network failure.
 ### Receiving changes
 
 ```json
-{"data": [{"id": 12, "number": "ME-261110-AB12", "status": "confirmed", "version": 1, "items": []}],
+{"data": [{"id": 12, "number": "EFS-261110-K7QM", "status": "confirmed", "version": 1, "items": []}],
  "has_more": false}
 ```
 

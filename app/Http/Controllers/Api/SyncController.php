@@ -6,6 +6,7 @@ use App\Clients\ClientContext;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Order;
+use App\Models\StockMovement;
 use App\Sync\SyncFeed;
 use App\Sync\SyncInbound;
 use App\Sync\SyncResult;
@@ -89,6 +90,9 @@ class SyncController extends Controller
             'sku' => ['required', 'string', 'max:191'],
             'on_hand' => ['required', 'integer', 'min:0'],
             'price' => ['nullable', ...self::MONEY],
+            // Why the stock changed, as on the Adjust stock screen; "From local system" when left out.
+            'reason' => ['nullable', 'string', Rule::in(array_keys(StockMovement::LOCAL_REASONS))],
+            'note' => ['nullable', 'string', 'max:255'],
         ], 'sku');
 
         return response()->json(['results' => [...$results, ...(new SyncInbound($this->client()))->stock($valid)]]);

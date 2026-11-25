@@ -466,6 +466,29 @@ class SyncApiTest extends TestCase
         $this->assertSame(7, $movement->quantity);
         $this->assertSame(12, $movement->stock_after);
         $this->assertSame(12, (int) $product->lowest_stock);
+        $this->assertSame('Sync agent', $movement->by_name);
+    }
+
+    public function test_the_local_system_says_why_stock_changed_as_on_the_adjust_stock_screen(): void
+    {
+        $product = $this->product($this->alpha, 'S1');
+        $last = fn () => StockMovement::where('product_id', $product->id)->latest('id')->first();
+
+        $this->api('POST', 'stock', ['items' => [['sku' => 'S1', 'on_hand' => 30, 'reason' => 'received', 'note' => 'GRN-2231']]])
+            ->assertJsonPath('results.0.result', 'updated');
+        $this->assertSame([StockMovement::RECEIVED, 25, 30, 'GRN-2231'], [$last()->reason, $last()->quantity, $last()->stock_after, $last()->note]);
+        $this->assertSame('Stock received', $last()->reasonLabel());
+
+        $this->api('POST', 'stock', ['items' => [['sku' => 'S1', 'on_hand' => 27, 'reason' => 'sale', 'note' => 'Bill 55012']]]);
+        $this->assertSame([StockMovement::SHOP_SALE, -3, 'Sold in shop'], [$last()->reason, $last()->quantity, $last()->reasonLabel()]);
+
+        $this->api('POST', 'stock', ['items' => [['sku' => 'S1', 'on_hand' => 26, 'reason' => 'damaged']]]);
+        $this->assertSame([StockMovement::DAMAGED, -1, null], [$last()->reason, $last()->quantity, $last()->note]);
+
+        // An unknown reason is refused, and the stock is left as it was.
+        $this->api('POST', 'stock', ['items' => [['sku' => 'S1', 'on_hand' => 1, 'reason' => 'stolen']]])
+            ->assertJsonPath('results.0.result', 'rejected');
+        $this->assertSame(26, (int) $product->refresh()->stock);
     }
 
     public function test_local_fulfilment_follows_the_order_rules_and_is_not_echoed(): void

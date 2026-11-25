@@ -41,9 +41,15 @@ class Product extends Model
 
     /**
      * Why the next save changes the stock, for the stock history; EDITED (the product form)
-     * when not set. The sync API sets StockMovement::SYNCED before saving a local count.
+     * when not set. The sync API sets the local system's reason (StockMovement::SYNCED when it
+     * gives none) before saving a local count.
      */
     public ?string $stockChangeReason = null;
+
+    /** The note for that stock history line (a GRN or bill number…), and who made the change when no one is signed in. */
+    public ?string $stockChangeNote = null;
+
+    public ?string $stockChangeBy = null;
 
     /**
      * Also resends the product when a variant is added, removed or renamed (its SKU or options),
@@ -793,13 +799,13 @@ class Product extends Model
             foreach ($now + $was as $key => $row) {
                 $before = $was[$key]['stock'] ?? 0;
                 $after = $now[$key]['stock'] ?? 0;
-                StockMovement::log($this, $after - $before, $after, $reason, $row['options']);
+                StockMovement::log($this, $after - $before, $after, $reason, $row['options'], note: $this->stockChangeNote, by: $this->stockChangeBy);
             }
 
             return;
         }
 
-        StockMovement::log($this, (int) $this->stock - $oldStock, (int) $this->stock, $reason);
+        StockMovement::log($this, (int) $this->stock - $oldStock, (int) $this->stock, $reason, note: $this->stockChangeNote, by: $this->stockChangeBy);
     }
 
     /** @return array<string, array{options: array<string, string>, stock: int}> keyed by the options */
