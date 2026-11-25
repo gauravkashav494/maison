@@ -33,7 +33,9 @@ class IndiaTimeShift
         $schema = Schema::connection($connection);
         $driver = $db->getDriverName();
 
-        foreach ($schema->getTables() as $table) {
+        // Only this connection's own database: with no schema, MySQL lists the tables of every
+        // database on the server, and a table name shared by N databases would be shifted N times.
+        foreach ($schema->getTables($schema->getCurrentSchemaName()) as $table) {
             $name = $table['name'];
             $columns = array_filter(
                 $schema->getColumns($name),

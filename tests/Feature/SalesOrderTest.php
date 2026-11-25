@@ -111,7 +111,8 @@ class SalesOrderTest extends TestCase
         $this->assertNull($order->estimated_delivery);
         // Sold at the counter, within the seller's own state.
         $this->assertSame('CGST + SGST', $order->tax_label);
-        $this->assertSame('Punjab (03)', Invoice::for($order)->data()['placeOfSupply']);
+        $order->setStatus(Order::STATUS_DISPATCHED);
+        $this->assertSame('Punjab (03)', Invoice::for($order->refresh())->data()['placeOfSupply']);
         $this->assertTrue($order->isSalesOrder());
         $this->assertSame(0, $this->salesperson->addresses()->count());
     }
@@ -215,11 +216,30 @@ class SalesOrderTest extends TestCase
             'invoice_state' => '27', 'invoice_address' => '1 New Street, Pune', 'invoice_note' => 'New note.'] + $setting->value]);
         Cache::forget('settings.all');
 
+        $order->refresh()->setStatus(Order::STATUS_DISPATCHED);
         $data = Invoice::for($order->refresh())->data();
         $this->assertSame('Alpha Retail Pvt Ltd', $data['seller']['name']);
         $this->assertSame('03AAACA1234A1Z5', $data['seller']['gstin']);
         $this->assertSame('Thank you.', $data['seller']['note']);
         $this->assertSame('Punjab (03)', $data['placeOfSupply']);
+    }
+
+    public function test_a_sales_order_gets_its_invoice_only_when_dispatched(): void
+    {
+        $this->addToCart($this->salesperson);
+        $this->as($this->salesperson)->post('/checkout', ['order_for' => 'self', 'payment_method' => 'cod'])
+            ->assertSessionHasNoErrors()->assertRedirect();
+
+        $order = $this->latestOrder();
+        $this->assertTrue($order->isSalesOrder());
+        $this->assertNull($order->invoice_number);
+        $this->assertFalse($order->hasInvoice());
+
+        $order->setStatus(Order::STATUS_DISPATCHED);
+
+        $order->refresh();
+        $this->assertNotNull($order->invoice_number);
+        $this->assertTrue($order->hasInvoice());
     }
 
     public function test_without_a_gst_state_the_tax_is_plain_gst(): void

@@ -18,7 +18,7 @@ class BrandsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('sort_order')
+            ->defaultSort('created_at', 'desc')
             ->reorderable('sort_order')
             ->columns([
                 ImageColumn::make('logo')->label('')->state(fn (Brand $r) => Media::url($r->logo))->square()->imageSize(44),

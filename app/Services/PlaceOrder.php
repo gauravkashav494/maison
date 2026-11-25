@@ -142,11 +142,8 @@ class PlaceOrder
             $products[$line['product']['id']]->adjustStock(-(int) $line['qty'], $line['options'] ?? [], StockMovement::SALE, $order);
         }
 
-        // A sales order is handed over at the counter, so its invoice is issued now; any other
-        // order's invoice is issued when it is dispatched (Order::setStatus).
-        if ($salesOrder) {
-            $order->assignInvoiceNumber();
-        }
+        // No invoice yet, sales orders included: it is issued when the order is dispatched
+        // (Order::setStatus).
 
         if ($coupon) {
             Coupon::whereKey($coupon->getKey())->increment('used_count');

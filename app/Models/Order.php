@@ -409,14 +409,13 @@ class Order extends Model
     }
 
     /**
-     * Whether this order has a tax invoice to show: once it is dispatched (or a sales order,
-     * handed over at the counter). An order cancelled before dispatch never gets one. Orders
-     * numbered when they were placed, before invoices waited for dispatch, keep theirs.
+     * Whether this order has a tax invoice to show: once it is dispatched, sales orders
+     * included. An order cancelled before dispatch never gets one. Orders numbered when they
+     * were placed, before invoices waited for dispatch, keep theirs.
      */
     public function hasInvoice(): bool
     {
         return filled($this->invoice_number)
-            || $this->isSalesOrder()
             || $this->dispatched_at !== null
             || in_array($this->status, self::INVOICED_STATUSES, true);
     }
@@ -425,7 +424,7 @@ class Order extends Model
      * Issues the order's tax invoice, once: the next number in its store's series and the
      * invoice date. Later calls return the number it already has.
      *
-     * Called on dispatch (Order::setStatus) and when a sales order is placed. One unbroken
+     * Called on dispatch (Order::setStatus). One unbroken
      * series per store and Indian financial year (April–March) of the invoice date, as GST asks:
      * "<prefix>/<yy-yy>/<0001>", e.g. INV/26-27/0001, at most 16 characters. The prefix is the
      * store's (Site settings → Checkout → Invoice). A dispatched order from before this was

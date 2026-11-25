@@ -14,8 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Invoice), so changing the store's settings later never rewrites an old invoice. Orders placed
  * before the seller's details were copied onto them read those details live.
  *
- * The invoice is issued when the order is dispatched, or when a sales order is placed at the
- * counter (Order::hasInvoice); until then the customer has an order, not a bill. Its number is
+ * The invoice is issued when the order is dispatched, sales orders included (Order::hasInvoice);
+ * until then the customer has an order, not a bill. Its number is
  * the store's own GST series (Order::assignInvoiceNumber, e.g. INV/26-27/0001) and its date the
  * day it was issued; the order number and date are printed beside them.
  */
@@ -23,7 +23,7 @@ class Invoice
 {
     public function __construct(private Order $order) {}
 
-    /** The order's invoice. Only for an order that has one (Order::hasInvoice): dispatched, or a sales order. */
+    /** The order's invoice. Only for an order that has one (Order::hasInvoice): once it is dispatched. */
     public static function for(Order $order): self
     {
         if (! $order->hasInvoice()) {
