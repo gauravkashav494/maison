@@ -23,7 +23,7 @@ import (
 const (
 	workerName = "worker.exe"
 
-	// A worker that finished but could not complete the sync (network or database trouble).
+	// A worker that finished but could not complete the sync (network trouble, or the shop software did not answer).
 	// Anything else non-zero means the program itself failed.
 	exitSyncFailed = 3
 
@@ -236,4 +236,9 @@ func runCycle(ctx context.Context, updater *Updater, logf func(string, ...any)) 
 	}
 }
 
-func currentArch() string { return runtime.GOARCH }
+// buildChannel is set at build time to "-win7" for the builds made with Go 1.20 for Windows 7
+// and 8.1 (agent/release.ps1). It is part of what the agent asks the server for, so a Windows 7
+// agent only ever updates to a Windows 7 build: the normal builds need Windows 10.
+var buildChannel string
+
+func currentArch() string { return runtime.GOARCH + buildChannel }

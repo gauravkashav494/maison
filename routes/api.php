@@ -19,6 +19,5 @@ Route::prefix('sync/v1')->middleware(['throttle:600,1', AuthenticateSyncAgent::c
     Route::get('agent/config', [SyncAgentController::class, 'config']);
     Route::get('agent/package', [SyncAgentController::class, 'package']);
     Route::get('agent/package/binary', [SyncAgentController::class, 'binary']);
-    Route::post('agent/schema', [SyncAgentController::class, 'schema']);
     Route::post('agent/report', [SyncAgentController::class, 'report']);
 });

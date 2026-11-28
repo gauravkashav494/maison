@@ -5,28 +5,24 @@ package main
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
-	_ "github.com/alexbrainman/odbc"
 	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
-	"golang.org/x/term"
 )
 
 const (
@@ -36,8 +32,87 @@ const (
 	logLimit     = 1 << 20
 )
 
-func installDir() string {
-	return filepath.Join(os.Getenv("ProgramData"), "EcomVisionAgent")
+// folderName is the agent's own folder: setup always installs into a folder of this name, so it
+// never takes over (and locks) a folder holding anything else.
+const folderName = "EcomVisionAgent"
+
+func defaultInstallDir() string {
+	return filepath.Join(os.Getenv("ProgramData"), folderName)
+}
+
+// runningDir is the folder of the running program: the installed service and worker live in the
+// install folder, wherever setup put it.
+func runningDir() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultInstallDir()
+	}
+	return filepath.Dir(executable)
+}
+
+// installedDir is the folder of the installed service, read from Windows ("" when none is installed).
+func installedDir(manager *mgr.Mgr) string {
+	existing, err := manager.OpenService(serviceName)
+	if err != nil {
+		return ""
+	}
+	defer existing.Close()
+	config, err := existing.Config()
+	if err != nil {
+		return ""
+	}
+	binary := strings.Trim(config.BinaryPathName, `" `)
+	if binary == "" {
+		return ""
+	}
+	return filepath.Dir(binary)
+}
+
+// askInstallDir asks where to install, offering current (the existing install's folder, or the
+// default). The answer is a local fixed drive; the agent goes into its own EcomVisionAgent folder
+// there, which must be new, empty or already the agent's.
+func askInstallDir(current string) (string, error) {
+	fmt.Printf("\nInstall folder (press Enter for %s)\n", current)
+	return chooseInstallDir(ask("Folder"), current)
+}
+
+// chooseInstallDir turns the answer to the install-folder question into the folder to use.
+func chooseInstallDir(answer, current string) (string, error) {
+	answer = strings.Trim(answer, `" `)
+	if answer == "" {
+		return current, nil
+	}
+
+	dir, err := filepath.Abs(answer)
+	if err != nil {
+		return "", err
+	}
+	volume := filepath.VolumeName(dir)
+	if volume == "" || strings.HasPrefix(volume, `\\`) {
+		return "", errors.New("choose a folder on a drive of this PC, e.g. D:\\Apps (not a network path)")
+	}
+	root, _ := windows.UTF16PtrFromString(volume + `\`)
+	if windows.GetDriveType(root) != windows.DRIVE_FIXED {
+		// The service runs as SYSTEM: it cannot see mapped network drives, and a removable one may be gone.
+		return "", fmt.Errorf("%s is not a fixed local drive; the agent runs as a Windows service and needs one", volume)
+	}
+	if !strings.EqualFold(filepath.Base(dir), folderName) {
+		dir = filepath.Join(dir, folderName)
+	}
+
+	if !strings.EqualFold(dir, current) {
+		entries, err := os.ReadDir(dir)
+		if err == nil && len(entries) > 0 && !isAgentFolder(dir) {
+			return "", fmt.Errorf("%s already holds other files; choose another folder", dir)
+		}
+	}
+	return dir, nil
+}
+
+// isAgentFolder is true for a folder an earlier install of the agent made.
+func isAgentFolder(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "service.exe"))
+	return err == nil
 }
 
 func platformMain(args []string) error {
@@ -47,6 +122,19 @@ func platformMain(args []string) error {
 	}
 	if isService {
 		return svc.Run(serviceName, &service{})
+	}
+
+	// The installer's commands (installer/agent.iss): no questions, no "press Enter", and the
+	// outcome in --message-file for the wizard to show. The checks need no Administrator rights.
+	if len(args) > 0 {
+		switch args[0] {
+		case "check-code", "install":
+			return installerCommand(args[0], args[1:])
+		case "uninstall":
+			if len(args) > 1 && args[1] == "--quiet" {
+				return uninstall()
+			}
+		}
 	}
 
 	if !windows.GetCurrentProcessToken().IsElevated() {
@@ -111,7 +199,7 @@ func (*service) Execute(_ []string, requests <-chan svc.ChangeRequest, status ch
 }
 
 func serviceLoop(ctx context.Context, logf func(string, ...any)) {
-	dir := installDir()
+	dir := runningDir()
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
@@ -132,7 +220,7 @@ func serviceLoop(ctx context.Context, logf func(string, ...any)) {
 }
 
 func openLog() func(string, ...any) {
-	path := filepath.Join(installDir(), "agent.log")
+	path := filepath.Join(runningDir(), "agent.log")
 	return func(format string, args ...any) {
 		if info, err := os.Stat(path); err == nil && info.Size() > logLimit {
 			_ = os.Rename(path, path+".old")
@@ -165,289 +253,65 @@ func decodeSetupCode(code string) (apiURL, token string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func driverNames(key string) []string {
-	opened, err := registry.OpenKey(registry.LOCAL_MACHINE, key, registry.QUERY_VALUE)
+// checkSetupCode is everything the setup needs to know before installing, from the setup code
+// alone: whose store it is, where the billing software is (set in the store's panel), and that
+// the billing software answers there. Used by the console setup and the installer (check-code).
+// summary is one line for the person: the store and the software it reached.
+func checkSetupCode(code string) (apiURL, token, summary string, err error) {
+	apiURL, token, err = decodeSetupCode(strings.TrimSpace(code))
 	if err != nil {
-		return nil
+		return "", "", "", err
 	}
-	defer opened.Close()
-	names, _ := opened.ReadValueNames(-1)
-	return names
-}
-
-func findDriver(pattern *regexp.Regexp) string {
-	matches := []string{}
-	for _, name := range driverNames(`SOFTWARE\ODBC\ODBCINST.INI\ODBC Drivers`) {
-		if pattern.MatchString(name) {
-			matches = append(matches, name)
-		}
+	api := NewAPI(apiURL, token)
+	var ping struct {
+		Client string `json:"client"`
 	}
-	sort.Slice(matches, func(i, j int) bool {
-		a, b := strings.HasPrefix(matches[i], "ODBC"), strings.HasPrefix(matches[j], "ODBC")
-		if a != b {
-			return a
-		}
-		return matches[i] > matches[j]
-	})
-	if len(matches) == 0 {
-		return ""
+	if err := api.Call("GET", "ping", nil, &ping); err != nil {
+		return "", "", "", fmt.Errorf("could not reach your online store with this code: %w", err)
 	}
-	return matches[0]
-}
 
-// missingDriver explains a missing driver, including when this is the wrong build for it.
-func missingDriver(pattern *regexp.Regexp, install string) error {
-	for _, name := range driverNames(`SOFTWARE\WOW6432Node\ODBC\ODBCINST.INI\ODBC Drivers`) {
-		if currentArch() == "amd64" && pattern.MatchString(name) {
-			return errors.New("the database driver on this PC is 32-bit. Run ecomvision-agent-386.exe instead")
-		}
-	}
-	return errors.New("no database driver found. Install " + install + ", then run this again")
-}
-
-var (
-	accessDriverPattern = regexp.MustCompile(`^Microsoft Access Driver \(\*\.mdb, \*\.accdb\)$`)
-	sqlDriverPattern    = regexp.MustCompile(`^(ODBC Driver \d+ for SQL Server|SQL Server Native Client [\d.]+|SQL Server)$`)
-)
-
-const (
-	accessInstall = `"Microsoft Access Database Engine 2016 Redistributable"`
-	sqlInstall    = `"ODBC Driver 18 for SQL Server"`
-	searchLimit   = 10 * time.Minute
-)
-
-func fixedDrives() []string {
-	mask, err := windows.GetLogicalDrives()
+	local, err := localConfig(api)
 	if err != nil {
-		return nil
+		return "", "", "", err
 	}
-	drives := []string{}
-	for i := 0; i < 26; i++ {
-		if mask&(1<<uint(i)) == 0 {
-			continue
-		}
-		root := string(rune('A'+i)) + `:\`
-		if windows.GetDriveType(wide(root)) == windows.DRIVE_FIXED {
-			drives = append(drives, root)
-		}
-	}
-	return drives
-}
-
-// sqlInstances lists SQL Server installations on this PC, in both 32-bit and 64-bit registry views.
-func sqlInstances() []string {
-	seen := map[string]bool{}
-	servers := []string{}
-	for _, key := range []string{`SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL`, `SOFTWARE\WOW6432Node\Microsoft\Microsoft SQL Server\Instance Names\SQL`} {
-		for _, name := range driverNames(key) {
-			server := `localhost\` + name
-			if strings.EqualFold(name, "MSSQLSERVER") {
-				server = "localhost"
-			}
-			if !seen[server] {
-				seen[server] = true
-				servers = append(servers, server)
-			}
-		}
-	}
-	sort.Strings(servers)
-	return servers
-}
-
-func accessConnection(driver, file string) string {
-	return fmt.Sprintf("Driver={%s};Dbq=%s;", driver, file)
-}
-
-// pick asks which database to use. The empty string means the person wants to type it.
-func pick(kind string, options []candidate) string {
-	fmt.Printf("\nFound more than one possible %s:\n", kind)
-	for i, option := range options {
-		fmt.Printf("%d) %s", i+1, option.Name)
-		if !option.Modified.IsZero() {
-			fmt.Printf("  (changed %s)", option.Modified.Format("2 Jan 2006 15:04"))
-		}
-		fmt.Printf("  [%d tables]\n", len(option.Tables))
-	}
-	fmt.Println("0) None of these, I will type it")
-
-	choice, err := strconv.Atoi(ask("Enter a number"))
-	if err != nil || choice < 1 || choice > len(options) {
-		return ""
-	}
-	return options[choice-1].Name
-}
-
-func askAccessPath(driver string) (string, error) {
-	file := strings.Trim(ask("Full path to the database file"), `" `)
-	if _, err := os.Stat(file); err != nil {
-		return "", fmt.Errorf("file not found: %s", file)
-	}
-	return accessConnection(driver, file), nil
-}
-
-func chooseAccess(driver string, usable []candidate, required []string) (string, error) {
-	auto, options := choose(usable, required)
-	if auto != nil {
-		fmt.Println("Found the database:", auto.Name)
-		return accessConnection(driver, auto.Name), nil
-	}
-	if len(options) == 0 {
-		return askAccessPath(driver)
-	}
-	if len(options) == 1 {
-		fmt.Println("\nFound:", options[0].Name)
-		if strings.EqualFold(ask("Is this the shop's database? (y/n)"), "y") {
-			return accessConnection(driver, options[0].Name), nil
-		}
-		return askAccessPath(driver)
-	}
-	if chosen := pick("database file", options); chosen != "" {
-		return accessConnection(driver, chosen), nil
-	}
-	return askAccessPath(driver)
-}
-
-func sqlConnection(driver, server, database, user, password string) string {
-	return fmt.Sprintf("Driver={%s};Server=%s;Database=%s;Uid=%s;Pwd={%s};TrustServerCertificate=yes;",
-		driver, server, database, user, strings.ReplaceAll(password, "}", "}}"))
-}
-
-func chooseSQLServer(driver string, instances, required []string) (string, error) {
-	server := ""
-	switch len(instances) {
-	case 0:
-		server = ask(`Server name (for example localhost\SQLEXPRESS)`)
-	case 1:
-		server = instances[0]
-		fmt.Println("Found SQL Server:", server)
-	default:
-		options := make([]candidate, len(instances))
-		for i, instance := range instances {
-			options[i] = candidate{Name: instance}
-		}
-		if server = pick("SQL Server", options); server == "" {
-			server = ask(`Server name (for example localhost\SQLEXPRESS)`)
-		}
-	}
-
-	user := ask("SQL login")
-	fmt.Print("Password: ")
-	secret, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
+	software, err := checkLocalAPI(local)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
-	password := string(secret)
-
-	names, err := sqlDatabases(sqlConnection(driver, server, "master", user, password))
-	if err != nil {
-		return "", fmt.Errorf("could not sign in to SQL Server: %w", err)
-	}
-
-	found := make([]candidate, len(names))
-	for i, name := range names {
-		found[i] = candidate{Name: name}
-	}
-	usable := inspectCandidates(found, func(name string) (Schema, error) {
-		return readSchema(sqlConnection(driver, server, name, user, password))
-	})
-
-	auto, options := choose(usable, required)
-	database := ""
-	switch {
-	case auto != nil:
-		database = auto.Name
-		fmt.Println("Found the database:", database)
-	case len(options) == 1:
-		database = options[0].Name
-		fmt.Println("Found the database:", database)
-	case len(options) > 1:
-		database = pick("database", options)
-	}
-	if database == "" {
-		database = ask("Database name")
-	}
-	return sqlConnection(driver, server, database, user, password), nil
+	return apiURL, token, fmt.Sprintf("online store %s and billing software %s", ping.Client, software), nil
 }
 
-func sqlDatabases(connection string) ([]string, error) {
-	store, err := openStore(connection)
-	if err != nil {
-		return nil, err
-	}
-	defer store.Close()
-
-	rows, err := store.Query("SELECT name FROM sys.databases WHERE database_id > 4")
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, len(rows))
-	for _, row := range rows {
-		names = append(names, text(row["name"]))
-	}
-	return names, nil
-}
-
-// askConnection finds the shop's database, asking only about what it cannot settle itself.
-func askConnection(api *API) (string, error) {
-	var config struct {
-		Mapping map[string]*Section `json:"mapping"`
-	}
-	_ = api.Call("GET", "agent/config", nil, &config) // no mapping yet is normal
-	required := requiredTables(config.Mapping)
-
-	fmt.Println("\nSearching this PC for the shop's database. This can take a few minutes...")
-	files := findAccessFiles(fixedDrives(), time.Now().Add(searchLimit))
-	instances := sqlInstances()
-
-	accessDriver := findDriver(accessDriverPattern)
-	sqlDriver := findDriver(sqlDriverPattern)
-
-	if len(files) > 0 && accessDriver == "" && len(instances) == 0 {
-		return "", missingDriver(accessDriverPattern, accessInstall)
+// checkLocalAPI checks the billing software's API with GET /health and names the software. The
+// address and key come from the store's panel, so each failure says what to fix there.
+func checkLocalAPI(local *LocalAPI) (string, error) {
+	where := "in your store's panel (Shop software sync > Billing software connection)"
+	parsed, err := url.Parse(local.BaseURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", fmt.Errorf("the billing software's address %q is not a full address; correct it %s", local.BaseURL, where)
 	}
 
-	usable := []candidate{}
-	if accessDriver != "" {
-		usable = inspectCandidates(files, func(file string) (Schema, error) {
-			return readSchema(accessConnection(accessDriver, file))
-		})
+	var health struct {
+		OK       bool   `json:"ok"`
+		Software string `json:"software"`
+		Version  string `json:"version"`
 	}
-
-	// The mapping already points at one Access database: nothing to ask.
-	if auto, _ := choose(usable, required); auto != nil {
-		return chooseAccess(accessDriver, usable, required)
-	}
-
-	switch {
-	case len(usable) > 0 && len(instances) == 0:
-		return chooseAccess(accessDriver, usable, required)
-	case len(usable) == 0 && len(instances) > 0:
-		if sqlDriver == "" {
-			return "", missingDriver(sqlDriverPattern, sqlInstall)
+	if err := local.Do("GET", "health", nil, nil, &health); err != nil {
+		var answer *localError
+		switch {
+		case isLocalStatus(err, http.StatusUnauthorized) || isLocalStatus(err, http.StatusForbidden):
+			return "", fmt.Errorf("the billing software refused the API key; check it with the software's developer and correct it %s", where)
+		case isLocalStatus(err, http.StatusNotFound):
+			return "", fmt.Errorf("something answers at %s, but not the billing software's API; check the address %s", local.BaseURL, where)
+		case errors.As(err, &answer):
+			return "", fmt.Errorf("the billing software answered with an error: %s", answer.Detail)
+		default:
+			return "", fmt.Errorf("nothing answered at %s. Check that the billing software is running on this PC (or on the shop's network), and that the address %s is right", local.BaseURL, where)
 		}
-		return chooseSQLServer(sqlDriver, instances, required)
 	}
-
-	if len(usable) == 0 {
-		fmt.Println("No database was found automatically.")
-	} else {
-		fmt.Println("This PC has both Access files and SQL Server.")
+	if !health.OK {
+		return "", errors.New(`the billing software answered, but its health check did not say "ok": true`)
 	}
-	fmt.Println("\n1) MS Access file (.accdb or .mdb)\n2) MS SQL Server")
-	switch ask("Which database does this shop use? (1 or 2)") {
-	case "1":
-		if accessDriver == "" {
-			return "", missingDriver(accessDriverPattern, accessInstall)
-		}
-		return chooseAccess(accessDriver, usable, required)
-	case "2":
-		if sqlDriver == "" {
-			return "", missingDriver(sqlDriverPattern, sqlInstall)
-		}
-		return chooseSQLServer(sqlDriver, instances, required)
-	}
-	return "", errors.New("please enter 1 or 2")
+	return strings.TrimSpace(health.Software + " " + health.Version), nil
 }
 
 func secureFolder(dir string) error {
@@ -508,55 +372,103 @@ func removeService(manager *mgr.Mgr) error {
 	return errors.New("the old service is still being removed. Restart the PC and try again")
 }
 
+// installerCommand runs one step for the installer and writes one line to --message-file: what
+// to show the person, or why it failed. The exit code says which: 0 is success. The setup code is
+// all it needs: the billing software's address and key come from the store's panel.
+//
+//	check-code --code EV1.… --message-file F
+//	install    --code EV1.… [--dir D] --message-file F
+func installerCommand(name string, args []string) error {
+	flags := flag.NewFlagSet(name, flag.ContinueOnError)
+	code := flags.String("code", "", "setup code")
+	dir := flags.String("dir", "", "install folder; empty keeps the default or the current one")
+	messageFile := flags.String("message-file", "", "where to write the outcome")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	var message string
+	var err error
+	switch name {
+	case "check-code":
+		_, _, message, err = checkSetupCode(*code)
+	case "install":
+		var server, token string
+		if server, token, _, err = checkSetupCode(*code); err == nil {
+			err = install(settings{APIURL: server, Token: token}, dir)
+			message = "installed"
+		}
+	}
+	if err != nil {
+		message = err.Error()
+	}
+	if *messageFile != "" {
+		_ = os.WriteFile(*messageFile, []byte(message), 0o600)
+	}
+	if err != nil {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// setup is the console setup: run the program by itself and paste the setup code.
 func setup() error {
-	apiURL, token, err := decodeSetupCode(ask("Paste the setup code"))
+	apiURL, token, summary, err := checkSetupCode(ask("Paste the setup code"))
 	if err != nil {
 		return err
 	}
+	fmt.Println("Connected to", summary)
+	return install(settings{APIURL: apiURL, Token: token}, nil)
+}
 
-	api := NewAPI(apiURL, token)
-	var ping struct {
-		Client string `json:"client"`
-	}
-	if err := api.Call("GET", "ping", nil, &ping); err != nil {
-		return fmt.Errorf("could not reach EcomVision: %w", err)
-	}
-	fmt.Println("Connected to EcomVision as client:", ping.Client)
-
-	connection, err := askConnection(api)
-	if err != nil {
-		return err
-	}
-	store, err := openStore(connection)
-	if err != nil {
-		return fmt.Errorf("could not open the database: %w", err)
-	}
-	schema, err := store.Schema()
-	store.Close()
-	if err != nil {
-		return fmt.Errorf("could not read the database's tables: %w", err)
-	}
-	fmt.Printf("Database connection OK. Found %d tables.\n", len(schema))
+// install puts the service in place with these settings. folder is nil to ask for the install
+// folder, or the installer's answer ("" for the default, or where the agent is now).
+func install(config settings, folder *string) error {
+	encoded, _ := json.Marshal(config)
+	settingsJSON := string(encoded)
 
 	manager, err := mgr.Connect()
 	if err != nil {
 		return err
 	}
 	defer manager.Disconnect()
-	if err := removeService(manager); err != nil {
+
+	// A reinstall offers the folder the agent is in now.
+	previous := installedDir(manager)
+	current := previous
+	if current == "" {
+		current = defaultInstallDir()
+	}
+	var dir string
+	if folder == nil {
+		dir, err = askInstallDir(current)
+	} else {
+		dir, err = chooseInstallDir(*folder, current)
+	}
+	if err != nil {
 		return err
 	}
 
-	dir := installDir()
+	if err := removeService(manager); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	if err := secureFolder(dir); err != nil {
 		return fmt.Errorf("could not secure the agent folder: %w", err)
 	}
+	// Moving to another folder: the sync bookmarks go along, so nothing is read or sent twice.
+	moved := previous != "" && !strings.EqualFold(previous, dir) && isAgentFolder(previous)
+	if moved {
+		if _, err := os.Stat(filepath.Join(previous, "state.json")); err == nil {
+			if err := copyFile(filepath.Join(previous, "state.json"), filepath.Join(dir, "state.json")); err != nil {
+				return fmt.Errorf("could not move the sync state: %w", err)
+			}
+		}
+	}
 
-	encoded := fmt.Sprintf(`{"api_url":%q,"token":%q,"connection":%q}`, apiURL, token, connection)
-	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(encoded), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(settingsJSON), 0o600); err != nil {
 		return err
 	}
 
@@ -575,7 +487,7 @@ func setup() error {
 
 	created, err := manager.CreateService(serviceName, servicePath, mgr.Config{
 		DisplayName: serviceTitle,
-		Description: "Keeps this shop's database in sync with EcomVision.",
+		Description: "Keeps this shop's software in sync with EcomVision.",
 		StartType:   mgr.StartAutomatic,
 	})
 	if err != nil {
@@ -586,8 +498,15 @@ func setup() error {
 	if err := created.Start(); err != nil {
 		return err
 	}
+	if moved && !strings.EqualFold(filepath.Dir(executable), previous) {
+		// Only the agent's own old folder, and only once the new install is running.
+		if err := os.RemoveAll(previous); err != nil {
+			fmt.Println("Could not remove the old folder", previous, "- delete it by hand:", err)
+		}
+	}
 
-	fmt.Println("\nInstalled. The agent now starts with Windows, syncs every 5 minutes and updates itself.")
+	fmt.Println("\nInstalled in", dir)
+	fmt.Println("The agent now starts with Windows, syncs every 5 minutes and updates itself.")
 	fmt.Println("You do not need to run this file again.")
 	return nil
 }
@@ -598,167 +517,21 @@ func uninstall() error {
 		return err
 	}
 	defer manager.Disconnect()
+
+	// Wherever setup put it: Windows knows from the service.
+	dir := installedDir(manager)
+	if dir == "" {
+		dir = defaultInstallDir()
+	}
 	if err := removeService(manager); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(installDir()); err != nil {
-		return err
+	// Only a folder that is the agent's own is deleted.
+	if strings.EqualFold(filepath.Base(dir), folderName) && isAgentFolder(dir) {
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
 	}
-	fmt.Println("The agent has been removed.")
+	fmt.Println("The agent has been removed from", dir)
 	return nil
-}
-
-// ---- Database ---------------------------------------------------------------------------
-
-func openStore(connection string) (Store, error) {
-	db, err := sql.Open("odbc", connection)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, err
-	}
-	return &sqlStore{db: db, schema: func() (Schema, error) { return readSchema(connection) }}, nil
-}
-
-// database/sql has no way to list tables, so the two catalog calls go straight to ODBC.
-var (
-	odbc32           = windows.NewLazySystemDLL("odbc32.dll")
-	sqlAllocHandle   = odbc32.NewProc("SQLAllocHandle")
-	sqlFreeHandle    = odbc32.NewProc("SQLFreeHandle")
-	sqlSetEnvAttr    = odbc32.NewProc("SQLSetEnvAttr")
-	sqlDriverConnect = odbc32.NewProc("SQLDriverConnectW")
-	sqlDisconnect    = odbc32.NewProc("SQLDisconnect")
-	sqlTables        = odbc32.NewProc("SQLTablesW")
-	sqlColumns       = odbc32.NewProc("SQLColumnsW")
-	sqlFetch         = odbc32.NewProc("SQLFetch")
-	sqlGetData       = odbc32.NewProc("SQLGetData")
-)
-
-const (
-	handleEnv     = 1
-	handleDbc     = 2
-	handleStmt    = 3
-	attrVersion   = 200
-	odbcVersion3  = 3
-	nullTerm      = ^uintptr(2) // SQL_NTS (-3)
-	charTypeWide  = ^uintptr(7) // SQL_C_WCHAR (-8)
-	returnNoData  = 100
-	returnMaxGood = 1
-)
-
-func ok(code uintptr) bool {
-	return int16(code) >= 0 && int16(code) <= returnMaxGood
-}
-
-func wide(text string) *uint16 {
-	pointer, _ := windows.UTF16PtrFromString(text)
-	return pointer
-}
-
-func allocHandle(kind, parent uintptr) (uintptr, error) {
-	var handle uintptr
-	code, _, _ := sqlAllocHandle.Call(kind, parent, uintptr(unsafe.Pointer(&handle)))
-	if !ok(code) {
-		return 0, fmt.Errorf("ODBC could not allocate a handle (%d)", int16(code))
-	}
-	return handle, nil
-}
-
-func readResults(statement uintptr, columns []uintptr, use func([]string)) error {
-	buffer := make([]uint16, 512)
-	for {
-		code, _, _ := sqlFetch.Call(statement)
-		if int16(code) == returnNoData {
-			return nil
-		}
-		if !ok(code) {
-			return fmt.Errorf("ODBC fetch failed (%d)", int16(code))
-		}
-
-		values := make([]string, len(columns))
-		for i, column := range columns {
-			var length int // SQLLEN: the size of a pointer, as int is on both builds
-			code, _, _ := sqlGetData.Call(statement, column, charTypeWide,
-				uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)*2), uintptr(unsafe.Pointer(&length)))
-			if !ok(code) {
-				return fmt.Errorf("ODBC read failed (%d)", int16(code))
-			}
-			if length >= 0 {
-				values[i] = windows.UTF16ToString(buffer)
-			}
-		}
-		use(values)
-	}
-}
-
-func readSchema(connection string) (Schema, error) {
-	env, err := allocHandle(handleEnv, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer sqlFreeHandle.Call(handleEnv, env)
-	sqlSetEnvAttr.Call(env, attrVersion, odbcVersion3, 0)
-
-	dbc, err := allocHandle(handleDbc, env)
-	if err != nil {
-		return nil, err
-	}
-	defer sqlFreeHandle.Call(handleDbc, dbc)
-
-	var outLength int16
-	code, _, _ := sqlDriverConnect.Call(dbc, 0, uintptr(unsafe.Pointer(wide(connection))), nullTerm, 0, 0, uintptr(unsafe.Pointer(&outLength)), 0)
-	if !ok(code) {
-		return nil, fmt.Errorf("ODBC could not connect (%d)", int16(code))
-	}
-	defer sqlDisconnect.Call(dbc)
-
-	statement, err := allocHandle(handleStmt, dbc)
-	if err != nil {
-		return nil, err
-	}
-	code, _, _ = sqlTables.Call(statement, 0, 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(wide("TABLE,VIEW"))), nullTerm)
-	if !ok(code) {
-		sqlFreeHandle.Call(handleStmt, statement)
-		return nil, fmt.Errorf("ODBC could not list tables (%d)", int16(code))
-	}
-
-	schema := Schema{}
-	err = readResults(statement, []uintptr{2, 3}, func(row []string) {
-		owner, name := strings.ToLower(row[0]), row[1]
-		if owner == "sys" || owner == "information_schema" || strings.HasPrefix(name, "MSys") {
-			return
-		}
-		schema[strings.ToLower(name)] = &Table{Name: name, Columns: map[string]Column{}}
-	})
-	sqlFreeHandle.Call(handleStmt, statement)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, table := range schema {
-		statement, err := allocHandle(handleStmt, dbc)
-		if err != nil {
-			return nil, err
-		}
-		code, _, _ := sqlColumns.Call(statement, 0, 0, 0, 0, uintptr(unsafe.Pointer(wide(table.Name))), nullTerm, 0, 0)
-		if !ok(code) {
-			sqlFreeHandle.Call(handleStmt, statement)
-			return nil, fmt.Errorf("ODBC could not list the columns of %s (%d)", table.Name, int16(code))
-		}
-
-		current := table
-		err = readResults(statement, []uintptr{3, 4, 6}, func(row []string) {
-			if strings.EqualFold(row[0], current.Name) { // the name is a pattern: _ matches any character
-				current.Columns[strings.ToLower(row[1])] = Column{Name: row[1], Type: row[2]}
-			}
-		})
-		sqlFreeHandle.Call(handleStmt, statement)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return schema, nil
 }

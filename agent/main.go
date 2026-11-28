@@ -1,4 +1,5 @@
-// EcomVision sync agent: installed once on the PC that holds a client's database.
+// EcomVision sync agent: installed once on a PC in the shop, where it reaches the shop software's
+// own API (docs/LOCAL-API.md) on the local network.
 package main
 
 import (
@@ -12,9 +13,10 @@ import (
 var publicKeyBase64 string
 
 type settings struct {
-	APIURL     string `json:"api_url"`
-	Token      string `json:"token"`
-	Connection string `json:"connection"`
+	// EcomVision, from the setup code. Where the shop software is comes from EcomVision too
+	// (localConfig), so it is set in the store's panel, not here.
+	APIURL string `json:"api_url"`
+	Token  string `json:"token"`
 }
 
 func loadSettings(dir string) (*settings, error) {
@@ -40,20 +42,13 @@ func runOnce() int {
 		fmt.Fprintln(os.Stderr, "settings:", err)
 		return exitSyncFailed
 	}
-	store, err := openStore(config.Connection)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "database:", err)
-		return exitSyncFailed
-	}
-	defer store.Close()
-
 	version, _ := sha256File(executable)
 	engine := &Engine{
 		API:       NewAPI(config.APIURL, config.Token),
-		DB:        store,
 		StatePath: filepath.Join(dir, "state.json"),
 		Version:   version,
 	}
+
 	if err := engine.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return exitSyncFailed

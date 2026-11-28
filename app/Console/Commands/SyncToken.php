@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Client;
 use App\Models\SyncToken as Token;
+use App\Sync\SyncAccess;
 use Illuminate\Console\Command;
 
 /**
@@ -27,7 +28,7 @@ class SyncToken extends Command
         }
 
         if ($this->option('revoke')) {
-            $count = Token::active()->where('client_id', $client->id)->update(['revoked_at' => now()]);
+            $count = app(SyncAccess::class)->revoke($client);
             $this->components->info("Revoked {$count} token(s) for {$client->name}.");
 
             return self::SUCCESS;

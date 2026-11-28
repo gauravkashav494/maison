@@ -7,6 +7,7 @@ use App\Clients\ClientModules;
 use App\Clients\ClientProvisioner;
 use App\Clients\ClientQuota;
 use App\Clients\ClientSetup;
+use App\Filament\Support\SyncStatus;
 use App\Models\Client;
 use App\Support\IndianStates;
 use Filament\Infolists\Components\TextEntry;
@@ -72,6 +73,8 @@ class ClientInfolist
                             ->icon(fn (string $state, Client $record) => self::moduleOn($record, $state) ? 'heroicon-m-check' : 'heroicon-m-minus')
                             ->placeholder('This store has no optional modules'),
                     ]),
+
+                SyncStatus::section(),
             ]),
 
             Grid::make(1)->columnSpan(['default' => 3, 'lg' => 1])->schema([

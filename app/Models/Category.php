@@ -130,6 +130,24 @@ class Category extends Model
         return $found;
     }
 
+    /**
+     * This category and the ones above it, from the top: Men, Shirts, Formal. Stops if the data
+     * holds a loop.
+     *
+     * @return list<self>
+     */
+    public function lineage(): array
+    {
+        $path = [];
+        $seen = [];
+        for ($category = $this; $category && ! in_array($category->getKey(), $seen, true); $category = $category->parent) {
+            $seen[] = $category->getKey();
+            array_unshift($path, $category);
+        }
+
+        return $path;
+    }
+
     /** Every product listed under this category, also those whose main category is another. */
     public function products(): BelongsToMany
     {

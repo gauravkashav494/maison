@@ -24,6 +24,27 @@ class SyncController extends Controller
 
     private const EXTERNAL_ID = ['required', 'string', 'max:191'];
 
+    /**
+     * A price as `price` (the store's own form, ping's prices_include_tax), or as the local system
+     * holds it: `price_incl_tax`, `price_excl_tax` or both, which SyncInbound converts with the
+     * product's tax. `price` goes alone.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private static function prices(string $prefix = '', bool $required = false): array
+    {
+        [$price, $incl, $excl] = [$prefix.'price', $prefix.'price_incl_tax', $prefix.'price_excl_tax'];
+
+        return [
+            $price => ['nullable', ...($required ? ["required_without_all:{$incl},{$excl}"] : []), "prohibits:{$incl},{$excl}", ...self::MONEY],
+            $incl => ['nullable', ...self::MONEY],
+            $excl => ['nullable', ...self::MONEY],
+        ];
+    }
+
+    /** An HSN code as the product form takes it: 4, 6 or 8 digits (spaces allowed, then dropped). */
+    private const HSN = 'regex:/^\s*\d{4}(\s*\d{2}){0,2}\s*$/';
+
     /** Rupees and paise, as the money columns hold them (decimal 12,2). */
     private const MONEY = ['numeric', 'min:0', 'max:9999999999', 'decimal:0,2'];
 
@@ -68,32 +89,42 @@ class SyncController extends Controller
         $inbound = new SyncInbound($this->client());
 
         return $this->batch($request, [
+            // In the product form's order (Details, then Pricing & Variants).
             'external_id' => self::EXTERNAL_ID,
-            'sku' => ['nullable', 'string', 'max:191'],
             'name' => ['required', 'string', 'max:255'],
-            'price' => ['required', ...self::MONEY],
-            'compare_at_price' => ['nullable', ...self::MONEY],
-            'category' => ['nullable', 'string', 'max:255'],
             'brand' => ['nullable', 'string', 'max:255'],
+            // As the form's category boxes: a category and a child of it, then two category tags,
+            // each any category.
+            'category' => ['nullable', 'required_with:category_2,category_3,category_4', 'string', 'max:255'],
+            'category_2' => ['nullable', 'string', 'max:255'],
+            'category_3' => ['nullable', 'string', 'max:255'],
+            'category_4' => ['nullable', 'string', 'max:255'],
+            'compare_at_price' => ['nullable', ...self::MONEY],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'hsn_code' => ['nullable', 'string', self::HSN],
+            ...self::prices(required: true),
+            'sku' => ['nullable', 'string', 'max:191'],
             'variants' => ['nullable', 'array', 'max:'.self::MAX_VARIANTS],
-            'variants.*.sku' => ['required', 'string', 'max:191', 'distinct'],
             'variants.*.options' => ['required', 'array', 'min:1', 'max:5'],
             'variants.*.options.*' => ['required', 'string', 'max:100'],
-            'variants.*.price' => ['nullable', ...self::MONEY],
+            'variants.*.sku' => ['required', 'string', 'max:191', 'distinct'],
+            'variants.*.hsn_code' => ['nullable', 'string', self::HSN],
+            ...self::prices(prefix: 'variants.*.'),
         ], 'external_id', fn (array $item) => $inbound->product($item));
     }
 
     public function stock(Request $request): JsonResponse
     {
         ['valid' => $valid, 'results' => $results] = $this->validated($request, [
-            'sku' => ['required', 'string', 'max:191'],
+            // The product by the local system's own id, its SKU, or both; a variant by its SKU.
+            'external_id' => ['nullable', 'required_without:sku', 'string', 'max:191'],
+            'sku' => ['nullable', 'required_without:external_id', 'string', 'max:191'],
             'on_hand' => ['required', 'integer', 'min:0'],
-            'price' => ['nullable', ...self::MONEY],
+            ...self::prices(),
             // Why the stock changed, as on the Adjust stock screen; "From local system" when left out.
             'reason' => ['nullable', 'string', Rule::in(array_keys(StockMovement::LOCAL_REASONS))],
             'note' => ['nullable', 'string', 'max:255'],
-        ], 'sku');
+        ], ['sku', 'external_id']);
 
         return response()->json(['results' => [...$results, ...(new SyncInbound($this->client()))->stock($valid)]]);
     }
@@ -132,7 +163,8 @@ class SyncController extends Controller
     }
 
     /** @return array{valid: array<int, array<string, mixed>>, results: array<int, array<string, mixed>>} */
-    private function validated(Request $request, array $rules, string $key): array
+    /** @param  string|array<int, string>  $key  the field naming each item; the first one filled */
+    private function validated(Request $request, array $rules, string|array $key): array
     {
         $items = $request->validate(['items' => ['required', 'array', 'max:'.self::MAX_BATCH]])['items'];
 
@@ -141,7 +173,14 @@ class SyncController extends Controller
         foreach ($items as $item) {
             $validator = Validator::make(is_array($item) ? $item : [], $rules);
             if ($validator->fails()) {
-                $results[] = SyncResult::rejected(is_array($item) && is_scalar($item[$key] ?? null) ? $item[$key] : null, $validator->errors()->first());
+                $name = null;
+                foreach ((array) $key as $field) {
+                    if (is_array($item) && is_scalar($item[$field] ?? null) && filled($item[$field])) {
+                        $name = $item[$field];
+                        break;
+                    }
+                }
+                $results[] = SyncResult::rejected($name, $validator->errors()->first());
 
                 continue;
             }

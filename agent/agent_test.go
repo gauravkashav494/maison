@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -19,72 +18,18 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	_ "modernc.org/sqlite"
 )
-
-// openTestStore is a real SQL database: the engine's statements run for real, using the same
-// [name] quoting and ? parameters as Access and SQL Server.
-func openTestStore(t *testing.T, ddl string) *sqlStore {
-	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "local.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { db.Close() })
-	if _, err := db.Exec(ddl); err != nil {
-		t.Fatal(err)
-	}
-
-	return &sqlStore{db: db, schema: func() (Schema, error) {
-		rows, err := db.Query(`SELECT m.name, p.name, p.type FROM sqlite_master m, pragma_table_info(m.name) p WHERE m.type = 'table'`)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		schema := Schema{}
-		for rows.Next() {
-			var table, column, kind string
-			if err := rows.Scan(&table, &column, &kind); err != nil {
-				return nil, err
-			}
-			if schema[strings.ToLower(table)] == nil {
-				schema[strings.ToLower(table)] = &Table{Name: table, Columns: map[string]Column{}}
-			}
-			schema[strings.ToLower(table)].Columns[strings.ToLower(column)] = Column{Name: column, Type: kind}
-		}
-		return schema, rows.Err()
-	}}
-}
-
-const shopDDL = `
-CREATE TABLE Items (ItemID INTEGER PRIMARY KEY, Code VARCHAR(20), Title VARCHAR(50), Rate DECIMAL(10,2), Qty INTEGER);
-CREATE TABLE Sales (SaleID INTEGER PRIMARY KEY, WebNo VARCHAR(30), Email VARCHAR(50), Amount DECIMAL(10,2), SaleDate DATETIME, State VARCHAR(20), Source VARCHAR(10));
-CREATE TABLE SaleLines (LineID INTEGER PRIMARY KEY, SaleID INTEGER, Code VARCHAR(20), Qty INTEGER, Rate DECIMAL(10,2));
-INSERT INTO Items (ItemID, Code, Title, Rate, Qty) VALUES (1, 'A1', 'Tea', 99.6, 10);
-`
-
-const shopMapping = `{
- "products": {"table":"Items","columns":{"external_id":"ItemID","sku":"Code","name":"Title","price":"Rate"}},
- "stock": {"table":"items","columns":{"sku":"code","on_hand":"qty"}},
- "orders_in": {"table":"Sales","key":"SaleID","columns":{"number":"WebNo","email":"Email","total":"Amount","placed_at":"SaleDate","status":"State"},
-   "defaults":{"Source":"WEB"},"status_values":{"Void":"cancelled","New":"confirmed"}},
- "order_items_in": {"table":"SaleLines","parent":"SaleID","columns":{"sku":"Code","qty":"Qty","price":"Rate"}},
- "stock_on_import": {"table":"Items","sku_column":"Code","qty_column":"Qty"},
- "order_status": {"table":"Sales","columns":{"number":"WebNo","status":"State"},"status_values":{"Shipped":"shipped"}}
-}`
 
 // fakeServer stands in for the API; the contract itself is checked by the e2e test below.
 type fakeServer struct {
-	mapping   string
 	orders    []map[string]any
 	customers []map[string]any
+	products  []map[string]any
+	config    map[string]any // GET agent/config: the billing software connection set in the panel
 	reject    map[string]bool
 	received  map[string][]map[string]any
 	acks      []map[string]any
 	reports   []map[string]any
-	schemas   int
 }
 
 func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -94,10 +39,7 @@ func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case path == "/agent/config":
-		w.Write([]byte(`{"mapping":` + f.mapping + `}`))
-	case path == "/agent/schema":
-		f.schemas++
-		w.Write([]byte(`{}`))
+		json.NewEncoder(w).Encode(f.config)
 	case path == "/agent/report":
 		f.reports = append(f.reports, body)
 		w.Write([]byte(`{}`))
@@ -105,6 +47,8 @@ func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"data": f.orders, "has_more": false})
 	case path == "/changes/customers" && r.Method == "GET" && f.customers != nil:
 		json.NewEncoder(w).Encode(map[string]any{"data": f.customers, "has_more": false})
+	case path == "/changes/products" && r.Method == "GET" && f.products != nil:
+		json.NewEncoder(w).Encode(map[string]any{"data": f.products, "has_more": false})
 	case strings.HasPrefix(path, "/changes/") && r.Method == "GET":
 		w.Write([]byte(`{"data":[],"has_more":false}`))
 	case strings.HasSuffix(path, "/ack"):
@@ -128,30 +72,12 @@ func (f *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func newFixture(t *testing.T, ddl, mapping string) (*Engine, *fakeServer, *sqlStore) {
-	t.Helper()
-	fake := &fakeServer{mapping: mapping, reject: map[string]bool{}, received: map[string][]map[string]any{}}
-	server := httptest.NewServer(fake)
-	t.Cleanup(server.Close)
-	store := openTestStore(t, ddl)
-	return &Engine{API: NewAPI(server.URL, "t"), DB: store, StatePath: filepath.Join(t.TempDir(), "state.json"), Version: "v"}, fake, store
-}
-
 func webOrder(status string) map[string]any {
 	return map[string]any{
 		"id": float64(7), "version": float64(1), "number": "ME-1", "email": "a@b.c", "total": float64(250),
 		"placed_at": "2026-11-10T10:00:00+00:00", "status": status,
 		"items": []any{map[string]any{"sku": "A1", "variant_sku": nil, "qty": float64(3), "price": float64(50)}},
 	}
-}
-
-func queryInt(t *testing.T, store *sqlStore, query string) int {
-	t.Helper()
-	var value int
-	if err := store.db.QueryRow(query).Scan(&value); err != nil {
-		t.Fatal(err)
-	}
-	return value
 }
 
 func cleanRun(t *testing.T, engine *Engine, fake *fakeServer) {
@@ -164,212 +90,6 @@ func cleanRun(t *testing.T, engine *Engine, fake *fakeServer) {
 		t.Fatalf("errors: %v", last["errors"])
 	}
 }
-
-func TestOrderIsImportedOnceAndTakenOffStockBeforeStockIsSent(t *testing.T) {
-	engine, fake, store := newFixture(t, shopDDL, shopMapping)
-	fake.orders = []map[string]any{webOrder("confirmed")}
-
-	cleanRun(t, engine, fake)
-
-	if got := queryInt(t, store, `SELECT Qty FROM Items WHERE Code='A1'`); got != 7 {
-		t.Fatalf("local qty = %d", got)
-	}
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM SaleLines l JOIN Sales s ON s.SaleID=l.SaleID WHERE s.WebNo='ME-1' AND s.Source='WEB' AND s.State='New' AND l.Code='A1' AND l.Qty=3`); got != 1 {
-		t.Fatal("order or its line was not written with its parent key")
-	}
-	if len(fake.acks) != 1 || text(fake.acks[0]["external_id"]) != "1" {
-		t.Fatalf("acks = %v", fake.acks)
-	}
-	stock := fake.received["/stock"]
-	if len(stock) != 1 || stock[0]["on_hand"] != float64(7) {
-		t.Fatalf("stock sent = %v", stock)
-	}
-
-	// The ack was lost and the order comes again: it must not be imported twice.
-	cleanRun(t, engine, fake)
-	if got := queryInt(t, store, `SELECT Qty FROM Items WHERE Code='A1'`); got != 7 {
-		t.Fatalf("stock reduced twice: %d", got)
-	}
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM Sales`); got != 1 {
-		t.Fatalf("order imported twice: %d", got)
-	}
-}
-
-func TestCancelledOrderRestocksOnce(t *testing.T) {
-	engine, fake, store := newFixture(t, shopDDL, shopMapping)
-	fake.orders = []map[string]any{webOrder("confirmed")}
-	cleanRun(t, engine, fake)
-
-	fake.orders = []map[string]any{webOrder("cancelled")}
-	cleanRun(t, engine, fake)
-	cleanRun(t, engine, fake)
-
-	if got := queryInt(t, store, `SELECT Qty FROM Items WHERE Code='A1'`); got != 10 {
-		t.Fatalf("qty = %d", got)
-	}
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM Sales WHERE State='Void'`); got != 1 {
-		t.Fatal("status not translated")
-	}
-}
-
-func TestCancelledOrderNeverImportedIsSkippedButConfirmed(t *testing.T) {
-	engine, fake, store := newFixture(t, shopDDL, shopMapping)
-	fake.orders = []map[string]any{webOrder("cancelled")}
-	cleanRun(t, engine, fake)
-
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM Sales`); got != 0 {
-		t.Fatal("cancelled order imported")
-	}
-	if len(fake.acks) != 1 {
-		t.Fatal("not acknowledged")
-	}
-}
-
-func TestFailedImportRollsBackAndIsNotAcknowledged(t *testing.T) {
-	ddl := shopDDL + `CREATE TRIGGER no_lines BEFORE INSERT ON SaleLines BEGIN SELECT RAISE(ABORT, 'locked'); END;`
-	engine, fake, store := newFixture(t, ddl, shopMapping)
-	fake.orders = []map[string]any{webOrder("confirmed")}
-
-	if err := engine.Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM Sales`); got != 0 {
-		t.Fatal("header survived a failed import")
-	}
-	if len(fake.acks) != 0 {
-		t.Fatal("failed import was acknowledged")
-	}
-	if fake.reports[0]["ok"] != false {
-		t.Fatal("failure was not reported")
-	}
-}
-
-func TestOnlyChangedProductsAreSentAndRejectedOnesRetried(t *testing.T) {
-	engine, fake, store := newFixture(t, shopDDL+`INSERT INTO Items VALUES (2,'B2','Rice',10,1);`, shopMapping)
-	fake.reject["2"] = true
-
-	cleanRun2 := func() {
-		if err := engine.Run(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	cleanRun2()
-	if got := len(fake.received["/products"]); got != 2 {
-		t.Fatalf("first run sent %d", got)
-	}
-	// Rupees and paise are kept (99.6 stays 99.6), rounded to the paisa.
-	if fake.received["/products"][0]["price"] != 99.6 {
-		t.Fatalf("price not kept to the paisa: %v", fake.received["/products"][0])
-	}
-
-	cleanRun2() // only the rejected one comes again
-	if got := len(fake.received["/products"]); got != 3 {
-		t.Fatalf("second run total %d", got)
-	}
-
-	delete(fake.reject, "2")
-	cleanRun2() // accepted now
-	cleanRun2() // and nothing is due
-	if got := len(fake.received["/products"]); got != 4 {
-		t.Fatalf("after accept total %d", got)
-	}
-
-	if _, err := store.db.Exec(`UPDATE Items SET Rate=200 WHERE Code='A1'`); err != nil {
-		t.Fatal(err)
-	}
-	cleanRun2()
-	if got := len(fake.received["/products"]); got != 5 {
-		t.Fatalf("after change total %d", got)
-	}
-	if got := len(fake.received["/stock"]); got != 10 {
-		t.Fatalf("stock is always sent in full; got %d", got)
-	}
-}
-
-func TestCustomersWithoutEmailAreLinkedByPhone(t *testing.T) {
-	ddl := shopDDL + `CREATE TABLE People (PersonID INTEGER PRIMARY KEY, Name VARCHAR(50), Email VARCHAR(50), Mobile VARCHAR(20));
-INSERT INTO People (PersonID, Name, Mobile) VALUES (5, 'Counter Buyer', '9876543210');`
-	mapping := `{"customers_in": {"table":"People","key":"PersonID","insert":true,"columns":{"name":"Name","email":"Email","phone":"Mobile"}}}`
-	engine, fake, store := newFixture(t, ddl, mapping)
-	fake.customers = []map[string]any{
-		{"id": float64(1), "version": float64(1), "name": "Counter Buyer", "email": nil, "phone": "9876543210"},
-		{"id": float64(2), "version": float64(1), "name": "New Buyer", "email": nil, "phone": "9123456789"},
-		{"id": float64(3), "version": float64(1), "name": "Nobody", "email": nil, "phone": nil},
-	}
-	cleanRun(t, engine, fake)
-
-	var count int
-	if err := store.db.QueryRow(`SELECT COUNT(*) FROM People`).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Fatalf("people = %d, want the phone match reused and one row added", count)
-	}
-	links := map[float64]string{}
-	for _, ack := range fake.acks {
-		links[ack["id"].(float64)] = text(ack["external_id"])
-	}
-	if links[1] != "5" || links[2] == "" || links[2] == "5" || links[3] != "" {
-		t.Fatalf("acks = %v", fake.acks)
-	}
-}
-
-func TestStatusIsTranslatedAndUnknownValuesAreNotSent(t *testing.T) {
-	ddl := shopDDL + `INSERT INTO Sales (WebNo, State) VALUES ('ME-2','Shipped'),('ME-3','Packing'),(NULL,'Shipped');`
-	engine, fake, _ := newFixture(t, ddl, shopMapping)
-	cleanRun(t, engine, fake)
-
-	sent := fake.received["/orders/status"]
-	if len(sent) != 1 || sent[0]["number"] != "ME-2" || sent[0]["status"] != "shipped" {
-		t.Fatalf("sent = %v", sent)
-	}
-}
-
-func TestNoMappingOnlyReportsTablesAndSchemaGoesOnce(t *testing.T) {
-	engine, fake, store := newFixture(t, shopDDL, `null`)
-
-	cleanRun(t, engine, fake)
-	cleanRun(t, engine, fake)
-	if fake.schemas != 1 {
-		t.Fatalf("schema sent %d times", fake.schemas)
-	}
-	if fake.reports[0]["message"] != "Waiting for a mapping; local tables have been reported." {
-		t.Fatalf("message = %v", fake.reports[0]["message"])
-	}
-
-	if _, err := store.db.Exec(`CREATE TABLE Extra (Id INTEGER)`); err != nil {
-		t.Fatal(err)
-	}
-	cleanRun(t, engine, fake)
-	if fake.schemas != 2 {
-		t.Fatal("a new table was not reported")
-	}
-}
-
-func TestMappingCannotInjectOrUseUnknownNames(t *testing.T) {
-	for _, mapping := range []string{
-		`{"stock":{"table":"Items; DROP TABLE Items","columns":{"sku":"Code"}}}`,
-		`{"stock":{"table":"Items","columns":{"sku":"Code] FROM Items; DROP TABLE Items; --"}}}`,
-		`{"stock":{"table":"Items","columns":{"sku":"Nope"}}}`,
-	} {
-		engine, fake, store := newFixture(t, shopDDL, mapping)
-		if err := engine.Run(); err != nil {
-			t.Fatal(err)
-		}
-		if fake.reports[0]["ok"] != false {
-			t.Fatalf("not reported: %s", mapping)
-		}
-		if got := queryInt(t, store, `SELECT COUNT(*) FROM Items`); got != 1 {
-			t.Fatal("table damaged")
-		}
-		if len(fake.received["/stock"]) != 0 {
-			t.Fatal("data sent for a bad mapping")
-		}
-	}
-}
-
-// ---- Updates ----------------------------------------------------------------------------
 
 type fakeUpdates struct {
 	binary    []byte
@@ -535,7 +255,7 @@ func TestCycleTreatsSyncFailureAsNotACrash(t *testing.T) {
 		t.Fatal("not updated")
 	}
 	if updater.readPending() != nil {
-		t.Fatal("a network or database failure must settle the trial, not count as a crash")
+		t.Fatal("a network or shop software failure must settle the trial, not count as a crash")
 	}
 }
 
@@ -551,34 +271,27 @@ func TestCycleCountsACrash(t *testing.T) {
 	}
 }
 
-// Runs against a real EcomVision server when EV_E2E_API and EV_E2E_TOKEN are set.
+// Runs against a real EcomVision server when EV_E2E_API and EV_E2E_TOKEN are set, with a fake
+// shop software API on this side.
 func TestAgainstRealServer(t *testing.T) {
 	base, token := os.Getenv("EV_E2E_API"), os.Getenv("EV_E2E_TOKEN")
 	if base == "" {
 		t.Skip("EV_E2E_API is not set")
 	}
 
-	store := openTestStore(t, shopDDL)
-	engine := &Engine{API: NewAPI(base, token), DB: store, StatePath: filepath.Join(t.TempDir(), "state.json"), Version: "e2e"}
+	shop := newFakeShop()
+	for _, list := range []string{"products", "customers", "stock"} {
+		shop.lists[list] = [][]map[string]any{}
+	}
+	shopServer := httptest.NewServer(shop)
+	t.Cleanup(shopServer.Close)
+	engine := &Engine{API: NewAPI(base, token), Local: NewLocalAPI(shopServer.URL+"/", "k"), StatePath: filepath.Join(t.TempDir(), "state.json"), Version: "e2e"}
 
 	if err := engine.Run(); err != nil {
 		t.Fatal(err)
 	}
-	if got := queryInt(t, store, `SELECT Qty FROM Items WHERE Code='A1'`); got != 8 {
-		t.Fatalf("local qty after web order of 2 = %d", got)
-	}
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM Sales WHERE WebNo='ME-E2E' AND Source='WEB'`); got != 1 {
-		t.Fatal("web order not imported")
-	}
-	if got := queryInt(t, store, `SELECT COUNT(*) FROM SaleLines l JOIN Sales s ON s.SaleID=l.SaleID WHERE l.Code='A1' AND l.Qty=2`); got != 1 {
-		t.Fatal("web order line not imported")
-	}
-
-	if _, err := store.db.Exec(`UPDATE Sales SET State='Shipped' WHERE WebNo='ME-E2E'`); err != nil {
-		t.Fatal(err)
-	}
-	if err := engine.Run(); err != nil {
-		t.Fatal(err)
+	if shop.orders["ME-E2E"] == nil {
+		t.Fatal("web order not sent to the shop software")
 	}
 
 	// A real build, signed by the real command and verified by the real updater.

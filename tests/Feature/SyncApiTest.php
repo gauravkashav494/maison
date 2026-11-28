@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\Storefront;
 use App\Models\SyncToken;
@@ -222,6 +223,39 @@ class SyncApiTest extends TestCase
         $response->assertJsonPath('results.1.result', 'rejected');
     }
 
+    public function test_stock_is_matched_by_the_local_product_id_when_the_product_has_no_sku(): void
+    {
+        // Made first: an API call sets the client in use for the rest of the test.
+        $foreign = $this->product($this->beta, 'B1', ['external_id' => 'ITM-9']);
+        $this->api('POST', 'products', ['items' => [['external_id' => 'ITM-1', 'name' => 'Soap', 'price' => 45]]])
+            ->assertJsonPath('results.0.result', 'created');
+        $soap = Product::query()->where('external_id', 'ITM-1')->firstOrFail();
+        $this->assertNull($soap->sku);
+        $tee = $this->product($this->alpha, 'TEE', ['external_id' => 'ITM-2', 'has_variants' => true, 'stock' => 0, 'variant_attributes' => ['Size'], 'variants' => [
+            ['options' => ['Size' => 'M'], 'sku' => 'TEE-M', 'price' => 100, 'stock' => 0, 'is_active' => true],
+        ]]);
+
+        $response = $this->api('POST', 'stock', ['items' => [
+            ['external_id' => 'ITM-1', 'on_hand' => 12, 'reason' => 'received'],
+            ['external_id' => 'ITM-2', 'sku' => 'TEE-M', 'on_hand' => 4],
+            ['external_id' => 'ITM-2', 'on_hand' => 9],          // sold by variant: needs the variant's sku
+            ['external_id' => 'ITM-2', 'sku' => 'TEE-XL', 'on_hand' => 1],
+            ['external_id' => 'ITM-9', 'on_hand' => 3],          // another client's product
+            ['on_hand' => 3],                                     // names nothing
+        ]]);
+
+        $response->assertJsonPath('results.0.result', 'rejected')->assertJsonPath('results.0.key', null);
+        $results = collect($response->json('results'))->slice(1)->values();
+        $this->assertSame(
+            [['ITM-1', 'updated'], ['TEE-M', 'updated'], ['ITM-2', 'rejected'], ['TEE-XL', 'rejected'], ['ITM-9', 'rejected']],
+            $results->map(fn ($result) => [$result['key'], $result['result']])->all(),
+        );
+        $this->assertSame(12, (int) $soap->fresh()->stock);
+        $this->assertSame(StockMovement::RECEIVED, StockMovement::query()->where('product_id', $soap->id)->latest('id')->value('reason'));
+        $this->assertSame(4, (int) $tee->fresh()->stock);
+        $this->assertSame(5, (int) $foreign->fresh()->stock);
+    }
+
     public function test_variant_stock_and_price_update_by_variant_sku(): void
     {
         $product = $this->product($this->alpha, 'P', ['has_variants' => true, 'stock' => 8, 'variant_attributes' => ['Size'], 'variants' => [
@@ -271,6 +305,47 @@ class SyncApiTest extends TestCase
         $this->api('POST', 'products', ['items' => [['external_id' => 'L2', 'name' => 'Polo', 'price' => 10, 'category' => 't-shirts']]]);
         $this->assertSame($category->id, (int) Product::where('external_id', 'L2')->value('category_id'));
         $this->assertSame(1, Category::where('client_id', $this->alpha->id)->count());
+    }
+
+    public function test_a_product_brings_its_categories_as_the_form_picks_them(): void
+    {
+        // Men already exists with Shirts under it; Women has a Shirts of its own.
+        $men = Category::create(['client_id' => $this->alpha->id, 'name' => 'Men', 'slug' => 'men']);
+        $shirts = Category::create(['client_id' => $this->alpha->id, 'name' => 'Shirts', 'slug' => 'men-shirts', 'parent_id' => $men->id]);
+        $women = Category::create(['client_id' => $this->alpha->id, 'name' => 'Women', 'slug' => 'women']);
+        Category::create(['client_id' => $this->alpha->id, 'name' => 'Shirts', 'slug' => 'women-shirts', 'parent_id' => $women->id]);
+        $sale = Category::create(['client_id' => $this->alpha->id, 'name' => 'Sale', 'slug' => 'sale']);
+
+        $results = $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'L1', 'name' => 'Oxford', 'price' => 999, 'category' => 'men', 'category_2' => 'Shirts', 'category_3' => 'sale', 'category_4' => 'Winter Wear'],
+            ['external_id' => 'L2', 'name' => 'Linen', 'price' => 799, 'category' => 'Women', 'category_2' => 'Kurtas'],
+            ['external_id' => 'L3', 'name' => 'Odd', 'price' => 10, 'category_3' => 'Sale'],   // a tag without a category
+        ]])->json('results');
+        $this->assertSame(['L1' => 'created', 'L2' => 'created', 'L3' => 'rejected'], collect($results)->sortBy('key')->pluck('result', 'key')->all());
+
+        // category_2 is found under category, and is the main category; the tags are any category,
+        // made at the top (out of the menu) when missing.
+        $oxford = Product::where('external_id', 'L1')->first();
+        $this->assertSame($shirts->id, (int) $oxford->category_id);
+        $winter = Category::where('name', 'Winter Wear')->first();
+        $this->assertNull($winter->parent_id);
+        $this->assertFalse($winter->show_in_menu);
+        $this->assertEqualsCanonicalizing([$shirts->id, $sale->id, $winter->id], $oxford->categories()->pluck('categories.id')->map(fn ($id) => (int) $id)->all());
+
+        // A child that is missing is made under its category.
+        $linen = Product::where('external_id', 'L2')->first();
+        $this->assertSame(['Women', 'Kurtas'], array_map(fn ($c) => $c->name, $linen->category->lineage()));
+
+        // Once the product has a category, the local system no longer changes it or its tags.
+        $this->api('POST', 'products', ['items' => [['external_id' => 'L1', 'name' => 'Oxford', 'price' => 999, 'category' => 'Women', 'category_3' => 'Clearance']]]);
+        $this->assertSame($shirts->id, (int) $oxford->fresh()->category_id);
+        $this->assertSame(3, $oxford->categories()->count());
+
+        // The feed gives them back the same way.
+        $web = $this->product($this->alpha, 'W1', ['category_id' => $shirts->id]);
+        $web->listUnder([$sale->id, $winter->id]);
+        $row = collect($this->api('GET', 'changes/products')->json('data'))->firstWhere('id', $web->id);
+        $this->assertSame(['Men', 'Shirts', 'Sale', 'Winter Wear'], [$row['category'], $row['category_2'], $row['category_3'], $row['category_4']]);
     }
 
     public function test_resent_variants_update_by_sku_and_keep_what_ecomvision_owns(): void
@@ -409,6 +484,139 @@ class SyncApiTest extends TestCase
         $this->api('POST', 'customers', ['items' => [['external_id' => 'C9', 'name' => 'X', 'phone' => '9876543210']]])
             ->assertJsonPath('results.0.result', 'rejected')
             ->assertJsonPath('results.0.error', 'That phone belongs to a customer with another external_id.');
+    }
+
+    public function test_a_price_with_or_without_tax_becomes_the_stores_price(): void
+    {
+        // This store enters prices before tax (prices_include_tax false).
+        $this->api('GET', 'ping')->assertJsonPath('prices_include_tax', false);
+
+        $this->api('POST', 'products', ['items' => [
+            // Including GST, as most shops hold it: 118 at 18% is 100 before tax.
+            ['external_id' => 'T1', 'sku' => 'T1', 'name' => 'Soap', 'price_incl_tax' => 118, 'tax_rate' => 18, 'variants' => [
+                ['sku' => 'T1-S', 'options' => ['Size' => 'S'], 'price_incl_tax' => 45],
+                ['sku' => 'T1-L', 'options' => ['Size' => 'L'], 'price_excl_tax' => 50],
+                ['sku' => 'T1-M', 'options' => ['Size' => 'M']],
+            ]],
+            // Before GST: saved as it is here.
+            ['external_id' => 'T2', 'sku' => 'T2', 'name' => 'Oil', 'price_excl_tax' => 200, 'tax_rate' => 5],
+            // `price` with another form is refused, and so is no price at all.
+            ['external_id' => 'T3', 'sku' => 'T3', 'name' => 'Both', 'price' => 10, 'price_incl_tax' => 12],
+            ['external_id' => 'T4', 'sku' => 'T4', 'name' => 'None'],
+            // A shop keeping both prices sends both: kept as they are (38.14 × 1.18 = 45.01, within a paisa of 45).
+            ['external_id' => 'T5', 'sku' => 'T5', 'name' => 'Pair', 'price_incl_tax' => 45, 'price_excl_tax' => 38.14, 'tax_rate' => 18],
+            // A pair that does not agree with the tax: the store's form (before tax here) wins, the other is worked out.
+            ['external_id' => 'T6', 'sku' => 'T6', 'name' => 'Odd', 'price_incl_tax' => 100, 'price_excl_tax' => 90, 'tax_rate' => 18],
+        ]])->assertOk()
+            ->assertJsonPath('results.0.key', 'T3')->assertJsonPath('results.0.result', 'rejected')
+            ->assertJsonPath('results.1.key', 'T4')->assertJsonPath('results.1.result', 'rejected')
+            ->assertJsonPath('results.2.result', 'created')
+            ->assertJsonPath('results.3.result', 'created')
+            ->assertJsonPath('results.4.result', 'created')
+            ->assertJsonPath('results.5.result', 'created');
+
+        $pair = Product::where('external_id', 'T5')->first();
+        $this->assertSame([38.14, 45.0, 38.14], [$pair->price, $pair->price_incl_tax, $pair->price_excl_tax]);
+        $odd = Product::where('external_id', 'T6')->first();
+        $this->assertSame([90.0, 106.2, 90.0], [$odd->price, $odd->price_incl_tax, $odd->price_excl_tax]);
+
+        $soap = Product::where('external_id', 'T1')->first();
+        $this->assertSame([100.0, 118.0, 100.0], [$soap->price, $soap->price_incl_tax, $soap->price_excl_tax]);
+        // The price the shop holds is kept to the paisa: 45 with tax stays 45, not 38.14 × 1.18 = 45.01.
+        // Variant rows are JSON, so 45.0 reads back as 45: compare them as numbers.
+        $prices = fn (int $i, array $keys) => array_map(fn ($key) => (float) $soap->variants[$i][$key], $keys);
+        $this->assertSame([38.14, 45.0, 38.14], $prices(0, ['price', 'price_incl_tax', 'price_excl_tax']));
+        $this->assertSame([50.0, 59.0], $prices(1, ['price', 'price_incl_tax']));
+        $this->assertSame(100.0, $soap->priceFor(['Size' => 'M']));
+        $this->assertSame([200.0, 210.0], [Product::where('external_id', 'T2')->value('price'), (float) Product::where('external_id', 'T2')->value('price_incl_tax')]);
+
+        // Sent again the same: nothing changes.
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'T1', 'sku' => 'T1', 'name' => 'Soap', 'price_incl_tax' => 118, 'tax_rate' => 18, 'variants' => [
+                ['sku' => 'T1-S', 'options' => ['Size' => 'S'], 'price_incl_tax' => 45],
+                ['sku' => 'T1-L', 'options' => ['Size' => 'L'], 'price_excl_tax' => 50],
+                ['sku' => 'T1-M', 'options' => ['Size' => 'M']],
+            ]],
+        ]])->assertJsonPath('results.0.result', 'unchanged');
+
+        // The stock push takes a price the same ways.
+        $this->api('POST', 'stock', ['items' => [['sku' => 'T1-S', 'on_hand' => 3, 'price_incl_tax' => 47.2]]])
+            ->assertJsonPath('results.0.result', 'updated');
+        $soap->refresh();
+        $this->assertSame([40.0, 47.2], $prices(0, ['price', 'price_incl_tax']));
+
+        // The feed gives each variant both prices as well.
+        $this->api('POST', 'changes/products/ack', ['items' => [['id' => $soap->id, 'version' => $soap->sync_version]]]);
+        $soap->update(['description' => 'Gentle']);
+        $this->api('GET', 'changes/products')
+            ->assertJsonPath('data.0.price_incl_tax', 118)
+            ->assertJsonPath('data.0.variants.0.price_incl_tax', 47.2)
+            ->assertJsonPath('data.0.variants.0.price_excl_tax', 40);
+    }
+
+    public function test_a_store_entering_prices_with_tax_takes_a_price_without_it(): void
+    {
+        Setting::mergeForClient($this->alpha, 'checkout', ['tax_mode' => 'inclusive']);
+        $this->api('GET', 'ping')->assertJsonPath('prices_include_tax', true);
+
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'I1', 'sku' => 'I1', 'name' => 'Tee', 'price_excl_tax' => 100, 'tax_rate' => 5],
+            ['external_id' => 'I2', 'sku' => 'I2', 'name' => 'Cap', 'price_incl_tax' => 299, 'tax_rate' => 12],
+            // `price` is taken as the store enters it: here, including tax.
+            ['external_id' => 'I3', 'sku' => 'I3', 'name' => 'Bag', 'price' => 590, 'tax_rate' => 18],
+        ]])->assertJsonPath('results.2.result', 'created');
+
+        $row = fn (string $id) => Product::where('external_id', $id)->first();
+        $this->assertSame([105.0, 105.0, 100.0], [$row('I1')->price, $row('I1')->price_incl_tax, $row('I1')->price_excl_tax]);
+        $this->assertSame([299.0, 299.0, 266.96], [$row('I2')->price, $row('I2')->price_incl_tax, $row('I2')->price_excl_tax]);
+        $this->assertSame([590.0, 500.0], [$row('I3')->price, $row('I3')->price_excl_tax]);
+    }
+
+    public function test_hsn_codes_fill_in_while_blank_and_reach_the_local_system_with_orders(): void
+    {
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'H1', 'sku' => 'TEE', 'name' => 'Tee', 'price' => 499, 'hsn_code' => '6109 10 00', 'variants' => [
+                ['sku' => 'TEE-M', 'options' => ['Size' => 'M']],
+                ['sku' => 'TEE-L', 'options' => ['Size' => 'L'], 'hsn_code' => '6110'],
+            ]],
+            ['external_id' => 'H2', 'sku' => 'BAD', 'name' => 'Bad', 'price' => 10, 'hsn_code' => '12345'],
+        ]])->assertOk()
+            ->assertJsonPath('results.0.key', 'H2')
+            ->assertJsonPath('results.0.result', 'rejected')
+            ->assertJsonPath('results.1.result', 'created');
+
+        $product = Product::where('external_id', 'H1')->first();
+        $this->assertSame('61091000', $product->hsn_code);
+        $this->assertSame('61091000', $product->hsnCodeFor(['Size' => 'M']));
+        $this->assertSame('6110', $product->hsnCodeFor(['Size' => 'L']));
+
+        // Once set, the HSN codes are EcomVision's: a resend with others changes neither.
+        $this->api('POST', 'products', ['items' => [
+            ['external_id' => 'H1', 'sku' => 'TEE', 'name' => 'Tee', 'price' => 499, 'hsn_code' => '6205', 'variants' => [
+                ['sku' => 'TEE-M', 'options' => ['Size' => 'M']],
+                ['sku' => 'TEE-L', 'options' => ['Size' => 'L'], 'hsn_code' => '6206'],
+            ]],
+        ]])->assertJsonPath('results.0.result', 'unchanged');
+        $this->assertSame('61091000', $product->refresh()->hsn_code);
+        $this->assertSame('6110', $product->hsnCodeFor(['Size' => 'L']));
+
+        // The feed carries the codes, and an order its lines' codes and the promo code's offer.
+        $this->api('POST', 'changes/products/ack', ['items' => [['id' => $product->id, 'version' => $product->sync_version]]]);
+        $product->update(['description' => 'Soft cotton']);
+        $this->api('GET', 'changes/products')
+            ->assertJsonPath('data.0.hsn_code', '61091000')
+            ->assertJsonPath('data.0.variants.1.hsn_code', '6110');
+
+        $order = $this->order($this->alpha);
+        $order->update(['coupon_code' => 'SAVE10', 'coupon_type' => 'percent', 'coupon_value' => 10]);
+        $order->items()->create(['product_id' => $product->id, 'name' => 'Tee (L)', 'sku' => 'TEE', 'variant_sku' => 'TEE-L', 'hsn_code' => '6110', 'price' => 499, 'qty' => 1, 'total' => 499]);
+        $this->api('GET', 'changes/orders')
+            ->assertJsonPath('data.0.coupon_type', 'percent')
+            ->assertJsonPath('data.0.coupon_value', 10)
+            ->assertJsonPath('data.0.items.0.hsn_code', '6110')
+            // The line's product as the local system knows it, for its order import.
+            ->assertJsonPath('data.0.items.0.product_external_id', 'H1')
+            ->assertJsonPath('data.0.customer_external_id', null);
     }
 
     public function test_prices_carry_paise_and_brand_and_tax_fill_in_while_blank(): void

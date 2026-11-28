@@ -12,7 +12,15 @@ use RuntimeException;
  */
 class AgentPackage
 {
-    public const ARCHITECTURES = ['amd64', '386'];
+    /**
+     * The builds an agent can ask for. The -win7 ones are made with Go 1.20, the last to run on
+     * Windows 7 and 8.1 (the others need Windows 10): an agent reports its own, so a Windows 7
+     * agent only ever updates to a Windows 7 build.
+     */
+    public const ARCHITECTURES = ['amd64', '386', 'amd64-win7', '386-win7'];
+
+    /** The builds every shop needs; a setup code is only made once these are signed. */
+    public const MAIN_ARCHITECTURES = ['amd64', '386'];
 
     private readonly string $dir;
 
@@ -24,6 +32,19 @@ class AgentPackage
     public function binaryPath(string $arch): string
     {
         return "{$this->dir}/dist/ecomvision-agent-{$arch}.exe";
+    }
+
+    /** The setup .exe shops run for this build (agent/installer/agent.iss), with that build inside. */
+    public function installerPath(string $arch): string
+    {
+        $windows = str_starts_with($arch, '386') ? 'x86' : 'x64';
+
+        return "{$this->dir}/dist/EcomVisionSyncAgent-Setup-{$windows}".(str_ends_with($arch, '-win7') ? '-win7' : '').'.exe';
+    }
+
+    public function hasInstaller(string $arch): bool
+    {
+        return is_file($this->installerPath($arch));
     }
 
     public function exists(string $arch): bool

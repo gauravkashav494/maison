@@ -13,21 +13,26 @@ use App\Models\StockMovement;
 use App\Models\Tax;
 use App\Support\PhoneNumber;
 use App\Support\SalesOrder;
+use App\Support\TaxPrices;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * Applies what the local system sends. Field ownership lives here:
  *
  *   local system  product sku, name, price, compare-at price and stock; each variant's sku,
- *                 options and price; a product's category, brand and tax while it has none;
- *                 order fulfilment
- *   EcomVision    everything else on a product (slug, text, images, category, brand and tax
- *                 once set, other categories, collections, visibility, variant images and
+ *                 options and price; a product's category, brand, tax and HSN code (and a
+ *                 variant's HSN code) while it has none; order fulfilment
+ *   EcomVision    everything else on a product (slug, text, images, category, brand, tax and
+ *                 HSN code once set, other categories, collections, visibility, variant images and
  *                 on-sale flags), orders as placed, and the profile of an existing customer
  *
- * Prices are rupees and paise, in whichever form the store enters its prices (including tax or
- * before it, Site settings → Payments & tax); Product works out the other one from its tax.
+ * Prices are rupees and paise: `price` in whichever form the store enters its prices (including
+ * tax or before it, Site settings → Payments & tax), or `price_incl_tax` / `price_excl_tax` as
+ * the local system holds them, converted to the store's form with the product's tax
+ * (storePrice()). Product works out the other one from its tax.
  */
 class SyncInbound
 {
@@ -56,14 +61,15 @@ class SyncInbound
             'external_id' => $key,
             'sku' => $item['sku'] ?? null,
             'name' => $item['name'],
-            'price' => $item['price'],
             'compare_at_price' => $item['compare_at_price'] ?? null,
         ];
 
         try {
             if ($product) {
                 $product->fill($owned);
-                $this->fillBlanks($product, $item);
+                $tags = $this->fillBlanks($product, $item);
+                // After fillBlanks: a price with or without tax is converted with the product's tax.
+                $product->fill($this->storePrice($item, $this->rateOf($product)));
                 if ($variants) {
                     $this->mergeVariants($product, $variants);
                 }
@@ -73,6 +79,9 @@ class SyncInbound
                 // Came from the local system, so it is not sent straight back to it.
                 Product::withoutSyncTracking(fn () => $product->save());
                 $this->rememberSkus($product);
+                if ($tags !== null) {
+                    $product->listUnder($tags);
+                }
 
                 return SyncResult::of($key, SyncResult::UPDATED, ['id' => $product->id]);
             }
@@ -90,12 +99,16 @@ class SyncInbound
                 'is_active' => false,
                 'sync_acked_version' => 1,
             ]);
-            $this->fillBlanks($product, $item);
+            $tags = $this->fillBlanks($product, $item);
+            $product->fill($this->storePrice($item, $this->rateOf($product)));
             if ($variants) {
                 $this->mergeVariants($product, $variants);
             }
             $product->save();
             $this->rememberSkus($product);
+            if ($tags !== null) {
+                $product->listUnder($tags);
+            }
 
             return SyncResult::of($key, SyncResult::CREATED, ['id' => $product->id]);
         } catch (UniqueConstraintViolationException) {
@@ -149,6 +162,7 @@ class SyncInbound
      */
     private function mergeVariants(Product $product, array $incoming): void
     {
+        $rate = $this->rateOf($product);
         $attributes = $product->variantAttributes();
         $variants = array_values((array) $product->variants);
 
@@ -171,12 +185,19 @@ class SyncInbound
                 continue;
             }
 
-            $owned = ['sku' => $variant['sku'], 'options' => $options, 'price' => $variant['price'] ?? null];
+            // No price of its own (in any form): sells at the product's.
+            $owned = ['sku' => $variant['sku'], 'options' => $options] + ($this->storePrice($variant, $rate) ?: ['price' => null]);
+            // A variant's own HSN code, like the product's, only while it has none.
+            $hsn = self::hsn($variant['hsn_code'] ?? null);
             if (isset($bySku[$variant['sku']])) {
-                $variants[$bySku[$variant['sku']]] = array_merge($variants[$bySku[$variant['sku']]], $owned);
+                $index = $bySku[$variant['sku']];
+                $variants[$index] = array_merge($variants[$index], $owned);
+                if ($hsn && blank($variants[$index]['hsn_code'] ?? null)) {
+                    $variants[$index]['hsn_code'] = $hsn;
+                }
             } else {
                 $bySku[$variant['sku']] = count($variants);
-                $variants[] = $owned + ['stock' => 0, 'is_active' => true];
+                $variants[] = $owned + ['stock' => 0, 'is_active' => true] + ($hsn ? ['hsn_code' => $hsn] : []);
             }
         }
 
@@ -220,11 +241,23 @@ class SyncInbound
     /**
      * The main category, brand and tax are filled in from the local system only while the
      * product has none; after that they are EcomVision's.
+     *
+     * The categories are the form's boxes: `category` and, under it, `category_2` make the main
+     * category; `category_3` and `category_4` are the two category tags, any categories the
+     * product is also listed under. Returns those tags' ids to list the product under once it is
+     * saved, or null when the categories are left as they are.
+     *
+     * @return list<int>|null
      */
-    private function fillBlanks(Product $product, array $item): void
+    private function fillBlanks(Product $product, array $item): ?array
     {
+        $tags = null;
         if (blank($product->category_id) && filled($item['category'] ?? null)) {
-            $product->category_id = $this->categoryId($item['category']);
+            $product->category_id = $this->categoryId(array_filter([$item['category'], $item['category_2'] ?? null], 'filled'));
+            $tags = array_map(
+                fn (string $name) => $this->categoryId([$name]),
+                array_values(array_filter([$item['category_3'] ?? null, $item['category_4'] ?? null], 'filled')),
+            );
         }
         // Product::syncBrand() links the name to the client's brand, creating it when new.
         if (blank($product->brand_id) && blank($product->brand) && filled($item['brand'] ?? null)) {
@@ -233,6 +266,67 @@ class SyncInbound
         if (blank($product->tax_id) && isset($item['tax_rate']) && is_numeric($item['tax_rate'])) {
             $product->tax_id = $this->taxId((float) $item['tax_rate']);
         }
+        if (blank($product->hsn_code) && ($hsn = self::hsn($item['hsn_code'] ?? null))) {
+            $product->hsn_code = $hsn;
+        }
+
+        return $tags;
+    }
+
+    /**
+     * The price to save from what the local system sent (SyncController::prices()):
+     *
+     *   price           as the store enters its prices (ping's prices_include_tax): saved as it is
+     *   price_incl_tax  including GST, as most shops hold it
+     *   price_excl_tax  before GST
+     *   both of these   as a shop that keeps both holds them
+     *
+     * The figure in the store's own form becomes `price` exactly (worked out through $rate when
+     * only the other one is sent), so what the shopper pays is the local system's figure. Each
+     * price sent is kept as it is in its own column; TaxPrices::sync keeps it while it agrees with
+     * `price` and the product's tax to the paisa, and works it out afresh otherwise (a rounding
+     * difference, or a tax rate EcomVision has changed). Empty when no price is sent.
+     *
+     * @param  array<string, mixed>  $values  an item, or a variant of one
+     * @return array{price?: float, price_incl_tax?: float, price_excl_tax?: float}
+     */
+    private function storePrice(array $values, float $rate): array
+    {
+        if (isset($values['price'])) {
+            return ['price' => (float) $values['price']];
+        }
+
+        $incl = isset($values['price_incl_tax']) ? round((float) $values['price_incl_tax'], 2) : null;
+        $excl = isset($values['price_excl_tax']) ? round((float) $values['price_excl_tax'], 2) : null;
+        if ($incl === null && $excl === null) {
+            return [];
+        }
+
+        $incl ??= TaxPrices::convert($excl, $rate, toInclusive: true);
+        $excl ??= TaxPrices::convert($incl, $rate, toInclusive: false);
+
+        return ['price' => prices_include_tax() ? $incl : $excl, 'price_incl_tax' => $incl, 'price_excl_tax' => $excl];
+    }
+
+    /**
+     * The GST rate the store charges on $product, which converts a price with or without tax: its
+     * tax's rate (the one just picked from tax_rate when it had none), 0 with no tax.
+     */
+    private function rateOf(Product $product): float
+    {
+        if (! $product->tax_id) {
+            return 0.0;
+        }
+
+        return (float) (Tax::query()->withTrashed()->whereKey($product->tax_id)->value('rate') ?? $product->tax_rate ?? 0);
+    }
+
+    /** "6109 10 00" → "61091000"; null when blank. Validated by SyncController::HSN. */
+    private static function hsn(mixed $code): ?string
+    {
+        $code = preg_replace('/\s+/', '', (string) $code);
+
+        return $code === '' ? null : $code;
     }
 
     /** The client's tax with this rate, created as "GST <rate>%" when it has none. */
@@ -255,33 +349,35 @@ class SyncInbound
         ])->id);
     }
 
-    /** The client's category with this name, created (and kept out of the menu) when missing. */
-    private function categoryId(string $name): int
+    /**
+     * The deepest category of a path of names, as the form's category boxes pick it: a category
+     * (Men), then a child of it (Shirts), and so on. Each missing one is created under the one
+     * before it, kept out of the menu.
+     *
+     * @param  list<string>  $names
+     */
+    private function categoryId(array $names): int
     {
-        $name = trim($name);
         $template = $this->client->templateId();
         $categories = Category::query()->where('client_id', $this->client->id)
             ->where(fn ($query) => $query->whereNull('template')->when($template, fn ($q) => $q->orWhere('template', $template)));
+        $named = fn (string $name) => (clone $categories)->whereRaw('lower(name) = ?', [Str::lower($name)]);
 
-        $found = (clone $categories)->whereRaw('lower(name) = ?', [Str::lower($name)])->value('id');
-        if ($found) {
-            return (int) $found;
+        $parent = null;
+        foreach (array_values($names) as $level => $name) {
+            $name = trim($name);
+            $found = match (true) {
+                // The first may be any category, as on the form; a top-level one when two share the name.
+                $level === 0 => $named($name)->orderByRaw('parent_id is not null')->orderBy('id')->first(),
+                default => $named($name)->where('parent_id', $parent->id)->first(),
+            };
+
+            $parent = $found ?? Category::create(['show_in_menu' => false] + ($parent
+                ? $parent->newChildAttributes($name)
+                : ['client_id' => $this->client->id, 'template' => $template, 'name' => $name, 'is_active' => true]));
         }
 
-        $base = Str::slug($name) ?: 'category';
-        $slug = $base;
-        for ($n = 2; Category::withTrashed()->where('client_id', $this->client->id)->where('slug', $slug)->exists(); $n++) {
-            $slug = $base.'-'.$n;
-        }
-
-        return (int) Category::create([
-            'client_id' => $this->client->id,
-            'template' => $template,
-            'name' => $name,
-            'slug' => $slug,
-            'is_active' => true,
-            'show_in_menu' => false,
-        ])->id;
+        return (int) $parent->id;
     }
 
     private function uniqueSlug(string $name): string
@@ -309,7 +405,8 @@ class SyncInbound
         [$byProduct, $byVariant] = $this->undeliveredQuantities();
 
         $base = Product::query()->where('client_id', $this->client->id);
-        $bySku = (clone $base)->whereIn('sku', array_column($items, 'sku'))->pluck('id', 'sku');
+        $bySku = (clone $base)->whereIn('sku', array_filter(array_column($items, 'sku')))->pluck('id', 'sku');
+        $byExternalId = (clone $base)->whereIn('external_id', array_filter(array_column($items, 'external_id')))->pluck('id', 'external_id');
 
         $variantOwners = [];
         foreach ((clone $base)->where('has_variants', true)->get(['id', 'variants']) as $product) {
@@ -320,7 +417,11 @@ class SyncInbound
             }
         }
 
-        return array_map(function (array $item) use ($base, $bySku, $variantOwners, $byProduct, $byVariant) {
+        return array_map(function (array $item) use ($base, $bySku, $byExternalId, $variantOwners, $byProduct, $byVariant) {
+            if (filled($item['external_id'] ?? null)) {
+                return $this->stockByExternalId($base, $byExternalId, $item, $byProduct, $byVariant);
+            }
+
             $sku = $item['sku'];
             $owners = $variantOwners[$sku] ?? [];
             if (count($owners) > 1) {
@@ -346,22 +447,56 @@ class SyncInbound
                 }
 
                 $product->stock = max(0, $item['on_hand'] - ($byProduct[$product->id] ?? 0));
-                if (isset($item['price'])) {
-                    $product->price = $item['price'];
-                }
+                $product->fill($this->storePrice($item, $this->rateOf($product)));
 
                 return $this->saved($product, $sku, $item);
             });
         }, $items);
     }
 
+    /**
+     * Stock for the product with the local system's own id, when it names one: a product without
+     * variants needs no SKU; a product sold by variant needs the variant's SKU with it.
+     *
+     * @param  Builder<Product>  $base
+     * @param  Collection<string, int>  $byExternalId
+     */
+    private function stockByExternalId(Builder $base, Collection $byExternalId, array $item, array $byProduct, array $byVariant): array
+    {
+        $key = filled($item['sku'] ?? null) ? $item['sku'] : $item['external_id'];
+        $id = $byExternalId[$item['external_id']] ?? null;
+        if (! $id) {
+            return SyncResult::rejected($key, 'No product has this external_id.');
+        }
+
+        return (clone $base)->getConnection()->transaction(function () use ($base, $id, $item, $key, $byProduct, $byVariant) {
+            $product = (clone $base)->lockForUpdate()->find($id);
+
+            if ($product->sellsVariants()) {
+                if (blank($item['sku'] ?? null)) {
+                    return SyncResult::rejected($key, 'This product is sold by variant; send each variant\'s sku with the external_id.');
+                }
+                foreach ((array) $product->variants as $index => $variant) {
+                    if ((string) ($variant['sku'] ?? '') === (string) $item['sku']) {
+                        return $this->applyVariantStock($product, $index, $item, max(0, $item['on_hand'] - ($byVariant[$item['sku']] ?? 0)));
+                    }
+                }
+
+                return SyncResult::rejected($key, 'This product has no variant with this SKU.');
+            }
+
+            $product->stock = max(0, $item['on_hand'] - ($byProduct[$product->id] ?? 0));
+            $product->fill($this->storePrice($item, $this->rateOf($product)));
+
+            return $this->saved($product, $key, $item);
+        });
+    }
+
     private function applyVariantStock(Product $product, int|string $index, array $item, int $stock): array
     {
         $variants = (array) $product->variants;
         $variants[$index]['stock'] = $stock;
-        if (isset($item['price'])) {
-            $variants[$index]['price'] = $item['price'];
-        }
+        $variants[$index] = array_merge($variants[$index], $this->storePrice($item, $this->rateOf($product)));
 
         $product->variants = $variants;
         $product->stock = array_sum(array_map(fn (array $variant) => (int) ($variant['stock'] ?? 0), $variants));

@@ -58,8 +58,8 @@ use Illuminate\Support\Str;
 class ProductForm
 {
     /**
-     * A shop with an active sync token exchanges products with its billing software by SKU, so
-     * the product and each variant need their own SKU there.
+     * A shop with an active sync token exchanges products with its billing software. Items are
+     * matched by the billing software's own id, but each variant by its SKU, so variants need one.
      */
     public static function syncsWithBillingSoftware(): bool
     {
@@ -237,15 +237,12 @@ class ProductForm
                                         // Beside the stock, as on most stores. Optional everywhere and always starts
                                         // blank: staff type their own code. A product without one is still sold from
                                         // the catalogue, just not typed into the pad. Variants without their own use it.
+                                        // Optional with sync too: the billing software matches items by its own id.
                                         TextInput::make('sku')->label('SKU / Barcode')->maxLength(64)
-                                            // Required when the shop syncs with its billing software, which matches items by SKU.
-                                            ->required(fn () => self::syncsWithBillingSoftware())
-                                            ->helperText(fn (Get $get) => self::syncsWithBillingSoftware()
-                                                ? 'Required: this shop syncs with its billing software, which identifies items by SKU.'
-                                                : (implode(' ', array_filter([
-                                                    self::requiresSku($get) ? 'Optional. Buyers can order by this code on the quick-order pad.' : null,
-                                                    $get('has_variants') ? 'For variants without their own.' : null,
-                                                ])) ?: null))
+                                            ->helperText(fn (Get $get) => implode(' ', array_filter([
+                                                self::requiresSku($get) ? 'Optional. Buyers can order by this code on the quick-order pad.' : null,
+                                                $get('has_variants') && ! self::syncsWithBillingSoftware() ? 'For variants without their own.' : null,
+                                            ])) ?: null)
                                             ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('client_id', app(ClientContext::class)->id()))
                                             ->columnSpan(['lg' => 2]),
                                         // Selling as variant: each variant has its own stock (step 2 below),

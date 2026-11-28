@@ -8,12 +8,15 @@ use App\Clients\ClientDatabase;
 use App\Clients\ClientSetup;
 use App\Filament\Pages\SearchListings;
 use App\Filament\Pages\SeoSettings;
+use App\Filament\Pages\ShopSoftwareSync;
 use App\Filament\Pages\SiteSettings;
 use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\ActivityLogResource;
 use App\Filament\Resources\ActivityLog\Pages\ListActivityLog;
 use App\Filament\Resources\Clients\Pages\CreateClient;
 use App\Filament\Resources\Clients\Pages\EditClient;
+use App\Filament\Resources\Clients\Pages\ListClients;
+use App\Filament\Resources\Clients\Pages\ViewClient;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Support\ActivityTable;
@@ -27,9 +30,12 @@ use App\Models\PlatformActivity;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\Storefront;
+use App\Models\SyncAgent;
+use App\Models\SyncToken;
 use App\Models\User;
 use App\Services\Inventory;
 use App\Support\Activity\ActivityLog;
+use App\Sync\AgentPackage;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Events\Failed;
@@ -722,6 +728,186 @@ class ActivityLogTest extends TestCase
         $this->assertSame(['registered business name', 'GSTIN', 'PAN', 'state the business sells from'], array_column($line->changes, 'label'));
         $this->assertSame('"03AAACA1234A1Z5"', $line->changes[1]['new']);
         $this->assertSame(0, PlatformActivity::whereIn('client_id', [$this->alpha->id, $this->beta->id])->where('description', 'like', 'added the business details%')->count());
+    }
+
+    private function enterAdminPanel(): void
+    {
+        $this->actingAs(User::create([
+            'name' => 'Operator', 'email' => 'ops@platform.test', 'password' => 'password123',
+            'role' => User::ROLE_SUPER_ADMIN, 'is_admin' => true, 'is_active' => true,
+        ]), 'admin');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+    }
+
+    public function test_creating_a_sync_agent_setup_code_is_logged_for_that_client(): void
+    {
+        config(['app.url' => 'https://platform.test']);
+        $this->mock(AgentPackage::class, fn ($mock) => $mock->shouldReceive('isSigned')->andReturn(true));
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->callAction('syncSetupCode')
+            ->assertActionMounted('showSetupCode');
+
+        $this->assertSame(1, SyncToken::active()->where('client_id', $this->alpha->id)->count());
+        $line = $this->lastLine();
+        $this->assertSame('created', $line->action);
+        $this->assertSame('created a shop software setup code for client "Alpha"', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertNull($line->changes); // the code itself is never kept
+    }
+
+    public function test_setting_the_billing_software_connection_is_logged_and_the_key_is_never_kept(): void
+    {
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->callAction('syncConnection', ['url' => 'http://localhost:9000/api', 'key' => 'secret-key-123'])
+            ->assertHasNoFormErrors();
+
+        $line = $this->lastLine();
+        $this->assertSame('updated', $line->action);
+        $this->assertSame('changed the billing software connection of client "Alpha": API address and API key', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame('http://localhost:9000/api', $line->changes[0]['new']);
+        $this->assertStringNotContainsString('secret-key-123', json_encode($line->changes));
+        $this->assertSame('hidden', ActivityTable::rows($line)[1]['new']);
+
+        // The key is required until one is saved; then a blank keeps it and nothing is logged.
+        Livewire::test(ViewClient::class, ['record' => $this->beta->getRouteKey()])
+            ->callAction('syncConnection', ['url' => 'http://localhost:8765/ecom/v1', 'key' => ''])
+            ->assertHasFormErrors(['key' => 'required']);
+        $count = PlatformActivity::count();
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->callAction('syncConnection', ['url' => 'http://localhost:9000/api', 'key' => ''])
+            ->assertHasNoFormErrors();
+        $this->assertSame($count, PlatformActivity::count());
+    }
+
+    public function test_revoking_sync_access_is_logged_and_leaves_other_clients_connected(): void
+    {
+        SyncToken::issue($this->alpha, 'agent');
+        SyncToken::issue($this->beta, 'agent');
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])->callAction('revokeSync');
+
+        $this->assertSame(0, SyncToken::active()->where('client_id', $this->alpha->id)->count());
+        $this->assertSame(1, SyncToken::active()->where('client_id', $this->beta->id)->count());
+        $line = $this->lastLine();
+        $this->assertSame('revoked', $line->action);
+        $this->assertSame('revoked the shop software sync access of client "Alpha"', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+        $this->assertSame('Revoked', ActivityTable::ACTIONS['revoked']);
+    }
+
+    public function test_downloading_the_windows_7_installer_is_logged_for_that_client(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'setup');
+        file_put_contents($file, 'installer');
+        $this->beforeApplicationDestroyed(fn () => @unlink($file));
+        $this->mock(AgentPackage::class, fn ($mock) => $mock->shouldReceive('isSigned')->with('amd64-win7')->andReturn(true)
+            ->shouldReceive('hasInstaller')->with('amd64-win7')->andReturn(true)
+            ->shouldReceive('installerPath')->with('amd64-win7')->andReturn($file));
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->assertSee('Installer for 64-bit Windows 7 / 8.1')
+            ->callAction('downloadAgentamd64win7')
+            ->assertFileDownloaded(basename($file));
+
+        $this->assertSame('downloaded the sync agent installer for 64-bit Windows 7 / 8.1 for client "Alpha"', $this->lastLine()->description);
+        $this->assertSame($this->alpha->id, $this->lastLine()->client_id);
+    }
+
+    public function test_downloading_the_sync_agent_installer_is_logged_for_that_client(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'setup');
+        file_put_contents($file, 'installer');
+        $this->beforeApplicationDestroyed(fn () => @unlink($file));
+        $this->mock(AgentPackage::class, fn ($mock) => $mock->shouldReceive('isSigned')->andReturn(true)
+            ->shouldReceive('hasInstaller')->with('386')->andReturn(true)
+            ->shouldReceive('installerPath')->with('386')->andReturn($file));
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->assertSee('Installer for 32-bit Windows 10 / 11')
+            ->callAction('downloadAgent386')
+            ->assertFileDownloaded(basename($file));
+
+        $line = $this->lastLine();
+        $this->assertSame('downloaded', $line->action);
+        $this->assertSame('downloaded the sync agent installer for 32-bit Windows 10 / 11 for client "Alpha"', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+    }
+
+    public function test_an_installer_that_is_not_built_is_not_downloaded(): void
+    {
+        $this->mock(AgentPackage::class, fn ($mock) => $mock->shouldReceive('isSigned')->andReturn(true)
+            ->shouldReceive('hasInstaller')->andReturn(false));
+        $this->enterAdminPanel();
+
+        Livewire::test(ViewClient::class, ['record' => $this->alpha->getRouteKey()])
+            ->callAction('downloadAgentamd64')
+            ->assertNoFileDownloaded()
+            ->assertNotified('The installer can\'t be downloaded');
+
+        $this->assertSame(0, PlatformActivity::where('action', 'downloaded')->count());
+    }
+
+    public function test_a_client_admin_connects_their_own_shop_from_their_panel_and_it_is_logged(): void
+    {
+        config(['app.url' => 'https://platform.test']);
+        $file = tempnam(sys_get_temp_dir(), 'agent');
+        file_put_contents($file, 'binary');
+        $this->beforeApplicationDestroyed(fn () => @unlink($file));
+        $this->mock(AgentPackage::class, fn ($mock) => $mock->shouldReceive('isSigned')->andReturn(true)
+            ->shouldReceive('hasInstaller')->andReturn(true)
+            ->shouldReceive('installerPath')->andReturn($file));
+
+        // Other staff never see the page: a setup code is a password to the store's data.
+        $this->enterClientPanel($this->staff);
+        $this->assertFalse(ShopSoftwareSync::canAccess());
+
+        $this->enterClientPanel($this->admin);
+        // Both installers are offered in the download box, which marks the one this computer needs.
+        Livewire::test(ShopSoftwareSync::class)
+            ->assertSee('Installer for 64-bit Windows 10 / 11')
+            ->assertSee('Installer for 32-bit Windows 10 / 11')
+            ->callAction('downloadAgentamd64')
+            ->assertFileDownloaded(basename($file));
+        $this->assertSame('downloaded the sync agent installer for 64-bit Windows 10 / 11 for client "Alpha"', $this->lastLine()->description);
+        $this->assertSame($this->alpha->id, $this->lastLine()->client_id);
+
+        Livewire::test(ShopSoftwareSync::class)
+            ->assertSee('Connect your billing software')
+            ->assertSee('Not set up')
+            ->callAction('syncSetupCode')
+            ->assertActionMounted('showSetupCode');
+
+        $this->assertSame(1, SyncToken::active()->where('client_id', $this->alpha->id)->count());
+        $this->assertSame(0, SyncToken::where('client_id', $this->beta->id)->count());
+        $line = $this->lastLine();
+        $this->assertSame('Priya Sharma', $line->actor);
+        $this->assertSame('created', $line->action);
+        $this->assertSame('created a shop software setup code for client "Alpha"', $line->description);
+        $this->assertSame($this->alpha->id, $line->client_id);
+
+        Livewire::test(ShopSoftwareSync::class)->callAction('revokeSync');
+        $this->assertSame(0, SyncToken::active()->where('client_id', $this->alpha->id)->count());
+        $this->assertSame('revoked the shop software sync access of client "Alpha"', $this->lastLine()->description);
+        $this->assertSame($this->alpha->id, $this->lastLine()->client_id);
+    }
+
+    public function test_the_clients_list_shows_each_clients_sync_status(): void
+    {
+        SyncToken::issue($this->alpha, 'agent');
+        SyncAgent::forClient($this->alpha)->update(['last_seen_at' => now(), 'last_report' => ['ok' => true, 'message' => 'Sync complete.']]);
+        $this->enterAdminPanel();
+
+        Livewire::test(ListClients::class)
+            ->assertTableColumnStateSet('sync_status', 'Syncing', $this->alpha)
+            ->assertTableColumnStateSet('sync_status', 'Not set up', $this->beta);
     }
 
     public function test_lines_older_than_a_year_are_pruned(): void

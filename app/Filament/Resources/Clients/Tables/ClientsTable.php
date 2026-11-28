@@ -8,6 +8,7 @@ use App\Filament\Support\DateRangeFilter;
 use App\Filament\Support\RowActions;
 use App\Models\Client;
 use App\Models\Storefront;
+use App\Sync\SyncAccess;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -20,12 +21,14 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ClientsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => SyncAccess::withStatus($query))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable()->weight('bold')
@@ -42,6 +45,13 @@ class ClientsTable
                 TextColumn::make('usage')->label('Usage')->state(fn (Client $r) => ClientQuota::for($r)->productLabel().' products')
                     ->description(fn (Client $r) => ClientQuota::for($r)->imageLabel().' images')
                     ->color(fn (Client $r) => ClientQuota::for($r)->atProductLimit() || ClientQuota::for($r)->atImageLimit() ? 'danger' : 'gray'),
+                // The shop PC's sync agent (docs/SYNC.md), as on the client's page.
+                TextColumn::make('sync_status')->label('Shop sync')->badge()
+                    ->state(fn (Client $r) => app(SyncAccess::class)->status($r)['label'])
+                    ->color(fn (Client $r) => app(SyncAccess::class)->status($r)['color'])
+                    ->description(fn (Client $r) => ($seen = $r->syncAgent?->last_seen_at) ? 'Last sync '.$seen->diffForHumans() : null)
+                    ->tooltip(fn (Client $r) => $r->syncAgent?->last_report['message'] ?? null)
+                    ->toggleable(),
                 TextColumn::make('users_count')->counts('users')->label('Staff')->alignRight(),
                 TextColumn::make('customers_count')->counts('customers')->label('Customers')->alignRight(),
                 TextColumn::make('database')->label('Database')->state(fn (Client $r) => app(ClientDatabase::class)->isolated() ? $r->databaseName() : 'shared')

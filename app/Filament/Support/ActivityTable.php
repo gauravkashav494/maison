@@ -43,6 +43,7 @@ class ActivityTable
         'password reset' => 'Password reset',
         'downloaded' => 'Downloaded',
         'viewed' => 'Opened',
+        'revoked' => 'Revoked',
     ];
 
     /**
@@ -153,7 +154,7 @@ class ActivityTable
             'created', 'restored' => 'success',
             'updated', 'viewed' => 'info',
             'deleted', 'password reset' => 'warning',
-            'deleted permanently', 'sign-in failed' => 'danger',
+            'deleted permanently', 'sign-in failed', 'revoked' => 'danger',
             default => 'gray',
         };
     }

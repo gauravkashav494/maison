@@ -6,6 +6,7 @@ use App\Clients\ClientContext;
 use App\Http\Controllers\Controller;
 use App\Models\SyncAgent;
 use App\Sync\AgentPackage;
+use App\Sync\SyncAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,9 +20,15 @@ class SyncAgentController extends Controller
         return SyncAgent::forClient(app(ClientContext::class)->client());
     }
 
-    public function config(): JsonResponse
+    /**
+     * Where the agent finds the shop's billing software, as set in the panel. Read at install
+     * and every cycle, so the installer asks for nothing but the setup code.
+     */
+    public function config(SyncAccess $access): JsonResponse
     {
-        return response()->json(['mapping' => $this->agent()->mapping]);
+        $connection = $access->connection(app(ClientContext::class)->client());
+
+        return response()->json(['local_api_url' => $connection['url'], 'local_api_key' => $connection['key']]);
     }
 
     public function package(Request $request, AgentPackage $package): JsonResponse
@@ -53,14 +60,6 @@ class SyncAgentController extends Controller
     private function arch(Request $request): string
     {
         return $request->validate(['arch' => ['required', Rule::in(AgentPackage::ARCHITECTURES)]])['arch'];
-    }
-
-    public function schema(Request $request): JsonResponse
-    {
-        $data = $request->validate(['tables' => ['present', 'array', 'max:5000']]);
-        $this->agent()->update(['schema_snapshot' => $data['tables']]);
-
-        return response()->json(['stored' => count($data['tables'])]);
     }
 
     public function report(Request $request): JsonResponse

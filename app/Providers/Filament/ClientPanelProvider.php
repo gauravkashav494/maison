@@ -18,6 +18,7 @@ use App\Filament\Pages\PlumbingServicesSettings;
 use App\Filament\Pages\PlumbingSettings;
 use App\Filament\Pages\SearchListings;
 use App\Filament\Pages\SeoSettings;
+use App\Filament\Pages\ShopSoftwareSync;
 use App\Filament\Pages\SiteSettings;
 use App\Filament\Pages\StockLevels;
 use App\Filament\Resources\ActivityLog\ActivityLogResource;
@@ -132,6 +133,7 @@ class ClientPanelProvider extends PanelProvider
         PlumbingServicesSettings::class,
         PlumbingServicesHomepageSettings::class,
         BulkOrderSettings::class,
+        ShopSoftwareSync::class,
     ];
 
     public function panel(Panel $panel): Panel

@@ -4,8 +4,11 @@ namespace App\Filament\Resources\Clients\Pages;
 
 use App\Clients\ClientProvisioner;
 use App\Clients\ClientSetup;
+use App\Filament\Concerns\ManagesSyncAgent;
 use App\Filament\Resources\Clients\ClientResource;
+use App\Models\Client;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Toggle;
@@ -14,7 +17,19 @@ use Filament\Resources\Pages\ViewRecord;
 
 class ViewClient extends ViewRecord
 {
+    use ManagesSyncAgent;
+
     protected static string $resource = ClientResource::class;
+
+    protected function syncClient(): Client
+    {
+        return $this->getRecord();
+    }
+
+    protected function canManageSync(): bool
+    {
+        return ClientResource::canEdit($this->getRecord());
+    }
 
     protected function getHeaderActions(): array
     {
@@ -26,6 +41,12 @@ class ViewClient extends ViewRecord
                 ->hidden(fn () => $this->getRecord()->trashed())
                 ->url(fn () => $this->getRecord()->publicUrl(), shouldOpenInNewTab: true),
             $this->repairAction(),
+            ActionGroup::make($this->syncAgentActions())
+                ->label('Shop software sync')
+                ->icon('heroicon-o-arrows-right-left')
+                ->button()
+                ->color('gray')
+                ->hidden(fn () => $this->getRecord()->trashed()),
             RestoreAction::make(),
             EditAction::make(),
         ];
